@@ -1,0 +1,3 @@
+[submodule "wasmi"]
+	path = wasmi
+	url = git@github.com:ZhenXunGe/wasmi.git
