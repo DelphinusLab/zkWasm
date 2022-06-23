@@ -1,25 +1,54 @@
-use halo2_proofs::{plonk::{Column, Advice, ConstraintSystem}, arithmetic::FieldExt};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    plonk::{Column, Error, Fixed},
+};
+use std::marker::PhantomData;
 
-enum MemTrace {
-    ModuleTrace(u64, u64, u64),
-    LocalTrace(u64, u64, u64)
+use crate::utils::Context;
+
+pub struct MInit {
+    mmid: u64,
+    offset: u64,
+    value: u64,
 }
 
-const MEM_TRACE_COLUMNS: usize = 4usize;
+pub const MINIT_TABLE_COLUMNS: usize = 3usize;
 
-#[derive(Clone, Debug)]
-struct MAddressConfig {
-    columns: [Column<Advice>; MEM_TRACE_COLUMNS]
+pub struct MInitTableConfig {
+    cols: [Column<Fixed>; MINIT_TABLE_COLUMNS],
 }
 
-impl MAddressConfig {
-    pub fn new(columns: [Column<Advice>; MEM_TRACE_COLUMNS]) -> MAddressConfig {
-        MAddressConfig { columns }
+impl MInitTableConfig {
+    pub fn new(cols: [Column<Fixed>; MINIT_TABLE_COLUMNS]) -> Self {
+        Self { cols }
     }
+}
 
-    pub fn configure<F: FieldExt>(
-        &mut self,
-        meta: &mut ConstraintSystem<F>,
-    ) {
+pub struct MInitTableChip<F: FieldExt> {
+    config: MInitTableConfig,
+    _phantom: PhantomData<F>,
+}
+
+impl<F: FieldExt> MInitTableChip<F> {
+    pub fn add_memory_init(self, ctx: &mut Context<'_, F>, minit: MInit) -> Result<(), Error> {
+        ctx.region.assign_fixed(
+            || "minit mmid",
+            self.config.cols[0],
+            ctx.offset,
+            || Ok(F::from(minit.mmid)),
+        )?;
+        ctx.region.assign_fixed(
+            || "minit offset",
+            self.config.cols[1],
+            ctx.offset,
+            || Ok(F::from(minit.offset)),
+        )?;
+        ctx.region.assign_fixed(
+            || "minit value",
+            self.config.cols[2],
+            ctx.offset,
+            || Ok(F::from(minit.value)),
+        )?;
+        Ok(())
     }
 }

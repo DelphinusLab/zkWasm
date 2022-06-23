@@ -12,6 +12,7 @@ use crate::utils::Context;
 
 pub struct Inst {
     moid: u16,
+    mmid: u16,
     fid: u16,
     bid: u16,
     iid: u16,
@@ -31,9 +32,10 @@ impl From<IEntry> for Inst {
 }
 
 impl Inst {
-    pub fn new(moid: u16, fid: u16, bid: u16, iid: u16, opcode: u64) -> Self {
+    pub fn new(moid: u16, mmid: u16, fid: u16, bid: u16, iid: u16, opcode: u64) -> Self {
         Inst {
             moid,
+            mmid,
             fid,
             bid,
             iid,
@@ -42,17 +44,24 @@ impl Inst {
     }
 
     pub fn encode(&self) -> BigUint {
+        let mut bn = self.encode_addr();
+        bn <<= 64u8;
+        bn += self.opcode;
+        bn
+    }
+
+    pub fn encode_addr(&self) -> BigUint {
         let mut bn = BigUint::zero();
         bn <<= 16u8;
         bn += self.moid;
+        bn <<= 16u8;
+        bn += self.mmid;
         bn <<= 16u8;
         bn += self.fid;
         bn <<= 16u8;
         bn += self.bid;
         bn <<= 16u8;
         bn += self.iid;
-        bn <<= 64u8;
-        bn += self.opcode;
         bn
     }
 }

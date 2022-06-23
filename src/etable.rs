@@ -1,5 +1,6 @@
 use crate::itable::Inst;
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Fixed;
 use std::marker::PhantomData;
@@ -7,7 +8,7 @@ use wasmi::tracer::etable::EEntry;
 use wasmi::tracer::etable::RunInstructionTraceStep;
 
 pub struct Event {
-    id: u64,
+    eid: u64,
     sp: u64,
     last_just_eid: u64,
     inst: Inst,
@@ -27,10 +28,26 @@ impl From<EEntry> for Event {
 }
 
 pub struct EventTableConfig {
-    cols: Vec<Column<Fixed>>,
+    cols: [Column<Advice>; 4],
+    aux_cols: [Column<Advice>; 4],
+}
+
+impl EventTableConfig {
+    pub fn new(cols: [Column<Advice>; 4], aux_cols: [Column<Advice>; 4]) -> Self {
+        EventTableConfig { cols, aux_cols }
+    }
 }
 
 pub struct EventTableChip<F: FieldExt> {
     config: EventTableConfig,
     _phantom: PhantomData<F>,
+}
+
+impl<F: FieldExt> EventTableChip<F> {
+    pub fn new(config: EventTableConfig) -> Self {
+        EventTableChip {
+            config,
+            _phantom: PhantomData,
+        }
+    }
 }
