@@ -1,6 +1,8 @@
 extern crate wabt;
 extern crate wasmi;
 
+use core::cell::RefCell;
+use std::rc::Rc;
 use wasmi::{ImportsBuilder, ModuleInstance, NopExternals, RuntimeValue};
 
 fn main() {
@@ -58,6 +60,7 @@ fn main() {
         .assert_no_start();
 
     tracer.register_module_instance(&instance);
+    let tracer = Rc::new(RefCell::new(tracer));
 
     // Finally, invoke exported function "test" with no parameters
     // and empty external function executor.
@@ -67,11 +70,12 @@ fn main() {
                 "fibonacci",
                 &[wasmi::RuntimeValue::I32(6)],
                 &mut NopExternals,
-                tracer,
+                tracer.clone(),
             )
             .expect("failed to execute export"),
         Some(RuntimeValue::I32(8)),
     );
 
-    //    println!("{:?}", tracer);
+    // println!("{:?}", tracer);
+    println!("{:?}", (*tracer).borrow().itable);
 }

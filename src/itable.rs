@@ -5,9 +5,10 @@ use halo2_proofs::plonk::Fixed;
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 use std::marker::PhantomData;
+use wasmi::tracer::itable::IEntry;
 
-use crate::utils::Context;
 use crate::utils::bn_to_field;
+use crate::utils::Context;
 
 pub struct Inst {
     moid: u16,
@@ -15,6 +16,18 @@ pub struct Inst {
     bid: u16,
     iid: u16,
     opcode: u64,
+}
+
+impl From<IEntry> for Inst {
+    fn from(i_entry: IEntry) -> Self {
+        Inst {
+            moid: i_entry.module_instance_index,
+            fid: i_entry.func_index,
+            bid: 0,
+            iid: i_entry.pc,
+            opcode: i_entry.opcode,
+        }
+    }
 }
 
 impl Inst {
