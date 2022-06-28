@@ -1,10 +1,12 @@
+use crate::utils::bn_to_field;
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Column, Error, Fixed},
+    circuit::Layouter,
+    plonk::{ConstraintSystem, Error, Expression, TableColumn, VirtualCells},
 };
+use num_bigint::BigUint;
+use num_traits::{One, Zero};
 use std::marker::PhantomData;
-
-use crate::utils::Context;
 
 pub struct MInit {
     mmid: u64,
@@ -12,42 +14,78 @@ pub struct MInit {
     value: u64,
 }
 
-pub const MINIT_TABLE_COLUMNS: usize = 3usize;
-
-pub struct MInitTableConfig {
-    cols: [Column<Fixed>; MINIT_TABLE_COLUMNS],
+impl MInit {
+    pub fn encode(&self) -> BigUint {
+        let mut bn = BigUint::zero();
+        bn += self.mmid;
+        bn <<= 16;
+        bn += self.offset;
+        bn <<= 64;
+        bn += self.value;
+        bn
+    }
 }
 
-impl MInitTableConfig {
-    pub fn new(cols: [Column<Fixed>; MINIT_TABLE_COLUMNS]) -> Self {
-        Self { cols }
+pub const MINIT_TABLE_COLUMNS: usize = 3usize;
+
+pub struct MInitTableConfig<F: FieldExt> {
+    col: TableColumn,
+    _mark: PhantomData<F>,
+}
+
+impl<F: FieldExt> MInitTableConfig<F> {
+    pub fn new(col: TableColumn) -> Self {
+        Self {
+            col,
+            _mark: PhantomData,
+        }
+    }
+
+    pub fn encode(
+        &self,
+        mmid: Expression<F>,
+        offset: Expression<F>,
+        value: Expression<F>,
+    ) -> Expression<F> {
+        mmid * Expression::Constant(bn_to_field(&(BigUint::one() << 80)))
+            + offset * Expression::Constant(bn_to_field(&(BigUint::one() << 64)))
+            + value
+    }
+
+    pub fn configure_in_range(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| vec![(expr(meta), self.col)]);
     }
 }
 
 pub struct MInitTableChip<F: FieldExt> {
-    config: MInitTableConfig,
+    config: MInitTableConfig<F>,
     _phantom: PhantomData<F>,
 }
 
 impl<F: FieldExt> MInitTableChip<F> {
-    pub fn add_memory_init(self, ctx: &mut Context<'_, F>, minit: MInit) -> Result<(), Error> {
-        ctx.region.assign_fixed(
-            || "minit mmid",
-            self.config.cols[0],
-            ctx.offset,
-            || Ok(F::from(minit.mmid)),
-        )?;
-        ctx.region.assign_fixed(
-            || "minit offset",
-            self.config.cols[1],
-            ctx.offset,
-            || Ok(F::from(minit.offset)),
-        )?;
-        ctx.region.assign_fixed(
-            || "minit value",
-            self.config.cols[2],
-            ctx.offset,
-            || Ok(F::from(minit.value)),
+    pub fn add_memory_init(
+        self,
+        layouter: &mut impl Layouter<F>,
+        minit: Vec<MInit>,
+    ) -> Result<(), Error> {
+        layouter.assign_table(
+            || "minit",
+            |mut table| {
+                for (i, v) in minit.iter().enumerate() {
+                    table.assign_cell(
+                        || "minit talbe",
+                        self.config.col,
+                        i,
+                        || Ok(bn_to_field::<F>(&v.encode())),
+                    )?;
+                }
+                Ok(())
+            },
         )?;
         Ok(())
     }
