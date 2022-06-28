@@ -7,6 +7,7 @@ pub mod rtable;
 pub mod utils;
 pub mod builder;
 pub mod row_diff;
+pub mod opcode;
 
 fn main() {
     println!("Hello, world!");

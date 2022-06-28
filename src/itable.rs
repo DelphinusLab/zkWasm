@@ -12,7 +12,7 @@ use crate::utils::Context;
 
 pub struct Inst {
     moid: u16,
-    mmid: u16,
+    pub(crate) mmid: u16,
     fid: u16,
     bid: u16,
     iid: u16,

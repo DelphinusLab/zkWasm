@@ -8,11 +8,11 @@ use wasmi::tracer::etable::EEntry;
 use wasmi::tracer::etable::RunInstructionTraceStep;
 
 pub struct Event {
-    eid: u64,
-    sp: u64,
+    pub(crate) eid: u64,
+    pub(crate) sp: u64,
     last_just_eid: u64,
-    inst: Inst,
-    step_info: RunInstructionTraceStep,
+    pub(crate) inst: Inst,
+    pub(crate) step_info: RunInstructionTraceStep,
 }
 
 impl From<EEntry> for Event {
