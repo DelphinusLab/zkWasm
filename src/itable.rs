@@ -23,6 +23,8 @@ impl From<IEntry> for Inst {
     fn from(i_entry: IEntry) -> Self {
         Inst {
             moid: i_entry.module_instance_index,
+            //TODO: cover import
+            mmid: i_entry.module_instance_index,
             fid: i_entry.func_index,
             bid: 0,
             iid: i_entry.pc,

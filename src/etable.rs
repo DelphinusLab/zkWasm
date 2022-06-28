@@ -18,7 +18,7 @@ pub struct Event {
 impl From<EEntry> for Event {
     fn from(e_entry: EEntry) -> Self {
         Event {
-            id: e_entry.id,
+            eid: e_entry.id,
             sp: e_entry.sp,
             last_just_eid: 0,
             inst: Inst::from(e_entry.inst),
