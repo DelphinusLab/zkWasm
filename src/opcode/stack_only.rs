@@ -3,6 +3,8 @@ use crate::mtable::{AccessType, LocationType, MemoryEvent, VarType};
 pub(crate) fn mem_op_from_stack_only_step<const POP_SIZE: usize, const PUSH_SIZE: usize>(
     eid: u64,
     mmid: u64,
+    inputs_type: VarType,
+    outputs_type: VarType,
     pop_value: &[u64; POP_SIZE],
     push_value: &[u64; PUSH_SIZE],
 ) -> Vec<MemoryEvent> {
@@ -15,8 +17,7 @@ pub(crate) fn mem_op_from_stack_only_step<const POP_SIZE: usize, const PUSH_SIZE
             i as u64,
             LocationType::Stack,
             AccessType::Read,
-            // FIXME: use correct type
-            VarType::I32,
+            inputs_type,
             pop_value[i],
         ));
     }
@@ -28,8 +29,7 @@ pub(crate) fn mem_op_from_stack_only_step<const POP_SIZE: usize, const PUSH_SIZE
             i as u64,
             LocationType::Stack,
             AccessType::Write,
-            // FIXME: use correct type
-            VarType::I32,
+            outputs_type,
             push_value[i],
         ));
     }

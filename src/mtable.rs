@@ -42,6 +42,7 @@ impl<F: FieldExt> Into<Expression<F>> for AccessType {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum VarType {
     U8,
     I32,
