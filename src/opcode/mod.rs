@@ -43,7 +43,9 @@ pub fn memory_event_of_step(event: &Event) -> Vec<MemoryEvent> {
                     .unwrap(),
             )
         }
-        RunInstructionTraceStep::Call { index: _ } => todo!(),
+        RunInstructionTraceStep::Call { index: _ } => {
+            vec![]
+        }
         RunInstructionTraceStep::GetLocal { depth, value } => {
             vec![
                 MemoryEvent::new(
