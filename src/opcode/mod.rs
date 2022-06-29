@@ -14,10 +14,14 @@ pub fn memory_event_of_step(event: &Event) -> Vec<MemoryEvent> {
     let mmid = event.inst.mmid.into();
 
     match &event.step_info {
-        RunInstructionTraceStep::BrIfNez {
-            value: _,
-            dst_pc: _,
-        } => todo!(),
+        RunInstructionTraceStep::BrIfNez { value, dst_pc: _ } => mem_op_from_stack_only_step(
+            eid,
+            mmid,
+            VarType::I32,
+            VarType::I32,
+            &[*value as u64],
+            &[],
+        ),
         RunInstructionTraceStep::Return {
             drop,
             keep,
