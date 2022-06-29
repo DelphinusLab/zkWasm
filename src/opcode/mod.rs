@@ -13,19 +13,39 @@ pub fn memory_event_of_step(event: &Event) -> Vec<MemoryEvent> {
     let eid = event.eid;
     let mmid = event.inst.mmid.into();
 
-    match event.step_info {
+    match &event.step_info {
         RunInstructionTraceStep::BrIfNez {
             value: _,
             dst_pc: _,
         } => todo!(),
-        RunInstructionTraceStep::Return { drop: _, keep: _ } => todo!(),
+        RunInstructionTraceStep::Return {
+            drop,
+            keep,
+            drop_values,
+            keep_values,
+        } => {
+            assert_eq!(*drop as usize, drop_values.len());
+            assert_eq!(*keep as usize, keep_values.len());
+            mem_op_from_stack_only_step(
+                eid,
+                mmid,
+                VarType::I32,
+                VarType::I32,
+                drop_values.iter().map(|value| value.0).collect::<Vec<_>>()[..]
+                    .try_into()
+                    .unwrap(),
+                keep_values.iter().map(|value| value.0).collect::<Vec<_>>()[..]
+                    .try_into()
+                    .unwrap(),
+            )
+        }
         RunInstructionTraceStep::Call { index: _ } => todo!(),
         RunInstructionTraceStep::GetLocal { depth, value } => {
             vec![
                 MemoryEvent::new(
                     eid,
                     mmid,
-                    depth.into(),
+                    *depth as u64,
                     LocationType::Stack,
                     AccessType::Read,
                     // FIXME: use correct type
@@ -44,33 +64,29 @@ pub fn memory_event_of_step(event: &Event) -> Vec<MemoryEvent> {
                 ),
             ]
         }
-        RunInstructionTraceStep::I32Const { value } => mem_op_from_stack_only_step::<0, 1>(
+        RunInstructionTraceStep::I32Const { value } => mem_op_from_stack_only_step(
             eid,
             mmid,
             VarType::I32,
             VarType::I32,
             &[],
-            &[value as u64],
+            &[*value as u64],
         ),
-        RunInstructionTraceStep::I32BinOp { left, right, value } => {
-            mem_op_from_stack_only_step::<2, 1>(
-                eid,
-                mmid,
-                VarType::I32,
-                VarType::I32,
-                &[right as u64, left as u64],
-                &[value as u64],
-            )
-        }
-        RunInstructionTraceStep::I32Comp { left, right, value } => {
-            mem_op_from_stack_only_step::<2, 1>(
-                eid,
-                mmid,
-                VarType::I32,
-                VarType::I32,
-                &[right as u64, left as u64],
-                &[value as u64],
-            )
-        }
+        RunInstructionTraceStep::I32BinOp { left, right, value } => mem_op_from_stack_only_step(
+            eid,
+            mmid,
+            VarType::I32,
+            VarType::I32,
+            &[*right as u64, *left as u64],
+            &[*value as u64],
+        ),
+        RunInstructionTraceStep::I32Comp { left, right, value } => mem_op_from_stack_only_step(
+            eid,
+            mmid,
+            VarType::I32,
+            VarType::I32,
+            &[*right as u64, *left as u64],
+            &[*value as u64],
+        ),
     }
 }
