@@ -17,6 +17,7 @@ pub struct Inst {
     bid: u16,
     iid: u16,
     opcode: u64,
+    aux: u64,
 }
 
 impl From<IEntry> for Inst {
@@ -29,12 +30,13 @@ impl From<IEntry> for Inst {
             bid: 0,
             iid: i_entry.pc,
             opcode: i_entry.opcode,
+            aux: 0,
         }
     }
 }
 
 impl Inst {
-    pub fn new(moid: u16, mmid: u16, fid: u16, bid: u16, iid: u16, opcode: u64) -> Self {
+    pub fn new(moid: u16, mmid: u16, fid: u16, bid: u16, iid: u16, opcode: u64, aux: u64) -> Self {
         Inst {
             moid,
             mmid,
@@ -42,6 +44,7 @@ impl Inst {
             bid,
             iid,
             opcode,
+            aux,
         }
     }
 
@@ -49,6 +52,8 @@ impl Inst {
         let mut bn = self.encode_addr();
         bn <<= 64u8;
         bn += self.opcode;
+        bn <<= 64u8;
+        bn += self.aux;
         bn
     }
 
