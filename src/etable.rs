@@ -10,7 +10,7 @@ use wasmi::tracer::etable::RunInstructionTraceStep;
 pub struct Event {
     pub(crate) eid: u64,
     pub(crate) sp: u64,
-    last_just_eid: u64,
+    last_jump_eid: u64,
     pub(crate) inst: Inst,
     pub(crate) step_info: RunInstructionTraceStep,
 }
@@ -20,7 +20,8 @@ impl From<EEntry> for Event {
         Event {
             eid: e_entry.id,
             sp: e_entry.sp,
-            last_just_eid: 0,
+            // FIXME: fill with correct value
+            last_jump_eid: 0,
             inst: Inst::from(e_entry.inst),
             step_info: e_entry.step,
         }
