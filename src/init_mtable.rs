@@ -52,7 +52,7 @@ impl<F: FieldExt> MInitTableConfig<F> {
             + value
     }
 
-    pub fn configure_in_range(
+    pub fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,

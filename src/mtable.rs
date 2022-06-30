@@ -1,16 +1,16 @@
+use crate::curr;
+use crate::init_mtable::MInitTableConfig;
+use crate::next;
+use crate::prev;
+use crate::row_diff::RowDiffConfig;
+use crate::rtable::RangeTableConfig;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
-use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use halo2_proofs::poly::Rotation;
 use std::marker::PhantomData;
-
-use crate::init_mtable::MInitTableConfig;
-use crate::row_diff::RowDiffConfig;
-use crate::rtable::RangeTableConfig;
 
 pub enum LocationType {
     Heap,
@@ -145,8 +145,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     fn configure_enable(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("enable seq", |meta| {
-            let curr = meta.query_advice(self.enable, Rotation::cur());
-            let next = meta.query_advice(self.enable, Rotation::next());
+            let curr = curr!(meta, self.enable);
+            let next = next!(meta, self.enable);
             vec![
                 next * (curr.clone() - Expression::<F>::Constant(F::one())),
                 curr.clone() * (curr.clone() - Expression::<F>::Constant(F::one())),
@@ -156,7 +156,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     fn configure_same_location(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("is same location", |meta| {
-            let same_loc = meta.query_advice(self.same_location, Rotation::cur());
+            let same_loc = curr!(meta, self.same_location);
             vec![
                 self.ltype.is_same(meta) * self.mmid.is_same(meta) * self.offset.is_same(meta)
                     - same_loc,
@@ -178,13 +178,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         rtable.configure_in_range(meta, "eid in range", |meta| self.eid.data(meta));
 
-        rtable.configure_in_range(meta, "emid in range", |meta| {
-            meta.query_advice(self.emid, Rotation::cur())
-        });
+        rtable.configure_in_range(meta, "emid in range", |meta| curr!(meta, self.emid));
 
-        rtable.configure_in_range(meta, "vtype in range", |meta| {
-            meta.query_advice(self.emid, Rotation::cur())
-        });
+        rtable.configure_in_range(meta, "vtype in range", |meta| curr!(meta, self.emid));
     }
 
     fn configure_sort(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
@@ -208,8 +204,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             self.is_enable(meta)
                 * self.is_same_location(meta)
                 * self.eid.is_same(meta)
-                * (meta.query_advice(self.emid, Rotation::cur())
-                    - meta.query_advice(self.emid, Rotation::prev()))
+                * (curr!(meta, self.emid) - prev!(meta, self.emid))
         });
     }
 
@@ -226,19 +221,18 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 self.is_enable(meta)
                     * (self.is_same_location(meta) - Expression::Constant(F::one()))
                     * self.is_stack(meta)
-                    * (meta.query_advice(self.atype, Rotation::cur()) - AccessType::Write.into()),
+                    * (curr!(meta, self.atype) - AccessType::Write.into()),
             ]
         });
 
-        // heap first line
-        minit_table.configure_in_range(meta, "heap first line", |meta| {
+        minit_table.configure_in_table(meta, "heap first line", |meta| {
             self.is_enable(meta)
                 * (Expression::Constant(F::one()) - self.is_same_location(meta))
                 * self.is_heap(meta)
                 * minit_table.encode(
                     self.mmid.data(meta),
                     self.offset.data(meta),
-                    meta.query_advice(self.value, Rotation::cur()),
+                    curr!(meta, self.value),
                 )
         })
     }
@@ -252,19 +246,19 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     fn diff(&self, meta: &mut VirtualCells<F>, col: Column<Advice>) -> Expression<F> {
-        meta.query_advice(col, Rotation::cur()) - meta.query_advice(col, Rotation::prev())
+        curr!(meta, col) - prev!(meta, col)
     }
 
     fn is_enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        meta.query_advice(self.enable, Rotation::cur())
+        curr!(meta, self.enable)
     }
 
     fn is_same_location(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        meta.query_advice(self.same_location, Rotation::cur())
+        curr!(meta, self.same_location)
     }
 
     fn is_read_not_bit(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        let atype = meta.query_advice(self.atype, Rotation::cur());
+        let atype = curr!(meta, self.atype);
         (atype.clone() - AccessType::Init.into()) * (atype - AccessType::Write.into())
     }
 }

@@ -7,3 +7,7 @@ init and it should be in init_mtable.
 4. for stack with same address, the first row must be write.
 5. is_same_address -> curr_atype = read -> last_vtype = curr_vtype
 6. is_same_address -> curr_atype = read -> last_value = curr_value
+
+
+etable constraints:
+| eid | moid | fid | bid | iid | mmid | sp | ljid | opcode_bitmaps | opcode | aux |

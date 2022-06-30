@@ -1,14 +1,17 @@
+use crate::constant;
+use crate::utils::bn_to_field;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::Column;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
-use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::TableColumn;
+use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
+use num_traits::One;
 use std::marker::PhantomData;
 use wasmi::tracer::itable::IEntry;
-
-use crate::utils::bn_to_field;
-use crate::utils::Context;
 
 pub struct Inst {
     moid: u16,
@@ -59,7 +62,6 @@ impl Inst {
 
     pub fn encode_addr(&self) -> BigUint {
         let mut bn = BigUint::zero();
-        bn <<= 16u8;
         bn += self.moid;
         bn <<= 16u8;
         bn += self.mmid;
@@ -73,24 +75,70 @@ impl Inst {
     }
 }
 
-pub struct InstTableConfig {
-    col: Column<Fixed>,
+pub fn encode_inst_expr<F: FieldExt>(
+    moid: Expression<F>,
+    mmid: Expression<F>,
+    fid: Expression<F>,
+    bid: Expression<F>,
+    iid: Expression<F>,
+    opcode: Expression<F>,
+) -> Expression<F> {
+    let mut bn = BigUint::one();
+    let mut acc = opcode;
+    bn <<= 64u8;
+    acc = acc + iid * constant!(bn_to_field(&bn));
+    bn <<= 16u8;
+    acc = acc + bid * constant!(bn_to_field(&bn));
+    bn <<= 16u8;
+    acc = acc + fid * constant!(bn_to_field(&bn));
+    bn <<= 16u8;
+    acc = acc + mmid * constant!(bn_to_field(&bn));
+    bn <<= 16u8;
+    acc = acc + moid * constant!(bn_to_field(&bn));
+
+    acc
+}
+
+pub struct InstTableConfig<F: FieldExt> {
+    col: TableColumn,
+    _mark: PhantomData<F>,
+}
+
+impl<F: FieldExt> InstTableConfig<F> {
+    pub fn configure_in_table(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| vec![(expr(meta), self.col)]);
+    }
 }
 
 pub struct InstTableChip<F: FieldExt> {
-    config: InstTableConfig,
-    _phantom: PhantomData<F>,
+    config: InstTableConfig<F>,
 }
 
 impl<F: FieldExt> InstTableChip<F> {
-    pub fn add_inst(&self, ctx: &mut Context<'_, F>, inst: Inst) -> Result<(), Error> {
-        ctx.region.assign_fixed(
-            || "inst table",
-            self.config.col,
-            ctx.offset,
-            || Ok(bn_to_field(&inst.encode())),
+    pub fn add_inst_init(
+        self,
+        layouter: &mut impl Layouter<F>,
+        inst_init: Vec<Inst>,
+    ) -> Result<(), Error> {
+        layouter.assign_table(
+            || "inst_init",
+            |mut table| {
+                for (i, v) in inst_init.iter().enumerate() {
+                    table.assign_cell(
+                        || "inst_init talbe",
+                        self.config.col,
+                        i,
+                        || Ok(bn_to_field::<F>(&v.encode())),
+                    )?;
+                }
+                Ok(())
+            },
         )?;
-        ctx.offset += 1;
         Ok(())
     }
 }

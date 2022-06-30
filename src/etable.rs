@@ -1,8 +1,14 @@
+use crate::constant_from;
+use crate::curr;
+use crate::itable::encode_inst_expr;
 use crate::itable::Inst;
+use crate::itable::InstTableConfig;
+use crate::prev;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
-use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
 use std::marker::PhantomData;
 use wasmi::tracer::etable::EEntry;
 use wasmi::tracer::etable::RunInstructionTraceStep;
@@ -28,24 +34,120 @@ impl From<EEntry> for Event {
     }
 }
 
-pub struct EventTableConfig {
-    cols: [Column<Advice>; 4],
-    aux_cols: [Column<Advice>; 4],
+pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
+    fn configure(
+        meta: &mut ConstraintSystem<F>,
+        common: &EventTableCommonConfig,
+        opcode_bit: Column<Advice>,
+        cols: &mut impl Iterator<Item = Column<Advice>>,
+    ) -> Self;
 }
 
-impl EventTableConfig {
-    pub fn new(cols: [Column<Advice>; 4], aux_cols: [Column<Advice>; 4]) -> Self {
-        EventTableConfig { cols, aux_cols }
+pub trait EventTableOpcodeConfig<F: FieldExt> {
+    fn opcode(&self) -> Expression<F>;
+}
+
+pub struct EventTableCommonConfig {
+    enable: Column<Advice>,
+    eid: Column<Advice>,
+    moid: Column<Advice>,
+    fid: Column<Advice>,
+    bid: Column<Advice>,
+    iid: Column<Advice>,
+    mmid: Column<Advice>,
+    sp: Column<Advice>,
+    opcode: Column<Advice>,
+}
+
+pub struct EventTableConfig<F: FieldExt> {
+    opcode_bitmaps: Vec<Column<Advice>>,
+    common_config: EventTableCommonConfig,
+    _mark: PhantomData<F>,
+}
+
+impl<F: FieldExt> EventTableConfig<F> {
+    pub fn new<'a>(
+        meta: &mut ConstraintSystem<F>,
+        cols: &mut impl Iterator<Item = Column<Advice>>,
+        itable: &InstTableConfig<F>,
+    ) -> Self {
+        let enable = cols.next().unwrap();
+        let eid = cols.next().unwrap();
+        let moid = cols.next().unwrap();
+        let fid = cols.next().unwrap();
+        let bid = cols.next().unwrap();
+        let iid = cols.next().unwrap();
+        let mmid = cols.next().unwrap();
+        let sp = cols.next().unwrap();
+        let opcode = cols.next().unwrap();
+        let common_config = EventTableCommonConfig {
+            enable,
+            eid,
+            moid,
+            fid,
+            bid,
+            iid,
+            mmid,
+            sp,
+            opcode,
+        };
+
+        // TODO: Add opcode configures here.
+        let mut opcode_bitmaps: Vec<Column<Advice>> = vec![];
+
+        for bit in opcode_bitmaps.iter() {
+            meta.create_gate("opcode_bitmaps assert bit", |meta| {
+                vec![curr!(meta, bit.clone()) * (curr!(meta, bit.clone()) - constant_from!(1u64))]
+            });
+        }
+
+        meta.create_gate("opcode_bitmaps pick one", |meta| {
+            vec![
+                opcode_bitmaps
+                    .iter()
+                    .map(|x| curr!(meta, *x))
+                    .reduce(|acc, x| acc + x)
+                    .unwrap()
+                    - constant_from!(1u64),
+            ]
+        });
+
+        meta.create_gate("eid increase", |meta| {
+            vec![
+                curr!(meta, common_config.enable)
+                    * (curr!(meta, common_config.eid)
+                        - prev!(meta, common_config.eid)
+                        - constant_from!(1u64)),
+            ]
+        });
+
+        itable.configure_in_table(meta, "inst in table", |meta| {
+            curr!(meta, enable)
+                * encode_inst_expr(
+                    curr!(meta, common_config.moid),
+                    curr!(meta, common_config.mmid),
+                    curr!(meta, common_config.fid),
+                    curr!(meta, common_config.bid),
+                    curr!(meta, common_config.iid),
+                    curr!(meta, common_config.opcode),
+                )
+        });
+
+        EventTableConfig {
+            opcode_bitmaps,
+            common_config,
+            _mark: PhantomData,
+        }
     }
 }
 
 pub struct EventTableChip<F: FieldExt> {
-    config: EventTableConfig,
+    config: EventTableConfig<F>,
     _phantom: PhantomData<F>,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
-    pub fn new(config: EventTableConfig) -> Self {
+    pub fn new(config: EventTableConfig<F>) -> Self {
         EventTableChip {
             config,
             _phantom: PhantomData,
