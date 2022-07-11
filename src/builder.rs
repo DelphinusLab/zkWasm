@@ -8,18 +8,18 @@ pub struct CircuitBuilder {
 }
 
 impl CircuitBuilder {
-    pub fn from_tracer(tracer: Tracer) -> CircuitBuilder {
+    pub fn from_tracer(tracer: &Tracer) -> CircuitBuilder {
         let itable = tracer
             .itable
             .0
-            .into_iter()
+            .iter()
             .map(|ientry| Inst::from(ientry))
             .collect();
 
         let etable = tracer
             .etable
             .0
-            .into_iter()
+            .iter()
             .map(|eentry| Event::from(eentry))
             .collect::<Vec<_>>();
 
@@ -34,6 +34,20 @@ impl CircuitBuilder {
             itable,
             etable,
             mtable,
+        }
+    }
+}
+
+mod test {
+    use halo2_proofs::arithmetic::Field;
+
+    use crate::test::test_circuit::TestCircuit;
+
+    use super::*;
+
+    impl CircuitBuilder {
+        pub fn new_test_circuit<F: Field>(&self) -> TestCircuit<F> {
+            TestCircuit::new()
         }
     }
 }

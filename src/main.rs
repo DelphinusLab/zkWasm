@@ -9,6 +9,7 @@ pub mod builder;
 pub mod row_diff;
 pub mod opcode;
 pub mod config_builder;
+pub mod test;
 
 #[macro_use]
 extern crate lazy_static;

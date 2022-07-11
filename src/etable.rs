@@ -26,15 +26,15 @@ pub struct Event {
     pub(crate) step_info: RunInstructionTraceStep,
 }
 
-impl From<EEntry> for Event {
-    fn from(e_entry: EEntry) -> Self {
+impl From<&EEntry> for Event {
+    fn from(e_entry: &EEntry) -> Self {
         Event {
             eid: e_entry.id,
             sp: e_entry.sp,
             // FIXME: fill with correct value
             last_jump_eid: 0,
-            inst: Inst::from(e_entry.inst),
-            step_info: e_entry.step,
+            inst: Inst::from(&e_entry.inst),
+            step_info: e_entry.step.clone(),
         }
     }
 }

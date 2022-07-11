@@ -23,8 +23,8 @@ pub struct Inst {
     aux: u64,
 }
 
-impl From<IEntry> for Inst {
-    fn from(i_entry: IEntry) -> Self {
+impl From<&IEntry> for Inst {
+    fn from(i_entry: &IEntry) -> Self {
         Inst {
             moid: i_entry.module_instance_index,
             //TODO: cover import

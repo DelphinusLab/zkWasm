@@ -12,3 +12,6 @@ num-bigint = { version = "0.4", features = ["rand"] }
 num-traits = "0.2.15"
 wasmi = { path = "./wasmi" }
 lazy_static = "1.4.0"
+
+[dev-dependencies]
+wabt = "0.10.0"

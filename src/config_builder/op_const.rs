@@ -71,3 +71,33 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
         constant_from!(1u64) * curr!(meta, self.enable)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::test_circuit_builder::run_test_circuit;
+    use halo2_proofs::pairing::bn256::Fr as Fp;
+    use wasmi::{ImportsBuilder, ModuleInstance};
+
+    #[test]
+    fn test_ok() {
+        let wasm_binary: Vec<u8> = wabt::wat2wasm(
+            r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (drop)
+                    )
+                   )
+                "#,
+        )
+        .expect("failed to parse wat");
+
+        let module = wasmi::Module::from_buffer(&wasm_binary).expect("failed to load wasm");
+
+        let instance = ModuleInstance::new(&module, &ImportsBuilder::default())
+            .expect("failed to instantiate wasm module")
+            .assert_no_start();
+
+        run_test_circuit::<Fp>(&instance).expect("failed")
+    }
+}
