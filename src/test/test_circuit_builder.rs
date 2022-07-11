@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, plonk::Error};
-use wasmi::{tracer::Tracer, ImportsBuilder, ModuleInstance, ModuleRef, NopExternals};
+use wasmi::{ModuleRef, NopExternals};
 
 use crate::builder::CircuitBuilder;
 

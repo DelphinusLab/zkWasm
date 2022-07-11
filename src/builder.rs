@@ -1,6 +1,8 @@
 use crate::{etable::Event, itable::Inst, mtable::MemoryEvent, opcode::memory_event_of_step};
 use wasmi::tracer::Tracer;
 
+pub(crate) const VAR_COLUMNS: usize = 28;
+
 pub struct CircuitBuilder {
     pub(crate) itable: Vec<Inst>,
     pub(crate) etable: Vec<Event>,
@@ -39,14 +41,14 @@ impl CircuitBuilder {
 }
 
 mod test {
-    use halo2_proofs::arithmetic::Field;
+    use halo2_proofs::arithmetic::FieldExt;
 
     use crate::test::test_circuit::TestCircuit;
 
     use super::*;
 
     impl CircuitBuilder {
-        pub fn new_test_circuit<F: Field>(&self) -> TestCircuit<F> {
+        pub fn new_test_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
             TestCircuit::new()
         }
     }

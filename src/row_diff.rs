@@ -5,6 +5,7 @@ use halo2_proofs::{
 };
 use std::marker::PhantomData;
 
+#[derive(Clone)]
 pub struct RowDiffConfig<F: FieldExt> {
     data: Column<Advice>,
     same: Column<Advice>,

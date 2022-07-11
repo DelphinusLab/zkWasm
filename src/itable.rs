@@ -2,6 +2,8 @@ use crate::constant;
 use crate::utils::bn_to_field;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
@@ -99,12 +101,20 @@ pub fn encode_inst_expr<F: FieldExt>(
     acc
 }
 
+#[derive(Clone)]
 pub struct InstTableConfig<F: FieldExt> {
     col: TableColumn,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> InstTableConfig<F> {
+    pub fn new(meta: &mut ConstraintSystem<F>) -> Self {
+        InstTableConfig {
+            col: meta.lookup_table_column(),
+            _mark: PhantomData,
+        }
+    }
+
     pub fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -115,11 +125,21 @@ impl<F: FieldExt> InstTableConfig<F> {
     }
 }
 
+#[derive(Clone)]
 pub struct InstTableChip<F: FieldExt> {
     config: InstTableConfig<F>,
 }
 
 impl<F: FieldExt> InstTableChip<F> {
+    pub fn new(meta: &mut ConstraintSystem<F>) -> Self {
+        InstTableChip {
+            config: InstTableConfig {
+                col: meta.lookup_table_column(),
+                _mark: PhantomData,
+            },
+        }
+    }
+
     pub fn add_inst_init(
         self,
         layouter: &mut impl Layouter<F>,
