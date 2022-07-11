@@ -1,11 +1,14 @@
-use wasmi::tracer::etable::RunInstructionTraceStep;
-
+use self::stack_only::mem_op_from_stack_only_step;
 use crate::{
     etable::Event,
     mtable::{AccessType, LocationType, MemoryEvent, VarType},
 };
+use wasmi::tracer::etable::RunInstructionTraceStep;
 
-use self::stack_only::mem_op_from_stack_only_step;
+pub enum Opcode {
+    LocalGet = 1isize,
+    Const = 2isize,
+}
 
 pub(crate) mod stack_only;
 

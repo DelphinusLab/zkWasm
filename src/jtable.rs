@@ -5,6 +5,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Error;
+use num_bigint::BigUint;
 use std::marker::PhantomData;
 
 pub struct Jump {
@@ -21,43 +22,43 @@ impl Jump {
             inst,
         }
     }
+
+    pub fn encode(&self) -> BigUint {
+        todo!()
+    }
 }
 
-pub struct JumpTableConfig {
-    cols: [Column<Advice>; 3],
+pub struct JumpTableConfig<F: FieldExt> {
+    col: Column<Advice>,
+    _mark: PhantomData<F>,
+}
+
+impl<F: FieldExt> JumpTableConfig<F> {
+    pub fn new(
+        cols: &mut impl Iterator<Item = halo2_proofs::plonk::Column<halo2_proofs::plonk::Advice>>,
+    ) -> Self {
+        Self {
+            col: cols.next().unwrap(),
+            _mark: PhantomData,
+        }
+    }
 }
 
 pub struct EventTableChip<F: FieldExt> {
-    config: JumpTableConfig,
-    _phantom: PhantomData<F>,
+    config: JumpTableConfig<F>,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
-    pub fn new(config: JumpTableConfig) -> Self {
-        EventTableChip {
-            config,
-            _phantom: PhantomData,
-        }
+    pub fn new(config: JumpTableConfig<F>) -> Self {
+        EventTableChip { config }
     }
 
     pub fn add_jump(&self, ctx: &mut Context<'_, F>, jump: Box<Jump>) -> Result<(), Error> {
         ctx.region.assign_advice_from_constant(
-            || "jump eid",
-            self.config.cols[0],
+            || "jump table entry",
+            self.config.col,
             ctx.offset,
-            F::from(jump.eid),
-        )?;
-        ctx.region.assign_advice_from_constant(
-            || "jump last_jump_eid",
-            self.config.cols[1],
-            ctx.offset,
-            F::from(jump.last_jump_eid),
-        )?;
-        ctx.region.assign_advice_from_constant(
-            || "jump addr",
-            self.config.cols[2],
-            ctx.offset,
-            bn_to_field(&jump.inst.encode_addr()),
+            bn_to_field(&jump.encode()),
         )?;
         Ok(())
     }

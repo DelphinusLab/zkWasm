@@ -8,6 +8,10 @@ pub mod utils;
 pub mod builder;
 pub mod row_diff;
 pub mod opcode;
+pub mod config_builder;
+
+#[macro_use]
+extern crate lazy_static;
 
 fn main() {
     println!("Hello, world!");

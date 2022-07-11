@@ -1,14 +1,19 @@
+use crate::config_builder::op_const::ConstConfigBuilder;
 use crate::constant_from;
 use crate::curr;
 use crate::itable::encode_inst_expr;
 use crate::itable::Inst;
 use crate::itable::InstTableConfig;
+use crate::jtable::JumpTableConfig;
+use crate::mtable::MemoryTableConfig;
+use crate::next;
 use crate::prev;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use std::marker::PhantomData;
 use wasmi::tracer::etable::EEntry;
 use wasmi::tracer::etable::RunInstructionTraceStep;
@@ -40,23 +45,27 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
         common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-    ) -> Self;
+        itable: &InstTableConfig<F>,
+        mtable: &MemoryTableConfig<F>,
+        jtable: &JumpTableConfig<F>,
+    ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
-    fn opcode(&self) -> Expression<F>;
+    fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
+    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
 }
 
 pub struct EventTableCommonConfig {
-    enable: Column<Advice>,
-    eid: Column<Advice>,
-    moid: Column<Advice>,
-    fid: Column<Advice>,
-    bid: Column<Advice>,
-    iid: Column<Advice>,
-    mmid: Column<Advice>,
-    sp: Column<Advice>,
-    opcode: Column<Advice>,
+    pub enable: Column<Advice>,
+    pub eid: Column<Advice>,
+    pub moid: Column<Advice>,
+    pub fid: Column<Advice>,
+    pub bid: Column<Advice>,
+    pub iid: Column<Advice>,
+    pub mmid: Column<Advice>,
+    pub sp: Column<Advice>,
+    pub opcode: Column<Advice>,
 }
 
 pub struct EventTableConfig<F: FieldExt> {
@@ -70,6 +79,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
         itable: &InstTableConfig<F>,
+        mtable: &MemoryTableConfig<F>,
+        jtable: &JumpTableConfig<F>,
     ) -> Self {
         let enable = cols.next().unwrap();
         let eid = cols.next().unwrap();
@@ -94,6 +105,38 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         // TODO: Add opcode configures here.
         let mut opcode_bitmaps: Vec<Column<Advice>> = vec![];
+        let mut opcode_bitmaps_iter = opcode_bitmaps.iter();
+        let mut configs: Vec<Box<dyn EventTableOpcodeConfig<F>>> = vec![];
+
+        {
+            let opcode_bit = opcode_bitmaps_iter.next().unwrap();
+            let config = ConstConfigBuilder::configure(
+                meta,
+                &common_config,
+                opcode_bit.clone(),
+                cols,
+                itable,
+                mtable,
+                jtable,
+            );
+            configs.push(config);
+        }
+
+        meta.create_gate("opcode consistent", |meta| {
+            let mut acc = constant_from!(0u64);
+            for config in configs.iter() {
+                acc = acc + config.opcode(meta);
+            }
+            vec![curr!(meta, opcode) - acc]
+        });
+
+        meta.create_gate("sp diff consistent", |meta| {
+            let mut acc = constant_from!(0u64);
+            for config in configs.iter() {
+                acc = acc + config.sp_diff(meta);
+            }
+            vec![curr!(meta, sp) + acc - next!(meta, sp)]
+        });
 
         for bit in opcode_bitmaps.iter() {
             meta.create_gate("opcode_bitmaps assert bit", |meta| {

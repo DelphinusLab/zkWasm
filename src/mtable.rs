@@ -1,20 +1,24 @@
+use crate::constant;
+use crate::constant_from;
 use crate::curr;
 use crate::init_mtable::MInitTableConfig;
 use crate::next;
 use crate::prev;
 use crate::row_diff::RowDiffConfig;
 use crate::rtable::RangeTableConfig;
+use crate::utils::bn_to_field;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+use num_bigint::BigUint;
 use std::marker::PhantomData;
 
 pub enum LocationType {
-    Heap,
-    Stack,
+    Heap = 0,
+    Stack = 1,
 }
 
 impl<F: FieldExt> Into<Expression<F>> for LocationType {
@@ -27,9 +31,9 @@ impl<F: FieldExt> Into<Expression<F>> for LocationType {
 }
 
 pub enum AccessType {
-    Read,
-    Write,
-    Init,
+    Read = 1,
+    Write = 2,
+    Init = 3,
 }
 
 impl<F: FieldExt> Into<Expression<F>> for AccessType {
@@ -44,7 +48,7 @@ impl<F: FieldExt> Into<Expression<F>> for AccessType {
 
 #[derive(Clone, Copy)]
 pub enum VarType {
-    U8,
+    U8 = 1,
     I32,
 }
 
@@ -80,12 +84,22 @@ impl MemoryEvent {
     }
 }
 
+lazy_static! {
+    static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
+    static ref ACCESS_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 77;
+    static ref LOC_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 79;
+    static ref OFFSET_SHIFT: BigUint = BigUint::from(1u64) << 80;
+    static ref MMID_SHIFT: BigUint = BigUint::from(1u64) << 96;
+    static ref EMID_SHIFT: BigUint = BigUint::from(1u64) << 112;
+    static ref EID_SHIFT: BigUint = BigUint::from(1u64) << 128;
+}
+
 pub struct MemoryTableConfig<F: FieldExt> {
-    ltype: RowDiffConfig<F>,
-    mmid: RowDiffConfig<F>,
-    offset: RowDiffConfig<F>,
     eid: RowDiffConfig<F>,
     emid: Column<Advice>,
+    mmid: RowDiffConfig<F>,
+    offset: RowDiffConfig<F>,
+    ltype: RowDiffConfig<F>,
     atype: Column<Advice>,
     vtype: Column<Advice>,
     value: Column<Advice>,
@@ -95,6 +109,107 @@ pub struct MemoryTableConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> MemoryTableConfig<F> {
+    fn encode_for_lookup(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.eid.data(meta) * constant!(bn_to_field(&EID_SHIFT))
+            + curr!(meta, self.emid) * constant!(bn_to_field(&EMID_SHIFT))
+            + self.mmid.data(meta) * constant!(bn_to_field(&MMID_SHIFT))
+            + self.offset.data(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
+            + self.ltype.data(meta) * constant!(bn_to_field(&LOC_TYPE_SHIFT))
+            + curr!(meta, self.atype) * constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
+            + curr!(meta, self.vtype) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+            + curr!(meta, self.value)
+    }
+
+    pub fn configure_stack_read_in_table(
+        &self,
+        key: &'static str,
+        key_rev: &'static str,
+        meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        eid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        emid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        sp: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        vtype: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        value: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup_any(key, |meta| {
+            vec![(
+                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
+                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
+                    + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
+                    + constant!(bn_to_field(&LOC_TYPE_SHIFT))
+                        * constant_from!(LocationType::Stack as u64)
+                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
+                        * constant_from!(AccessType::Read as u64)
+                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+                    + value(meta))
+                    * enable(meta),
+                self.encode_for_lookup(meta) * enable(meta),
+            )]
+        });
+
+        meta.lookup_any(key_rev, |meta| {
+            vec![(
+                self.encode_for_lookup(meta) * enable(meta),
+                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
+                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
+                    + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
+                    + constant!(bn_to_field(&LOC_TYPE_SHIFT))
+                        * constant_from!(LocationType::Stack as u64)
+                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
+                        * constant_from!(AccessType::Read as u64)
+                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+                    + value(meta))
+                    * enable(meta),
+            )]
+        });
+    }
+
+    pub fn configure_stack_write_in_table(
+        &self,
+        key: &'static str,
+        key_rev: &'static str,
+        meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        eid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        emid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        sp: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        vtype: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        value: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup_any(key, |meta| {
+            vec![(
+                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
+                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
+                    + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
+                    + constant!(bn_to_field(&LOC_TYPE_SHIFT))
+                        * constant_from!(LocationType::Stack as u64)
+                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
+                        * constant_from!(AccessType::Write as u64)
+                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+                    + value(meta))
+                    * enable(meta),
+                self.encode_for_lookup(meta) * enable(meta),
+            )]
+        });
+
+        meta.lookup_any(key_rev, |meta| {
+            vec![(
+                self.encode_for_lookup(meta) * enable(meta),
+                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
+                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
+                    + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
+                    + constant!(bn_to_field(&LOC_TYPE_SHIFT))
+                        * constant_from!(LocationType::Stack as u64)
+                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
+                        * constant_from!(AccessType::Read as u64)
+                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+                    + value(meta))
+                    * enable(meta),
+            )]
+        });
+    }
+
     fn new(
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
