@@ -24,7 +24,7 @@ pub fn run_test_circuit<F: FieldExt>(instance: &ModuleRef) -> Result<(), Error> 
     let builder = CircuitBuilder::from_tracer(&tracer.borrow());
     let circuit = builder.new_test_circuit::<F>();
 
-    MockProver::run(K, &circuit, vec![vec![]])?;
+    MockProver::run(K, &circuit, vec![])?;
 
     Ok(())
 }
