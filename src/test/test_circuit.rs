@@ -42,9 +42,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
         let itable = InstTableConfig::new(meta);
-        let jtable = JumpTableConfig::new(cols);
-        let mtable = MemoryTableConfig::new(meta, cols);
-        let etable = EventTableConfig::new(meta, cols, &itable, &mtable, &jtable);
+        let jtable = JumpTableConfig::new(&mut cols);
+        let mtable = MemoryTableConfig::new(meta, &mut cols);
+        let etable = EventTableConfig::new(meta, &mut cols, &itable, &mtable, &jtable);
 
         Self::Config {
             etable,

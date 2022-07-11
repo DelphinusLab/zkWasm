@@ -1,7 +1,7 @@
 use crate::{etable::Event, itable::Inst, mtable::MemoryEvent, opcode::memory_event_of_step};
 use wasmi::tracer::Tracer;
 
-pub(crate) const VAR_COLUMNS: usize = 28;
+pub(crate) const VAR_COLUMNS: usize = 31;
 
 pub struct CircuitBuilder {
     pub(crate) itable: Vec<Inst>,

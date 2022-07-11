@@ -106,7 +106,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         };
 
         // TODO: Add opcode configures here.
-        let mut opcode_bitmaps: Vec<Column<Advice>> = vec![];
+        let mut opcode_bitmaps: Vec<Column<Advice>> = vec![cols.next().unwrap()];
         let mut opcode_bitmaps_iter = opcode_bitmaps.iter();
         let mut configs: Vec<Box<dyn EventTableOpcodeConfig<F>>> = vec![];
 
