@@ -15,6 +15,7 @@ use num_traits::One;
 use std::marker::PhantomData;
 use wasmi::tracer::itable::IEntry;
 
+#[derive(Clone)]
 pub struct Inst {
     moid: u16,
     pub(crate) mmid: u16,
@@ -131,19 +132,14 @@ pub struct InstTableChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> InstTableChip<F> {
-    pub fn new(meta: &mut ConstraintSystem<F>) -> Self {
-        InstTableChip {
-            config: InstTableConfig {
-                col: meta.lookup_table_column(),
-                _mark: PhantomData,
-            },
-        }
+    pub fn new(config: InstTableConfig<F>) -> Self {
+        InstTableChip { config }
     }
 
     pub fn add_inst_init(
         self,
         layouter: &mut impl Layouter<F>,
-        inst_init: Vec<Inst>,
+        inst_init: &Vec<Inst>,
     ) -> Result<(), Error> {
         layouter.assign_table(
             || "inst_init",

@@ -18,6 +18,7 @@ use std::marker::PhantomData;
 use wasmi::tracer::etable::EEntry;
 use wasmi::tracer::etable::RunInstructionTraceStep;
 
+#[derive(Clone)]
 pub struct Event {
     pub(crate) eid: u64,
     pub(crate) sp: u64,

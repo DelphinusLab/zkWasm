@@ -7,8 +7,11 @@ use halo2_proofs::{
 };
 
 use crate::{
-    builder::VAR_COLUMNS, etable::EventTableConfig, itable::InstTableConfig,
-    jtable::JumpTableConfig, mtable::MemoryTableConfig,
+    builder::{CircuitBuilder, VAR_COLUMNS},
+    etable::{EventTableChip, EventTableConfig},
+    itable::{InstTableChip, InstTableConfig},
+    jtable::JumpTableConfig,
+    mtable::MemoryTableConfig,
 };
 
 #[derive(Clone)]
@@ -21,12 +24,16 @@ pub struct TestCircuitConfig<F: FieldExt> {
 
 #[derive(Default)]
 pub struct TestCircuit<F: FieldExt> {
+    circuit_builder: CircuitBuilder,
     _data: PhantomData<F>,
 }
 
 impl<F: FieldExt> TestCircuit<F> {
-    pub fn new() -> Self {
-        TestCircuit { _data: PhantomData }
+    pub fn new(builder: &CircuitBuilder) -> Self {
+        TestCircuit {
+            circuit_builder: builder.clone(),
+            _data: PhantomData,
+        }
     }
 }
 
@@ -54,7 +61,16 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         }
     }
 
-    fn synthesize(&self, config: Self::Config, layouter: impl Layouter<F>) -> Result<(), Error> {
-        todo!()
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        let _echip = EventTableChip::new(config.etable);
+        let ichip = InstTableChip::new(config.itable);
+
+        ichip.add_inst_init(&mut layouter, &self.circuit_builder.itable)?;
+
+        Ok(())
     }
 }

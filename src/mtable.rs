@@ -16,6 +16,7 @@ use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use std::marker::PhantomData;
 
+#[derive(Clone)]
 pub enum LocationType {
     Heap = 0,
     Stack = 1,
@@ -30,6 +31,7 @@ impl<F: FieldExt> Into<Expression<F>> for LocationType {
     }
 }
 
+#[derive(Clone)]
 pub enum AccessType {
     Read = 1,
     Write = 2,
@@ -52,6 +54,7 @@ pub enum VarType {
     I32,
 }
 
+#[derive(Clone)]
 pub struct MemoryEvent {
     eid: u64,
     mmid: u64,

@@ -3,6 +3,7 @@ use wasmi::tracer::Tracer;
 
 pub(crate) const VAR_COLUMNS: usize = 31;
 
+#[derive(Default, Clone)]
 pub struct CircuitBuilder {
     pub(crate) itable: Vec<Inst>,
     pub(crate) etable: Vec<Event>,
@@ -49,7 +50,7 @@ mod test {
 
     impl CircuitBuilder {
         pub fn new_test_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-            TestCircuit::new()
+            TestCircuit::new(&self)
         }
     }
 }
