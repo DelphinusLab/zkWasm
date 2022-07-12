@@ -1,8 +1,11 @@
 use crate::circuits::{
     etable::{EventTableChip, EventTableConfig},
-    itable::{InstTableChip, InstTableConfig},
+    imtable::{self, InitMemoryTableConfig},
+    itable::{InstructionTableChip, InstructionTableConfig},
     jtable::JumpTableConfig,
-    mtable::MemoryTableConfig,
+    mtable::{MemoryTableChip, MemoryTableConfig},
+    rtable::{RangeTableChip, RangeTableConfig},
+    utils::Context,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -16,8 +19,10 @@ const VAR_COLUMNS: usize = 50;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
+    rtable: RangeTableConfig<F>,
+    imtable: InitMemoryTableConfig<F>,
+    itable: InstructionTableConfig<F>,
     etable: EventTableConfig<F>,
-    itable: InstTableConfig<F>,
     jtable: JumpTableConfig<F>,
     mtable: MemoryTableConfig<F>,
 }
@@ -50,12 +55,16 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
-        let itable = InstTableConfig::new(meta);
-        let jtable = JumpTableConfig::new(&mut cols);
-        let mtable = MemoryTableConfig::new(meta, &mut cols);
-        let etable = EventTableConfig::new(meta, &mut cols, &itable, &mtable, &jtable);
+        let rtable = RangeTableConfig::configure([meta.lookup_table_column()]);
+        let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
+        let itable = InstructionTableConfig::configure(meta.lookup_table_column());
+        let jtable = JumpTableConfig::configure(&mut cols);
+        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
+        let etable = EventTableConfig::configure(meta, &mut cols, &itable, &mtable, &jtable);
 
         Self::Config {
+            rtable,
+            imtable,
             etable,
             itable,
             jtable,
@@ -69,9 +78,21 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
         let _echip = EventTableChip::new(config.etable);
-        let ichip = InstTableChip::new(config.itable);
+        let rchip = RangeTableChip::new(config.rtable);
+        let ichip = InstructionTableChip::new(config.itable);
+        let mchip = MemoryTableChip::new(config.mtable);
 
-        ichip.add_inst_init(&mut layouter, &self.compile_tables.itable)?;
+        rchip.init(&mut layouter, 16usize)?;
+        ichip.assign(&mut layouter, &self.compile_tables.itable)?;
+
+        layouter.assign_region(
+            || "mtable",
+            |region| {
+                let mut ctx = Context::new(region);
+                mchip.assign(&mut ctx, &self.execution_tables.mtable)?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }

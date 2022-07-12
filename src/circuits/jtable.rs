@@ -22,8 +22,8 @@ pub struct JumpTableConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> JumpTableConfig<F> {
-    pub fn new(
-        cols: &mut impl Iterator<Item = halo2_proofs::plonk::Column<halo2_proofs::plonk::Advice>>,
+    pub fn configure(
+        cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         Self {
             col: cols.next().unwrap(),

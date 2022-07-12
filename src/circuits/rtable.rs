@@ -7,6 +7,7 @@ use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::plonk::VirtualCells;
 use std::marker::PhantomData;
 
+#[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
     cols: [TableColumn; 1],
     _mark: PhantomData<F>,

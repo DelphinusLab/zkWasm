@@ -2,7 +2,7 @@ use super::config_builder::op_const::ConstConfigBuilder;
 use super::config_builder::op_drop::DropConfigBuilder;
 use super::config_builder::op_local_get::LocalGetConfigBuilder;
 use super::itable::encode_inst_expr;
-use super::itable::InstTableConfig;
+use super::itable::InstructionTableConfig;
 use super::jtable::JumpTableConfig;
 use super::mtable::MemoryTableConfig;
 use crate::constant_from;
@@ -23,7 +23,7 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
         common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-        itable: &InstTableConfig<F>,
+        itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
@@ -55,10 +55,10 @@ pub struct EventTableConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> EventTableConfig<F> {
-    pub fn new<'a>(
+    pub fn configure(
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-        itable: &InstTableConfig<F>,
+        itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
     ) -> Self {

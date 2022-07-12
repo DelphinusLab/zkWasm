@@ -1,7 +1,7 @@
 use crate::{
     circuits::{
         etable::{EventTableCommonConfig, EventTableOpcodeConfig, EventTableOpcodeConfigBuilder},
-        itable::InstTableConfig,
+        itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         utils::bn_to_field,
@@ -31,7 +31,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
         common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-        _itable: &InstTableConfig<F>,
+        _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         _jtable: &JumpTableConfig<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {

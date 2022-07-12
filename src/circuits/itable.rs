@@ -67,15 +67,15 @@ pub fn encode_inst_expr<F: FieldExt>(
 }
 
 #[derive(Clone)]
-pub struct InstTableConfig<F: FieldExt> {
+pub struct InstructionTableConfig<F: FieldExt> {
     col: TableColumn,
     _mark: PhantomData<F>,
 }
 
-impl<F: FieldExt> InstTableConfig<F> {
-    pub fn new(meta: &mut ConstraintSystem<F>) -> Self {
-        InstTableConfig {
-            col: meta.lookup_table_column(),
+impl<F: FieldExt> InstructionTableConfig<F> {
+    pub fn configure(col: TableColumn) -> Self {
+        InstructionTableConfig {
+            col,
             _mark: PhantomData,
         }
     }
@@ -91,24 +91,24 @@ impl<F: FieldExt> InstTableConfig<F> {
 }
 
 #[derive(Clone)]
-pub struct InstTableChip<F: FieldExt> {
-    config: InstTableConfig<F>,
+pub struct InstructionTableChip<F: FieldExt> {
+    config: InstructionTableConfig<F>,
 }
 
-impl<F: FieldExt> InstTableChip<F> {
-    pub fn new(config: InstTableConfig<F>) -> Self {
-        InstTableChip { config }
+impl<F: FieldExt> InstructionTableChip<F> {
+    pub fn new(config: InstructionTableConfig<F>) -> Self {
+        InstructionTableChip { config }
     }
 
-    pub fn add_inst_init(
+    pub fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        inst_init: &Vec<InstructionTableEntry>,
+        instructions: &Vec<InstructionTableEntry>,
     ) -> Result<(), Error> {
         layouter.assign_table(
-            || "inst_init",
+            || "itable",
             |mut table| {
-                for (i, v) in inst_init.iter().enumerate() {
+                for (i, v) in instructions.iter().enumerate() {
                     table.assign_cell(
                         || "inst_init talbe",
                         self.config.col,

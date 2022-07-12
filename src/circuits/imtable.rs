@@ -21,15 +21,14 @@ impl Encode for InitMemoryTableEntry {
     }
 }
 
-pub const MINIT_TABLE_COLUMNS: usize = 3usize;
-
-pub struct MInitTableConfig<F: FieldExt> {
+#[derive(Clone)]
+pub struct InitMemoryTableConfig<F: FieldExt> {
     col: TableColumn,
     _mark: PhantomData<F>,
 }
 
-impl<F: FieldExt> MInitTableConfig<F> {
-    pub fn new(col: TableColumn) -> Self {
+impl<F: FieldExt> InitMemoryTableConfig<F> {
+    pub fn configure(col: TableColumn) -> Self {
         Self {
             col,
             _mark: PhantomData,
@@ -58,7 +57,7 @@ impl<F: FieldExt> MInitTableConfig<F> {
 }
 
 pub struct MInitTableChip<F: FieldExt> {
-    config: MInitTableConfig<F>,
+    config: InitMemoryTableConfig<F>,
     _phantom: PhantomData<F>,
 }
 

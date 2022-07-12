@@ -1,15 +1,17 @@
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
     poly::Rotation,
 };
 use std::marker::PhantomData;
+
+use super::Context;
 
 #[derive(Clone)]
 pub struct RowDiffConfig<F: FieldExt> {
     data: Column<Advice>,
     same: Column<Advice>,
-    _inv: Column<Advice>,
+    inv: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -38,7 +40,7 @@ impl<F: FieldExt> RowDiffConfig<F> {
         RowDiffConfig {
             data,
             same,
-            _inv: inv,
+            inv,
             _mark: PhantomData,
         }
     }
@@ -55,5 +57,30 @@ impl<F: FieldExt> RowDiffConfig<F> {
         let curr = meta.query_advice(self.data, Rotation::cur());
         let prev = meta.query_advice(self.data, Rotation::prev());
         curr - prev
+    }
+
+    pub fn assign(&self, ctx: &mut Context<F>, data: F, diff: F) -> Result<(), Error> {
+        ctx.region
+            .assign_advice_from_constant(|| "row diff data", self.data, ctx.offset, data)?;
+        ctx.region.assign_advice(
+            || "row diff inv",
+            self.inv,
+            ctx.offset,
+            || Ok(diff.invert().unwrap_or(F::zero())),
+        )?;
+        ctx.region.assign_advice(
+            || "row diff same",
+            self.same,
+            ctx.offset,
+            || {
+                Ok(if diff.is_zero().into() {
+                    F::one()
+                } else {
+                    F::zero()
+                })
+            },
+        )?;
+
+        Ok(())
     }
 }
