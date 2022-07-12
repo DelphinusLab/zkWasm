@@ -1,4 +1,5 @@
-use crate::utils::bn_to_field;
+use super::utils::bn_to_field;
+use crate::spec::imtable::InitMemoryTableEntry;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -8,13 +9,7 @@ use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use std::marker::PhantomData;
 
-pub struct MInit {
-    mmid: u64,
-    offset: u64,
-    value: u64,
-}
-
-impl MInit {
+impl InitMemoryTableEntry {
     pub fn encode(&self) -> BigUint {
         let mut bn = BigUint::zero();
         bn += self.mmid;
@@ -71,7 +66,7 @@ impl<F: FieldExt> MInitTableChip<F> {
     pub fn add_memory_init(
         self,
         layouter: &mut impl Layouter<F>,
-        minit: Vec<MInit>,
+        minit: Vec<InitMemoryTableEntry>,
     ) -> Result<(), Error> {
         layouter.assign_table(
             || "minit",

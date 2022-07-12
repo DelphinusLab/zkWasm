@@ -1,11 +1,13 @@
 use crate::{
+    circuits::{
+        etable::{EventTableCommonConfig, EventTableOpcodeConfig, EventTableOpcodeConfigBuilder},
+        itable::InstTableConfig,
+        jtable::JumpTableConfig,
+        mtable::MemoryTableConfig,
+        utils::bn_to_field,
+    },
     constant, constant_from, curr,
-    etable::{EventTableOpcodeConfig, EventTableOpcodeConfigBuilder},
-    itable::InstTableConfig,
-    jtable::JumpTableConfig,
-    mtable::MemoryTableConfig,
-    opcode::Opcode,
-    utils::bn_to_field,
+    spec::itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_CONST_VTYPE_SHIFT},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -26,12 +28,12 @@ pub struct ConstConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
     fn configure(
         meta: &mut ConstraintSystem<F>,
-        common: &crate::etable::EventTableCommonConfig,
+        common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-        itable: &InstTableConfig<F>,
+        _itable: &InstTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
-        jtable: &JumpTableConfig<F>,
+        _jtable: &JumpTableConfig<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let value = cols.next().unwrap();
         let vtype = cols.next().unwrap();
@@ -42,7 +44,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
             meta,
             |meta| curr!(meta, opcode_bit),
             |meta| curr!(meta, common.eid),
-            |meta| constant_from!(1u64),
+            |_meta| constant_from!(1),
             |meta| curr!(meta, common.sp),
             |meta| curr!(meta, vtype),
             |meta| curr!(meta, value),
@@ -61,8 +63,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         // FIXME
         (constant!(bn_to_field(
-            &(BigUint::from(Opcode::Const as u64) << (64 + 13))
-        )) + curr!(meta, self.vtype) * constant!(bn_to_field(&(BigUint::from(1u64) << (64 + 13))))
+            &(BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
+        )) + curr!(meta, self.vtype)
+            * constant!(bn_to_field(
+                &(BigUint::from(1u64) << OPCODE_CONST_VTYPE_SHIFT)
+            ))
             + curr!(meta, self.value))
             * curr!(meta, self.enable)
     }

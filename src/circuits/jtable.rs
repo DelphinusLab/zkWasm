@@ -1,6 +1,6 @@
-use crate::itable::Inst;
-use crate::utils::bn_to_field;
-use crate::utils::Context;
+use super::utils::bn_to_field;
+use super::utils::Context;
+use crate::spec::jtable::JumpTableEntry;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
@@ -8,21 +8,7 @@ use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
 use std::marker::PhantomData;
 
-pub struct Jump {
-    eid: u64,
-    last_jump_eid: u64,
-    inst: Box<Inst>,
-}
-
-impl Jump {
-    pub fn new(eid: u64, last_jump_eid: u64, inst: Box<Inst>) -> Jump {
-        Jump {
-            eid,
-            last_jump_eid,
-            inst,
-        }
-    }
-
+impl JumpTableEntry {
     pub fn encode(&self) -> BigUint {
         todo!()
     }
@@ -54,7 +40,11 @@ impl<F: FieldExt> EventTableChip<F> {
         EventTableChip { config }
     }
 
-    pub fn add_jump(&self, ctx: &mut Context<'_, F>, jump: Box<Jump>) -> Result<(), Error> {
+    pub fn add_jump(
+        &self,
+        ctx: &mut Context<'_, F>,
+        jump: Box<JumpTableEntry>,
+    ) -> Result<(), Error> {
         ctx.region.assign_advice_from_constant(
             || "jump table entry",
             self.config.col,

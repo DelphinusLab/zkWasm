@@ -1,13 +1,16 @@
-use crate::{etable::Event, itable::Inst, mtable::MemoryEvent, opcode::memory_event_of_step};
+use crate::runtime::memory_event_of_step;
+use crate::spec::etable::EventTableEntry;
+use crate::spec::itable::InstructionTableEntry;
+use crate::spec::mtable::MemoryTableEntry;
 use wasmi::tracer::Tracer;
 
 pub(crate) const VAR_COLUMNS: usize = 50;
 
 #[derive(Default, Clone)]
 pub struct CircuitBuilder {
-    pub(crate) itable: Vec<Inst>,
-    pub(crate) etable: Vec<Event>,
-    pub(crate) mtable: Vec<MemoryEvent>,
+    pub(crate) itable: Vec<InstructionTableEntry>,
+    pub(crate) etable: Vec<EventTableEntry>,
+    pub(crate) mtable: Vec<MemoryTableEntry>,
 }
 
 impl CircuitBuilder {
@@ -16,14 +19,14 @@ impl CircuitBuilder {
             .itable
             .0
             .iter()
-            .map(|ientry| Inst::from(ientry))
+            .map(|ientry| InstructionTableEntry::from(ientry))
             .collect();
 
         let etable = tracer
             .etable
             .0
             .iter()
-            .map(|eentry| Event::from(eentry))
+            .map(|eentry| EventTableEntry::from(eentry))
             .collect::<Vec<_>>();
 
         let mtable = etable

@@ -1,18 +1,16 @@
-use std::marker::PhantomData;
-
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::{Layouter, SimpleFloorPlanner},
-    plonk::{Circuit, ConstraintSystem, Error},
-};
-
-use crate::{
-    builder::{CircuitBuilder, VAR_COLUMNS},
+use crate::builder::{CircuitBuilder, VAR_COLUMNS};
+use crate::circuits::{
     etable::{EventTableChip, EventTableConfig},
     itable::{InstTableChip, InstTableConfig},
     jtable::JumpTableConfig,
     mtable::MemoryTableConfig,
 };
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    circuit::{Layouter, SimpleFloorPlanner},
+    plonk::{Circuit, ConstraintSystem, Error},
+};
+use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {

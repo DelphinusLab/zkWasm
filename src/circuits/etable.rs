@@ -1,13 +1,12 @@
-use crate::config_builder::op_const::ConstConfigBuilder;
-use crate::config_builder::op_drop::DropConfigBuilder;
-use crate::config_builder::op_local_get::LocalGetConfigBuilder;
+use super::config_builder::op_const::ConstConfigBuilder;
+use super::config_builder::op_drop::DropConfigBuilder;
+use super::config_builder::op_local_get::LocalGetConfigBuilder;
+use super::itable::encode_inst_expr;
+use super::itable::InstTableConfig;
+use super::jtable::JumpTableConfig;
+use super::mtable::MemoryTableConfig;
 use crate::constant_from;
 use crate::curr;
-use crate::itable::encode_inst_expr;
-use crate::itable::Inst;
-use crate::itable::InstTableConfig;
-use crate::jtable::JumpTableConfig;
-use crate::mtable::MemoryTableConfig;
 use crate::next;
 use crate::prev;
 use halo2_proofs::arithmetic::FieldExt;
@@ -17,30 +16,6 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use std::marker::PhantomData;
-use wasmi::tracer::etable::EEntry;
-use wasmi::tracer::etable::RunInstructionTraceStep;
-
-#[derive(Clone)]
-pub struct Event {
-    pub(crate) eid: u64,
-    pub(crate) sp: u64,
-    last_jump_eid: u64,
-    pub(crate) inst: Inst,
-    pub(crate) step_info: RunInstructionTraceStep,
-}
-
-impl From<&EEntry> for Event {
-    fn from(e_entry: &EEntry) -> Self {
-        Event {
-            eid: e_entry.id,
-            sp: e_entry.sp,
-            // FIXME: fill with correct value
-            last_jump_eid: 0,
-            inst: Inst::from(&e_entry.inst),
-            step_info: e_entry.step.clone(),
-        }
-    }
-}
 
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
@@ -133,11 +108,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             })
         ];
 
-        configure![
-            ConstConfigBuilder,
-            DropConfigBuilder,
-            LocalGetConfigBuilder
-        ];
+        configure![ConstConfigBuilder, DropConfigBuilder, LocalGetConfigBuilder];
 
         meta.create_gate("opcode consistent", |meta| {
             let mut acc = constant_from!(0u64);

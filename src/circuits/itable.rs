@@ -1,9 +1,8 @@
+use super::utils::bn_to_field;
 use crate::constant;
-use crate::utils::bn_to_field;
+use crate::spec::itable::InstructionTableEntry;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::Advice;
-use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
@@ -15,51 +14,31 @@ use num_traits::One;
 use std::marker::PhantomData;
 use wasmi::tracer::itable::IEntry;
 
-#[derive(Clone)]
-pub struct Inst {
-    moid: u16,
-    pub(crate) mmid: u16,
-    fid: u16,
-    bid: u16,
-    iid: u16,
-    opcode: u64,
-    aux: u64,
-}
-
-impl From<&IEntry> for Inst {
+impl From<&IEntry> for InstructionTableEntry {
     fn from(i_entry: &IEntry) -> Self {
-        Inst {
+        todo!()
+        /*
+        InstructionTableEntry {
             moid: i_entry.module_instance_index,
             //TODO: cover import
             mmid: i_entry.module_instance_index,
             fid: i_entry.func_index,
             bid: 0,
             iid: i_entry.pc,
-            opcode: i_entry.opcode,
+            //FIXME
+            opcode: 0, //i_entry.opcode,
             aux: 0,
         }
+        */
     }
 }
 
-impl Inst {
-    pub fn new(moid: u16, mmid: u16, fid: u16, bid: u16, iid: u16, opcode: u64, aux: u64) -> Self {
-        Inst {
-            moid,
-            mmid,
-            fid,
-            bid,
-            iid,
-            opcode,
-            aux,
-        }
-    }
-
+impl InstructionTableEntry {
     pub fn encode(&self) -> BigUint {
+        let opcode: BigUint = self.opcode.into();
         let mut bn = self.encode_addr();
-        bn <<= 64u8;
-        bn += self.opcode;
-        bn <<= 64u8;
-        bn += self.aux;
+        bn <<= 128usize;
+        bn += opcode;
         bn
     }
 
@@ -139,7 +118,7 @@ impl<F: FieldExt> InstTableChip<F> {
     pub fn add_inst_init(
         self,
         layouter: &mut impl Layouter<F>,
-        inst_init: &Vec<Inst>,
+        inst_init: &Vec<InstructionTableEntry>,
     ) -> Result<(), Error> {
         layouter.assign_table(
             || "inst_init",

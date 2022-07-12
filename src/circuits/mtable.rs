@@ -1,12 +1,14 @@
 use crate::constant;
 use crate::constant_from;
 use crate::curr;
-use crate::init_mtable::MInitTableConfig;
+use super::imtable::MInitTableConfig;
 use crate::next;
 use crate::prev;
-use crate::row_diff::RowDiffConfig;
-use crate::rtable::RangeTableConfig;
-use crate::utils::bn_to_field;
+use super::utils::row_diff::RowDiffConfig;
+use super::rtable::RangeTableConfig;
+use crate::spec::mtable::AccessType;
+use crate::spec::mtable::LocationType;
+use super::utils::bn_to_field;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
@@ -15,77 +17,6 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use std::marker::PhantomData;
-
-#[derive(Clone)]
-pub enum LocationType {
-    Heap = 0,
-    Stack = 1,
-}
-
-impl<F: FieldExt> Into<Expression<F>> for LocationType {
-    fn into(self) -> Expression<F> {
-        match self {
-            LocationType::Heap => Expression::Constant(F::from(0u64)),
-            LocationType::Stack => Expression::Constant(F::from(1u64)),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub enum AccessType {
-    Read = 1,
-    Write = 2,
-    Init = 3,
-}
-
-impl<F: FieldExt> Into<Expression<F>> for AccessType {
-    fn into(self) -> Expression<F> {
-        match self {
-            AccessType::Read => Expression::Constant(F::from(1u64)),
-            AccessType::Write => Expression::Constant(F::from(2u64)),
-            AccessType::Init => Expression::Constant(F::from(3u64)),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum VarType {
-    U8 = 1,
-    I32,
-}
-
-#[derive(Clone)]
-pub struct MemoryEvent {
-    eid: u64,
-    mmid: u64,
-    offset: u64,
-    ltype: LocationType,
-    atype: AccessType,
-    vtype: VarType,
-    value: u64,
-}
-
-impl MemoryEvent {
-    pub fn new(
-        eid: u64,
-        mmid: u64,
-        offset: u64,
-        ltype: LocationType,
-        atype: AccessType,
-        vtype: VarType,
-        value: u64,
-    ) -> MemoryEvent {
-        MemoryEvent {
-            eid,
-            mmid,
-            offset,
-            ltype,
-            atype,
-            vtype,
-            value,
-        }
-    }
-}
 
 lazy_static! {
     static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
@@ -142,9 +73,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
                     + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
                     + constant!(bn_to_field(&LOC_TYPE_SHIFT))
-                        * constant_from!(LocationType::Stack as u64)
+                        * constant_from!(LocationType::Stack)
                     + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-                        * constant_from!(AccessType::Read as u64)
+                        * constant_from!(AccessType::Read)
                     + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
                     + value(meta))
                     * enable(meta),
@@ -159,9 +90,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
                     + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
                     + constant!(bn_to_field(&LOC_TYPE_SHIFT))
-                        * constant_from!(LocationType::Stack as u64)
+                        * constant_from!(LocationType::Stack)
                     + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-                        * constant_from!(AccessType::Read as u64)
+                        * constant_from!(AccessType::Read)
                     + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
                     + value(meta))
                     * enable(meta),
@@ -187,9 +118,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
                     + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
                     + constant!(bn_to_field(&LOC_TYPE_SHIFT))
-                        * constant_from!(LocationType::Stack as u64)
+                        * constant_from!(LocationType::Stack)
                     + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-                        * constant_from!(AccessType::Write as u64)
+                        * constant_from!(AccessType::Write)
                     + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
                     + value(meta))
                     * enable(meta),
@@ -204,9 +135,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
                     + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
                     + constant!(bn_to_field(&LOC_TYPE_SHIFT))
-                        * constant_from!(LocationType::Stack as u64)
+                        * constant_from!(LocationType::Stack)
                     + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-                        * constant_from!(AccessType::Read as u64)
+                        * constant_from!(AccessType::Read)
                     + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
                     + value(meta))
                     * enable(meta),
@@ -340,7 +271,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 self.is_enable(meta)
                     * (self.is_same_location(meta) - Expression::Constant(F::one()))
                     * self.is_stack(meta)
-                    * (curr!(meta, self.atype) - AccessType::Write.into()),
+                    * (curr!(meta, self.atype) - constant_from!(AccessType::Write)),
             ]
         });
 
@@ -378,7 +309,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     fn is_read_not_bit(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         let atype = curr!(meta, self.atype);
-        (atype.clone() - AccessType::Init.into()) * (atype - AccessType::Write.into())
+        (atype.clone() - constant_from!(AccessType::Init))
+            * (atype - constant_from!(AccessType::Write))
     }
 }
 

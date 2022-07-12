@@ -1,11 +1,13 @@
 use crate::{
+    circuits::{
+        etable::{EventTableOpcodeConfig, EventTableOpcodeConfigBuilder, EventTableCommonConfig},
+        itable::InstTableConfig,
+        jtable::JumpTableConfig,
+        mtable::MemoryTableConfig,
+        utils::bn_to_field,
+    },
     constant, curr,
-    etable::{EventTableOpcodeConfig, EventTableOpcodeConfigBuilder},
-    itable::InstTableConfig,
-    jtable::JumpTableConfig,
-    mtable::MemoryTableConfig,
-    opcode::Opcode,
-    utils::bn_to_field,
+    spec::itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -24,7 +26,7 @@ pub struct DropConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
     fn configure(
         _meta: &mut ConstraintSystem<F>,
-        _common: &crate::etable::EventTableCommonConfig,
+        _common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         _cols: &mut impl Iterator<Item = Column<Advice>>,
         _itable: &InstTableConfig<F>,
@@ -41,7 +43,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
 impl<F: FieldExt> EventTableOpcodeConfig<F> for DropConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
-            &(BigUint::from(Opcode::Drop as u64) << (64 + 13))
+            &(BigUint::from(OpcodeClass::Drop as u64) << OPCODE_CLASS_SHIFT)
         )) * curr!(meta, self.enable)
     }
 
