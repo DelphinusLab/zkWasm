@@ -10,8 +10,8 @@ halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa9
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-traits = "0.2.15"
+wabt = "0.10.0"
 wasmi = { path = "./wasmi" }
 lazy_static = "1.4.0"
 
 [dev-dependencies]
-wabt = "0.10.0"

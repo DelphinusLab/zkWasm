@@ -1,8 +1,7 @@
-pub mod builder;
-pub mod runtime;
 pub mod circuits;
-pub mod test;
+pub mod runtime;
 pub mod spec;
+pub mod test;
 
 #[macro_use]
 extern crate lazy_static;

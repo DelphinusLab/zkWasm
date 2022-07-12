@@ -1,16 +1,18 @@
-use crate::builder::{CircuitBuilder, VAR_COLUMNS};
 use crate::circuits::{
     etable::{EventTableChip, EventTableConfig},
     itable::{InstTableChip, InstTableConfig},
     jtable::JumpTableConfig,
     mtable::MemoryTableConfig,
 };
+use crate::spec::{CompileTable, ExecutionTable};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
 use std::marker::PhantomData;
+
+const VAR_COLUMNS: usize = 50;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
@@ -22,14 +24,16 @@ pub struct TestCircuitConfig<F: FieldExt> {
 
 #[derive(Default)]
 pub struct TestCircuit<F: FieldExt> {
-    circuit_builder: CircuitBuilder,
+    compile_tables: CompileTable,
+    execution_tables: ExecutionTable,
     _data: PhantomData<F>,
 }
 
 impl<F: FieldExt> TestCircuit<F> {
-    pub fn new(builder: &CircuitBuilder) -> Self {
+    pub fn new(compile_tables: CompileTable, execution_tables: ExecutionTable) -> Self {
         TestCircuit {
-            circuit_builder: builder.clone(),
+            compile_tables,
+            execution_tables,
             _data: PhantomData,
         }
     }
@@ -67,7 +71,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let _echip = EventTableChip::new(config.etable);
         let ichip = InstTableChip::new(config.itable);
 
-        ichip.add_inst_init(&mut layouter, &self.circuit_builder.itable)?;
+        ichip.add_inst_init(&mut layouter, &self.compile_tables.itable)?;
 
         Ok(())
     }
