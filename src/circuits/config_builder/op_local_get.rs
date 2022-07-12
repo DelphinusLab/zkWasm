@@ -4,16 +4,19 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::bn_to_field,
+        utils::{bn_to_field, Context},
     },
     constant, constant_from, curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
-use specs::itable::{OpcodeClass, OPCODE_CLASS_SHIFT};
+use specs::{
+    etable::EventTableEntry,
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+};
 use std::marker::PhantomData;
 
 pub struct LocalGetConfig<F: FieldExt> {
@@ -81,5 +84,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant_from!(1u64)
+    }
+
+    fn opcode_class(&self) -> OpcodeClass {
+        OpcodeClass::LocalGet
+    }
+
+    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
+        match entry.step_info {
+            specs::step::StepInfo::GetLocal { depth, value } => todo!(),
+            _ => unreachable!(),
+        }
+        Ok(())
     }
 }

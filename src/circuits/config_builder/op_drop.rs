@@ -4,16 +4,19 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::bn_to_field,
+        utils::{bn_to_field, Context},
     },
     constant, curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
-use specs::itable::{OpcodeClass, OPCODE_CLASS_SHIFT};
+use specs::{
+    etable::EventTableEntry,
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+};
 use std::marker::PhantomData;
 
 pub struct DropConfig<F: FieldExt> {
@@ -49,5 +52,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for DropConfig<F> {
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(-F::one()) * curr!(meta, self.enable)
+    }
+
+    fn opcode_class(&self) -> OpcodeClass {
+        OpcodeClass::Drop
+    }
+
+    fn assign(&self, _ctx: &mut Context<'_, F>, _entry: &EventTableEntry) -> Result<(), Error> {
+        Ok(())
     }
 }

@@ -5,6 +5,8 @@ use super::itable::encode_inst_expr;
 use super::itable::InstructionTableConfig;
 use super::jtable::JumpTableConfig;
 use super::mtable::MemoryTableConfig;
+use super::utils::Context;
+use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
 use crate::next;
@@ -13,9 +15,14 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+use specs::etable::EventTableEntry;
+use specs::itable::OpcodeClass;
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
@@ -32,6 +39,8 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
+    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
+    fn opcode_class(&self) -> OpcodeClass;
 }
 
 #[derive(Clone)]
@@ -49,8 +58,9 @@ pub struct EventTableCommonConfig {
 
 #[derive(Clone)]
 pub struct EventTableConfig<F: FieldExt> {
-    opcode_bitmaps: Vec<Column<Advice>>,
     common_config: EventTableCommonConfig,
+    opcode_bitmaps: BTreeMap<OpcodeClass, Column<Advice>>,
+    opcode_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
     _mark: PhantomData<F>,
 }
 
@@ -83,15 +93,16 @@ impl<F: FieldExt> EventTableConfig<F> {
             opcode,
         };
 
-        // TODO: Add opcode configures here.
-        let mut opcode_bitmaps: Vec<Column<Advice>> = vec![cols.next().unwrap()];
-        let mut configs: Vec<Box<dyn EventTableOpcodeConfig<F>>> = vec![];
+        let mut opcode_bitmaps_vec = vec![];
+        let mut opcode_bitmaps = BTreeMap::new();
+        let mut opcode_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
+            BTreeMap::new();
 
         macro_rules! configure [
             ($($x:ident),*) => ({
-                $($x{}; opcode_bitmaps.push(cols.next().unwrap());)*
+                $($x{}; opcode_bitmaps_vec.push(cols.next().unwrap());)*
 
-                let mut opcode_bitmaps_iter = opcode_bitmaps.iter();
+                let mut opcode_bitmaps_iter = opcode_bitmaps_vec.iter();
                 $(
                     let opcode_bit = opcode_bitmaps_iter.next().unwrap();
                     let config = $x::configure(
@@ -103,7 +114,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                         mtable,
                         jtable,
                     );
-                    configs.push(config);
+                    opcode_bitmaps.insert(config.opcode_class(), opcode_bit.clone());
+                    opcode_configs.insert(config.opcode_class(), Rc::new(config));
                 )*
             })
         ];
@@ -112,7 +124,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("opcode consistent", |meta| {
             let mut acc = constant_from!(0u64);
-            for config in configs.iter() {
+            for (_, config) in opcode_configs.iter() {
                 acc = acc + config.opcode(meta);
             }
             vec![curr!(meta, opcode) - acc]
@@ -120,15 +132,15 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("sp diff consistent", |meta| {
             let mut acc = constant_from!(0u64);
-            for config in configs.iter() {
+            for (_, config) in opcode_configs.iter() {
                 acc = acc + config.sp_diff(meta);
             }
             vec![curr!(meta, sp) + acc - next!(meta, sp)]
         });
 
-        for bit in opcode_bitmaps.iter() {
+        for (_, bit) in opcode_bitmaps.iter() {
             meta.create_gate("opcode_bitmaps assert bit", |meta| {
-                vec![curr!(meta, bit.clone()) * (curr!(meta, bit.clone()) - constant_from!(1u64))]
+                vec![curr!(meta, *bit) * (curr!(meta, *bit) - constant_from!(1u64))]
             });
         }
 
@@ -136,7 +148,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![
                 opcode_bitmaps
                     .iter()
-                    .map(|x| curr!(meta, *x))
+                    .map(|(_, x)| curr!(meta, *x))
                     .reduce(|acc, x| acc + x)
                     .unwrap()
                     - constant_from!(1u64),
@@ -165,8 +177,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         EventTableConfig {
-            opcode_bitmaps,
             common_config,
+            opcode_bitmaps,
+            opcode_configs,
             _mark: PhantomData,
         }
     }
@@ -183,5 +196,73 @@ impl<F: FieldExt> EventTableChip<F> {
             config,
             _phantom: PhantomData,
         }
+    }
+
+    pub fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        entries: &Vec<EventTableEntry>,
+    ) -> Result<(), Error> {
+        for entry in entries {
+            ctx.region.assign_advice(
+                || "etable enable",
+                self.config.common_config.enable,
+                ctx.offset,
+                || Ok(F::one()),
+            )?;
+
+            macro_rules! assign {
+                ($x: ident, $value: expr) => {
+                    ctx.region.assign_advice(
+                        || concat!("etable ", stringify!($x)),
+                        self.config.common_config.$x,
+                        ctx.offset,
+                        || Ok($value),
+                    )?;
+                };
+            }
+
+            macro_rules! assign_as_u64 {
+                ($x: ident, $value: expr) => {
+                    assign!($x, F::from($value as u64))
+                };
+            }
+
+            assign_as_u64!(enable, 1u64);
+            assign_as_u64!(eid, entry.eid);
+            assign_as_u64!(moid, entry.inst.moid);
+            assign_as_u64!(fid, entry.inst.fid);
+            assign_as_u64!(bid, entry.inst.bid);
+            assign_as_u64!(iid, entry.inst.iid);
+            assign_as_u64!(mmid, entry.inst.mmid);
+            assign_as_u64!(sp, entry.sp);
+            assign!(opcode, bn_to_field(&(entry.inst.opcode.into())));
+
+            let opcode_class = entry.inst.opcode.into();
+
+            ctx.region.assign_advice(
+                || concat!("etable opcode"),
+                self.config
+                    .opcode_bitmaps
+                    .get(&opcode_class)
+                    .unwrap()
+                    .clone(),
+                ctx.offset,
+                || Ok(F::one()),
+            )?;
+
+            self
+                .config
+                .opcode_configs
+                .get(&opcode_class)
+                .unwrap()
+                .as_ref()
+                .as_ref()
+                .assign(ctx, entry)?;
+
+            ctx.next();
+        }
+
+        Ok(())
     }
 }

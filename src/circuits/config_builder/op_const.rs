@@ -4,16 +4,20 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::bn_to_field,
+        utils::{bn_to_field, Context},
     },
     constant, constant_from, curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
-use specs::itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_CONST_VTYPE_SHIFT};
+use specs::{
+    etable::EventTableEntry,
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_CONST_VTYPE_SHIFT},
+    mtable::VarType,
+};
 use std::marker::PhantomData;
 
 pub struct ConstConfig<F: FieldExt> {
@@ -74,6 +78,33 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant_from!(1u64) * curr!(meta, self.enable)
+    }
+
+    fn opcode_class(&self) -> OpcodeClass {
+        OpcodeClass::Const
+    }
+
+    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
+        match entry.step_info {
+            specs::step::StepInfo::I32Const { value } => {
+                ctx.region.assign_advice(
+                    || "op_const vtype",
+                    self.vtype,
+                    ctx.offset,
+                    || Ok(F::from(VarType::I32 as u64)),
+                )?;
+
+                // FIXME value should be limited to i32
+                ctx.region.assign_advice(
+                    || "op_const value",
+                    self.value,
+                    ctx.offset,
+                    || Ok(F::from(value as u32 as u64)),
+                )?;
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
     }
 }
 
