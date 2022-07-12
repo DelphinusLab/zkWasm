@@ -1,15 +1,16 @@
 use super::utils::bn_to_field;
 use super::utils::Context;
-use crate::spec::jtable::JumpTableEntry;
+use super::Encode;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
+use specs::jtable::JumpTableEntry;
 use std::marker::PhantomData;
 
-impl JumpTableEntry {
-    pub fn encode(&self) -> BigUint {
+impl Encode for JumpTableEntry {
+    fn encode(&self) -> BigUint {
         todo!()
     }
 }

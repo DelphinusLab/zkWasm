@@ -1,6 +1,6 @@
 use super::test_circuit::TestCircuit;
-use crate::spec::{CompileTable, ExecutionTable};
 use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, plonk::Error};
+use specs::{CompileTable, ExecutionTable};
 
 const K: u32 = 5;
 

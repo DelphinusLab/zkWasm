@@ -1,6 +1,5 @@
 use super::utils::bn_to_field;
 use crate::constant;
-use crate::spec::itable::InstructionTableEntry;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::ConstraintSystem;
@@ -11,30 +10,16 @@ use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 use num_traits::One;
+use specs::itable::InstructionTableEntry;
 use std::marker::PhantomData;
-use wasmi::tracer::itable::IEntry;
 
-impl From<&IEntry> for InstructionTableEntry {
-    fn from(i_entry: &IEntry) -> Self {
-        todo!()
-        /*
-        InstructionTableEntry {
-            moid: i_entry.module_instance_index,
-            //TODO: cover import
-            mmid: i_entry.module_instance_index,
-            fid: i_entry.func_index,
-            bid: 0,
-            iid: i_entry.pc,
-            //FIXME
-            opcode: 0, //i_entry.opcode,
-            aux: 0,
-        }
-        */
-    }
+trait Encode {
+    fn encode(&self) -> BigUint;
+    fn encode_addr(&self) -> BigUint;
 }
 
-impl InstructionTableEntry {
-    pub fn encode(&self) -> BigUint {
+impl Encode for InstructionTableEntry {
+    fn encode(&self) -> BigUint {
         let opcode: BigUint = self.opcode.into();
         let mut bn = self.encode_addr();
         bn <<= 128usize;
@@ -42,7 +27,7 @@ impl InstructionTableEntry {
         bn
     }
 
-    pub fn encode_addr(&self) -> BigUint {
+    fn encode_addr(&self) -> BigUint {
         let mut bn = BigUint::zero();
         bn += self.moid;
         bn <<= 16u8;

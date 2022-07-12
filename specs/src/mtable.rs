@@ -11,7 +11,7 @@ pub enum AccessType {
     Init = 3,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum VarType {
     U8 = 1,
     I8,

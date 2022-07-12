@@ -13,5 +13,6 @@ num-traits = "0.2.15"
 wabt = "0.10.0"
 wasmi = { path = "./wasmi" }
 lazy_static = "1.4.0"
+specs = { path = "./specs" }
 
 [dev-dependencies]

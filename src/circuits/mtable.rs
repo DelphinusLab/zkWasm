@@ -1,14 +1,12 @@
+use super::imtable::MInitTableConfig;
+use super::rtable::RangeTableConfig;
+use super::utils::bn_to_field;
+use super::utils::row_diff::RowDiffConfig;
 use crate::constant;
 use crate::constant_from;
 use crate::curr;
-use super::imtable::MInitTableConfig;
 use crate::next;
 use crate::prev;
-use super::utils::row_diff::RowDiffConfig;
-use super::rtable::RangeTableConfig;
-use crate::spec::mtable::AccessType;
-use crate::spec::mtable::LocationType;
-use super::utils::bn_to_field;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
@@ -16,6 +14,8 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::mtable::AccessType;
+use specs::mtable::LocationType;
 use std::marker::PhantomData;
 
 lazy_static! {

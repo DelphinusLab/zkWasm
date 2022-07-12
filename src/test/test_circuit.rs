@@ -4,12 +4,12 @@ use crate::circuits::{
     jtable::JumpTableConfig,
     mtable::MemoryTableConfig,
 };
-use crate::spec::{CompileTable, ExecutionTable};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
+use specs::{CompileTable, ExecutionTable};
 use std::marker::PhantomData;
 
 const VAR_COLUMNS: usize = 50;

@@ -1,5 +1,4 @@
-use super::utils::bn_to_field;
-use crate::spec::imtable::InitMemoryTableEntry;
+use super::{utils::bn_to_field, Encode};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -7,10 +6,11 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
+use specs::imtable::InitMemoryTableEntry;
 use std::marker::PhantomData;
 
-impl InitMemoryTableEntry {
-    pub fn encode(&self) -> BigUint {
+impl Encode for InitMemoryTableEntry {
+    fn encode(&self) -> BigUint {
         let mut bn = BigUint::zero();
         bn += self.mmid;
         bn <<= 16;

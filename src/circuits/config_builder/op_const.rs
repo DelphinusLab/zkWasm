@@ -7,13 +7,13 @@ use crate::{
         utils::bn_to_field,
     },
     constant, constant_from, curr,
-    spec::itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_CONST_VTYPE_SHIFT},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
+use specs::itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_CONST_VTYPE_SHIFT};
 use std::marker::PhantomData;
 
 pub struct ConstConfig<F: FieldExt> {

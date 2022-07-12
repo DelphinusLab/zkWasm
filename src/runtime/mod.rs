@@ -1,18 +1,13 @@
-use crate::spec::{
+use specs::{
     etable::EventTableEntry,
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
-    ExecutionTable,
-};
-use wasmi::tracer::etable::RunInstructionTraceStep;
-
-use crate::spec::CompileTable;
-
-use self::{
+    step::StepInfo,
     types::{CompileError, ExecutionError, Value},
-    wasmi_interpreter::WasmiRuntime,
+    CompileTable, ExecutionTable,
 };
 
-pub mod types;
+use self::wasmi_interpreter::WasmiRuntime;
+
 pub mod wasmi_interpreter;
 
 pub struct CompileOutcome<M> {
@@ -46,7 +41,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
     let mmid = event.inst.mmid.into();
 
     match &event.step_info {
-        RunInstructionTraceStep::BrIfNez { value, dst_pc: _ } => mem_op_from_stack_only_step(
+        StepInfo::BrIfNez { value, dst_pc: _ } => mem_op_from_stack_only_step(
             eid,
             mmid,
             VarType::I32,
@@ -54,7 +49,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[*value as u64],
             &[],
         ),
-        RunInstructionTraceStep::Return {
+        StepInfo::Return {
             drop,
             keep,
             drop_values,
@@ -67,18 +62,18 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 mmid,
                 VarType::I32,
                 VarType::I32,
-                drop_values.iter().map(|value| value.0).collect::<Vec<_>>()[..]
+                drop_values.iter().map(|value| *value).collect::<Vec<_>>()[..]
                     .try_into()
                     .unwrap(),
-                keep_values.iter().map(|value| value.0).collect::<Vec<_>>()[..]
+                keep_values.iter().map(|value| *value).collect::<Vec<_>>()[..]
                     .try_into()
                     .unwrap(),
             )
         }
-        RunInstructionTraceStep::Call { index: _ } => {
+        StepInfo::Call { index: _ } => {
             vec![]
         }
-        RunInstructionTraceStep::GetLocal { depth, value } => {
+        StepInfo::GetLocal { depth, value } => {
             vec![
                 MemoryTableEntry {
                     eid,
@@ -93,7 +88,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     atype: AccessType::Read,
                     // FIXME: use correct type
                     vtype: VarType::I32,
-                    value: value.0,
+                    value: *value,
                 },
                 MemoryTableEntry {
                     eid,
@@ -105,11 +100,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     atype: AccessType::Write,
                     // FIXME: use correct type
                     vtype: VarType::I32,
-                    value: value.0,
+                    value: *value,
                 },
             ]
         }
-        RunInstructionTraceStep::I32Const { value } => mem_op_from_stack_only_step(
+        StepInfo::I32Const { value } => mem_op_from_stack_only_step(
             eid,
             mmid,
             VarType::I32,
@@ -117,7 +112,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[],
             &[*value as u64],
         ),
-        RunInstructionTraceStep::I32BinOp { left, right, value } => mem_op_from_stack_only_step(
+        StepInfo::I32BinOp { left, right, value } => mem_op_from_stack_only_step(
             eid,
             mmid,
             VarType::I32,
@@ -125,7 +120,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[*right as u64, *left as u64],
             &[*value as u64],
         ),
-        RunInstructionTraceStep::I32Comp { left, right, value } => mem_op_from_stack_only_step(
+        StepInfo::I32Comp { left, right, value } => mem_op_from_stack_only_step(
             eid,
             mmid,
             VarType::I32,

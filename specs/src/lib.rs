@@ -8,6 +8,8 @@ pub mod imtable;
 pub mod itable;
 pub mod jtable;
 pub mod mtable;
+pub mod step;
+pub mod types;
 
 #[derive(Default)]
 pub struct CompileTable {

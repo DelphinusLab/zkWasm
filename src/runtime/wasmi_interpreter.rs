@@ -1,27 +1,24 @@
 use std::{cell::RefCell, rc::Rc};
 
+use specs::{
+    itable::InstructionTableEntry,
+    types::{CompileError, ExecutionError, Value},
+    CompileTable, ExecutionTable,
+};
 use wasmi::{ImportsBuilder, ModuleInstance, NopExternals, RuntimeValue};
 
-use crate::{
-    runtime::{memory_event_of_step, ExecutionOutcome},
-    spec::{etable::EventTableEntry, itable::InstructionTableEntry, CompileTable, ExecutionTable},
-};
+use crate::runtime::{memory_event_of_step, ExecutionOutcome};
 
-use super::{
-    types::{CompileError, ExecutionError, Value},
-    CompileOutcome, WasmRuntime,
-};
+use super::{CompileOutcome, WasmRuntime};
 
 pub struct WasmiRuntime {}
 
-impl From<Value> for RuntimeValue {
-    fn from(v: Value) -> Self {
-        match v {
-            Value::i32(v) => RuntimeValue::from(v),
-            Value::i64(v) => RuntimeValue::from(v),
-            Value::u32(v) => RuntimeValue::from(v),
-            Value::u64(v) => RuntimeValue::from(v),
-        }
+fn into_wasmi_value(v: Value) -> RuntimeValue {
+    match v {
+        Value::I32(v) => RuntimeValue::I32(v),
+        Value::I64(v) => RuntimeValue::I64(v),
+        Value::U32(_) => todo!(),
+        Value::U64(_) => todo!(),
     }
 }
 
@@ -52,7 +49,7 @@ impl WasmRuntime for WasmiRuntime {
                     .itable
                     .0
                     .iter()
-                    .map(|ientry| InstructionTableEntry::from(ientry))
+                    .map(|ientry| ientry.clone().into())
                     .collect(),
                 imtable: vec![], // TODO
             },
@@ -79,7 +76,7 @@ impl WasmRuntime for WasmiRuntime {
                     function_name,
                     &args
                         .into_iter()
-                        .map(|v| RuntimeValue::from(v))
+                        .map(|v| into_wasmi_value(v))
                         .collect::<Vec<_>>(),
                     &mut NopExternals,
                 )
@@ -92,7 +89,7 @@ impl WasmRuntime for WasmiRuntime {
             .etable
             .0
             .iter()
-            .map(|eentry| EventTableEntry::from(eentry))
+            .map(|eentry| eentry.clone().into())
             .collect::<Vec<_>>();
 
         let mtable = etable

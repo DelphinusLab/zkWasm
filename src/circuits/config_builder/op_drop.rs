@@ -1,19 +1,19 @@
 use crate::{
     circuits::{
-        etable::{EventTableOpcodeConfig, EventTableOpcodeConfigBuilder, EventTableCommonConfig},
+        etable::{EventTableCommonConfig, EventTableOpcodeConfig, EventTableOpcodeConfigBuilder},
         itable::InstTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         utils::bn_to_field,
     },
     constant, curr,
-    spec::itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
+use specs::itable::{OpcodeClass, OPCODE_CLASS_SHIFT};
 use std::marker::PhantomData;
 
 pub struct DropConfig<F: FieldExt> {

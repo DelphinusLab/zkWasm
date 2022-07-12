@@ -5,13 +5,15 @@ pub enum OpcodeClass {
     LocalGet = 1,
     Const,
     Drop,
+    Return,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Opcode {
     LocalGet { offset: u64 },
     Const { vtype: VarType, value: u64 },
     Drop,
+    Return,
 }
 
 pub const OPCODE_CLASS_SHIFT: usize = 96;
@@ -29,6 +31,7 @@ impl Into<BigUint> for Opcode {
                     + value
             }
             Opcode::Drop => BigUint::from(OpcodeClass::Drop as u64) << OPCODE_CLASS_SHIFT,
+            Opcode::Return => BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT,
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
         bn
@@ -37,10 +40,10 @@ impl Into<BigUint> for Opcode {
 
 #[derive(Clone)]
 pub struct InstructionTableEntry {
-    pub(crate) moid: u16,
-    pub(crate) mmid: u16,
-    pub(crate) fid: u16,
-    pub(crate) bid: u16,
-    pub(crate) iid: u16,
-    pub(crate) opcode: Opcode,
+    pub moid: u16,
+    pub mmid: u16,
+    pub fid: u16,
+    pub bid: u16,
+    pub iid: u16,
+    pub opcode: Opcode,
 }

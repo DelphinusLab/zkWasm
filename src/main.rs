@@ -1,6 +1,5 @@
 pub mod circuits;
 pub mod runtime;
-pub mod spec;
 pub mod test;
 
 #[macro_use]
