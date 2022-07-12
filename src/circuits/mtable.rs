@@ -227,31 +227,31 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     fn configure_range(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
-        rtable.configure_in_range(meta, "mmid in range", |meta| self.mmid.data(meta));
-        rtable.configure_in_range(meta, "offset in range", |meta| self.offset.data(meta));
-        rtable.configure_in_range(meta, "eid in range", |meta| self.eid.data(meta));
-        rtable.configure_in_range(meta, "emid in range", |meta| self.emid.data(meta));
-        rtable.configure_in_range(meta, "vtype in range", |meta| self.emid.data(meta));
+        rtable.configure_in_common_range(meta, "mmid in range", |meta| self.mmid.data(meta));
+        rtable.configure_in_common_range(meta, "offset in range", |meta| self.offset.data(meta));
+        rtable.configure_in_common_range(meta, "eid in range", |meta| self.eid.data(meta));
+        rtable.configure_in_common_range(meta, "emid in range", |meta| self.emid.data(meta));
+        rtable.configure_in_common_range(meta, "vtype in range", |meta| self.emid.data(meta));
     }
 
     fn configure_sort(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
-        rtable.configure_in_range(meta, "ltype sort", |meta| {
+        rtable.configure_in_common_range(meta, "ltype sort", |meta| {
             self.is_enable(meta) * self.ltype.diff(meta)
         });
 
-        rtable.configure_in_range(meta, "mmid sort", |meta| {
+        rtable.configure_in_common_range(meta, "mmid sort", |meta| {
             self.is_enable(meta) * self.ltype.is_same(meta) * self.mmid.diff(meta)
         });
-        rtable.configure_in_range(meta, "offset sort", |meta| {
+        rtable.configure_in_common_range(meta, "offset sort", |meta| {
             self.is_enable(meta)
                 * self.ltype.is_same(meta)
                 * self.mmid.is_same(meta)
                 * self.offset.diff(meta)
         });
-        rtable.configure_in_range(meta, "eid sort", |meta| {
+        rtable.configure_in_common_range(meta, "eid sort", |meta| {
             self.is_enable(meta) * self.is_same_location(meta) * self.eid.diff(meta)
         });
-        rtable.configure_in_range(meta, "emid sort", |meta| {
+        rtable.configure_in_common_range(meta, "emid sort", |meta| {
             self.is_enable(meta)
                 * self.is_same_location(meta)
                 * self.eid.is_same(meta)

@@ -55,7 +55,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
-        let rtable = RangeTableConfig::configure([meta.lookup_table_column()]);
+        let rtable = RangeTableConfig::configure([meta.lookup_table_column(), meta.lookup_table_column()]);
         let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
         let jtable = JumpTableConfig::configure(&mut cols);
