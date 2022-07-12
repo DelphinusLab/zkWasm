@@ -8,6 +8,7 @@ use wasmi::tracer::etable::RunInstructionTraceStep;
 pub enum Opcode {
     LocalGet = 1isize,
     Const = 2isize,
+    Drop,
 }
 
 pub(crate) mod stack_only;
