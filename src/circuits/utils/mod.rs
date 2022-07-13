@@ -1,6 +1,6 @@
 use halo2_proofs::{
     arithmetic::{BaseExt, FieldExt},
-    circuit::Region,
+    circuit::Region, plonk::Expression,
 };
 use num_bigint::BigUint;
 

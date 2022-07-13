@@ -81,19 +81,25 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let _echip = EventTableChip::new(config.etable);
+        let echip = EventTableChip::new(config.etable);
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
         let mchip = MemoryTableChip::new(config.mtable);
+
+        println!("etable length is {}", self.execution_tables.etable.len());
+        println!("mtable length is {}", self.execution_tables.mtable.len());
 
         rchip.init(&mut layouter, 16usize)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
 
         layouter.assign_region(
-            || "mtable",
+            || "table",
             |region| {
                 let mut ctx = Context::new(region);
-                mchip.assign(&mut ctx, &self.execution_tables.mtable)?;
+                let cell = echip.assign(&mut ctx, &self.execution_tables.etable)?;
+
+                ctx.reset();
+                mchip.assign(&mut ctx, &self.execution_tables.mtable, cell)?;
                 Ok(())
             },
         )?;

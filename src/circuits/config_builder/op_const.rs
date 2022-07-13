@@ -44,7 +44,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
 
         mtable.configure_stack_write_in_table(
             "const mlookup",
-            "const mlookup rev",
             meta,
             |meta| curr!(meta, opcode_bit),
             |meta| curr!(meta, common.eid),

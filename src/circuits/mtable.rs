@@ -9,6 +9,7 @@ use crate::curr;
 use crate::next;
 use crate::prev;
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
@@ -41,8 +42,9 @@ pub struct MemoryTableConfig<F: FieldExt> {
     atype: Column<Advice>,
     vtype: Column<Advice>,
     value: Column<Advice>,
-    enable: Column<Advice>,
     same_location: Column<Advice>,
+    enable: Column<Advice>,
+    rest_mops: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -68,7 +70,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     pub fn configure_stack_read_in_table(
         &self,
         key: &'static str,
-        key_rev: &'static str,
         meta: &mut ConstraintSystem<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
         eid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
@@ -92,28 +93,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 self.encode_for_lookup(meta) * enable(meta),
             )]
         });
-
-        meta.lookup_any(key_rev, |meta| {
-            vec![(
-                self.encode_for_lookup(meta) * enable(meta),
-                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
-                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
-                    + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
-                    + constant!(bn_to_field(&LOC_TYPE_SHIFT))
-                        * constant_from!(LocationType::Stack)
-                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-                        * constant_from!(AccessType::Read)
-                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-                    + value(meta))
-                    * enable(meta),
-            )]
-        });
     }
 
     pub fn configure_stack_write_in_table(
         &self,
         key: &'static str,
-        key_rev: &'static str,
         meta: &mut ConstraintSystem<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
         eid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
@@ -135,22 +119,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     + value(meta))
                     * enable(meta),
                 self.encode_for_lookup(meta) * enable(meta),
-            )]
-        });
-
-        meta.lookup_any(key_rev, |meta| {
-            vec![(
-                self.encode_for_lookup(meta) * enable(meta),
-                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
-                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
-                    + sp(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
-                    + constant!(bn_to_field(&LOC_TYPE_SHIFT))
-                        * constant_from!(LocationType::Stack)
-                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-                        * constant_from!(AccessType::Read)
-                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-                    + value(meta))
-                    * enable(meta),
             )]
         });
     }
@@ -182,6 +150,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let vtype = cols.next().unwrap();
         let enable = cols.next().unwrap();
         let same_location = cols.next().unwrap();
+        let rest_mops = cols.next().unwrap();
 
         MemoryTableConfig {
             _mark: PhantomData,
@@ -195,6 +164,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             value,
             enable,
             same_location,
+            rest_mops,
         }
     }
 
@@ -289,7 +259,17 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     self.offset.data(meta),
                     curr!(meta, self.value),
                 )
-        })
+        });
+
+        imtable.configure_in_table(meta, "rest mop decrease", |meta| {
+            self.is_enable(meta)
+                * self.is_not_init(meta)
+                * (curr!(meta, self.rest_mops) - next!(meta, self.rest_mops) - constant_from!(1))
+        });
+
+        imtable.configure_in_table(meta, "rest mop zero when disabled", |meta| {
+            (self.is_enable(meta) - constant_from!(1)) * curr!(meta, self.rest_mops)
+        });
     }
 
     fn is_heap(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -317,6 +297,20 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         (atype.clone() - constant_from!(AccessType::Init))
             * (atype - constant_from!(AccessType::Write))
     }
+
+    fn is_not_init(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        // lagrange
+        let read_f = F::from(AccessType::Read as u64);
+        let write_f = F::from(AccessType::Write as u64);
+        let init_f = F::from(AccessType::Init as u64);
+        let atype = curr!(meta, self.atype);
+        (atype.clone() - constant_from!(AccessType::Write))
+            * (atype.clone() - constant_from!(AccessType::Init))
+            * constant!(((read_f - write_f) * (read_f - init_f)).invert().unwrap())
+            + (atype.clone() - constant_from!(AccessType::Read))
+                * (atype.clone() - constant_from!(AccessType::Init))
+                * constant!(((write_f - read_f) * (write_f - init_f)).invert().unwrap())
+    }
 }
 
 pub struct MemoryTableChip<F: FieldExt> {
@@ -336,9 +330,14 @@ impl<F: FieldExt> MemoryTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         entries: &Vec<MemoryTableEntry>,
+        etable_rest_mops_cell: Cell,
     ) -> Result<(), Error> {
+        let mut mops = entries.iter().fold(0, |acc, e| {
+            acc + if e.atype == AccessType::Init { 0 } else { 1 }
+        });
+
         let mut last_entry: Option<&MemoryTableEntry> = None;
-        for entry in entries {
+        for (i, entry) in entries.into_iter().enumerate() {
             macro_rules! row_diff_assign {
                 ($x: ident) => {
                     self.config.$x.assign(
@@ -385,6 +384,17 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 || Ok(F::one()),
             )?;
 
+            let cell = ctx.region.assign_advice(
+                || "mtable enable",
+                self.config.rest_mops,
+                ctx.offset,
+                || Ok(F::from(mops)),
+            )?;
+            if i == 0 {
+                ctx.region
+                    .constrain_equal(cell.cell(), etable_rest_mops_cell)?;
+            }
+
             ctx.region.assign_advice(
                 || "mtable same_location",
                 self.config.same_location,
@@ -400,6 +410,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 },
             )?;
 
+            if entry.atype != AccessType::Init {
+                mops -= 1;
+            }
             last_entry = Some(entry);
             ctx.next();
         }

@@ -10,6 +10,17 @@ pub enum OpcodeClass {
     Return,
 }
 
+impl OpcodeClass {
+    pub fn mops(&self) -> u64 {
+        match self {
+            OpcodeClass::LocalGet => 1,
+            OpcodeClass::Const => 1,
+            OpcodeClass::Drop => 0,
+            OpcodeClass::Return => 0,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Opcode {
     LocalGet { offset: u64 },
@@ -37,6 +48,13 @@ impl Into<BigUint> for Opcode {
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
         bn
+    }
+}
+
+impl Opcode {
+    pub fn mops(&self) -> u64 {
+        let opcode_class: OpcodeClass = self.clone().into();
+        opcode_class.mops()
     }
 }
 
