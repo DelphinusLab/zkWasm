@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use specs::{
-    itable::InstructionTableEntry,
+    mtable::MTable,
     types::{CompileError, ExecutionError, Value},
     CompileTable, ExecutionTable,
 };
@@ -93,12 +93,14 @@ impl WasmRuntime for WasmiRuntime {
             .map(|eentry| eentry.clone().into())
             .collect::<Vec<_>>();
 
-        let mtable = etable
+        let mentries = etable
             .iter()
             .map(|eentry| memory_event_of_step(eentry, &mut 1))
             .collect::<Vec<Vec<_>>>();
         // concat vectors without Clone
-        let mtable = mtable.into_iter().flat_map(|x| x.into_iter()).collect();
+        let mentries = mentries.into_iter().flat_map(|x| x.into_iter()).collect();
+        let mut mtable = MTable::new(mentries);
+        mtable.sort();
 
         // TODO
         let jtable = vec![];

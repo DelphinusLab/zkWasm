@@ -1,6 +1,8 @@
+use mtable::MTable;
+
 use self::{
     etable::EventTableEntry, imtable::InitMemoryTableEntry, itable::InstructionTableEntry,
-    jtable::JumpTableEntry, mtable::MemoryTableEntry,
+    jtable::JumpTableEntry,
 };
 
 pub mod etable;
@@ -20,6 +22,6 @@ pub struct CompileTable {
 #[derive(Default)]
 pub struct ExecutionTable {
     pub etable: Vec<EventTableEntry>,
-    pub mtable: Vec<MemoryTableEntry>,
+    pub mtable: MTable,
     pub jtable: Vec<JumpTableEntry>,
 }

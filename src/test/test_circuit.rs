@@ -85,7 +85,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mchip = MemoryTableChip::new(config.mtable);
 
         println!("etable length is {}", self.execution_tables.etable.len());
-        println!("mtable length is {}", self.execution_tables.mtable.len());
+        println!("mtable length is {}", self.execution_tables.mtable.entries().len());
 
         rchip.init(&mut layouter, 16usize)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
@@ -97,7 +97,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 let cell = echip.assign(&mut ctx, &self.execution_tables.etable)?;
 
                 ctx.reset();
-                mchip.assign(&mut ctx, &self.execution_tables.mtable, cell)?;
+                mchip.assign(&mut ctx, &self.execution_tables.mtable.entries(), cell)?;
                 Ok(())
             },
         )?;

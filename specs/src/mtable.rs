@@ -1,7 +1,7 @@
 use parity_wasm::elements::ValueType;
 use strum_macros::EnumIter;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LocationType {
     Heap = 0,
     Stack = 1,
@@ -71,5 +71,23 @@ pub struct MemoryTableEntry {
 impl MemoryTableEntry {
     pub fn is_same_location(&self, other: &MemoryTableEntry) -> bool {
         self.mmid == other.mmid && self.offset == other.offset && self.ltype == other.ltype
+    }
+}
+
+#[derive(Default)]
+pub struct MTable(Vec<MemoryTableEntry>);
+
+impl MTable {
+    pub fn new(entries: Vec<MemoryTableEntry>) -> Self {
+        MTable(entries)
+    }
+
+    pub fn sort(&mut self) {
+        self.0
+            .sort_by_key(|item| (item.ltype, item.mmid, item.eid, item.emid))
+    }
+
+    pub fn entries(&self) -> &Vec<MemoryTableEntry> {
+        &self.0
     }
 }
