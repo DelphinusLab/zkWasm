@@ -1,3 +1,4 @@
+use parity_wasm::elements::ValueType;
 use strum_macros::EnumIter;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -23,6 +24,17 @@ pub enum VarType {
     I32,
     U64,
     I64,
+}
+
+impl From<ValueType> for VarType {
+    fn from(v: ValueType) -> Self {
+        match v {
+            ValueType::I32 => Self::I32,
+            ValueType::I64 => Self::I64,
+            ValueType::F32 => todo!(),
+            ValueType::F64 => todo!(),
+        }
+    }
 }
 
 impl VarType {

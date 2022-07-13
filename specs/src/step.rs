@@ -21,7 +21,7 @@ pub enum StepInfo {
     },
 
     GetLocal {
-        vtype: Option<VarType>,
+        vtype: VarType,
         depth: u32,
         value: u64,
     },

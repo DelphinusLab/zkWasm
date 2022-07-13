@@ -23,7 +23,7 @@ impl OpcodeClass {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Opcode {
-    LocalGet { offset: u64 },
+    LocalGet { vtype: VarType, offset: u64 },
     Const { vtype: VarType, value: u64 },
     Drop,
     Return,
@@ -49,8 +49,10 @@ pub const OPCODE_VTYPE_SHIFT: usize = 64;
 impl Into<BigUint> for Opcode {
     fn into(self) -> BigUint {
         let bn = match self {
-            Opcode::LocalGet { offset } => {
-                (BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT) + offset
+            Opcode::LocalGet { vtype, offset } => {
+                (BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_VTYPE_SHIFT)
+                    + offset
             }
             Opcode::Const { vtype, value } => {
                 (BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)

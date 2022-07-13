@@ -105,7 +105,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
                     || Ok(F::from(depth as u64)),
                 )?;
 
-                self.tvalue.assign(ctx, vtype.unwrap(), value)?;
+                self.tvalue.assign(ctx, vtype, value)?;
             }
             _ => unreachable!(),
         }

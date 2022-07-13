@@ -498,6 +498,7 @@ name = "specs"
 version = "0.1.0"
 dependencies = [
  "num-bigint",
+ "parity-wasm",
  "strum",
  "strum_macros",
 ]
