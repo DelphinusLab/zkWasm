@@ -95,7 +95,7 @@ impl WasmRuntime for WasmiRuntime {
 
         let mtable = etable
             .iter()
-            .map(|eentry| memory_event_of_step(eentry))
+            .map(|eentry| memory_event_of_step(eentry, &mut 1))
             .collect::<Vec<Vec<_>>>();
         // concat vectors without Clone
         let mtable = mtable.into_iter().flat_map(|x| x.into_iter()).collect();

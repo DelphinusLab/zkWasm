@@ -2,7 +2,7 @@ use crate::step::StepInfo;
 
 use super::itable::InstructionTableEntry;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EventTableEntry {
     pub eid: u64,
     pub sp: u64,

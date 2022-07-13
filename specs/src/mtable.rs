@@ -52,9 +52,13 @@ impl VarType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MemoryTableEntry {
     pub eid: u64,
+    // emid is small memory id of eid,
+    // e.g. an opcode get a value front stack top and change it,
+    // its event has two memory ops on the same memory address,
+    // we should have use emid to seq the r/w op, it is an incremental value starting from 1
     pub emid: u64,
     pub mmid: u64,
     pub offset: u64,

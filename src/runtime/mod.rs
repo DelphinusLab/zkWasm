@@ -36,13 +36,14 @@ pub trait WasmRuntime {
 // TODO: use feature
 pub type WasmInterpreter = WasmiRuntime;
 
-pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
+pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<MemoryTableEntry> {
     let eid = event.eid;
     let mmid = event.inst.mmid.into();
 
     match &event.step_info {
         StepInfo::BrIfNez { value, dst_pc: _ } => mem_op_from_stack_only_step(
             eid,
+            emid,
             mmid,
             VarType::I32,
             VarType::I32,
@@ -59,6 +60,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             assert_eq!(*keep as usize, keep_values.len());
             mem_op_from_stack_only_step(
                 eid,
+                emid,
                 mmid,
                 VarType::I32,
                 VarType::I32,
@@ -71,44 +73,44 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             )
         }
         StepInfo::Drop { value } => {
-            mem_op_from_stack_only_step(eid, mmid, VarType::I32, VarType::I32, &[*value], &[])
+            mem_op_from_stack_only_step(eid, emid, mmid, VarType::I32, VarType::I32, &[*value], &[])
         }
         StepInfo::Call { index: _ } => {
             vec![]
         }
-        StepInfo::GetLocal { vtype, depth, value } => {
-            vec![
-                MemoryTableEntry {
-                    eid,
-                    // FIXME: emid is small memory id of eid,
-                    // e.g. an opcode get a value front stack top and change it,
-                    // its event has two memory ops on the same memory address,
-                    // we should have use emid to seq the r/w op, it is an incremental value starting from 1
-                    emid: 1,
-                    mmid,
-                    offset: *depth as u64,
-                    ltype: LocationType::Stack,
-                    atype: AccessType::Read,
-                    // FIXME: use correct type
-                    vtype: VarType::I32,
-                    value: *value,
-                },
-                MemoryTableEntry {
-                    eid,
-                    // FIXME: same to above
-                    emid: 1,
-                    mmid: mmid.into(),
-                    offset: 0,
-                    ltype: LocationType::Stack,
-                    atype: AccessType::Write,
-                    // FIXME: use correct type
-                    vtype: VarType::I32,
-                    value: *value,
-                },
-            ]
+        StepInfo::GetLocal {
+            vtype,
+            depth,
+            value,
+        } => {
+            let read = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid,
+                offset: *depth as u64,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: *vtype,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            let write = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: mmid.into(),
+                offset: 0,
+                ltype: LocationType::Stack,
+                atype: AccessType::Write,
+                vtype: *vtype,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+            vec![read, write]
         }
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(
             eid,
+            emid,
             mmid,
             VarType::I32,
             VarType::I32,
@@ -117,6 +119,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
         ),
         StepInfo::I32BinOp { left, right, value } => mem_op_from_stack_only_step(
             eid,
+            emid,
             mmid,
             VarType::I32,
             VarType::I32,
@@ -125,6 +128,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
         ),
         StepInfo::I32Comp { left, right, value } => mem_op_from_stack_only_step(
             eid,
+            emid,
             mmid,
             VarType::I32,
             VarType::I32,
@@ -136,6 +140,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
 
 pub(crate) fn mem_op_from_stack_only_step(
     eid: u64,
+    emid: &mut u64,
     mmid: u64,
     inputs_type: VarType,
     outputs_type: VarType,
@@ -147,8 +152,7 @@ pub(crate) fn mem_op_from_stack_only_step(
     for i in 0..pop_value.len() {
         mem_op.push(MemoryTableEntry {
             eid,
-            // FIXME: same to above
-            emid: 1,
+            emid: *emid,
             mmid,
             offset: i as u64,
             ltype: LocationType::Stack,
@@ -156,13 +160,13 @@ pub(crate) fn mem_op_from_stack_only_step(
             vtype: inputs_type,
             value: pop_value[i],
         });
+        *emid = (*emid).checked_add(1).unwrap();
     }
 
     for i in 0..push_value.len() {
         mem_op.push(MemoryTableEntry {
             eid,
-            // FIXME: same to above
-            emid: 1,
+            emid: *emid,
             mmid,
             offset: i as u64,
             ltype: LocationType::Stack,
@@ -170,6 +174,7 @@ pub(crate) fn mem_op_from_stack_only_step(
             vtype: outputs_type,
             value: push_value[i],
         });
+        *emid = (*emid).checked_add(1).unwrap();
     }
 
     mem_op
