@@ -1,5 +1,5 @@
 use crate::circuits::{
-    etable::{EventTableChip, EventTableConfig},
+    etable::{EventTableChip, EventTableConfig, EventTableOpcodeConfigBuilder},
     imtable::{self, InitMemoryTableConfig},
     itable::{InstructionTableChip, InstructionTableConfig},
     jtable::JumpTableConfig,
@@ -12,8 +12,11 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     plonk::{Circuit, ConstraintSystem, Error},
 };
-use specs::{CompileTable, ExecutionTable};
-use std::marker::PhantomData;
+use specs::{
+    itable::{Opcode, OpcodeClass},
+    CompileTable, ExecutionTable,
+};
+use std::{collections::HashSet, hash::Hash, marker::PhantomData};
 
 const VAR_COLUMNS: usize = 50;
 
@@ -55,6 +58,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
+
         let rtable = RangeTableConfig::configure([0; 3].map(|_| meta.lookup_table_column()));
         let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());

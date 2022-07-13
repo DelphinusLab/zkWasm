@@ -1,5 +1,3 @@
-use crate::types::Value;
-
 #[derive(Debug, Clone)]
 pub enum StepInfo {
     BrIfNez {
@@ -13,6 +11,9 @@ pub enum StepInfo {
         keep_values: Vec<u64>,
     },
 
+    Drop {
+        value: u64,
+    },
     Call {
         index: u32,
     },

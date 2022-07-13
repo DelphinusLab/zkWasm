@@ -251,8 +251,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            self
-                .config
+            self.config
                 .opcode_configs
                 .get(&opcode_class)
                 .unwrap()

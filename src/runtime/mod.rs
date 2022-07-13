@@ -70,6 +70,9 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     .unwrap(),
             )
         }
+        StepInfo::Drop { value } => {
+            mem_op_from_stack_only_step(eid, mmid, VarType::I32, VarType::I32, &[*value], &[])
+        }
         StepInfo::Call { index: _ } => {
             vec![]
         }

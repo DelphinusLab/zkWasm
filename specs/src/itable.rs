@@ -1,7 +1,8 @@
 use super::mtable::VarType;
 use num_bigint::BigUint;
+use std::collections::HashSet;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OpcodeClass {
     LocalGet = 1,
     Const,
@@ -58,4 +59,12 @@ pub struct InstructionTableEntry {
     pub bid: u16,
     pub iid: u16,
     pub opcode: Opcode,
+}
+
+pub fn collect_opcodeclass(ientries: &Vec<InstructionTableEntry>) -> HashSet<OpcodeClass> {
+    let mut opcodeclass: HashSet<OpcodeClass> = HashSet::new();
+    ientries.iter().for_each(|entry| {
+        opcodeclass.insert(entry.opcode.into());
+    });
+    opcodeclass
 }
