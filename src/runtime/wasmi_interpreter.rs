@@ -72,13 +72,14 @@ impl WasmRuntime for WasmiRuntime {
 
         assert_eq!(
             instance
-                .invoke_export(
+                .invoke_export_trace(
                     function_name,
                     &args
                         .into_iter()
                         .map(|v| into_wasmi_value(v))
                         .collect::<Vec<_>>(),
                     &mut NopExternals,
+                    tracer.clone(),
                 )
                 .expect("failed to execute export"),
             None,
