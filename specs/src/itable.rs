@@ -46,19 +46,19 @@ impl Opcode {
 }
 
 pub const OPCODE_CLASS_SHIFT: usize = 96;
-pub const OPCODE_VTYPE_SHIFT: usize = 64;
+pub const OPCODE_ARG0_SHIFT: usize = 80;
 
 impl Into<BigUint> for Opcode {
     fn into(self) -> BigUint {
         let bn = match self {
             Opcode::LocalGet { vtype, offset } => {
                 (BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_VTYPE_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
             Opcode::Const { vtype, value } => {
                 (BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_VTYPE_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
                     + value
             }
             Opcode::Drop => BigUint::from(OpcodeClass::Drop as u64) << OPCODE_CLASS_SHIFT,

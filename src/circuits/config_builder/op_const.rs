@@ -19,7 +19,7 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_VTYPE_SHIFT},
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_ARG0_SHIFT},
     mtable::VarType,
 };
 
@@ -68,7 +68,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
             &(BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
         )) + curr!(meta, self.tvalue.vtype)
             * constant!(bn_to_field(
-                &(BigUint::from(1u64) << OPCODE_VTYPE_SHIFT)
+                &(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)
             ))
             + curr!(meta, self.tvalue.value.value))
             * curr!(meta, self.enable)
