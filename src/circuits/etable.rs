@@ -5,6 +5,8 @@ use super::itable::encode_inst_expr;
 use super::itable::InstructionTableConfig;
 use super::jtable::JumpTableConfig;
 use super::mtable::MemoryTableConfig;
+use super::rtable;
+use super::rtable::RangeTableConfig;
 use super::utils::Context;
 use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
@@ -31,6 +33,7 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
         common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
+        rtable: &RangeTableConfig<F>,
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
@@ -69,7 +72,8 @@ pub struct EventTableConfig<F: FieldExt> {
 impl<F: FieldExt> EventTableConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
-        cols: &mut impl Iterator<Item = Column<Advice>>,
+        cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
+        rtable: &RangeTableConfig<F>,
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
@@ -113,7 +117,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                         meta,
                         &common_config,
                         opcode_bit.clone(),
-                        cols,
+                        &mut cols.clone(),
+                        rtable,
                         itable,
                         mtable,
                         jtable,

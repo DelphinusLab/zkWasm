@@ -4,7 +4,11 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::{bn_to_field, Context},
+        utils::{
+            bn_to_field,
+            tvalue::TValueConfig,
+            Context,
+        }, rtable::RangeTableConfig,
     },
     constant, constant_from, curr,
 };
@@ -15,16 +19,13 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_CONST_VTYPE_SHIFT},
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_VTYPE_SHIFT},
     mtable::VarType,
 };
-use std::marker::PhantomData;
 
 pub struct ConstConfig<F: FieldExt> {
-    vtype: Column<Advice>,
-    value: Column<Advice>,
+    tvalue: TValueConfig<F>,
     enable: Column<Advice>,
-    _mark: PhantomData<F>,
 }
 
 pub struct ConstConfigBuilder {}
@@ -35,12 +36,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
         common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
+        rtable: &RangeTableConfig<F>,
         _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         _jtable: &JumpTableConfig<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let value = cols.next().unwrap();
-        let vtype = cols.next().unwrap();
+        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| curr!(meta, opcode_bit));
 
         mtable.configure_stack_write_in_table(
             "const mlookup",
@@ -49,15 +50,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1),
             |meta| curr!(meta, common.sp),
-            |meta| curr!(meta, vtype),
-            |meta| curr!(meta, value),
+            |meta| curr!(meta, tvalue.vtype),
+            |meta| curr!(meta, tvalue.value.value),
         );
 
         Box::new(ConstConfig {
             enable: opcode_bit,
-            value,
-            vtype,
-            _mark: PhantomData,
+            tvalue,
         })
     }
 }
@@ -67,11 +66,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
         // FIXME
         (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
-        )) + curr!(meta, self.vtype)
+        )) + curr!(meta, self.tvalue.vtype)
             * constant!(bn_to_field(
-                &(BigUint::from(1u64) << OPCODE_CONST_VTYPE_SHIFT)
+                &(BigUint::from(1u64) << OPCODE_VTYPE_SHIFT)
             ))
-            + curr!(meta, self.value))
+            + curr!(meta, self.tvalue.value.value))
             * curr!(meta, self.enable)
     }
 
@@ -86,20 +85,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
         match entry.step_info {
             specs::step::StepInfo::I32Const { value } => {
-                ctx.region.assign_advice(
-                    || "op_const vtype",
-                    self.vtype,
-                    ctx.offset,
-                    || Ok(F::from(VarType::I32 as u64)),
-                )?;
-
-                // FIXME value should be limited to i32
-                ctx.region.assign_advice(
-                    || "op_const value",
-                    self.value,
-                    ctx.offset,
-                    || Ok(F::from(value as u32 as u64)),
-                )?;
+                self.tvalue.assign(ctx, VarType::I32, value as u32 as u64)?;
             }
             _ => unreachable!(),
         }

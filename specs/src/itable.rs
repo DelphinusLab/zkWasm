@@ -29,8 +29,22 @@ pub enum Opcode {
     Return,
 }
 
+impl Opcode {
+    pub fn mops(&self) -> u64 {
+        let opcode_class: OpcodeClass = self.clone().into();
+        opcode_class.mops()
+    }
+
+    pub fn vtype(&self) -> Option<VarType> {
+        match self {
+            Opcode::Const { vtype, .. } => Some(*vtype),
+            _ => None,
+        }
+    }
+}
+
 pub const OPCODE_CLASS_SHIFT: usize = 96;
-pub const OPCODE_CONST_VTYPE_SHIFT: usize = 64;
+pub const OPCODE_VTYPE_SHIFT: usize = 64;
 
 impl Into<BigUint> for Opcode {
     fn into(self) -> BigUint {
@@ -40,7 +54,7 @@ impl Into<BigUint> for Opcode {
             }
             Opcode::Const { vtype, value } => {
                 (BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_CONST_VTYPE_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_VTYPE_SHIFT)
                     + value
             }
             Opcode::Drop => BigUint::from(OpcodeClass::Drop as u64) << OPCODE_CLASS_SHIFT,
@@ -48,13 +62,6 @@ impl Into<BigUint> for Opcode {
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
         bn
-    }
-}
-
-impl Opcode {
-    pub fn mops(&self) -> u64 {
-        let opcode_class: OpcodeClass = self.clone().into();
-        opcode_class.mops()
     }
 }
 

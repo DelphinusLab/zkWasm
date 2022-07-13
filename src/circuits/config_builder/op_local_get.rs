@@ -4,7 +4,12 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::{bn_to_field, Context},
+        rtable::RangeTableConfig,
+        utils::{
+            bn_to_field,
+            tvalue::{self, TValueConfig},
+            Context,
+        },
     },
     constant, constant_from, curr,
 };
@@ -21,8 +26,7 @@ use std::marker::PhantomData;
 
 pub struct LocalGetConfig<F: FieldExt> {
     offset: Column<Advice>,
-    vtype: Column<Advice>,
-    value: Column<Advice>,
+    tvalue: TValueConfig<F>,
     _mark: PhantomData<F>,
 }
 
@@ -34,13 +38,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
         common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
+        rtable: &RangeTableConfig<F>,
         _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         _jtable: &JumpTableConfig<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let offset = cols.next().unwrap();
-        let value = cols.next().unwrap();
-        let vtype = cols.next().unwrap();
+        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| curr!(meta, opcode_bit));
 
         mtable.configure_stack_read_in_table(
             "local get mlookup",
@@ -49,8 +53,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
             |meta| curr!(meta, common.sp),
-            |meta| curr!(meta, vtype),
-            |meta| curr!(meta, value),
+            |meta| curr!(meta, tvalue.vtype),
+            |meta| curr!(meta, tvalue.value.value),
         );
 
         mtable.configure_stack_write_in_table(
@@ -60,14 +64,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
             |meta| curr!(meta, common.sp),
-            |meta| curr!(meta, vtype),
-            |meta| curr!(meta, value),
+            |meta| curr!(meta, tvalue.vtype),
+            |meta| curr!(meta, tvalue.value.value),
         );
 
         Box::new(LocalGetConfig {
             offset,
-            value,
-            vtype,
+            tvalue,
             _mark: PhantomData,
         })
     }
@@ -90,7 +93,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
 
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
         match entry.step_info {
-            specs::step::StepInfo::GetLocal { depth, value } => todo!(),
+            specs::step::StepInfo::GetLocal {
+                vtype,
+                depth,
+                value,
+            } => {
+                ctx.region.assign_advice(
+                    || "op_const offset",
+                    self.offset,
+                    ctx.offset,
+                    || Ok(F::from(depth as u64)),
+                )?;
+
+                self.tvalue.assign(ctx, vtype.unwrap(), value)?;
+            }
             _ => unreachable!(),
         }
         Ok(())

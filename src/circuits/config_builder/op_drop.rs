@@ -4,7 +4,7 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::{bn_to_field, Context},
+        utils::{bn_to_field, Context}, rtable::RangeTableConfig,
     },
     constant, curr,
 };
@@ -32,6 +32,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
         _common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         _cols: &mut impl Iterator<Item = Column<Advice>>,
+        _rtable: &RangeTableConfig<F>,
         _itable: &InstructionTableConfig<F>,
         _mtable: &MemoryTableConfig<F>,
         _jtable: &JumpTableConfig<F>,

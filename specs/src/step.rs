@@ -1,3 +1,5 @@
+use crate::mtable::VarType;
+
 #[derive(Debug, Clone)]
 pub enum StepInfo {
     BrIfNez {
@@ -19,6 +21,7 @@ pub enum StepInfo {
     },
 
     GetLocal {
+        vtype: Option<VarType>,
         depth: u32,
         value: u64,
     },

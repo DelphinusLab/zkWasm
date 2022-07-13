@@ -8,8 +8,8 @@ use specs::mtable::VarType;
 
 #[derive(Clone)]
 pub struct TValueConfig<F: FieldExt> {
-    vtype: Column<Advice>,
-    value: Value64Config<F>,
+    pub vtype: Column<Advice>,
+    pub value: Value64Config<F>,
 }
 
 impl<F: FieldExt> TValueConfig<F> {
