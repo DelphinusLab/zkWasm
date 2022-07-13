@@ -16,7 +16,7 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
 };
 use std::marker::PhantomData;
 
@@ -80,7 +80,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
-        )) + curr!(meta, self.offset)
+        )) + curr!(meta, self.tvalue.vtype)
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
+            + curr!(meta, self.offset)
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
