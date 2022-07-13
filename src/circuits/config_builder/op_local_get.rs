@@ -5,11 +5,7 @@ use crate::{
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         rtable::RangeTableConfig,
-        utils::{
-            bn_to_field,
-            tvalue::{self, TValueConfig},
-            Context,
-        },
+        utils::{bn_to_field, tvalue::TValueConfig, Context},
     },
     constant, constant_from, curr,
 };
