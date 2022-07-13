@@ -20,11 +20,13 @@ impl<F: FieldExt> RowDiffConfig<F> {
         key: &'static str,
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
+        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Self {
         let data = cols.next().unwrap();
         let same = cols.next().unwrap();
         let inv = cols.next().unwrap();
         meta.create_gate(key, |meta| {
+            let enable = enable(meta);
             let curr = meta.query_advice(data, Rotation::cur());
             let prev = meta.query_advice(data, Rotation::prev());
             let inv = meta.query_advice(inv, Rotation::cur());
@@ -35,6 +37,9 @@ impl<F: FieldExt> RowDiffConfig<F> {
                     - Expression::Constant(F::one()),
                 (curr.clone() - prev.clone()) * same.clone(),
             ]
+            .into_iter()
+            .map(|x| x * enable.clone())
+            .collect::<Vec<Expression<F>>>()
         });
 
         RowDiffConfig {

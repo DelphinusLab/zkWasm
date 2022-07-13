@@ -5,6 +5,8 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 
 pub mod row_diff;
+pub mod value_64;
+pub mod tvalue;
 
 pub struct Context<'a, F: FieldExt> {
     pub region: Box<Region<'a, F>>,
