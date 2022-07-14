@@ -35,8 +35,6 @@ impl Encode for InstructionTableEntry {
         bn <<= 16u8;
         bn += self.fid;
         bn <<= 16u8;
-        bn += self.bid;
-        bn <<= 16u8;
         bn += self.iid;
         bn
     }
@@ -46,7 +44,6 @@ pub fn encode_inst_expr<F: FieldExt>(
     moid: Expression<F>,
     mmid: Expression<F>,
     fid: Expression<F>,
-    bid: Expression<F>,
     iid: Expression<F>,
     opcode: Expression<F>,
 ) -> Expression<F> {
@@ -54,8 +51,6 @@ pub fn encode_inst_expr<F: FieldExt>(
     let mut acc = opcode;
     bn <<= 64u8;
     acc = acc + iid * constant!(bn_to_field(&bn));
-    bn <<= 16u8;
-    acc = acc + bid * constant!(bn_to_field(&bn));
     bn <<= 16u8;
     acc = acc + fid * constant!(bn_to_field(&bn));
     bn <<= 16u8;

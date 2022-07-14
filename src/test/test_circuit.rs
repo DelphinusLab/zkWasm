@@ -2,7 +2,7 @@ use crate::circuits::{
     etable::{EventTableChip, EventTableConfig},
     imtable::InitMemoryTableConfig,
     itable::{InstructionTableChip, InstructionTableConfig},
-    jtable::JumpTableConfig,
+    jtable::{JumpTableChip, JumpTableConfig},
     mtable::{MemoryTableChip, MemoryTableConfig},
     rtable::{RangeTableChip, RangeTableConfig},
     utils::Context,
@@ -59,7 +59,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let rtable = RangeTableConfig::configure([0; 3].map(|_| meta.lookup_table_column()));
         let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
-        let jtable = JumpTableConfig::configure(&mut cols);
+        let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
         let etable =
             EventTableConfig::configure(meta, &mut cols, &rtable, &itable, &mtable, &jtable);
@@ -83,9 +83,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
         let mchip = MemoryTableChip::new(config.mtable);
+        let jchip = JumpTableChip::new(config.jtable);
 
         println!("etable length is {}", self.execution_tables.etable.len());
-        println!("mtable length is {}", self.execution_tables.mtable.entries().len());
+        println!(
+            "mtable length is {}",
+            self.execution_tables.mtable.entries().len()
+        );
 
         rchip.init(&mut layouter, 16usize)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
@@ -94,10 +98,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             || "table",
             |region| {
                 let mut ctx = Context::new(region);
-                let cell = echip.assign(&mut ctx, &self.execution_tables.etable)?;
+                let (rest_mops_cell, rest_jops_cell) = echip.assign(&mut ctx, &self.execution_tables.etable)?;
 
                 ctx.reset();
-                mchip.assign(&mut ctx, &self.execution_tables.mtable.entries(), cell)?;
+                mchip.assign(&mut ctx, &self.execution_tables.mtable.entries(), rest_mops_cell)?;
+                ctx.reset();
+                jchip.assign(&mut ctx, &self.execution_tables.jtable, rest_jops_cell)?;
                 Ok(())
             },
         )?;

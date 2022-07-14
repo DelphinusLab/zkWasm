@@ -5,7 +5,6 @@ use super::itable::encode_inst_expr;
 use super::itable::InstructionTableConfig;
 use super::jtable::JumpTableConfig;
 use super::mtable::MemoryTableConfig;
-use super::rtable;
 use super::rtable::RangeTableConfig;
 use super::utils::Context;
 use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
@@ -52,10 +51,10 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
 pub struct EventTableCommonConfig {
     pub enable: Column<Advice>,
     pub rest_mops: Column<Advice>,
+    pub rest_jops: Column<Advice>,
     pub eid: Column<Advice>,
     pub moid: Column<Advice>,
     pub fid: Column<Advice>,
-    pub bid: Column<Advice>,
     pub iid: Column<Advice>,
     pub mmid: Column<Advice>,
     pub sp: Column<Advice>,
@@ -83,19 +82,23 @@ impl<F: FieldExt> EventTableConfig<F> {
         let eid = cols.next().unwrap();
         let moid = cols.next().unwrap();
         let fid = cols.next().unwrap();
-        let bid = cols.next().unwrap();
         let iid = cols.next().unwrap();
         let mmid = cols.next().unwrap();
         let sp = cols.next().unwrap();
         let opcode = cols.next().unwrap();
         let rest_mops = cols.next().unwrap();
+        let rest_jops = cols.next().unwrap();
+
+        meta.enable_equality(rest_mops);
+        meta.enable_equality(rest_jops);
+
         let common_config = EventTableCommonConfig {
             rest_mops,
+            rest_jops,
             enable,
             eid,
             moid,
             fid,
-            bid,
             iid,
             mmid,
             sp,
@@ -185,7 +188,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                     curr!(meta, common_config.moid),
                     curr!(meta, common_config.mmid),
                     curr!(meta, common_config.fid),
-                    curr!(meta, common_config.bid),
                     curr!(meta, common_config.iid),
                     curr!(meta, common_config.opcode),
                 )
@@ -206,6 +208,27 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("rest_mops is zero at end", |meta| {
+            vec![
+                (curr!(meta, common_config.enable) - constant_from!(1))
+                    * curr!(meta, common_config.rest_mops),
+            ]
+        });
+
+        meta.create_gate("rest_jops decrease", |meta| {
+            let curr_mops = opcode_bitmaps
+                .iter()
+                .map(|(opcode_class, x)| curr!(meta, *x) * constant_from!(opcode_class.jops()))
+                .reduce(|acc, x| acc + x)
+                .unwrap();
+            vec![
+                curr!(meta, common_config.enable)
+                    * (curr!(meta, common_config.rest_mops)
+                        - next!(meta, common_config.rest_mops)
+                        - curr_mops),
+            ]
+        });
+
+        meta.create_gate("rest_jops is zero at end", |meta| {
             vec![
                 (curr!(meta, common_config.enable) - constant_from!(1))
                     * curr!(meta, common_config.rest_mops),
@@ -245,11 +268,15 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         entries: &Vec<EventTableEntry>,
-    ) -> Result<Cell, Error> {
+    ) -> Result<(Cell, Cell), Error> {
         let mut rest_mops_cell = None;
         let mut rest_mops = entries
             .iter()
             .fold(0, |acc, entry| acc + entry.inst.opcode.mops());
+        let mut rest_jops_cell = None;
+        let mut rest_jops = entries
+            .iter()
+            .fold(0, |acc, entry| acc + entry.inst.opcode.jops());
 
         for (i, entry) in entries.into_iter().enumerate() {
             ctx.region.assign_advice(
@@ -280,7 +307,6 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_as_u64!(eid, entry.eid);
             assign_as_u64!(moid, entry.inst.moid);
             assign_as_u64!(fid, entry.inst.fid);
-            assign_as_u64!(bid, entry.inst.bid);
             assign_as_u64!(iid, entry.inst.iid);
             assign_as_u64!(mmid, entry.inst.mmid);
             assign_as_u64!(sp, entry.sp);
@@ -318,10 +344,22 @@ impl<F: FieldExt> EventTableChip<F> {
                 rest_mops_cell = Some(cell.cell());
             }
 
+            let cell = ctx.region.assign_advice(
+                || concat!("etable rest_jops"),
+                self.config.common_config.rest_jops,
+                ctx.offset,
+                || Ok(rest_jops.into()),
+            )?;
+
+            if i == 0 {
+                rest_jops_cell = Some(cell.cell());
+            }
+
             rest_mops -= entry.inst.opcode.mops();
+            rest_jops -= entry.inst.opcode.jops();
             ctx.next();
         }
 
-        Ok(rest_mops_cell.unwrap())
+        Ok((rest_mops_cell.unwrap(), rest_jops_cell.unwrap()))
     }
 }

@@ -152,6 +152,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let same_location = cols.next().unwrap();
         let rest_mops = cols.next().unwrap();
 
+        meta.enable_equality(rest_mops);
+
         MemoryTableConfig {
             _mark: PhantomData,
             ltype,

@@ -20,6 +20,15 @@ impl OpcodeClass {
             OpcodeClass::Return => 0,
         }
     }
+
+    pub fn jops(&self) -> u64 {
+        match self {
+            OpcodeClass::LocalGet => 0,
+            OpcodeClass::Const => 0,
+            OpcodeClass::Drop => 0,
+            OpcodeClass::Return => 1,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -34,6 +43,11 @@ impl Opcode {
     pub fn mops(&self) -> u64 {
         let opcode_class: OpcodeClass = self.clone().into();
         opcode_class.mops()
+    }
+
+    pub fn jops(&self) -> u64 {
+        let opcode_class: OpcodeClass = self.clone().into();
+        opcode_class.jops()
     }
 
     pub fn vtype(&self) -> Option<VarType> {
@@ -90,9 +104,21 @@ pub struct InstructionTableEntry {
     pub moid: u16,
     pub mmid: u16,
     pub fid: u16,
-    pub bid: u16,
     pub iid: u16,
     pub opcode: Opcode,
+}
+
+impl InstructionTableEntry {
+    pub fn encode_instruction_address(&self) -> BigUint {
+        let mut bn = BigUint::from(0u64);
+        bn += self.moid;
+        bn = bn << 16;
+        bn += self.fid;
+        bn = bn << 16;
+        bn += self.iid;
+        bn = bn << 16;
+        bn
+    }
 }
 
 pub fn collect_opcodeclass(ientries: &Vec<InstructionTableEntry>) -> HashSet<OpcodeClass> {
