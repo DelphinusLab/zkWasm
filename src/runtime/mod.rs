@@ -57,7 +57,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             keep_values,
         } => {
             assert_eq!(*drop as usize, drop_values.len());
-            assert_eq!(*keep as usize, keep_values.len());
+            assert_eq!(keep.len(), keep_values.len());
             mem_op_from_stack_only_step(
                 eid,
                 emid,

@@ -241,7 +241,9 @@ impl<F: FieldExt> EventTableChip<F> {
         entries: &Vec<EventTableEntry>,
     ) -> Result<Cell, Error> {
         let mut rest_mops_cell = None;
-        let mut rest_mops = entries.iter().fold(0, |acc, entry| acc + entry.inst.opcode.mops());
+        let mut rest_mops = entries
+            .iter()
+            .fold(0, |acc, entry| acc + entry.inst.opcode.mops());
 
         for (i, entry) in entries.into_iter().enumerate() {
             ctx.region.assign_advice(
@@ -276,9 +278,9 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_as_u64!(iid, entry.inst.iid);
             assign_as_u64!(mmid, entry.inst.mmid);
             assign_as_u64!(sp, entry.sp);
-            assign!(opcode, bn_to_field(&(entry.inst.opcode.into())));
+            assign!(opcode, bn_to_field(&(entry.inst.opcode.clone().into())));
 
-            let opcode_class = entry.inst.opcode.into();
+            let opcode_class = entry.inst.opcode.clone().into();
 
             ctx.region.assign_advice(
                 || concat!("etable opcode"),
