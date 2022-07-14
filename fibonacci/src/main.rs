@@ -76,6 +76,7 @@ fn main() {
         Some(RuntimeValue::I32(8)),
     );
 
+
     // println!("{:?}", tracer);
-    println!("{:?}", (*tracer).borrow().itable);
+    println!("{:?}", (*tracer).borrow().etable);
 }

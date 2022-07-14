@@ -111,6 +111,7 @@ impl WasmRuntime for WasmiRuntime {
             .map(|jentry| (*jentry).clone().into())
             .collect::<Vec<_>>();
 
+            println!("{:?}", jtable);
         Ok(ExecutionOutcome {
             tables: ExecutionTable {
                 etable,
