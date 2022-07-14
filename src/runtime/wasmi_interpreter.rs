@@ -102,8 +102,14 @@ impl WasmRuntime for WasmiRuntime {
         let mut mtable = MTable::new(mentries);
         mtable.sort();
 
-        // TODO
-        let jtable = vec![];
+        let jtable = tracer
+            .jtable
+            .as_ref()
+            .unwrap()
+            .0
+            .iter()
+            .map(|jentry| (*jentry).clone().into())
+            .collect::<Vec<_>>();
 
         Ok(ExecutionOutcome {
             tables: ExecutionTable {
