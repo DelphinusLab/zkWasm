@@ -5,11 +5,7 @@ use crate::{
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         rtable::RangeTableConfig,
-        utils::{
-            bn_to_field,
-            tvalue::{self, TValueConfig},
-            Context,
-        },
+        utils::{bn_to_field, tvalue::TValueConfig, Context},
     },
     constant, constant_from, curr, next,
 };
@@ -23,8 +19,6 @@ use specs::{
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::VarType,
 };
-use std::marker::PhantomData;
-use wasmi::ValueType;
 
 pub struct ReturnConfig<F: FieldExt> {
     drop: Column<Advice>,
