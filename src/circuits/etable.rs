@@ -59,6 +59,7 @@ pub struct EventTableCommonConfig {
     pub mmid: Column<Advice>,
     pub sp: Column<Advice>,
     pub opcode: Column<Advice>,
+    pub last_jump_eid: Column<Advice>,
 }
 
 #[derive(Clone)]
@@ -88,6 +89,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let opcode = cols.next().unwrap();
         let rest_mops = cols.next().unwrap();
         let rest_jops = cols.next().unwrap();
+        let last_jump_eid = cols.next().unwrap();
 
         meta.enable_equality(rest_mops);
         meta.enable_equality(rest_jops);
@@ -103,6 +105,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             mmid,
             sp,
             opcode,
+            last_jump_eid,
         };
 
         let mut opcode_bitmaps_vec = vec![];

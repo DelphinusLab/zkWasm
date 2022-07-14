@@ -11,7 +11,7 @@ use crate::{
             Context,
         },
     },
-    constant, constant_from, curr,
+    constant, constant_from, curr, next,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -43,7 +43,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         rtable: &RangeTableConfig<F>,
         _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
-        _jtable: &JumpTableConfig<F>,
+        jtable: &JumpTableConfig<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let drop = cols.next().unwrap();
         let keep = cols.next().unwrap();
@@ -79,9 +79,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             |meta| curr!(meta, tvalue.value.value),
         );
 
-        // TODO:
-        // 1. lookup next inst in jtable
-        // 2. jtable count
+        jtable.configure_in_table(
+            meta,
+            |meta| curr!(meta, common.last_jump_eid),
+            |meta| next!(meta, common.last_jump_eid),
+            |meta| next!(meta, common.moid),
+            |meta| next!(meta, common.fid),
+            |meta| next!(meta, common.iid),
+        );
 
         Box::new(ReturnConfig { drop, keep, tvalue })
     }
