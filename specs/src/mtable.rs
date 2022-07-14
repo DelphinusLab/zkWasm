@@ -1,4 +1,3 @@
-use parity_wasm::elements::ValueType;
 use strum_macros::EnumIter;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,13 +25,22 @@ pub enum VarType {
     I64,
 }
 
-impl From<ValueType> for VarType {
-    fn from(v: ValueType) -> Self {
+impl From<parity_wasm::elements::ValueType> for VarType {
+    fn from(v: parity_wasm::elements::ValueType) -> Self {
         match v {
-            ValueType::I32 => Self::I32,
-            ValueType::I64 => Self::I64,
-            ValueType::F32 => todo!(),
-            ValueType::F64 => todo!(),
+            parity_wasm::elements::ValueType::I32 => Self::I32,
+            parity_wasm::elements::ValueType::I64 => Self::I64,
+            _ => todo!(),
+        }
+    }
+}
+
+impl From<crate::types::ValueType> for VarType {
+    fn from(v: crate::types::ValueType) -> Self {
+        match v {
+            crate::types::ValueType::I32 => Self::I32,
+            crate::types::ValueType::I64 => Self::I64,
+            _ => todo!(),
         }
     }
 }

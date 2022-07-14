@@ -20,9 +20,11 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
+    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
+    mtable::VarType,
 };
 use std::marker::PhantomData;
+use wasmi::ValueType;
 
 pub struct ReturnConfig<F: FieldExt> {
     drop: Column<Advice>,
@@ -77,6 +79,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             |meta| curr!(meta, tvalue.value.value),
         );
 
+        // TODO:
+        // 1. lookup next inst in jtable
+        // 2. jtable count
+
         Box::new(ReturnConfig { drop, keep, tvalue })
     }
 }
@@ -88,6 +94,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
         )) + curr!(meta, self.drop)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + curr!(meta, self.keep)
+                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+            + curr!(meta, self.tvalue.vtype)
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
@@ -106,8 +114,25 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                 keep_values,
                 ..
             } => {
-                todo!();
-                //self.tvalue.assign(ctx, vtype, value)?;
+                assert!(keep.len() <= 1);
+                if keep.len() > 0 {
+                    self.tvalue
+                        .assign(ctx, VarType::from(keep[0]), keep_values[0])?;
+                }
+
+                ctx.region.assign_advice(
+                    || "opcode return drop",
+                    self.drop,
+                    ctx.offset,
+                    || Ok(F::from(*drop as u64)),
+                )?;
+
+                ctx.region.assign_advice(
+                    || "opcode return keep",
+                    self.keep,
+                    ctx.offset,
+                    || Ok(if keep.is_empty() { F::zero() } else { F::one() }),
+                )?;
             }
             _ => unreachable!(),
         }

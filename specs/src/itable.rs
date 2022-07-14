@@ -1,5 +1,4 @@
 use crate::types::ValueType;
-
 use super::mtable::VarType;
 use num_bigint::BigUint;
 use std::collections::HashSet;
@@ -47,6 +46,7 @@ impl Opcode {
 
 pub const OPCODE_CLASS_SHIFT: usize = 96;
 pub const OPCODE_ARG0_SHIFT: usize = 80;
+pub const OPCODE_ARG1_SHIFT: usize = 64;
 
 impl Into<BigUint> for Opcode {
     fn into(self) -> BigUint {
@@ -62,10 +62,11 @@ impl Into<BigUint> for Opcode {
                     + value
             }
             Opcode::Drop => BigUint::from(OpcodeClass::Drop as u64) << OPCODE_CLASS_SHIFT,
-            Opcode::Return { .. } => {
-                // how to encode keep
-                todo!();
-                BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT
+            Opcode::Return { drop, keep } => {
+                (BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(keep.len() as u64) << OPCODE_ARG0_SHIFT)
+                    + keep.first().map_or(0u64, |x| *x as u64)
             }
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
