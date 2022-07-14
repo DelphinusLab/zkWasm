@@ -8,6 +8,7 @@ use super::mtable::MemoryTableConfig;
 use super::rtable;
 use super::rtable::RangeTableConfig;
 use super::utils::Context;
+use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
 use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
@@ -129,7 +130,12 @@ impl<F: FieldExt> EventTableConfig<F> {
             })
         ];
 
-        configure![ConstConfigBuilder, DropConfigBuilder, LocalGetConfigBuilder];
+        configure![
+            ConstConfigBuilder,
+            DropConfigBuilder,
+            LocalGetConfigBuilder,
+            ReturnConfigBuilder
+        ];
 
         meta.create_gate("opcode consistent", |meta| {
             let mut acc = constant_from!(0u64);
