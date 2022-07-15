@@ -15,7 +15,7 @@ use halo2_proofs::{
 use specs::{CompileTable, ExecutionTable};
 use std::marker::PhantomData;
 
-const VAR_COLUMNS: usize = 50;
+const VAR_COLUMNS: usize = 51;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {

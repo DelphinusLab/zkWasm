@@ -66,7 +66,7 @@ impl<F: FieldExt> RowDiffConfig<F> {
 
     pub fn assign(&self, ctx: &mut Context<F>, data: F, diff: F) -> Result<(), Error> {
         ctx.region
-            .assign_advice_from_constant(|| "row diff data", self.data, ctx.offset, data)?;
+            .assign_advice(|| "row diff data", self.data, ctx.offset, || Ok(data))?;
         ctx.region.assign_advice(
             || "row diff inv",
             self.inv,

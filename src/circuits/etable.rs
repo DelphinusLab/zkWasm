@@ -225,9 +225,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                 .unwrap();
             vec![
                 curr!(meta, common_config.enable)
-                    * (curr!(meta, common_config.rest_mops)
-                        - next!(meta, common_config.rest_mops)
-                        - curr_mops),
+                    * (curr!(meta, common_config.rest_jops)
+                        - next!(meta, common_config.rest_jops)
+                        - curr_mops * next!(meta, common_config.enable)),
             ]
         });
 

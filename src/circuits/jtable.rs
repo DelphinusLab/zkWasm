@@ -29,6 +29,7 @@ impl Encode for JumpTableEntry {
 pub struct JumpTableConfig<F: FieldExt> {
     rest: Column<Advice>,
     entry: Column<Advice>,
+    aux: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -40,9 +41,16 @@ impl<F: FieldExt> JumpTableConfig<F> {
     ) -> Self {
         let rest = cols.next().unwrap();
         let entry = cols.next().unwrap();
+        let aux = cols.next().unwrap();
 
         meta.create_gate("jtable rest decrease", |meta| {
             vec![(curr!(meta, rest) - next!(meta, rest) - constant_from!(2)) * curr!(meta, entry)]
+        });
+
+        // (entry == 0 -> rest == 0)
+        // <-> (exists aux, entry * aux == rest)
+        meta.create_gate("jtable is zero at end", |meta| {
+            vec![curr!(meta, entry) * curr!(meta, aux) - curr!(meta, rest)]
         });
 
         meta.enable_equality(rest);
@@ -54,6 +62,7 @@ impl<F: FieldExt> JumpTableConfig<F> {
         Self {
             rest,
             entry,
+            aux,
             _mark: PhantomData,
         }
     }
@@ -101,13 +110,17 @@ impl<F: FieldExt> JumpTableChip<F> {
         entries: &Vec<JumpTableEntry>,
         etable_rest_jops_cell: Cell,
     ) -> Result<(), Error> {
+        let entries: Vec<&JumpTableEntry> = entries.into_iter().filter(|e| e.eid != 0).collect();
         let mut rest = entries.len() as u64 * 2;
         for (i, entry) in entries.iter().enumerate() {
+            let rest_f = rest.into();
+            let entry_f = bn_to_field(&entry.inst.encode_instruction_address());
+
             let cell = ctx.region.assign_advice(
                 || "jtable rest",
                 self.config.rest,
                 ctx.offset,
-                || Ok(rest.into()),
+                || Ok(rest_f),
             )?;
 
             if i == 0 {
@@ -119,7 +132,14 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || "jtable entry",
                 self.config.entry,
                 ctx.offset,
-                || Ok(bn_to_field(&entry.inst.encode_instruction_address())),
+                || Ok(entry_f),
+            )?;
+
+            ctx.region.assign_advice(
+                || "jtable entry",
+                self.config.entry,
+                ctx.offset,
+                || Ok(rest_f * entry_f.invert().unwrap()),
             )?;
 
             rest -= 2;
