@@ -4,11 +4,8 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::{
-            bn_to_field,
-            tvalue::TValueConfig,
-            Context,
-        }, rtable::RangeTableConfig,
+        rtable::RangeTableConfig,
+        utils::{bn_to_field, tvalue::TValueConfig, Context},
     },
     constant, constant_from, curr,
 };
@@ -19,7 +16,7 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT, OPCODE_ARG0_SHIFT},
+    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::VarType,
 };
 
@@ -40,13 +37,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
         _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         _jtable: &JumpTableConfig<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| curr!(meta, opcode_bit));
+        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| {
+            curr!(meta, opcode_bit) * enable(meta)
+        });
 
         mtable.configure_stack_write_in_table(
             "const mlookup",
             meta,
-            |meta| curr!(meta, opcode_bit),
+            |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1),
             |meta| curr!(meta, common.sp),
@@ -67,15 +67,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
         (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
         )) + curr!(meta, self.tvalue.vtype)
-            * constant!(bn_to_field(
-                &(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)
-            ))
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + curr!(meta, self.tvalue.value.value))
             * curr!(meta, self.enable)
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant_from!(1u64) * curr!(meta, self.enable)
+        constant!(-F::one()) * curr!(meta, self.enable)
     }
 
     fn opcode_class(&self) -> OpcodeClass {

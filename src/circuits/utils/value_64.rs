@@ -54,7 +54,10 @@ impl<F: FieldExt> Value64Config<F> {
             || Ok(value.into()),
         )?;
 
-        let bytes = value.to_le_bytes();
+        let mut bytes = Vec::from(value.to_be_bytes());
+        bytes.resize(8, 0);
+        bytes.reverse();
+
         for i in 0..8 {
             ctx.region.assign_advice(
                 || "u64 byte",

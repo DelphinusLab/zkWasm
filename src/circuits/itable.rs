@@ -49,7 +49,7 @@ pub fn encode_inst_expr<F: FieldExt>(
 ) -> Expression<F> {
     let mut bn = BigUint::one();
     let mut acc = opcode;
-    bn <<= 64u8;
+    bn <<= 128u8;
     acc = acc + iid * constant!(bn_to_field(&bn));
     bn <<= 16u8;
     acc = acc + fid * constant!(bn_to_field(&bn));
@@ -103,11 +103,12 @@ impl<F: FieldExt> InstructionTableChip<F> {
         layouter.assign_table(
             || "itable",
             |mut table| {
+                table.assign_cell(|| "inst_init talbe", self.config.col, 0, || Ok(F::zero()))?;
                 for (i, v) in instructions.iter().enumerate() {
                     table.assign_cell(
                         || "inst_init talbe",
                         self.config.col,
-                        i,
+                        i + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),
                     )?;
                 }

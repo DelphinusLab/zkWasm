@@ -11,8 +11,8 @@ use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
 use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
+use crate::fixed_curr;
 use crate::next;
-use crate::prev;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Advice;
@@ -20,6 +20,7 @@ use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
@@ -37,6 +38,7 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 
@@ -47,8 +49,11 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode_class(&self) -> OpcodeClass;
 }
 
+const ETABLE_ROWS: usize = 1usize << 16;
+
 #[derive(Clone)]
 pub struct EventTableCommonConfig {
+    pub sel: Column<Fixed>,
     pub enable: Column<Advice>,
     pub rest_mops: Column<Advice>,
     pub rest_jops: Column<Advice>,
@@ -79,6 +84,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
     ) -> Self {
+        let sel = meta.fixed_column();
         let enable = cols.next().unwrap();
         let eid = cols.next().unwrap();
         let moid = cols.next().unwrap();
@@ -95,6 +101,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         meta.enable_equality(rest_jops);
 
         let common_config = EventTableCommonConfig {
+            sel,
             rest_mops,
             rest_jops,
             enable,
@@ -108,7 +115,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             last_jump_eid,
         };
 
-        let mut opcode_bitmaps_vec = vec![];
+        let mut opcode_bitmaps_vec: Vec<Column<Advice>> = vec![];
         let mut opcode_bitmaps = BTreeMap::new();
         let mut opcode_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
@@ -129,6 +136,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                         itable,
                         mtable,
                         jtable,
+                        |meta| fixed_curr!(meta, sel)
                     );
                     opcode_bitmaps.insert(config.opcode_class(), opcode_bit.clone());
                     opcode_configs.insert(config.opcode_class(), Rc::new(config));
@@ -145,43 +153,56 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("opcode consistent", |meta| {
             let mut acc = constant_from!(0u64);
-            for (_, config) in opcode_configs.iter() {
-                acc = acc + config.opcode(meta);
+            for (opcode_class, config) in opcode_configs.iter() {
+                acc = acc
+                    + config.opcode(meta) * curr!(meta, *opcode_bitmaps.get(opcode_class).unwrap());
             }
-            vec![curr!(meta, opcode) - acc]
+            vec![(curr!(meta, opcode) - acc) * fixed_curr!(meta, common_config.sel)]
         });
 
         meta.create_gate("sp diff consistent", |meta| {
             let mut acc = constant_from!(0u64);
-            for (_, config) in opcode_configs.iter() {
-                acc = acc + config.sp_diff(meta);
+            for (opcode_class, config) in opcode_configs.iter() {
+                acc = acc
+                    + config.sp_diff(meta)
+                        * curr!(meta, *opcode_bitmaps.get(opcode_class).unwrap());
             }
-            vec![curr!(meta, sp) + acc - next!(meta, sp)]
+            vec![
+                (curr!(meta, sp) + acc - next!(meta, sp))
+                    * next!(meta, common_config.enable)
+                    * fixed_curr!(meta, common_config.sel),
+            ]
         });
 
         for (_, bit) in opcode_bitmaps.iter() {
             meta.create_gate("opcode_bitmaps assert bit", |meta| {
-                vec![curr!(meta, *bit) * (curr!(meta, *bit) - constant_from!(1u64))]
+                vec![
+                    (curr!(meta, *bit) * (curr!(meta, *bit) - constant_from!(1u64)))
+                        * fixed_curr!(meta, common_config.sel),
+                ]
             });
         }
 
         meta.create_gate("opcode_bitmaps pick one", |meta| {
             vec![
-                opcode_bitmaps
+                (opcode_bitmaps
                     .iter()
                     .map(|(_, x)| curr!(meta, *x))
                     .reduce(|acc, x| acc + x)
                     .unwrap()
-                    - constant_from!(1u64),
+                    - constant_from!(1u64))
+                    * curr!(meta, common_config.enable)
+                    * fixed_curr!(meta, common_config.sel),
             ]
         });
 
         meta.create_gate("eid increase", |meta| {
             vec![
-                curr!(meta, common_config.enable)
-                    * (curr!(meta, common_config.eid)
-                        - prev!(meta, common_config.eid)
-                        - constant_from!(1u64)),
+                next!(meta, common_config.enable)
+                    * (next!(meta, common_config.eid)
+                        - curr!(meta, common_config.eid)
+                        - constant_from!(1u64))
+                    * fixed_curr!(meta, common_config.sel),
             ]
         });
 
@@ -194,6 +215,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     curr!(meta, common_config.iid),
                     curr!(meta, common_config.opcode),
                 )
+                * fixed_curr!(meta, common_config.sel)
         });
 
         meta.create_gate("rest_mops decrease", |meta| {
@@ -206,14 +228,16 @@ impl<F: FieldExt> EventTableConfig<F> {
                 curr!(meta, common_config.enable)
                     * (curr!(meta, common_config.rest_mops)
                         - next!(meta, common_config.rest_mops)
-                        - curr_mops),
+                        - curr_mops)
+                    * fixed_curr!(meta, common_config.sel),
             ]
         });
 
         meta.create_gate("rest_mops is zero at end", |meta| {
             vec![
                 (curr!(meta, common_config.enable) - constant_from!(1))
-                    * curr!(meta, common_config.rest_mops),
+                    * curr!(meta, common_config.rest_mops)
+                    * fixed_curr!(meta, common_config.sel),
             ]
         });
 
@@ -227,21 +251,24 @@ impl<F: FieldExt> EventTableConfig<F> {
                 curr!(meta, common_config.enable)
                     * (curr!(meta, common_config.rest_jops)
                         - next!(meta, common_config.rest_jops)
-                        - curr_mops * next!(meta, common_config.enable)),
+                        - curr_mops * next!(meta, common_config.enable))
+                    * fixed_curr!(meta, common_config.sel),
             ]
         });
 
         meta.create_gate("rest_jops is zero at end", |meta| {
             vec![
                 (curr!(meta, common_config.enable) - constant_from!(1))
-                    * curr!(meta, common_config.rest_mops),
+                    * curr!(meta, common_config.rest_mops)
+                    * fixed_curr!(meta, common_config.sel),
             ]
         });
 
         meta.create_gate("enable is bit", |meta| {
             vec![
                 (curr!(meta, common_config.enable) - constant_from!(1))
-                    * curr!(meta, common_config.enable),
+                    * curr!(meta, common_config.enable)
+                    * fixed_curr!(meta, common_config.sel),
             ]
         });
 
@@ -272,25 +299,38 @@ impl<F: FieldExt> EventTableChip<F> {
         ctx: &mut Context<'_, F>,
         entries: &Vec<EventTableEntry>,
     ) -> Result<(Cell, Cell), Error> {
-        let mut rest_mops_cell = None;
+        for i in 0..ETABLE_ROWS {
+            ctx.region.assign_fixed(
+                || "etable sel",
+                self.config.common_config.sel,
+                i,
+                || Ok(F::one()),
+            )?;
+        }
+
+        let mut rest_mops_cell_opt = None;
         let mut rest_mops = entries
             .iter()
             .fold(0, |acc, entry| acc + entry.inst.opcode.mops());
-        let mut rest_jops_cell = None;
+
+        let mut rest_jops_cell_opt = None;
+        // minus 1 becuase the last return is not a jump
         let mut rest_jops = entries
             .iter()
-            .fold(0, |acc, entry| acc + entry.inst.opcode.jops());
+            .fold(0, |acc, entry| acc + entry.inst.opcode.jops())
+            - 1;
 
         for (i, entry) in entries.into_iter().enumerate() {
             macro_rules! assign {
-                ($x: ident, $value: expr) => {
-                    ctx.region.assign_advice(
+                ($x: ident, $value: expr) => {{
+                    let cell = ctx.region.assign_advice(
                         || concat!("etable ", stringify!($x)),
                         self.config.common_config.$x,
                         ctx.offset,
                         || Ok($value),
                     )?;
-                };
+                    cell
+                }};
             }
 
             macro_rules! assign_as_u64 {
@@ -308,18 +348,25 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_as_u64!(sp, entry.sp);
             assign!(opcode, bn_to_field(&(entry.inst.opcode.clone().into())));
 
+            //TODO: give correct last_jump_eid
+            assign_as_u64!(last_jump_eid, 0);
+
             let opcode_class = entry.inst.opcode.clone().into();
 
-            ctx.region.assign_advice(
-                || concat!("etable opcode"),
-                self.config
-                    .opcode_bitmaps
-                    .get(&opcode_class)
-                    .unwrap()
-                    .clone(),
-                ctx.offset,
-                || Ok(F::one()),
-            )?;
+            for (key, cols) in self.config.opcode_bitmaps.iter() {
+                ctx.region.assign_advice(
+                    || concat!("etable opcode"),
+                    cols.clone(),
+                    ctx.offset,
+                    || {
+                        Ok(if *key == entry.inst.opcode.clone().into() {
+                            F::one()
+                        } else {
+                            F::zero()
+                        })
+                    },
+                )?;
+            }
 
             self.config
                 .opcode_configs
@@ -329,26 +376,11 @@ impl<F: FieldExt> EventTableChip<F> {
                 .as_ref()
                 .assign(ctx, entry)?;
 
-            let cell = ctx.region.assign_advice(
-                || concat!("etable rest_mops"),
-                self.config.common_config.rest_mops,
-                ctx.offset,
-                || Ok(rest_mops.into()),
-            )?;
-
+            let rest_mops_cell = assign_as_u64!(rest_mops, rest_mops);
+            let rest_jops_cell = assign_as_u64!(rest_jops, rest_jops);
             if i == 0 {
-                rest_mops_cell = Some(cell.cell());
-            }
-
-            let cell = ctx.region.assign_advice(
-                || concat!("etable rest_jops"),
-                self.config.common_config.rest_jops,
-                ctx.offset,
-                || Ok(rest_jops.into()),
-            )?;
-
-            if i == 0 {
-                rest_jops_cell = Some(cell.cell());
+                rest_mops_cell_opt = Some(rest_mops_cell.cell());
+                rest_jops_cell_opt = Some(rest_jops_cell.cell());
             }
 
             rest_mops -= entry.inst.opcode.mops();
@@ -356,6 +388,6 @@ impl<F: FieldExt> EventTableChip<F> {
             ctx.next();
         }
 
-        Ok((rest_mops_cell.unwrap(), rest_jops_cell.unwrap()))
+        Ok((rest_mops_cell_opt.unwrap(), rest_jops_cell_opt.unwrap()))
     }
 }

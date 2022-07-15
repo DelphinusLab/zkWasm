@@ -4,7 +4,8 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        utils::{bn_to_field, Context}, rtable::RangeTableConfig,
+        rtable::RangeTableConfig,
+        utils::{bn_to_field, Context},
     },
     constant, curr,
 };
@@ -36,6 +37,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
         _itable: &InstructionTableConfig<F>,
         _mtable: &MemoryTableConfig<F>,
         _jtable: &JumpTableConfig<F>,
+        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         Box::new(DropConfig {
             enable: opcode_bit,
@@ -52,7 +54,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for DropConfig<F> {
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(-F::one()) * curr!(meta, self.enable)
+        constant!(F::one()) * curr!(meta, self.enable)
     }
 
     fn opcode_class(&self) -> OpcodeClass {

@@ -38,23 +38,26 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let drop = cols.next().unwrap();
         let keep = cols.next().unwrap();
-        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| curr!(meta, opcode_bit));
+        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| {
+            curr!(meta, opcode_bit) * enable(meta) * curr!(meta, keep)
+        });
 
         meta.create_gate("keep is bit", |meta| {
-            vec![curr!(meta, keep) * (curr!(meta, keep) - constant_from!(1))]
+            vec![curr!(meta, keep) * (curr!(meta, keep) - constant_from!(1)) * enable(meta)]
         });
 
         rtable.configure_in_common_range(meta, "return drop range", |meta| {
-            curr!(meta, opcode_bit) * curr!(meta, drop)
+            curr!(meta, opcode_bit) * curr!(meta, drop) * enable(meta)
         });
 
         mtable.configure_stack_read_in_table(
             "return mlookup 1",
             meta,
-            |meta| curr!(meta, opcode_bit) * curr!(meta, keep),
+            |meta| curr!(meta, opcode_bit) * curr!(meta, keep) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
             |meta| curr!(meta, common.sp),
@@ -65,7 +68,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         mtable.configure_stack_write_in_table(
             "return mlookup 2",
             meta,
-            |meta| curr!(meta, opcode_bit) * curr!(meta, keep),
+            |meta| curr!(meta, opcode_bit) * curr!(meta, keep) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
             |meta| curr!(meta, common.sp) - curr!(meta, drop),
@@ -75,6 +78,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
 
         jtable.configure_in_table(
             meta,
+            |meta| curr!(meta, opcode_bit) * curr!(meta, keep) * enable(meta),
             |meta| curr!(meta, common.last_jump_eid),
             |meta| next!(meta, common.last_jump_eid),
             |meta| next!(meta, common.moid),

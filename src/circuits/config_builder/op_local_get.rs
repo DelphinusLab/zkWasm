@@ -38,18 +38,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
         _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         _jtable: &JumpTableConfig<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let offset = cols.next().unwrap();
-        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| curr!(meta, opcode_bit));
+        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| {
+            curr!(meta, opcode_bit) * enable(meta)
+        });
 
         rtable.configure_in_common_range(meta, "localget offset range", |meta| {
-            curr!(meta, opcode_bit) * curr!(meta, offset)
+            curr!(meta, opcode_bit) * curr!(meta, offset) * enable(meta)
         });
 
         mtable.configure_stack_read_in_table(
             "local get mlookup 1",
             meta,
-            |meta| curr!(meta, opcode_bit),
+            |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
             |meta| curr!(meta, common.sp),
@@ -60,7 +63,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
         mtable.configure_stack_write_in_table(
             "local get mlookup 2",
             meta,
-            |meta| curr!(meta, opcode_bit),
+            |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
             |meta| curr!(meta, common.sp),
@@ -86,7 +89,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant_from!(1u64)
+        constant!(-F::one())
     }
 
     fn opcode_class(&self) -> OpcodeClass {

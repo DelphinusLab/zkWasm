@@ -1,17 +1,16 @@
+use super::Context;
+use crate::{constant_from, curr, next};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
-    poly::Rotation,
 };
 use std::marker::PhantomData;
 
-use super::Context;
-
 #[derive(Clone)]
 pub struct RowDiffConfig<F: FieldExt> {
-    data: Column<Advice>,
-    same: Column<Advice>,
-    inv: Column<Advice>,
+    pub data: Column<Advice>,
+    pub same: Column<Advice>,
+    pub inv: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -25,17 +24,15 @@ impl<F: FieldExt> RowDiffConfig<F> {
         let data = cols.next().unwrap();
         let same = cols.next().unwrap();
         let inv = cols.next().unwrap();
+
+        meta.enable_equality(same);
+
         meta.create_gate(key, |meta| {
             let enable = enable(meta);
-            let curr = meta.query_advice(data, Rotation::cur());
-            let prev = meta.query_advice(data, Rotation::prev());
-            let inv = meta.query_advice(inv, Rotation::cur());
-            let same = meta.query_advice(same, Rotation::cur());
             vec![
-                (curr.clone() - prev.clone()) * inv.clone()
-                    - same.clone()
-                    - Expression::Constant(F::one()),
-                (curr.clone() - prev.clone()) * same.clone(),
+                (next!(meta, data) - curr!(meta, data)) * next!(meta, inv) + next!(meta, same)
+                    - constant_from!(1),
+                (next!(meta, data) - curr!(meta, data)) * next!(meta, same),
             ]
             .into_iter()
             .map(|x| x * enable.clone())
@@ -50,18 +47,20 @@ impl<F: FieldExt> RowDiffConfig<F> {
         }
     }
 
+    pub fn is_next_same(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        next!(meta, self.same)
+    }
+
     pub fn is_same(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        meta.query_advice(self.same, Rotation::cur())
+        curr!(meta, self.same)
     }
 
     pub fn data(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        meta.query_advice(self.data, Rotation::cur())
+        curr!(meta, self.data)
     }
 
-    pub fn diff(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        let curr = meta.query_advice(self.data, Rotation::cur());
-        let prev = meta.query_advice(self.data, Rotation::prev());
-        curr - prev
+    pub fn diff_to_next(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        next!(meta, self.data) - curr!(meta, self.data)
     }
 
     pub fn assign(&self, ctx: &mut Context<F>, data: F, diff: F) -> Result<(), Error> {
@@ -73,18 +72,39 @@ impl<F: FieldExt> RowDiffConfig<F> {
             ctx.offset,
             || Ok(diff.invert().unwrap_or(F::zero())),
         )?;
-        ctx.region.assign_advice(
-            || "row diff same",
-            self.same,
-            ctx.offset,
-            || {
-                Ok(if diff.is_zero().into() {
-                    F::one()
-                } else {
-                    F::zero()
-                })
-            },
-        )?;
+
+        if ctx.offset == 0 {
+            ctx.region.assign_advice_from_constant(
+                || "row diff same",
+                self.same,
+                ctx.offset,
+                F::zero(),
+            )?;
+        } else {
+            ctx.region.assign_advice(
+                || "row diff same",
+                self.same,
+                ctx.offset,
+                || {
+                    Ok(if diff.is_zero().into() {
+                        F::one()
+                    } else {
+                        F::zero()
+                    })
+                },
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn assign_final(&self, ctx: &mut Context<F>) -> Result<(), Error> {
+        ctx.region
+            .assign_advice(|| "row diff data", self.data, ctx.offset, || Ok(F::zero()))?;
+        ctx.region
+            .assign_advice(|| "row diff inv", self.inv, ctx.offset, || Ok(F::zero()))?;
+        ctx.region
+            .assign_advice(|| "row diff same", self.same, ctx.offset, || Ok(F::zero()))?;
 
         Ok(())
     }

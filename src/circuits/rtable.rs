@@ -118,25 +118,29 @@ impl<F: FieldExt> RangeTableChip<F> {
             || "vtype byte validation table",
             |mut table| {
                 let mut index = 0usize;
-                macro_rules! assign_pos_vtype {
-                    ($pos: expr, $vtype: expr, $allow:expr) => {
-                        for v in 0..if $allow { 256u64 } else { 1u64 } {
+
+                for pos in 0..8u64 {
+                    for t in VarType::iter() {
+                        let range = if pos < t.byte_size() { 256u64 } else { 1u64 };
+                        //let range = 256;
+                        for v in 0..range {
                             table.assign_cell(
                                 || "vtype byte validation table",
                                 self.config.vtype_byte_col,
                                 index,
-                                || Ok(F::from((($pos << 12) + (($vtype as u64) << 8)) + v)),
+                                || Ok(F::from((pos << 12) + ((t as u64) << 8) + v)),
                             )?;
                             index += 1;
                         }
-                    };
-                }
-
-                for pos in 0..8u64 {
-                    for t in VarType::iter() {
-                        assign_pos_vtype!(pos, t, pos < t.byte_size());
                     }
                 }
+
+                table.assign_cell(
+                    || "vtype byte validation table",
+                    self.config.vtype_byte_col,
+                    index,
+                    || Ok(F::zero()),
+                )?;
 
                 Ok(())
             },
