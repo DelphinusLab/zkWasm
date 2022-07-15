@@ -384,7 +384,9 @@ impl<F: FieldExt> EventTableChip<F> {
             }
 
             rest_mops -= entry.inst.opcode.mops();
-            rest_jops -= entry.inst.opcode.jops();
+            if rest_jops > 0 {
+                rest_jops -= entry.inst.opcode.jops();
+            }
             ctx.next();
         }
 
