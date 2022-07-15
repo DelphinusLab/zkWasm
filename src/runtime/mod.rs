@@ -38,7 +38,6 @@ pub type WasmInterpreter = WasmiRuntime;
 
 pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<MemoryTableEntry> {
     let eid = event.eid;
-    let mmid = event.inst.mmid.into();
     let sp_before_execution = event.sp;
 
     match &event.step_info {
@@ -46,7 +45,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             sp_before_execution,
             eid,
             emid,
-            mmid,
             VarType::I32,
             VarType::I32,
             &[*value as u64],
@@ -64,7 +62,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 sp_before_execution,
                 eid,
                 emid,
-                mmid,
                 VarType::I32,
                 VarType::I32,
                 drop_values.iter().map(|value| *value).collect::<Vec<_>>()[..]
@@ -87,7 +84,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let read = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                mmid,
+                mmid: 0,
                 offset: sp_before_execution + *depth as u64,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -99,7 +96,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let write = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                mmid: mmid.into(),
+                mmid: 0,
                 offset: sp_before_execution,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
@@ -113,7 +110,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             sp_before_execution,
             eid,
             emid,
-            mmid,
             VarType::I32,
             VarType::I32,
             &[],
@@ -123,7 +119,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             sp_before_execution,
             eid,
             emid,
-            mmid,
             VarType::I32,
             VarType::I32,
             &[*right as u64, *left as u64],
@@ -133,7 +128,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             sp_before_execution,
             eid,
             emid,
-            mmid,
             VarType::I32,
             VarType::I32,
             &[*right as u64, *left as u64],
@@ -146,7 +140,6 @@ pub(crate) fn mem_op_from_stack_only_step(
     sp_before_execution: u64,
     eid: u64,
     emid: &mut u64,
-    mmid: u64,
     inputs_type: VarType,
     outputs_type: VarType,
     pop_value: &[u64],
@@ -159,7 +152,7 @@ pub(crate) fn mem_op_from_stack_only_step(
         mem_op.push(MemoryTableEntry {
             eid,
             emid: *emid,
-            mmid,
+            mmid: 0,
             offset: sp as u64,
             ltype: LocationType::Stack,
             atype: AccessType::Read,
@@ -174,7 +167,7 @@ pub(crate) fn mem_op_from_stack_only_step(
         mem_op.push(MemoryTableEntry {
             eid,
             emid: *emid,
-            mmid,
+            mmid: 0,
             offset: sp as u64,
             ltype: LocationType::Stack,
             atype: AccessType::Write,
