@@ -282,13 +282,6 @@ impl<F: FieldExt> EventTableChip<F> {
             .fold(0, |acc, entry| acc + entry.inst.opcode.jops());
 
         for (i, entry) in entries.into_iter().enumerate() {
-            ctx.region.assign_advice(
-                || "etable enable",
-                self.config.common_config.enable,
-                ctx.offset,
-                || Ok(F::one()),
-            )?;
-
             macro_rules! assign {
                 ($x: ident, $value: expr) => {
                     ctx.region.assign_advice(
