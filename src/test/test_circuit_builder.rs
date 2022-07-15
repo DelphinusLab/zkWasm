@@ -10,7 +10,8 @@ pub fn run_test_circuit<F: FieldExt>(
 ) -> Result<(), Error> {
     let circuit = TestCircuit::<F>::new(compile_table, execution_table);
 
-    MockProver::run(K, &circuit, vec![])?;
+    let prover = MockProver::run(K, &circuit, vec![])?;
+    assert_eq!(prover.verify(), Ok(()));
 
     Ok(())
 }
