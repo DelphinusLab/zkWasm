@@ -39,9 +39,11 @@ pub type WasmInterpreter = WasmiRuntime;
 pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<MemoryTableEntry> {
     let eid = event.eid;
     let mmid = event.inst.mmid.into();
+    let sp_before_execution = event.sp;
 
     match &event.step_info {
         StepInfo::BrIfNez { value, dst_pc: _ } => mem_op_from_stack_only_step(
+            sp_before_execution,
             eid,
             emid,
             mmid,
@@ -59,6 +61,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             assert_eq!(*drop as usize, drop_values.len());
             assert_eq!(keep.len(), keep_values.len());
             mem_op_from_stack_only_step(
+                sp_before_execution,
                 eid,
                 emid,
                 mmid,
@@ -72,9 +75,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                     .unwrap(),
             )
         }
-        StepInfo::Drop { value } => {
-            mem_op_from_stack_only_step(eid, emid, mmid, VarType::I32, VarType::I32, &[*value], &[])
-        }
+        StepInfo::Drop { .. } => vec![],
         StepInfo::Call { index: _ } => {
             vec![]
         }
@@ -87,7 +88,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 eid,
                 emid: *emid,
                 mmid,
-                offset: *depth as u64,
+                offset: sp_before_execution + *depth as u64,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
@@ -99,7 +100,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 eid,
                 emid: *emid,
                 mmid: mmid.into(),
-                offset: 0,
+                offset: sp_before_execution,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
@@ -109,6 +110,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             vec![read, write]
         }
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(
+            sp_before_execution,
             eid,
             emid,
             mmid,
@@ -118,6 +120,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             &[*value as u64],
         ),
         StepInfo::I32BinOp { left, right, value } => mem_op_from_stack_only_step(
+            sp_before_execution,
             eid,
             emid,
             mmid,
@@ -127,6 +130,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             &[*value as u64],
         ),
         StepInfo::I32Comp { left, right, value } => mem_op_from_stack_only_step(
+            sp_before_execution,
             eid,
             emid,
             mmid,
@@ -139,6 +143,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 }
 
 pub(crate) fn mem_op_from_stack_only_step(
+    sp_before_execution: u64,
     eid: u64,
     emid: &mut u64,
     mmid: u64,
@@ -148,19 +153,21 @@ pub(crate) fn mem_op_from_stack_only_step(
     push_value: &[u64],
 ) -> Vec<MemoryTableEntry> {
     let mut mem_op = vec![];
+    let mut sp = sp_before_execution;
 
     for i in 0..pop_value.len() {
         mem_op.push(MemoryTableEntry {
             eid,
             emid: *emid,
             mmid,
-            offset: i as u64,
+            offset: sp as u64,
             ltype: LocationType::Stack,
             atype: AccessType::Read,
             vtype: inputs_type,
             value: pop_value[i],
         });
         *emid = (*emid).checked_add(1).unwrap();
+        sp = sp + 1;
     }
 
     for i in 0..push_value.len() {
@@ -168,12 +175,13 @@ pub(crate) fn mem_op_from_stack_only_step(
             eid,
             emid: *emid,
             mmid,
-            offset: i as u64,
+            offset: sp as u64,
             ltype: LocationType::Stack,
             atype: AccessType::Write,
             vtype: outputs_type,
             value: push_value[i],
         });
+        sp = sp - 1;
         *emid = (*emid).checked_add(1).unwrap();
     }
 
