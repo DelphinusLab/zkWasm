@@ -88,7 +88,7 @@ impl WasmRuntime for WasmiRuntime {
         let tracer = tracer.borrow();
         let etable = tracer
             .etable
-            .0
+            .get_entries()
             .iter()
             .map(|eentry| eentry.clone().into())
             .collect::<Vec<_>>();
@@ -110,7 +110,6 @@ impl WasmRuntime for WasmiRuntime {
             .map(|jentry| (*jentry).clone().into())
             .collect::<Vec<_>>();
 
-            println!("{:?}", jtable);
         Ok(ExecutionOutcome {
             tables: ExecutionTable {
                 etable,

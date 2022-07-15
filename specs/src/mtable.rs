@@ -82,7 +82,7 @@ impl MemoryTableEntry {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct MTable(Vec<MemoryTableEntry>);
 
 impl MTable {
