@@ -87,10 +87,12 @@ pub struct MTable(Vec<MemoryTableEntry>);
 
 impl MTable {
     pub fn new(entries: Vec<MemoryTableEntry>) -> Self {
-        MTable(entries)
+        let mut mtable = MTable(entries);
+        mtable.sort();
+        mtable
     }
 
-    pub fn sort(&mut self) {
+    fn sort(&mut self) {
         self.0
             .sort_by_key(|item| (item.ltype, item.mmid, item.eid, item.emid))
     }

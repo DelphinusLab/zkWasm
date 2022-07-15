@@ -99,8 +99,7 @@ impl WasmRuntime for WasmiRuntime {
             .collect::<Vec<Vec<_>>>();
         // concat vectors without Clone
         let mentries = mentries.into_iter().flat_map(|x| x.into_iter()).collect();
-        let mut mtable = MTable::new(mentries);
-        mtable.sort();
+        let mtable = MTable::new(mentries);
 
         let jtable = tracer
             .jtable
