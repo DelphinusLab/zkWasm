@@ -39,7 +39,7 @@ impl WasmRuntime for WasmiRuntime {
             .assert_no_start();
 
         let mut tracer = wasmi::tracer::Tracer::default();
-        tracer.register_module_instance(&instance);
+        tracer.register_module_instance(&module, &instance);
 
         Ok(CompileOutcome {
             textual_repr: textual_repr.to_string(),
@@ -67,7 +67,7 @@ impl WasmRuntime for WasmiRuntime {
             .assert_no_start();
 
         let mut tracer = wasmi::tracer::Tracer::default();
-        tracer.register_module_instance(&instance);
+        tracer.register_module_instance(&compile_outcome.module, &instance);
         let tracer = Rc::new(RefCell::new(tracer));
 
         assert_eq!(
