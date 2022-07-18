@@ -89,13 +89,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mchip = MemoryTableChip::new(config.mtable);
         let jchip = JumpTableChip::new(config.jtable);
 
-        println!("etable is {:?}", self.execution_tables.etable);
-        println!();
-        println!("itable is {:?}", self.compile_tables.itable);
-        println!();
-        println!("mtable is {:?}", self.execution_tables.mtable);
-        println!();
-
         rchip.init(&mut layouter)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
 

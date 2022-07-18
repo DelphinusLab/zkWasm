@@ -29,7 +29,7 @@ impl<F: FieldExt> Bytes8Config<F> {
             });
         }
 
-        meta.create_gate("value64 sum", |meta| {
+        meta.create_gate("bytes8 sum", |meta| {
             let mut acc = curr!(meta, bytes_le[0].clone());
             let mut base = F::one();
             for i in 1..8usize {
@@ -54,9 +54,8 @@ impl<F: FieldExt> Bytes8Config<F> {
             || Ok(value.into()),
         )?;
 
-        let mut bytes = Vec::from(value.to_be_bytes());
+        let mut bytes = Vec::from(value.to_le_bytes());
         bytes.resize(8, 0);
-        bytes.reverse();
 
         for i in 0..8 {
             ctx.region.assign_advice(

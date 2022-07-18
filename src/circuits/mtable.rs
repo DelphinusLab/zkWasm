@@ -163,9 +163,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     self.config.$x.assign(
                         ctx,
                         (entry.$x as u64).into(),
-                        ((entry.$x as u64)
-                            - last_entry.as_ref().map(|x| x.$x as u64).unwrap_or(0u64))
-                        .into(),
+                        (F::from(entry.$x as u64)
+                            - F::from(last_entry.as_ref().map(|x| x.$x as u64).unwrap_or(0u64))),
                     )?;
                 };
             }

@@ -30,7 +30,7 @@ impl<F: FieldExt> U64Config<F> {
             });
         }
 
-        meta.create_gate("value64 sum", |meta| {
+        meta.create_gate("u64 sum", |meta| {
             let mut acc = curr!(meta, u16_le[0].clone());
             let mut base = F::one();
             for i in 1..4usize {
@@ -55,9 +55,8 @@ impl<F: FieldExt> U64Config<F> {
             || Ok(value.into()),
         )?;
 
-        let mut bytes = Vec::from(value.to_be_bytes());
+        let mut bytes = Vec::from(value.to_le_bytes());
         bytes.resize(8, 0);
-        bytes.reverse();
 
         for i in 0..4 {
             ctx.region.assign_advice(

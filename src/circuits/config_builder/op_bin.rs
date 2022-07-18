@@ -29,7 +29,7 @@ pub struct BinOpConfig<F: FieldExt> {
     overflow: U64Config<F>,
     enable: Column<Advice>,
     is_add: Column<Advice>,
-    is_sub: Column<Advice>,
+    is_or: Column<Advice>,
     vtype_len_bitmask: [Column<Advice>; 4],
 }
 
@@ -48,9 +48,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_add = cols.next().unwrap();
-        let is_sub = cols.next().unwrap();
+        let is_or = cols.next().unwrap();
         let vtype_len_bitmask = [0; 4].map(|_| cols.next().unwrap());
-        let overflow = U64Config::configure(meta, cols, rtable, &enable);
+        let overflow = U64Config::configure(meta, cols, rtable, |meta| {
+            curr!(meta, opcode_bit) * enable(meta)
+        });
 
         let left = TValueConfig::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
@@ -64,26 +66,41 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
 
         meta.create_gate("is add or sub", |meta| {
             vec![
-                curr!(meta, is_add) * (curr!(meta, is_add) - constant_from!(1)) * enable(meta),
-                curr!(meta, is_sub) * (curr!(meta, is_sub) - constant_from!(1)) * enable(meta),
-                (curr!(meta, is_add) + curr!(meta, is_sub) - constant_from!(1)) * enable(meta),
+                curr!(meta, is_add)
+                    * (curr!(meta, is_add) - constant_from!(1))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+                curr!(meta, is_or)
+                    * (curr!(meta, is_or) - constant_from!(1))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+                (curr!(meta, is_add) + curr!(meta, is_or) - constant_from!(1))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
             ]
         });
 
         meta.create_gate("vtype bits", |meta| {
             vtype_len_bitmask
                 .iter()
-                .map(|c| curr!(meta, *c) * (curr!(meta, *c) - constant_from!(1)) * enable(meta))
+                .map(|c| {
+                    curr!(meta, *c)
+                        * (curr!(meta, *c) - constant_from!(1))
+                        * curr!(meta, opcode_bit)
+                        * enable(meta)
+                })
                 .collect::<Vec<_>>()
         });
 
         meta.create_gate("vtype sum one", |meta| {
             vec![
-                vtype_len_bitmask
+                (vtype_len_bitmask
                     .iter()
                     .map(|c| curr!(meta, *c))
                     .reduce(|acc, c| acc + c)
                     .unwrap()
+                    - constant_from!(1))
+                    * curr!(meta, opcode_bit)
                     * enable(meta),
             ]
         });
@@ -94,7 +111,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
             |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1),
-            |meta| curr!(meta, common.sp) - constant_from!(1),
+            |meta| curr!(meta, common.sp) + constant_from!(1),
             |meta| curr!(meta, right.vtype),
             |meta| curr!(meta, right.value.value),
         );
@@ -105,7 +122,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
             |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2),
-            |meta| curr!(meta, common.sp) - constant_from!(2),
+            |meta| curr!(meta, common.sp) + constant_from!(2),
             |meta| curr!(meta, left.vtype),
             |meta| curr!(meta, left.value.value),
         );
@@ -116,7 +133,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
             |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(3),
-            |meta| curr!(meta, common.sp) - constant_from!(2),
+            |meta| curr!(meta, common.sp) + constant_from!(2),
             |meta| curr!(meta, res.vtype),
             |meta| curr!(meta, res.value.value),
         );
@@ -135,13 +152,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
                     - curr!(meta, res.value.value)
                     - curr!(meta, overflow.value) * modules.clone())
                     * enable(meta)
+                    * curr!(meta, opcode_bit)
                     * curr!(meta, is_add),
                 (curr!(meta, left.value.value)
                     - curr!(meta, right.value.value)
                     - curr!(meta, res.value.value)
                     + curr!(meta, overflow.value) * modules.clone())
                     * enable(meta)
-                    * curr!(meta, is_sub),
+                    * curr!(meta, opcode_bit)
+                    * curr!(meta, is_or),
             ]
         });
 
@@ -160,13 +179,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
                         - curr!(meta, vtype_len_bitmask[1]) * constant_from!(VarType::U16)
                         - curr!(meta, vtype_len_bitmask[2]) * constant_from!(VarType::U32)
                         - curr!(meta, vtype_len_bitmask[3]) * constant_from!(VarType::U64))
-                    * enable(meta),
+                    * enable(meta)
+                    * curr!(meta, opcode_bit),
             ]
         });
 
         Box::new(BinOpConfig {
             is_add,
-            is_sub,
+            is_or,
             vtype_len_bitmask,
             enable: opcode_bit,
             overflow,
@@ -181,9 +201,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinOpConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Bin as u64) << OPCODE_CLASS_SHIFT)
-        )) + constant_from!(BinOp::Add as u64)
-            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + constant_from!(VarType::I32 as u64)
+        )) + curr!(meta, self.is_add)
+            * constant!(bn_to_field(
+                &(BigUint::from(BinOp::Add as u64) << OPCODE_ARG0_SHIFT)
+            ))
+            + curr!(meta, self.is_or)
+                * constant!(bn_to_field(
+                    &(BigUint::from(BinOp::Or as u64) << OPCODE_ARG0_SHIFT)
+                ))
+            + curr!(meta, self.res.vtype)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT))))
             * curr!(meta, self.enable)
     }
@@ -230,6 +256,7 @@ mod tests {
         test::test_circuit_builder::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
+    use specs::write_json;
 
     #[test]
     fn test_i32_add_ok() {
@@ -247,6 +274,7 @@ mod tests {
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler.compile(textual_repr).unwrap();
         let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 
@@ -266,7 +294,7 @@ mod tests {
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler.compile(textual_repr).unwrap();
         let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
-
+        write_json(&compiled_module.tables, &execution_log.tables);
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }

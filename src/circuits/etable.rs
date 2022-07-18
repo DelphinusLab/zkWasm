@@ -8,7 +8,6 @@ use super::mtable::MemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::Context;
 use crate::circuits::config_builder::op_bin::BinOpConfigBuilder;
-use crate::circuits::config_builder::op_rel::RelConfigBuilder;
 use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
 use crate::circuits::utils::bn_to_field;
 use crate::constant_from;

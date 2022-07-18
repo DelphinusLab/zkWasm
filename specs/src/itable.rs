@@ -47,6 +47,7 @@ pub enum BinOp {
 
 #[derive(Clone, Debug, Serialize)]
 pub enum RelOp {
+    Eq,
     Ne,
 }
 
