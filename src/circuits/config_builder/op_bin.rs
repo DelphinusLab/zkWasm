@@ -165,4 +165,25 @@ mod tests {
         println!("{:?}", execution_log.tables.mtable);
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
+
+    #[test]
+    fn test_i32_or_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 2)
+                      (i32.or)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        println!("{:?}", execution_log.tables.etable);
+        println!("{:?}", execution_log.tables.mtable);
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
 }

@@ -8,6 +8,7 @@ use super::mtable::MemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::Context;
 use crate::circuits::config_builder::op_bin::BinConfigBuilder;
+use crate::circuits::config_builder::op_rel::RelConfigBuilder;
 use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
 use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
@@ -150,7 +151,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             DropConfigBuilder,
             LocalGetConfigBuilder,
             ReturnConfigBuilder,
-            BinConfigBuilder
+            BinConfigBuilder,
+            RelConfigBuilder
         ];
 
         meta.create_gate("opcode consistent", |meta| {

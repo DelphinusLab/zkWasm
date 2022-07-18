@@ -10,6 +10,7 @@ pub enum OpcodeClass {
     Drop,
     Return,
     Bin,
+    Rel,
 }
 
 impl OpcodeClass {
@@ -20,6 +21,7 @@ impl OpcodeClass {
             OpcodeClass::Drop => 0,
             OpcodeClass::Return => 0,
             OpcodeClass::Bin => 3,
+            OpcodeClass::Rel => 3,
         }
     }
 
@@ -30,6 +32,7 @@ impl OpcodeClass {
             OpcodeClass::Drop => 0,
             OpcodeClass::Return => 1,
             OpcodeClass::Bin => 0,
+            OpcodeClass::Rel => 0,
         }
     }
 }
@@ -37,6 +40,12 @@ impl OpcodeClass {
 #[derive(Clone, Debug)]
 pub enum BinOp {
     Add,
+    Or,
+}
+
+#[derive(Clone, Debug)]
+pub enum RelOp {
+    Ne,
 }
 
 #[derive(Clone, Debug)]
@@ -46,6 +55,7 @@ pub enum Opcode {
     Drop,
     Return { drop: u32, keep: Vec<ValueType> },
     Bin { class: BinOp, vtype: VarType },
+    Rel { class: RelOp, vtype: VarType },
 }
 
 impl Opcode {
@@ -96,6 +106,11 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
+            Opcode::Rel { class, vtype } => {
+                (BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+            }
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
         bn
@@ -110,6 +125,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Drop { .. } => OpcodeClass::Drop,
             Opcode::Return { .. } => OpcodeClass::Return,
             Opcode::Bin { .. } => OpcodeClass::Bin,
+            Opcode::Rel { .. } => OpcodeClass::Rel,
         }
     }
 }
