@@ -103,7 +103,7 @@ impl MTable {
 
     fn sort(&mut self) {
         self.0
-            .sort_by_key(|item| (item.ltype, item.mmid, item.eid, item.emid))
+            .sort_by_key(|item| (item.ltype, item.mmid, item.offset, item.eid, item.emid))
     }
 
     pub fn entries(&self) -> &Vec<MemoryTableEntry> {
