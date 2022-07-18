@@ -7,7 +7,7 @@ use super::jtable::JumpTableConfig;
 use super::mtable::MemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::Context;
-use crate::circuits::config_builder::op_bin::BinConfigBuilder;
+use crate::circuits::config_builder::op_bin::BinOpConfigBuilder;
 use crate::circuits::config_builder::op_rel::RelConfigBuilder;
 use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
 use crate::circuits::utils::bn_to_field;
@@ -151,8 +151,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             DropConfigBuilder,
             LocalGetConfigBuilder,
             ReturnConfigBuilder,
-            BinConfigBuilder,
-            RelConfigBuilder
+            BinOpConfigBuilder
+            //RelConfigBuilder
         ];
 
         meta.create_gate("opcode consistent", |meta| {

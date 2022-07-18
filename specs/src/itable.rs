@@ -28,12 +28,8 @@ impl OpcodeClass {
 
     pub fn jops(&self) -> u64 {
         match self {
-            OpcodeClass::LocalGet => 0,
-            OpcodeClass::Const => 0,
-            OpcodeClass::Drop => 0,
             OpcodeClass::Return => 1,
-            OpcodeClass::Bin => 0,
-            OpcodeClass::Rel => 0,
+            _ => 0,
         }
     }
 }
@@ -73,6 +69,7 @@ impl Opcode {
     pub fn vtype(&self) -> Option<VarType> {
         match self {
             Opcode::Const { vtype, .. } => Some(*vtype),
+            Opcode::Bin { vtype, .. } => Some(*vtype),
             _ => None,
         }
     }
