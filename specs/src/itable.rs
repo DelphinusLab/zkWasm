@@ -1,6 +1,7 @@
 use super::mtable::VarType;
 use crate::types::ValueType;
 use num_bigint::BigUint;
+use serde::Serialize;
 use std::collections::HashSet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -37,18 +38,18 @@ impl OpcodeClass {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum BinOp {
     Add,
     Or,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum RelOp {
     Ne,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum Opcode {
     LocalGet { vtype: VarType, offset: u64 },
     Const { vtype: VarType, value: u64 },
@@ -130,7 +131,7 @@ impl Into<OpcodeClass> for Opcode {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct InstructionTableEntry {
     pub moid: u16,
     pub mmid: u16,
@@ -140,6 +141,10 @@ pub struct InstructionTableEntry {
 }
 
 impl InstructionTableEntry {
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+
     pub fn encode_instruction_address(&self) -> BigUint {
         let mut bn = BigUint::from(0u64);
         bn += self.moid;

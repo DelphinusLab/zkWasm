@@ -1,6 +1,7 @@
 use crate::{mtable::VarType, types::ValueType};
+use serde::Serialize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum StepInfo {
     BrIfNez {
         value: i32,

@@ -1,8 +1,8 @@
-use num_bigint::BigUint;
-
 use super::itable::InstructionTableEntry;
+use num_bigint::BigUint;
+use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct JumpTableEntry {
     // caller eid (unique)
     pub eid: u64,
@@ -11,6 +11,10 @@ pub struct JumpTableEntry {
 }
 
 impl JumpTableEntry {
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+
     pub fn encode(&self) -> BigUint {
         let mut bn = BigUint::from(self.eid);
         bn = bn << 16;

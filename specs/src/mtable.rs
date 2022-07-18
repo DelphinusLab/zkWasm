@@ -1,19 +1,20 @@
+use serde::Serialize;
 use strum_macros::EnumIter;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum LocationType {
     Heap = 0,
     Stack = 1,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub enum AccessType {
     Read = 1,
     Write = 2,
     Init = 3,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter)]
+#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize)]
 pub enum VarType {
     U8 = 1,
     I8,
@@ -60,7 +61,7 @@ impl VarType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct MemoryTableEntry {
     pub eid: u64,
     // emid is small memory id of eid,
@@ -77,15 +78,23 @@ pub struct MemoryTableEntry {
 }
 
 impl MemoryTableEntry {
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+
     pub fn is_same_location(&self, other: &MemoryTableEntry) -> bool {
         self.mmid == other.mmid && self.offset == other.offset && self.ltype == other.ltype
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize)]
 pub struct MTable(Vec<MemoryTableEntry>);
 
 impl MTable {
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+
     pub fn new(entries: Vec<MemoryTableEntry>) -> Self {
         let mut mtable = MTable(entries);
         mtable.sort();
