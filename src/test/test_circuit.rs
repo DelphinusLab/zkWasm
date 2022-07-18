@@ -15,7 +15,7 @@ use halo2_proofs::{
 use specs::{CompileTable, ExecutionTable};
 use std::marker::PhantomData;
 
-const VAR_COLUMNS: usize = 51;
+const VAR_COLUMNS: usize = 100;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
@@ -96,7 +96,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         println!("mtable is {:?}", self.execution_tables.mtable);
         println!();
 
-        rchip.init(&mut layouter, 1usize << 16)?;
+        rchip.init(&mut layouter)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
 
         layouter.assign_region(

@@ -12,10 +12,10 @@ use strum::IntoEnumIterator;
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
-    // [0 .. COMMON_RANGE)
-    common_col: TableColumn,
+    // [0 .. 65536)
+    u16_col: TableColumn,
     // [0 .. 256)
-    byte_col: TableColumn,
+    u8_col: TableColumn,
     // compose_of(byte_pos_of_8byte, var_type, byte) to avoid overflow, 3 + 3 + 8 = 14 bits in total
     vtype_byte_col: TableColumn,
     _mark: PhantomData<F>,
@@ -24,8 +24,8 @@ pub struct RangeTableConfig<F: FieldExt> {
 impl<F: FieldExt> RangeTableConfig<F> {
     pub fn configure(cols: [TableColumn; 3]) -> Self {
         RangeTableConfig {
-            common_col: cols[0],
-            byte_col: cols[1],
+            u16_col: cols[0],
+            u8_col: cols[1],
             vtype_byte_col: cols[2],
             _mark: PhantomData,
         }
@@ -37,16 +37,25 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.common_col)]);
+        meta.lookup(key, |meta| vec![(expr(meta), self.u16_col)]);
     }
 
-    pub fn configure_in_byte_range(
+    pub fn configure_in_u16_range(
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.byte_col)]);
+        meta.lookup(key, |meta| vec![(expr(meta), self.u16_col)]);
+    }
+
+    pub fn configure_in_u8_range(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
     }
 
     pub fn configure_in_vtype_byte_range(
@@ -83,14 +92,14 @@ impl<F: FieldExt> RangeTableChip<F> {
         }
     }
 
-    pub fn init(&self, layouter: &mut impl Layouter<F>, range: usize) -> Result<(), Error> {
+    pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         layouter.assign_table(
             || "common range table",
             |mut table| {
-                for i in 0..range {
+                for i in 0..(1 << 16) {
                     table.assign_cell(
                         || "range table",
-                        self.config.common_col,
+                        self.config.u16_col,
                         i,
                         || Ok(F::from(i as u64)),
                     )?;
@@ -102,10 +111,10 @@ impl<F: FieldExt> RangeTableChip<F> {
         layouter.assign_table(
             || "byte range table",
             |mut table| {
-                for i in 0..255usize {
+                for i in 0..(1 << 8) {
                     table.assign_cell(
                         || "range table",
-                        self.config.byte_col,
+                        self.config.u8_col,
                         i,
                         || Ok(F::from(i as u64)),
                     )?;

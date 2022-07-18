@@ -1,4 +1,4 @@
-use super::{value_64::Value64Config, Context};
+use super::{bytes8::Bytes8Config, Context};
 use crate::{circuits::rtable::RangeTableConfig, constant_from, curr};
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -9,7 +9,7 @@ use specs::mtable::VarType;
 #[derive(Clone)]
 pub struct TValueConfig<F: FieldExt> {
     pub vtype: Column<Advice>,
-    pub value: Value64Config<F>,
+    pub value: Bytes8Config<F>,
 }
 
 impl<F: FieldExt> TValueConfig<F> {
@@ -19,7 +19,7 @@ impl<F: FieldExt> TValueConfig<F> {
         rtable: &RangeTableConfig<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Self {
-        let value = Value64Config::configure(meta, cols, rtable, &enable);
+        let value = Bytes8Config::configure(meta, cols, rtable, &enable);
         let vtype = cols.next().unwrap();
 
         for i in 0..8usize {

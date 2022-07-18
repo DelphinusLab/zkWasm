@@ -1,5 +1,5 @@
-use crate::types::ValueType;
 use super::mtable::VarType;
+use crate::types::ValueType;
 use num_bigint::BigUint;
 use std::collections::HashSet;
 

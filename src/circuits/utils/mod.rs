@@ -4,9 +4,10 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 
+pub mod bytes8;
 pub mod row_diff;
 pub mod tvalue;
-pub mod value_64;
+pub mod u64;
 
 pub struct Context<'a, F: FieldExt> {
     pub region: Box<Region<'a, F>>,

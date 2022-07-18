@@ -113,8 +113,8 @@ mod tests {
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler.compile(textual_repr).unwrap();
         let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
-println!("{:?}", execution_log.tables.etable);
-println!("{:?}", execution_log.tables.mtable);
+        println!("{:?}", execution_log.tables.etable);
+        println!("{:?}", execution_log.tables.mtable);
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }

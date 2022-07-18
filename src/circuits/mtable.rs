@@ -2,12 +2,10 @@ use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::bn_to_field;
 use super::utils::row_diff::RowDiffConfig;
+use super::utils::u64::U64Config;
 use super::utils::Context;
 use crate::constant;
 use crate::constant_from;
-use crate::curr;
-use crate::fixed_curr;
-use crate::next;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Advice;
@@ -22,6 +20,9 @@ use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 use specs::mtable::MemoryTableEntry;
 use std::marker::PhantomData;
+
+pub mod configure;
+pub mod expression;
 
 const MTABLE_ROWS: usize = 1usize << 16;
 
@@ -40,16 +41,18 @@ pub struct MemoryTableConfig<F: FieldExt> {
     sel: Column<Fixed>,
     eid: RowDiffConfig<F>,
     emid: RowDiffConfig<F>,
+
+    ltype: RowDiffConfig<F>,
     mmid: RowDiffConfig<F>,
     offset: RowDiffConfig<F>,
-    ltype: RowDiffConfig<F>,
+    same_location: Column<Advice>,
+
     atype: Column<Advice>,
     vtype: Column<Advice>,
-    value: Column<Advice>,
-    same_location: Column<Advice>,
+    value: U64Config<F>,
+
     rest_mops: Column<Advice>,
     enable: Column<Advice>,
-    _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> MemoryTableConfig<F> {
@@ -59,11 +62,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
     ) -> Self {
-        let mtconfig = Self::new(meta, cols);
+        let mtconfig = Self::new(meta, cols, rtable);
         mtconfig.configure_enable(meta);
-        mtconfig.configure_sort(meta, rtable);
-        mtconfig.configure_stack_or_heap(meta);
         mtconfig.configure_range(meta, rtable);
+        mtconfig.configure_sort(meta, rtable);
         mtconfig.configure_same_location(meta);
         mtconfig.configure_rule(meta, imtable);
         mtconfig
@@ -123,257 +125,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 self.encode_for_lookup(meta),
             )]
         });
-    }
-}
-
-impl<F: FieldExt> MemoryTableConfig<F> {
-    fn encode_for_lookup(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        (self.eid.data(meta) * constant!(bn_to_field(&EID_SHIFT))
-            + self.emid.data(meta) * constant!(bn_to_field(&EMID_SHIFT))
-            + self.mmid.data(meta) * constant!(bn_to_field(&MMID_SHIFT))
-            + self.offset.data(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
-            + self.ltype.data(meta) * constant!(bn_to_field(&LOC_TYPE_SHIFT))
-            + curr!(meta, self.atype) * constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-            + curr!(meta, self.vtype) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-            + curr!(meta, self.value))
-            * curr!(meta, self.enable)
-            * fixed_curr!(meta, self.sel)
-    }
-
-    fn new(
-        meta: &mut ConstraintSystem<F>,
-        cols: &mut impl Iterator<Item = Column<Advice>>,
-    ) -> Self {
-        let sel = meta.fixed_column();
-        let enable = cols.next().unwrap();
-        let emid = RowDiffConfig::configure("mtable emid", meta, cols, |meta| {
-            next!(meta, enable) * fixed_curr!(meta, sel)
-        });
-        let ltype = RowDiffConfig::configure("mtable ltype", meta, cols, |meta| {
-            next!(meta, enable) * fixed_curr!(meta, sel)
-        });
-        let mmid = RowDiffConfig::configure("mtable mmid", meta, cols, |meta| {
-            next!(meta, enable) * fixed_curr!(meta, sel)
-        });
-        let offset = RowDiffConfig::configure("mtable offset", meta, cols, |meta| {
-            next!(meta, enable) * fixed_curr!(meta, sel)
-        });
-        let eid = RowDiffConfig::configure("mtable eid", meta, cols, |meta| {
-            next!(meta, enable) * fixed_curr!(meta, sel)
-        });
-        let value = cols.next().unwrap();
-        let atype = cols.next().unwrap();
-        let vtype = cols.next().unwrap();
-        let same_location = cols.next().unwrap();
-        let rest_mops = cols.next().unwrap();
-
-        meta.enable_equality(rest_mops);
-
-        MemoryTableConfig {
-            sel,
-            _mark: PhantomData,
-            ltype,
-            mmid,
-            offset,
-            eid,
-            emid,
-            atype,
-            vtype,
-            value,
-            enable,
-            same_location,
-            rest_mops,
-        }
-    }
-
-    fn configure_enable(&self, meta: &mut ConstraintSystem<F>) {
-        meta.create_gate("enable seq", |meta| {
-            let curr = curr!(meta, self.enable);
-            let next = next!(meta, self.enable);
-            vec![
-                next * (curr.clone() - Expression::<F>::Constant(F::one())),
-                curr.clone() * (curr.clone() - Expression::<F>::Constant(F::one())),
-            ]
-            .into_iter()
-            .map(|x| x * fixed_curr!(meta, self.sel))
-            .collect::<Vec<_>>()
-        });
-    }
-
-    fn configure_same_location(&self, meta: &mut ConstraintSystem<F>) {
-        meta.create_gate("is same location", |meta| {
-            let same_loc = curr!(meta, self.same_location);
-            vec![
-                self.ltype.is_same(meta) * self.mmid.is_same(meta) * self.offset.is_same(meta)
-                    - same_loc,
-            ]
-            .into_iter()
-            .map(|x| x * fixed_curr!(meta, self.sel))
-            .collect::<Vec<_>>()
-        })
-    }
-
-    fn configure_stack_or_heap(&self, meta: &mut ConstraintSystem<F>) {
-        meta.create_gate("is same location", |meta| {
-            let ltype = self.ltype.data(meta);
-            vec![ltype.clone() * (ltype - Expression::Constant(F::one()))]
-                .into_iter()
-                .map(|x| x * fixed_curr!(meta, self.sel))
-                .collect::<Vec<_>>()
-        })
-    }
-
-    fn configure_range(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
-        rtable.configure_in_common_range(meta, "mmid in range", |meta| self.mmid.data(meta));
-        rtable.configure_in_common_range(meta, "offset in range", |meta| self.offset.data(meta));
-        rtable.configure_in_common_range(meta, "eid in range", |meta| self.eid.data(meta));
-        rtable.configure_in_common_range(meta, "emid in range", |meta| self.emid.data(meta));
-        rtable.configure_in_common_range(meta, "vtype in range", |meta| self.emid.data(meta));
-    }
-
-    fn configure_sort(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
-        rtable.configure_in_common_range(meta, "ltype sort", |meta| {
-            self.is_next_enable(meta) * self.ltype.diff_to_next(meta) * fixed_curr!(meta, self.sel)
-        });
-
-        rtable.configure_in_common_range(meta, "mmid sort", |meta| {
-            self.is_next_enable(meta)
-                * self.ltype.is_next_same(meta)
-                * self.mmid.diff_to_next(meta)
-                * fixed_curr!(meta, self.sel)
-        });
-        rtable.configure_in_common_range(meta, "offset sort", |meta| {
-            self.is_next_enable(meta)
-                * self.ltype.is_next_same(meta)
-                * self.mmid.is_next_same(meta)
-                * self.offset.diff_to_next(meta)
-                * fixed_curr!(meta, self.sel)
-        });
-        rtable.configure_in_common_range(meta, "eid sort", |meta| {
-            self.is_next_enable(meta)
-                * self.is_next_same_location(meta)
-                * self.eid.diff_to_next(meta)
-                * fixed_curr!(meta, self.sel)
-        });
-        rtable.configure_in_common_range(meta, "emid sort", |meta| {
-            self.is_next_enable(meta)
-                * self.is_same_location(meta)
-                * self.eid.is_next_same(meta)
-                * self.emid.diff_to_next(meta)
-                * fixed_curr!(meta, self.sel)
-        });
-    }
-
-    fn configure_rule(&self, meta: &mut ConstraintSystem<F>, imtable: &InitMemoryTableConfig<F>) {
-        meta.create_gate("mtable read after write", |meta| {
-            vec![
-                self.is_next_enable(meta)
-                    * self.is_next_read_not_bit(meta)
-                    * self.diff_to_next(meta, self.value),
-                self.is_next_enable(meta)
-                    * self.is_next_read_not_bit(meta)
-                    * self.diff_to_next(meta, self.vtype),
-            ]
-            .into_iter()
-            .map(|x| x * fixed_curr!(meta, self.sel))
-            .collect::<Vec<_>>()
-        });
-
-        meta.create_gate("mtable emid unique", |meta| {
-            vec![
-                self.is_enable(meta)
-                    * self.is_same_location(meta)
-                    * self.eid.is_same(meta)
-                    * self.emid.is_same(meta),
-            ]
-            .into_iter()
-            .map(|x| x * fixed_curr!(meta, self.sel))
-            .collect::<Vec<_>>()
-        });
-
-        meta.create_gate("mtable stack first line", |meta| {
-            vec![
-                self.is_enable(meta)
-                    * (self.is_same_location(meta) - Expression::Constant(F::one()))
-                    * self.is_stack(meta)
-                    * (curr!(meta, self.atype) - constant_from!(AccessType::Write)),
-            ]
-            .into_iter()
-            .map(|x| x * fixed_curr!(meta, self.sel))
-            .collect::<Vec<_>>()
-        });
-
-        imtable.configure_in_table(meta, "mtable heap first line", |meta| {
-            self.is_enable(meta)
-                * (Expression::Constant(F::one()) - self.is_same_location(meta))
-                * self.is_heap(meta)
-                * imtable.encode(
-                    self.mmid.data(meta),
-                    self.offset.data(meta),
-                    curr!(meta, self.value),
-                )
-                * fixed_curr!(meta, self.sel)
-        });
-
-        imtable.configure_in_table(meta, "rest mop decrease", |meta| {
-            self.is_enable(meta)
-                * self.is_not_init(meta)
-                * (curr!(meta, self.rest_mops) - next!(meta, self.rest_mops) - constant_from!(1))
-                * fixed_curr!(meta, self.sel)
-        });
-
-        imtable.configure_in_table(meta, "rest mop zero when disabled", |meta| {
-            (self.is_enable(meta) - constant_from!(1))
-                * curr!(meta, self.rest_mops)
-                * fixed_curr!(meta, self.sel)
-        });
-    }
-
-    fn diff_to_next(&self, meta: &mut VirtualCells<F>, col: Column<Advice>) -> Expression<F> {
-        next!(meta, col) - curr!(meta, col)
-    }
-
-    fn is_heap(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        Expression::Constant(F::one()) - self.ltype.data(meta)
-    }
-
-    fn is_stack(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        self.ltype.data(meta)
-    }
-
-    fn is_enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.enable)
-    }
-
-    fn is_next_enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        next!(meta, self.enable)
-    }
-
-    fn is_same_location(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.same_location)
-    }
-
-    fn is_next_same_location(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        next!(meta, self.same_location)
-    }
-
-    fn is_next_read_not_bit(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        (next!(meta, self.atype) - constant_from!(AccessType::Init))
-            * (next!(meta, self.atype) - constant_from!(AccessType::Write))
-    }
-
-    fn is_not_init(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        // lagrange
-        let read_f = F::from(AccessType::Read as u64);
-        let write_f = F::from(AccessType::Write as u64);
-        let init_f = F::from(AccessType::Init as u64);
-        let atype = curr!(meta, self.atype);
-        (atype.clone() - constant_from!(AccessType::Write))
-            * (atype.clone() - constant_from!(AccessType::Init))
-            * constant!(((read_f - write_f) * (read_f - init_f)).invert().unwrap())
-            + (atype.clone() - constant_from!(AccessType::Read))
-                * (atype.clone() - constant_from!(AccessType::Init))
-                * constant!(((write_f - read_f) * (write_f - init_f)).invert().unwrap())
     }
 }
 
@@ -439,12 +190,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 || Ok((entry.vtype as u64).into()),
             )?;
 
-            ctx.region.assign_advice(
-                || "mtable value",
-                self.config.value,
-                ctx.offset,
-                || Ok((entry.value as u64).into()),
-            )?;
+            self.config.value.assign(ctx, entry.value)?;
 
             ctx.region.assign_advice(
                 || "mtable enable",
