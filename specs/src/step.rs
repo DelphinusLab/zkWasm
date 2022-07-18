@@ -14,9 +14,7 @@ pub enum StepInfo {
         keep_values: Vec<u64>,
     },
 
-    Drop {
-        value: u64,
-    },
+    Drop,
     Call {
         index: u16,
     },

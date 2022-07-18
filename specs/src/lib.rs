@@ -58,9 +58,9 @@ pub fn write_json(compile_table: &CompileTable, execution_table: &ExecutionTable
     let jtable = serde_json::to_string(&execution_table.jtable).unwrap();
 
     let dir = env::current_dir().unwrap();
-    write_file(&dir, "itable.data", &itable);
-    write_file(&dir, "imtable.data", &imtable);
-    write_file(&dir, "etable.data", &etable);
-    write_file(&dir, "mtable.data", &mtable);
-    write_file(&dir, "jtable.data", &jtable);
+    write_file(&dir, "itable.json", &itable);
+    write_file(&dir, "imtable.json", &imtable);
+    write_file(&dir, "etable.json", &etable);
+    write_file(&dir, "mtable.json", &mtable);
+    write_file(&dir, "jtable.json", &jtable);
 }

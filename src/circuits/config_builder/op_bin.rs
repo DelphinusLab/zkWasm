@@ -230,6 +230,7 @@ mod tests {
         test::test_circuit_builder::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
+    use specs::write_json;
 
     #[test]
     fn test_i32_add_ok() {
@@ -249,6 +250,7 @@ mod tests {
         let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
         println!("{:?}", execution_log.tables.etable);
         println!("{:?}", execution_log.tables.mtable);
+        write_json(&compiled_module.tables, &execution_log.tables);
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 
@@ -268,8 +270,7 @@ mod tests {
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler.compile(textual_repr).unwrap();
         let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
-        println!("{:?}", execution_log.tables.etable);
-        println!("{:?}", execution_log.tables.mtable);
+        write_json(&compiled_module.tables, &execution_log.tables);
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }
