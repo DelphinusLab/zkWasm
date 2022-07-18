@@ -153,7 +153,7 @@ pub(crate) fn mem_op_from_stack_only_step(
             eid,
             emid: *emid,
             mmid: 0,
-            offset: sp as u64,
+            offset: sp + 1 as u64,
             ltype: LocationType::Stack,
             atype: AccessType::Read,
             vtype: inputs_type,
