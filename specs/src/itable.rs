@@ -12,6 +12,8 @@ pub enum OpcodeClass {
     Return,
     Bin,
     Rel,
+    BrIf,
+    Call,
 }
 
 impl OpcodeClass {
@@ -23,12 +25,15 @@ impl OpcodeClass {
             OpcodeClass::Return => 0,
             OpcodeClass::Bin => 3,
             OpcodeClass::Rel => 3,
+            OpcodeClass::BrIf => 0, // FIXME: 0?
+            OpcodeClass::Call => 0, // FIXME: should be the number of args?
         }
     }
 
     pub fn jops(&self) -> u64 {
         match self {
             OpcodeClass::Return => 1,
+            OpcodeClass::Call => 1,
             _ => 0,
         }
     }
@@ -47,12 +52,35 @@ pub enum RelOp {
 
 #[derive(Clone, Debug, Serialize)]
 pub enum Opcode {
-    LocalGet { vtype: VarType, offset: u64 },
-    Const { vtype: VarType, value: u64 },
+    LocalGet {
+        vtype: VarType,
+        offset: u64,
+    },
+    Const {
+        vtype: VarType,
+        value: u64,
+    },
     Drop,
-    Return { drop: u32, keep: Vec<ValueType> },
-    Bin { class: BinOp, vtype: VarType },
-    Rel { class: RelOp, vtype: VarType },
+    Return {
+        drop: u32,
+        keep: Vec<ValueType>,
+    },
+    Bin {
+        class: BinOp,
+        vtype: VarType,
+    },
+    Rel {
+        class: RelOp,
+        vtype: VarType,
+    },
+    BrIf {
+        drop: u32,
+        keep: Vec<ValueType>,
+        dst_pc: u32,
+    },
+    Call {
+        index: u16,
+    },
 }
 
 impl Opcode {
@@ -109,6 +137,13 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
+            Opcode::BrIf { drop, keep, dst_pc } => {
+                todo!()
+            }
+            Opcode::Call { index } => {
+                (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
+            }
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
         bn
@@ -124,6 +159,8 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Return { .. } => OpcodeClass::Return,
             Opcode::Bin { .. } => OpcodeClass::Bin,
             Opcode::Rel { .. } => OpcodeClass::Rel,
+            Opcode::BrIf { .. } => OpcodeClass::BrIf,
+            Opcode::Call { .. } => OpcodeClass::Call,
         }
     }
 }

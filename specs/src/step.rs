@@ -18,7 +18,7 @@ pub enum StepInfo {
         value: u64,
     },
     Call {
-        index: u32,
+        index: u16,
     },
 
     GetLocal {
