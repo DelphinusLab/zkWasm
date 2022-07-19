@@ -6,6 +6,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::plonk::VirtualCells;
+use specs::itable::BitOp;
 use specs::mtable::VarType;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
@@ -16,17 +17,23 @@ pub struct RangeTableConfig<F: FieldExt> {
     u16_col: TableColumn,
     // [0 .. 256)
     u8_col: TableColumn,
+    // [0 .. 16)
+    u4_col: TableColumn,
     // compose_of(byte_pos_of_8byte, var_type, byte) to avoid overflow, 3 + 3 + 8 = 14 bits in total
     vtype_byte_col: TableColumn,
+    // op | left | right | res
+    bitop_col: TableColumn,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 3]) -> Self {
+    pub fn configure(cols: [TableColumn; 5]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
-            vtype_byte_col: cols[2],
+            u4_col: cols[2],
+            vtype_byte_col: cols[3],
+            bitop_col: cols[4],
             _mark: PhantomData,
         }
     }
@@ -56,6 +63,37 @@ impl<F: FieldExt> RangeTableConfig<F> {
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
+    }
+
+    pub fn configure_in_u4_range(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
+    }
+
+    pub fn configure_in_bitop(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        op: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        left: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        right: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        res: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| {
+            vec![(
+                enable(meta)
+                    * (op(meta) * constant_from!(1 << 12)
+                        + left(meta) * constant_from!(1 << 8)
+                        + right(meta) * constant_from!(1 << 4)
+                        + res(meta)),
+                self.u8_col,
+            )]
+        });
     }
 
     pub fn configure_in_vtype_byte_range(
@@ -94,7 +132,7 @@ impl<F: FieldExt> RangeTableChip<F> {
 
     pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         layouter.assign_table(
-            || "common range table",
+            || "u16 range table",
             |mut table| {
                 for i in 0..(1 << 16) {
                     table.assign_cell(
@@ -109,7 +147,7 @@ impl<F: FieldExt> RangeTableChip<F> {
         )?;
 
         layouter.assign_table(
-            || "byte range table",
+            || "u8 range table",
             |mut table| {
                 for i in 0..(1 << 8) {
                     table.assign_cell(
@@ -118,6 +156,43 @@ impl<F: FieldExt> RangeTableChip<F> {
                         i,
                         || Ok(F::from(i as u64)),
                     )?;
+                }
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "u4 range table",
+            |mut table| {
+                for i in 0..(1 << 4) {
+                    table.assign_cell(
+                        || "range table",
+                        self.config.u4_col,
+                        i,
+                        || Ok(F::from(i as u64)),
+                    )?;
+                }
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "bitop range table",
+            |mut table| {
+                let mut i = 0;
+                for op in BitOp::iter() {
+                    for l in 0..(1 << 4) {
+                        for r in 0..if op.is_binop() { 1 << 4 } else { 1 } {
+                            let res = op.eval(l, r);
+                            table.assign_cell(
+                                || "range table",
+                                self.config.bitop_col,
+                                i,
+                                || Ok(F::from(((op.clone() as u64) << 12) | (l << 8) | (r << 4) | res)),
+                            )?;
+                            i += 1;
+                        }
+                    }
                 }
                 Ok(())
             },

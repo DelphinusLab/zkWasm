@@ -3,6 +3,7 @@ use crate::types::ValueType;
 use num_bigint::BigUint;
 use serde::Serialize;
 use std::collections::HashSet;
+use strum_macros::EnumIter;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OpcodeClass {
@@ -43,6 +44,32 @@ impl OpcodeClass {
 pub enum BinOp {
     Add,
     Or,
+}
+
+#[derive(Clone, Debug, Serialize, EnumIter)]
+pub enum BitOp {
+    And = 0,
+    Or = 1,
+    Xor = 2,
+    Not = 3,
+}
+
+impl BitOp {
+    pub fn eval(&self, left: u64, right: u64) -> u64 {
+        match self {
+            BitOp::And => left & right,
+            BitOp::Or => left | right,
+            BitOp::Xor => left ^ right,
+            BitOp::Not => !left,
+        }
+    }
+
+    pub fn is_binop(&self) -> bool {
+        match self {
+            BitOp::Not => false,
+            _ => true
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
