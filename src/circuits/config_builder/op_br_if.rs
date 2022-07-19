@@ -71,16 +71,82 @@ mod tests {
     use halo2_proofs::pairing::bn256::Fr as Fp;
 
     #[test]
-    fn test_br_if_ok() {
+    fn test_br_if_trivial_nojump_ok() {
         let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (block
-                        (br_if 0 (i32.const 0))
-                      )
-                    )
-                   )
-                "#;
+        (module
+            (func (export "test")
+              (block
+                (i32.const 0)
+                br_if 0
+              )
+            )
+           )
+        "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
+
+    #[test]
+    fn test_br_if_trivial_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block
+                (i32.const 1)
+                br_if 0
+              )
+            )
+           )
+        "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
+
+    #[test]
+    fn test_br_if_block_with_arg_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block (result i32)
+                (i32.const 0)
+                (i32.const 0)
+                br_if 0
+              )
+              drop
+            )
+           )
+        "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
+
+    #[test]
+    fn test_br_if_block_with_drop_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block
+                (block
+                  (i32.const 0)
+                  (i32.const 0)
+                  (i32.const 0)
+                  br_if 1
+                  drop
+                  drop
+                )
+              )
+            )
+           )
+        "#;
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler.compile(textual_repr).unwrap();
