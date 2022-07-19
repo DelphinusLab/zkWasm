@@ -12,7 +12,6 @@ use specs::mtable::VarType;
 pub struct BitValueConfig<F: FieldExt> {
     pub bits_le: [Column<Advice>; 16],
     pub value: Column<Advice>,
-    pub vtype: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -43,17 +42,14 @@ impl<F: FieldExt> BitValueConfig<F> {
             vec![(acc - curr!(meta, value.clone())) * enable(meta)]
         });
 
-        // TODO: configure_in_vtype_4bits_range?
-
         Self {
             bits_le,
             value,
-            vtype,
             _mark: PhantomData,
         }
     }
 
-    pub fn assign(&self, ctx: &mut Context<F>, vtype: VarType, value: u64) -> Result<(), Error> {
+    pub fn assign(&self, ctx: &mut Context<F>, value: u64) -> Result<(), Error> {
         let mut v = value;
         ctx.region
             .assign_advice(|| "value", self.value, ctx.offset, || Ok(F::from(value)))?;
@@ -68,13 +64,6 @@ impl<F: FieldExt> BitValueConfig<F> {
 
             v >>= 4;
         }
-
-        ctx.region.assign_advice(
-            || "tvalue vtype",
-            self.vtype.clone(),
-            ctx.offset,
-            || Ok((vtype as u64).into()),
-        )?;
 
         Ok(())
     }

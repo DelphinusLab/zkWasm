@@ -32,7 +32,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let eid = RowDiffConfig::configure("mtable eid", meta, cols, |meta| {
             next!(meta, enable) * fixed_curr!(meta, sel)
         });
-        let value = U64Config::configure(meta, cols, rtable, |meta| {
+        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| {
             next!(meta, enable) * fixed_curr!(meta, sel)
         });
         let atype = cols.next().unwrap();
@@ -50,8 +50,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             eid,
             emid,
             atype,
-            vtype,
-            value,
+            tvalue,
             enable,
             same_location,
             rest_mops,
@@ -157,10 +156,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             vec![
                 self.is_next_enable(meta)
                     * self.is_next_read_not_bit(meta)
-                    * self.diff_to_next(meta, self.value.value),
+                    * self.diff_to_next(meta, self.tvalue.value.value),
                 self.is_next_enable(meta)
                     * self.is_next_read_not_bit(meta)
-                    * self.diff_to_next(meta, self.vtype),
+                    * self.diff_to_next(meta, self.tvalue.vtype),
             ]
             .into_iter()
             .map(|x| x * fixed_curr!(meta, self.sel))
@@ -184,7 +183,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 * imtable.encode(
                     self.mmid.data(meta),
                     self.offset.data(meta),
-                    curr!(meta, self.value.value),
+                    curr!(meta, self.tvalue.value.value),
                 )
                 * fixed_curr!(meta, self.sel)
         });

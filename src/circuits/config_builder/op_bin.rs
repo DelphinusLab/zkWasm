@@ -9,7 +9,7 @@ use crate::{
         rtable::RangeTableConfig,
         utils::{bn_to_field, tvalue::TValueConfig, u64::U64Config, Context},
     },
-    constant, constant_from, curr, fixed_curr,
+    constant, constant_from, curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -23,12 +23,13 @@ use specs::{
 };
 
 pub struct BinOpConfig<F: FieldExt> {
-    left: TValueConfig<F>,
-    right: TValueConfig<F>,
-    res: TValueConfig<F>,
+    left: U64Config<F>,
+    right: U64Config<F>,
+    res: U64Config<F>,
     overflow: U64Config<F>,
     enable: Column<Advice>,
     is_add: Column<Advice>,
+    vtype: Column<Advice>,
     vtype_len_bitmask: [Column<Advice>; 4],
 }
 
@@ -47,18 +48,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_add = cols.next().unwrap();
+        let vtype = cols.next().unwrap();
         let vtype_len_bitmask = [0; 4].map(|_| cols.next().unwrap());
+
         let overflow = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
-
-        let left = TValueConfig::configure(meta, cols, rtable, |meta| {
+        let left = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
-        let right = TValueConfig::configure(meta, cols, rtable, |meta| {
+        let right = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
-        let res = TValueConfig::configure(meta, cols, rtable, |meta| {
+        let res = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
 
@@ -104,8 +106,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1),
             |meta| curr!(meta, common.sp) + constant_from!(1),
-            |meta| curr!(meta, right.vtype),
-            |meta| curr!(meta, right.value.value),
+            |meta| curr!(meta, vtype),
+            |meta| curr!(meta, right.value),
         );
 
         mtable.configure_stack_read_in_table(
@@ -115,8 +117,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2),
             |meta| curr!(meta, common.sp) + constant_from!(2),
-            |meta| curr!(meta, left.vtype),
-            |meta| curr!(meta, left.value.value),
+            |meta| curr!(meta, vtype),
+            |meta| curr!(meta, left.value),
         );
 
         mtable.configure_stack_write_in_table(
@@ -126,22 +128,22 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(3),
             |meta| curr!(meta, common.sp) + constant_from!(2),
-            |meta| curr!(meta, res.vtype),
-            |meta| curr!(meta, res.value.value),
+            |meta| curr!(meta, vtype),
+            |meta| curr!(meta, res.value),
         );
 
         // configure for BinOp
         meta.create_gate("op bin add equation", |meta| {
-            let modules = constant_from!(1 << 8) * curr!(meta, vtype_len_bitmask[0])
-                + constant!(bn_to_field(&(BigUint::from(1u64) << 16)))
+            let modules = constant_from!(1 << 8usize) * curr!(meta, vtype_len_bitmask[0])
+                + constant!(bn_to_field(&(BigUint::from(1u64) << 16usize)))
                     * curr!(meta, vtype_len_bitmask[1])
-                + constant!(bn_to_field(&(BigUint::from(1u64) << 32)))
+                + constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
                     * curr!(meta, vtype_len_bitmask[2])
-                + constant!(bn_to_field(&(BigUint::from(1u64) << 64)))
+                + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize)))
                     * curr!(meta, vtype_len_bitmask[3]);
             vec![
-                (curr!(meta, left.value.value) + curr!(meta, right.value.value)
-                    - curr!(meta, res.value.value)
+                (curr!(meta, left.value) + curr!(meta, right.value)
+                    - curr!(meta, res.value)
                     - curr!(meta, overflow.value) * modules.clone())
                     * enable(meta)
                     * curr!(meta, opcode_bit)
@@ -150,16 +152,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
         });
 
         // TODO: optimize them by merge the vtype cols into one
-        meta.create_gate("op bin vtype constrains", |meta| {
+        meta.create_gate("op bin vtype constraints", |meta| {
             vec![
-                (curr!(meta, res.vtype) - curr!(meta, left.vtype)) * enable(meta),
-                (curr!(meta, res.vtype) - curr!(meta, right.vtype)) * enable(meta),
-                (curr!(meta, res.vtype)
+                (curr!(meta, vtype)
                     - curr!(meta, vtype_len_bitmask[0]) * constant_from!(VarType::I8)
                     - curr!(meta, vtype_len_bitmask[1]) * constant_from!(VarType::I16)
                     - curr!(meta, vtype_len_bitmask[2]) * constant_from!(VarType::I32)
                     - curr!(meta, vtype_len_bitmask[3]) * constant_from!(VarType::I64))
-                    * (curr!(meta, res.vtype)
+                    * (curr!(meta, vtype)
                         - curr!(meta, vtype_len_bitmask[0]) * constant_from!(VarType::U8)
                         - curr!(meta, vtype_len_bitmask[1]) * constant_from!(VarType::U16)
                         - curr!(meta, vtype_len_bitmask[2]) * constant_from!(VarType::U32)
@@ -177,6 +177,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinOpConfigBuilder {
             left,
             right,
             res,
+            vtype,
         })
     }
 }
@@ -189,7 +190,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinOpConfig<F> {
             * constant!(bn_to_field(
                 &(BigUint::from(BinOp::Add as u64) << OPCODE_ARG0_SHIFT)
             ))
-            + curr!(meta, self.res.vtype)
+            + curr!(meta, self.vtype)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT))))
             * curr!(meta, self.enable)
     }
@@ -211,14 +212,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinOpConfig<F> {
                 value,
             } => {
                 ctx.region.assign_advice(
+                    || "bin op i32 vtype",
+                    self.vtype,
+                    ctx.offset,
+                    || Ok(F::from(VarType::I32 as u64)),
+                )?;
+                ctx.region.assign_advice(
                     || "bin op i32 vtype len bit",
                     self.vtype_len_bitmask[2],
                     ctx.offset,
                     || Ok(F::one()),
                 )?;
-                self.left.assign(ctx, VarType::I32, left as u32 as u64)?;
-                self.right.assign(ctx, VarType::I32, right as u32 as u64)?;
-                self.res.assign(ctx, VarType::I32, value as u32 as u64)?;
+                self.left.assign(ctx, left as u32 as u64)?;
+                self.right.assign(ctx, right as u32 as u64)?;
+                self.res.assign(ctx, value as u32 as u64)?;
 
                 match class {
                     BinOp::Add => {

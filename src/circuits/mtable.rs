@@ -2,6 +2,7 @@ use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::bn_to_field;
 use super::utils::row_diff::RowDiffConfig;
+use super::utils::tvalue::TValueConfig;
 use super::utils::u64::U64Config;
 use super::utils::Context;
 use crate::constant;
@@ -48,8 +49,7 @@ pub struct MemoryTableConfig<F: FieldExt> {
     same_location: Column<Advice>,
 
     atype: Column<Advice>,
-    vtype: Column<Advice>,
-    value: U64Config<F>,
+    tvalue: TValueConfig<F>,
 
     rest_mops: Column<Advice>,
     enable: Column<Advice>,
@@ -182,14 +182,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 || Ok((entry.atype as u64).into()),
             )?;
 
-            ctx.region.assign_advice(
-                || "mtable vtype",
-                self.config.vtype,
-                ctx.offset,
-                || Ok((entry.vtype as u64).into()),
-            )?;
-
-            self.config.value.assign(ctx, entry.value)?;
+            self.config.tvalue.assign(ctx, entry.vtype, entry.value)?;
 
             ctx.region.assign_advice(
                 || "mtable enable",

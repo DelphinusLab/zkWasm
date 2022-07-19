@@ -19,8 +19,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             + self.offset.data(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
             + self.ltype.data(meta) * constant!(bn_to_field(&LOC_TYPE_SHIFT))
             + curr!(meta, self.atype) * constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-            + curr!(meta, self.vtype) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-            + curr!(meta, self.value.value))
+            + curr!(meta, self.tvalue.vtype) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+            + curr!(meta, self.tvalue.value.value))
             * curr!(meta, self.enable)
             * fixed_curr!(meta, self.sel)
     }
