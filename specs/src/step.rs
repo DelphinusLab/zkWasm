@@ -1,4 +1,8 @@
-use crate::{mtable::VarType, types::ValueType};
+use crate::{
+    itable::{BinOp, BitOp},
+    mtable::VarType,
+    types::ValueType,
+};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -30,6 +34,13 @@ pub enum StepInfo {
     },
 
     I32BinOp {
+        class: BinOp,
+        left: i32,
+        right: i32,
+        value: i32,
+    },
+    I32BinBitOp {
+        class: BitOp,
         left: i32,
         right: i32,
         value: i32,

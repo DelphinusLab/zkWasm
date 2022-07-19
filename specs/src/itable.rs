@@ -12,6 +12,7 @@ pub enum OpcodeClass {
     Drop,
     Return,
     Bin,
+    BinBit,
     Rel,
     BrIf,
     Call,
@@ -25,6 +26,7 @@ impl OpcodeClass {
             OpcodeClass::Drop => 0,
             OpcodeClass::Return => 0,
             OpcodeClass::Bin => 3,
+            OpcodeClass::BinBit => 3,
             OpcodeClass::Rel => 3,
             OpcodeClass::BrIf => 0, // FIXME: 0?
             OpcodeClass::Call => 0, // FIXME: should be the number of args?
@@ -40,13 +42,12 @@ impl OpcodeClass {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize)]
 pub enum BinOp {
     Add,
-    Or,
 }
 
-#[derive(Clone, Debug, Serialize, EnumIter)]
+#[derive(Copy, Clone, Debug, Serialize, EnumIter)]
 pub enum BitOp {
     And = 0,
     Or = 1,
@@ -67,12 +68,12 @@ impl BitOp {
     pub fn is_binop(&self) -> bool {
         match self {
             BitOp::Not => false,
-            _ => true
+            _ => true,
         }
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize)]
 pub enum RelOp {
     Eq,
     Ne,
@@ -95,6 +96,10 @@ pub enum Opcode {
     },
     Bin {
         class: BinOp,
+        vtype: VarType,
+    },
+    BinBit {
+        class: BitOp,
         vtype: VarType,
     },
     Rel {
@@ -126,6 +131,7 @@ impl Opcode {
         match self {
             Opcode::Const { vtype, .. } => Some(*vtype),
             Opcode::Bin { vtype, .. } => Some(*vtype),
+            Opcode::BinBit { vtype, .. } => Some(*vtype),
             _ => None,
         }
     }
@@ -160,6 +166,11 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
+            Opcode::BinBit { class, vtype } => {
+                (BigUint::from(OpcodeClass::BinBit as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+            }
             Opcode::Rel { class, vtype } => {
                 (BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
@@ -186,6 +197,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Drop { .. } => OpcodeClass::Drop,
             Opcode::Return { .. } => OpcodeClass::Return,
             Opcode::Bin { .. } => OpcodeClass::Bin,
+            Opcode::BinBit { .. } => OpcodeClass::BinBit,
             Opcode::Rel { .. } => OpcodeClass::Rel,
             Opcode::BrIf { .. } => OpcodeClass::BrIf,
             Opcode::Call { .. } => OpcodeClass::Call,

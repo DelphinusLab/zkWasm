@@ -71,7 +71,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
+        meta.lookup(key, |meta| vec![(expr(meta), self.u4_col)]);
     }
 
     pub fn configure_in_bitop(
@@ -91,7 +91,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
                         + left(meta) * constant_from!(1 << 8)
                         + right(meta) * constant_from!(1 << 4)
                         + res(meta)),
-                self.u8_col,
+                self.u16_col, // TODO: check
             )]
         });
     }

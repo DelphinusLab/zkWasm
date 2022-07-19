@@ -4,6 +4,7 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 
+pub mod bitvalue;
 pub mod bytes8;
 pub mod row_diff;
 pub mod tvalue;
