@@ -113,8 +113,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(3),
             |meta| curr!(meta, common.sp) + constant_from!(2),
-            // we don't concern the type since the value of result is either 0 or 1.
-            |meta| curr!(meta, vtype),
+            |_| constant_from!(VarType::I32),
             |meta| curr!(meta, res.value),
         );
 
