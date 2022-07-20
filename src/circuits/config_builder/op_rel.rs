@@ -24,11 +24,13 @@ use std::vec;
 pub struct RelOpConfig<F: FieldExt> {
     left: U64Config<F>,
     right: U64Config<F>,
-    res: U64Config<F>,
+    res: Column<Advice>,
     vtype: Column<Advice>,
     enable: Column<Advice>,
     is_eq: Column<Advice>,
     is_ne: Column<Advice>,
+    is_same: Column<Advice>,
+    inv: Column<Advice>,
 }
 
 pub struct RelOpConfigBuilder {}
@@ -47,15 +49,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_eq = cols.next().unwrap();
         let is_ne = cols.next().unwrap();
+        let inv = cols.next().unwrap();
+        let is_same = cols.next().unwrap();
+        let res = cols.next().unwrap();
         let vtype = cols.next().unwrap();
 
         let left = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
         let right = U64Config::configure(meta, cols, rtable, |meta| {
-            curr!(meta, opcode_bit) * enable(meta)
-        });
-        let res = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
 
@@ -75,10 +77,28 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             ]
         });
 
-        meta.create_gate("res is bool", |meta| {
+        meta.create_gate("rel inv same", |meta| {
             vec![
-                curr!(meta, res.value)
-                    * (curr!(meta, res.value) - constant_from!(1))
+                ((curr!(meta, left.value) - curr!(meta, right.value)) * curr!(meta, inv)
+                    + curr!(meta, is_same)
+                    - constant_from!(1))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+                (curr!(meta, left.value) - curr!(meta, right.value))
+                    * curr!(meta, is_same)
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+            ]
+        });
+
+        meta.create_gate("res constaints", |meta| {
+            vec![
+                curr!(meta, is_eq)
+                    * (curr!(meta, res) - curr!(meta, is_same))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+                curr!(meta, is_ne)
+                    * (curr!(meta, res) + curr!(meta, is_same) - constant_from!(1))
                     * curr!(meta, opcode_bit)
                     * enable(meta),
             ]
@@ -114,7 +134,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             |_meta| constant_from!(3),
             |meta| curr!(meta, common.sp) + constant_from!(2),
             |_| constant_from!(VarType::I32),
-            |meta| curr!(meta, res.value),
+            |meta| curr!(meta, res),
         );
 
         Box::new(RelOpConfig {
@@ -125,6 +145,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             enable: opcode_bit,
             is_eq,
             is_ne,
+            is_same,
+            inv,
         })
     }
 }
@@ -164,10 +186,34 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
             } => {
                 self.left.assign(ctx, left as u32 as u64)?;
                 self.right.assign(ctx, right as u32 as u64)?;
-                self.res.assign(ctx, value as u32 as u64)?;
 
                 ctx.region.assign_advice(
-                    || "bin op vytpe",
+                    || "rel res",
+                    self.res,
+                    ctx.offset,
+                    || Ok((value as u64).into()),
+                )?;
+
+                ctx.region.assign_advice(
+                    || "rel inv",
+                    self.inv,
+                    ctx.offset,
+                    || {
+                        Ok((F::from(left as u32 as u64) - F::from(right as u32 as u64))
+                            .invert()
+                            .unwrap_or(F::zero()))
+                    },
+                )?;
+
+                ctx.region.assign_advice(
+                    || "rel is_same",
+                    self.is_same,
+                    ctx.offset,
+                    || Ok(if left == right { F::one() } else { F::zero() }),
+                )?;
+
+                ctx.region.assign_advice(
+                    || "rel vytpe",
                     self.vtype,
                     ctx.offset,
                     || Ok((VarType::I32 as u64).into()),
