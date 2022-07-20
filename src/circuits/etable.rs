@@ -50,9 +50,16 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
+
+    /// For br and return
     fn handle_jump(&self) -> bool {
         false
     }
+    
+    fn extra_mops(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        constant_from!(0)
+    }
+
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
     fn opcode_class(&self) -> OpcodeClass;
 }
@@ -233,7 +240,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         meta.create_gate("rest_mops decrease", |meta| {
             let curr_mops = opcode_bitmaps
                 .iter()
-                .map(|(opcode_class, x)| curr!(meta, *x) * constant_from!(opcode_class.mops()))
+                .map(|(opcode_class, x)| {
+                    curr!(meta, *x)
+                        * (constant_from!(opcode_class.mops())
+                            + opcode_configs.get(opcode_class).unwrap().extra_mops(meta))
+                })
                 .reduce(|acc, x| acc + x)
                 .unwrap();
             vec![
@@ -351,9 +362,9 @@ impl<F: FieldExt> EventTableChip<F> {
         }
 
         let mut rest_mops_cell_opt = None;
-        let mut rest_mops = entries
-            .iter()
-            .fold(0, |acc, entry| acc + entry.inst.opcode.mops());
+        let mut rest_mops = entries.iter().fold(0, |acc, entry| {
+            acc + entry.extra_mops() + entry.inst.opcode.mops()
+        });
 
         let mut rest_jops_cell_opt = None;
         // minus 1 becuase the last return is not a jump
@@ -425,7 +436,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 rest_jops_cell_opt = Some(rest_jops_cell.cell());
             }
 
-            rest_mops -= entry.inst.opcode.mops();
+            rest_mops -= (entry.inst.opcode.mops() + entry.extra_mops());
             if rest_jops > 0 {
                 rest_jops -= entry.inst.opcode.jops();
             }

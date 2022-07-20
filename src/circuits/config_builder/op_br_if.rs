@@ -53,7 +53,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         let dst_pc = meta.fixed_column();
 
         mtable.configure_stack_read_in_table(
-            "br_if mlookup",
+            "read cond",
             meta,
             |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
@@ -63,8 +63,31 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
             |meta| curr!(meta, condition),
         );
 
-        // meta.create_gate("read keep")
-        // meta.create_gate("write keep")
+        mtable.configure_stack_read_in_table(
+            "read return value",
+            meta,
+            |meta| {
+                curr!(meta, opcode_bit) * enable(meta) * curr!(meta, condition) * curr!(meta, keep)
+            },
+            |meta| curr!(meta, common.eid),
+            |_meta| constant_from!(2),
+            |meta| curr!(meta, common.sp) + constant_from!(2),
+            |meta| curr!(meta, keep_value.vtype),
+            |meta| curr!(meta, keep_value.value.value),
+        );
+
+        mtable.configure_stack_write_in_table(
+            "write return value",
+            meta,
+            |meta| {
+                curr!(meta, opcode_bit) * enable(meta) * curr!(meta, condition) * curr!(meta, keep)
+            },
+            |meta| curr!(meta, common.eid),
+            |_meta| constant_from!(3),
+            |meta| curr!(meta, common.sp) + constant_from!(2) + curr!(meta, drop),
+            |meta| curr!(meta, keep_value.vtype),
+            |meta| curr!(meta, keep_value.value.value),
+        );
 
         meta.create_gate("br pc jump", |meta| {
             vec![
@@ -108,7 +131,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(F::one()) + curr!(meta, self.keep) - curr!(meta, self.drop)
+        constant!(F::one())
+            + (curr!(meta, self.condition) * curr!(meta, self.condition_inv))
+                * (curr!(meta, self.drop))
+    }
+
+    fn extra_mops(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        (curr!(meta, self.condition) * curr!(meta, self.condition_inv))
+            * constant_from!(2)
+            * curr!(meta, self.keep)
     }
 
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
@@ -161,8 +192,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
                     ctx.offset,
                     || Ok(F::from(*dst_pc as u64)),
                 )?;
-
-                println!("")
             }
             _ => unreachable!(),
         }
@@ -224,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn test_br_if_block_with_arg_ok() {
+    fn test_br_if_block_with_arg_do_not_jump_ok() {
         let textual_repr = r#"
         (module
             (func (export "test")
@@ -245,7 +274,28 @@ mod tests {
     }
 
     #[test]
-    fn test_br_if_block_with_drop_ok() {
+    fn test_br_if_block_with_arg_do_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block (result i32)
+                (i32.const 0)
+                (i32.const 1)
+                br_if 0
+              )
+              drop
+            )
+           )
+        "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
+
+    #[test]
+    fn test_br_if_block_with_drop_do_not_jump_ok() {
         let textual_repr = r#"
         (module
             (func (export "test")
@@ -254,6 +304,31 @@ mod tests {
                   (i32.const 0)
                   (i32.const 0)
                   (i32.const 0)
+                  br_if 1
+                  drop
+                  drop
+                )
+              )
+            )
+           )
+        "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
+
+    #[test]
+    fn test_br_if_block_with_drop_do_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block
+                (block
+                  (i32.const 0)
+                  (i32.const 0)
+                  (i32.const 1)
                   br_if 1
                   drop
                   drop

@@ -69,6 +69,10 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             sp = sp + 1;
             *emid = (*emid).checked_add(1).unwrap();
 
+            if *condition == 0 {
+                return ops;
+            }
+
             {
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
@@ -87,23 +91,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 }
             }
 
-            {
-                for i in 0..(*drop) {
-                    ops.push(MemoryTableEntry {
-                        eid,
-                        emid: *emid,
-                        mmid: 0,
-                        offset: sp as u64,
-                        ltype: LocationType::Stack,
-                        atype: AccessType::Read,
-                        vtype: VarType::I32, // FIXME: polynomial type
-                        value: drop_values[i as usize] as u64,
-                    });
-
-                    sp = sp + 1;
-                    *emid = (*emid).checked_add(1).unwrap();
-                }
-            }
+            sp = sp + ((*drop) as u64);
+            sp -= 1;
 
             {
                 for i in 0..keep.len() {
