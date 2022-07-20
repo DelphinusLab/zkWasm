@@ -8,8 +8,12 @@ use serde::Serialize;
 #[derive(Debug, Clone, Serialize)]
 pub enum StepInfo {
     BrIfNez {
-        value: i32,
+        condition: i32,
         dst_pc: u32,
+        drop: u32,
+        keep: Vec<ValueType>,
+        drop_values: Vec<u64>,
+        keep_values: Vec<u64>,
     },
     Return {
         drop: u32,

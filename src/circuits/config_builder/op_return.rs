@@ -47,7 +47,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         });
 
         meta.create_gate("keep is bit", |meta| {
-            vec![curr!(meta, keep) * (curr!(meta, keep) - constant_from!(1)) * curr!(meta, opcode_bit) * enable(meta)]
+            vec![
+                curr!(meta, keep)
+                    * (curr!(meta, keep) - constant_from!(1))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+            ]
         });
 
         rtable.configure_in_common_range(meta, "return drop range", |meta| {

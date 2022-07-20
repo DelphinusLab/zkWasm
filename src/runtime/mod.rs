@@ -41,15 +41,90 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
     let sp_before_execution = event.sp;
 
     match &event.step_info {
-        StepInfo::BrIfNez { value, dst_pc: _ } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            emid,
-            VarType::I32,
-            VarType::I32,
-            &[*value as u64],
-            &[],
-        ),
+        StepInfo::BrIfNez {
+            condition,
+            drop,
+            keep,
+            drop_values,
+            keep_values,
+            ..
+        } => {
+            assert_eq!(*drop as usize, drop_values.len());
+            assert_eq!(keep.len(), keep_values.len());
+            assert!(keep.len() <= 1);
+
+            let mut sp = sp_before_execution + 1;
+
+            let mut ops = vec![MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: VarType::I32,
+                value: *condition as u64,
+            }];
+
+            sp = sp + 1;
+            *emid = (*emid).checked_add(1).unwrap();
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp as u64,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: keep[i].into(),
+                        value: keep_values[i] as u64,
+                    });
+
+                    sp = sp + 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            {
+                for i in 0..(*drop) {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp as u64,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: VarType::I32, // FIXME: polynomial type
+                        value: drop_values[i as usize] as u64,
+                    });
+
+                    sp = sp + 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp as u64,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Write,
+                        vtype: keep[i].into(),
+                        value: keep_values[i] as u64,
+                    });
+
+                    sp = sp - 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            ops
+        }
         StepInfo::Return {
             drop,
             keep,
@@ -58,12 +133,14 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         } => {
             assert_eq!(*drop as usize, drop_values.len());
             assert_eq!(keep.len(), keep_values.len());
+            assert!(keep.len() <= 1);
+
             mem_op_from_stack_only_step(
                 sp_before_execution,
                 eid,
                 emid,
-                VarType::I32,
-                VarType::I32,
+                VarType::I32, // FIXME: drop type or polynomial
+                VarType::I32, // FIXME
                 drop_values.iter().map(|value| *value).collect::<Vec<_>>()[..]
                     .try_into()
                     .unwrap(),

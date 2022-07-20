@@ -28,7 +28,7 @@ impl OpcodeClass {
             OpcodeClass::Bin => 3,
             OpcodeClass::BinBit => 3,
             OpcodeClass::Rel => 3,
-            OpcodeClass::BrIf => 0, // FIXME: 0?
+            OpcodeClass::BrIf => 1, // FIXME: 0?
             OpcodeClass::Call => 0, // FIXME: should be the number of args?
         }
     }
@@ -177,7 +177,11 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
             Opcode::BrIf { drop, keep, dst_pc } => {
-                todo!()
+                // TODO: should encode type of keep values?
+                (BigUint::from(OpcodeClass::BrIf as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
+                    + dst_pc
             }
             Opcode::Call { index } => {
                 (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
