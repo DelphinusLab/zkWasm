@@ -6,7 +6,6 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
 };
-use specs::mtable::VarType;
 
 #[derive(Clone)]
 pub struct BitValueConfig<F: FieldExt> {
@@ -24,7 +23,6 @@ impl<F: FieldExt> BitValueConfig<F> {
     ) -> Self {
         let bits_le = [(); 16].map(|_| cols.next().unwrap());
         let value = cols.next().unwrap();
-        let vtype = cols.next().unwrap();
 
         for i in 0..16 {
             rtable.configure_in_u4_range(meta, "bits repr", |meta| {

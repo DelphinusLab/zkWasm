@@ -1,5 +1,5 @@
 use crate::{
-    itable::{BinOp, BitOp},
+    itable::{BinOp, BitOp, RelOp},
     mtable::VarType,
     types::ValueType,
 };
@@ -47,6 +47,7 @@ pub enum StepInfo {
     },
 
     I32Comp {
+        class: RelOp,
         left: i32,
         right: i32,
         value: bool,
