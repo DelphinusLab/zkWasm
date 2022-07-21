@@ -49,9 +49,6 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
-    fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant_from!(self.opcode_class().mops())
-    }
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn handle_jump(&self) -> bool {
         false
@@ -236,9 +233,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         meta.create_gate("rest_mops decrease", |meta| {
             let curr_mops = opcode_bitmaps
                 .iter()
-                .map(|(opcode_class, x)| {
-                    curr!(meta, *x) * opcode_configs.get(opcode_class).unwrap().mops(meta)
-                })
+                .map(|(opcode_class, x)| curr!(meta, *x) * constant_from!(opcode_class.mops()))
                 .reduce(|acc, x| acc + x)
                 .unwrap();
             vec![

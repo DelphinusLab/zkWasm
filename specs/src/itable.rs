@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 use strum_macros::EnumIter;
 
-#[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq,PartialOrd, Ord, Hash)]
 pub enum OpcodeClass {
     LocalGet = 1,
     Const,
@@ -24,11 +24,12 @@ impl OpcodeClass {
             OpcodeClass::LocalGet => 1,
             OpcodeClass::Const => 1,
             OpcodeClass::Drop => 0,
-            OpcodeClass::Call => 0, // FIXME: should be the number of args?
+            OpcodeClass::Return => 0,
             OpcodeClass::Bin => 3,
             OpcodeClass::BinBit => 3,
             OpcodeClass::Rel => 3,
-            OpcodeClass::BrIf | OpcodeClass::Return => unreachable!(), 
+            OpcodeClass::BrIf => 1, // FIXME: 0?
+            OpcodeClass::Call => 0, // FIXME: should be the number of args?
         }
     }
 
@@ -117,14 +118,8 @@ pub enum Opcode {
 
 impl Opcode {
     pub fn mops(&self) -> u64 {
-        match self {
-            Opcode::Return { keep, .. } => (keep.len() * 2) as u64,
-            Opcode::BrIf { keep, .. } => 1 + (keep.len() * 2) as u64,
-            _ => {
-                let opcode_class: OpcodeClass = self.clone().into();
-                opcode_class.mops()
-            }
-        }
+        let opcode_class: OpcodeClass = self.clone().into();
+        opcode_class.mops()
     }
 
     pub fn jops(&self) -> u64 {

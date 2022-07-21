@@ -93,10 +93,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
-    fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        curr!(meta, self.keep) * constant_from!(2) + constant_from!(1)
-    }
-
     fn handle_jump(&self) -> bool {
         true
     }
