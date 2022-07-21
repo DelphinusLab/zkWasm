@@ -116,7 +116,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
-    fn handle_jump(&self) -> bool {
+    fn handle_iid(&self) -> bool {
         true
     }
 

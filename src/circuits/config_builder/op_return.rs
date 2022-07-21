@@ -96,6 +96,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
+    fn handle_moid(&self) -> bool {
+        true
+    }
+
+    fn handle_fid(&self) -> bool {
+        true
+    }
+
+    fn handle_iid(&self) -> bool {
+        true
+    }
+
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
