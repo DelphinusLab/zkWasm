@@ -26,7 +26,6 @@ pub enum VarType {
     I32,
     U64,
     I64,
-    Bool,
 }
 
 impl From<parity_wasm::elements::ValueType> for VarType {
@@ -60,7 +59,6 @@ impl VarType {
             VarType::I32 => 4,
             VarType::U64 => 8,
             VarType::I64 => 8,
-            VarType::Bool => 1,
         }
     }
 }
