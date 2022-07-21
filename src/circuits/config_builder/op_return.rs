@@ -21,6 +21,7 @@ use specs::{
 };
 
 pub struct ReturnConfig<F: FieldExt> {
+    enable: Column<Advice>,
     drop: Column<Advice>,
     keep: Column<Advice>,
     tvalue: TValueConfig<F>,
@@ -91,7 +92,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             |meta| next!(meta, common.iid),
         );
 
-        Box::new(ReturnConfig { drop, keep, tvalue })
+        Box::new(ReturnConfig {
+            drop,
+            keep,
+            tvalue,
+            enable: opcode_bit,
+        })
     }
 }
 
@@ -109,17 +115,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     }
 
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
+        (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
         )) + curr!(meta, self.drop)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + curr!(meta, self.keep)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
-            + curr!(meta, self.tvalue.vtype)
+            + curr!(meta, self.tvalue.vtype))
+            * curr!(meta, self.enable)
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        curr!(meta, self.drop)
+        curr!(meta, self.drop) * curr!(meta, self.enable)
     }
 
     fn opcode_class(&self) -> OpcodeClass {
@@ -157,5 +164,34 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
             _ => unreachable!(),
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        runtime::{WasmInterpreter, WasmRuntime},
+        test::test_circuit_builder::run_test_circuit,
+    };
+    use halo2_proofs::pairing::bn256::Fr as Fp;
+
+    #[test]
+    fn test_return_with_drop_ok() {
+        let textual_repr = r#"
+            (module
+                (func (export "test")
+                  (block
+                    (i32.const 0)
+                    (i32.const 0)
+                    return
+                  )
+                )
+               )
+            "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }
