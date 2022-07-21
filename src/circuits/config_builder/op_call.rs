@@ -7,22 +7,23 @@ use crate::{
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         rtable::RangeTableConfig,
-        utils::{bn_to_field, tvalue::TValueConfig, Context},
+        utils::{bn_to_field, Context},
     },
-    constant, constant_from, curr,
+    constant, curr, fixed_curr, next,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
 };
 use num_bigint::BigUint;
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::VarType,
 };
 
 pub struct CallConfig<F: FieldExt> {
+    func_index: Column<Fixed>,
+    enable: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -34,31 +35,70 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
         common: &EventTableCommonConfig,
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-        rtable: &RangeTableConfig<F>,
-        itable: &InstructionTableConfig<F>,
-        mtable: &MemoryTableConfig<F>,
-        jtable: &JumpTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
+        _itable: &InstructionTableConfig<F>,
+        _mtable: &MemoryTableConfig<F>,
+        _jtable: &JumpTableConfig<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        todo!()
+        let func_index = meta.fixed_column();
+
+        meta.create_gate("br pc jump", |meta| {
+            vec![
+                next!(meta, common.iid) * curr!(meta, opcode_bit) * enable(meta),
+                (next!(meta, common.fid) - fixed_curr!(meta, func_index))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+            ]
+        });
+
+        Box::new(CallConfig {
+            func_index,
+            enable: opcode_bit,
+            _mark: PhantomData,
+        })
     }
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        todo!()
+        (constant!(bn_to_field(
+            &(BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
+        )) + fixed_curr!(meta, self.func_index)
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT))))
+            * curr!(meta, self.enable)
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        todo!()
+        constant!(F::zero())
     }
 
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
-        todo!()
+        match entry.step_info {
+            specs::step::StepInfo::Call { index } => {
+                ctx.region.assign_fixed(
+                    || "func_index",
+                    self.func_index,
+                    ctx.offset,
+                    || Ok(F::from(index as u64)),
+                )?;
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(())
     }
 
     fn opcode_class(&self) -> OpcodeClass {
-        todo!()
+        OpcodeClass::Call
+    }
+
+    fn handle_iid(&self) -> bool {
+        true
+    }
+
+    fn handle_fid(&self) -> bool {
+        true
     }
 }
 
