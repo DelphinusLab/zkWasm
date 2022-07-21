@@ -165,12 +165,13 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
-        meta.create_gate("mtable stack first line must be write", |meta| {
+        meta.create_gate("mtable stack first line can't be read", |meta| {
             vec![
                 self.is_enable(meta)
                     * self.is_diff_location(meta)
                     * self.is_stack(meta)
                     * (curr!(meta, self.atype) - constant_from!(AccessType::Write))
+                    * (curr!(meta, self.atype) - constant_from!(AccessType::Init))
                     * fixed_curr!(meta, self.sel),
             ]
         });

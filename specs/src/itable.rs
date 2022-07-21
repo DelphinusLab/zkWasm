@@ -158,8 +158,8 @@ impl Into<BigUint> for Opcode {
             Opcode::Return { drop, keep } => {
                 (BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(keep.len() as u64) << OPCODE_ARG0_SHIFT)
-                    + keep.first().map_or(0u64, |x| *x as u64)
+                    + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
+                    + keep.first().map_or(0u64, |x| VarType::from(*x) as u64)
             }
             Opcode::Bin { class, vtype } => {
                 (BigUint::from(OpcodeClass::Bin as u64) << OPCODE_CLASS_SHIFT)

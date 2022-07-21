@@ -50,7 +50,7 @@ pub mod tests {
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler.compile(textual_repr).unwrap();
         let execution_log = compiler
-            .run(&compiled_module, "fibonacci", vec![Value::I32(8)])
+            .run(&compiled_module, "fibonacci", vec![Value::I32(0)])
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
