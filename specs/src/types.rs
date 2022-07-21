@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use crate::mtable::VarType;
+
 #[derive(Clone, Copy, Debug, Serialize)]
 pub enum ValueType {
     I32,
@@ -25,6 +27,28 @@ pub enum Value {
     I64(i64),
     U32(u32),
     U64(u64),
+}
+
+impl Into<VarType> for Value {
+    fn into(self) -> VarType {
+        match self {
+            Value::I32(_) => VarType::I32,
+            Value::I64(_) => VarType::I64,
+            Value::U32(_) => VarType::U32,
+            Value::U64(_) => VarType::U64,
+        }
+    }
+}
+
+impl Value {
+    pub fn internal(&self) -> u64 {
+        match self {
+            Value::I32(v) => (*v) as u64,
+            Value::I64(v) => (*v) as u64,
+            Value::U32(v) => (*v) as u64,
+            Value::U64(v) => (*v) as u64,
+        }
+    }
 }
 
 #[derive(Debug)]

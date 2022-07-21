@@ -1,6 +1,8 @@
 use serde::Serialize;
 use strum_macros::EnumIter;
 
+use crate::types::Value;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum LocationType {
     Heap = 0,
@@ -97,8 +99,28 @@ impl MTable {
         serde_json::to_string(self).unwrap()
     }
 
-    pub fn new(entries: Vec<MemoryTableEntry>) -> Self {
+    pub fn new(
+        entries: Vec<MemoryTableEntry>,
+        args_of_first_invoking_function: &Vec<Value>,
+    ) -> Self {
         let mut mtable = MTable(entries);
+
+        let mut start_sp = 4095;
+        for arg in args_of_first_invoking_function {
+            mtable.0.push(MemoryTableEntry {
+                eid: 0,
+                emid: 0,
+                mmid: 0, // mmid of stack is always zero
+                offset: start_sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Init,
+                vtype: (*arg).clone().into(),
+                value: arg.internal(),
+            });
+
+            start_sp -= 1;
+        }
+
         mtable.sort();
         mtable
     }

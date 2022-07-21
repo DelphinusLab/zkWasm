@@ -13,10 +13,10 @@ use super::{CompileOutcome, WasmRuntime};
 
 pub struct WasmiRuntime {}
 
-fn into_wasmi_value(v: Value) -> RuntimeValue {
+fn into_wasmi_value(v: &Value) -> RuntimeValue {
     match v {
-        Value::I32(v) => RuntimeValue::I32(v),
-        Value::I64(v) => RuntimeValue::I64(v),
+        Value::I32(v) => RuntimeValue::I32(*v),
+        Value::I64(v) => RuntimeValue::I64(*v),
         Value::U32(_) => todo!(),
         Value::U64(_) => todo!(),
     }
@@ -73,10 +73,7 @@ impl WasmRuntime for WasmiRuntime {
         instance
             .invoke_export_trace(
                 function_name,
-                &args
-                    .into_iter()
-                    .map(|v| into_wasmi_value(v))
-                    .collect::<Vec<_>>(),
+                &args.iter().map(|v| into_wasmi_value(v)).collect::<Vec<_>>(),
                 &mut NopExternals,
                 tracer.clone(),
             )
@@ -96,7 +93,7 @@ impl WasmRuntime for WasmiRuntime {
             .collect::<Vec<Vec<_>>>();
         // concat vectors without Clone
         let mentries = mentries.into_iter().flat_map(|x| x.into_iter()).collect();
-        let mtable = MTable::new(mentries);
+        let mtable = MTable::new(mentries, &args);
 
         let jtable = tracer
             .jtable
