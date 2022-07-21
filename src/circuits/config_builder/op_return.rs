@@ -96,6 +96,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
+    fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        curr!(meta, self.keep) * constant_from!(2)
+    }
+
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
