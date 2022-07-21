@@ -209,7 +209,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             VarType::I32,
             VarType::I32,
             &[],
-            &[*value as u64],
+            &[*value as u32 as u64],
         ),
         StepInfo::I32BinOp {
             left, right, value, ..
@@ -222,8 +222,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             emid,
             VarType::I32,
             VarType::I32,
-            &[*right as u64, *left as u64],
-            &[*value as u64],
+            &[*right as u32 as u64, *left as u32 as u64],
+            &[*value as u32 as u64],
         ),
         StepInfo::I32Comp {
             left, right, value, ..
@@ -233,8 +233,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             emid,
             VarType::I32,
             VarType::I32,
-            &[*right as u64, *left as u64],
-            &[*value as u64],
+            &[*right as u32 as u64, *left as u32 as u64],
+            &[*value as u32 as u64],
         ),
     }
 }
