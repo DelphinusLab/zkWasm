@@ -70,20 +70,17 @@ impl WasmRuntime for WasmiRuntime {
         tracer.register_module_instance(&compile_outcome.module, &instance);
         let tracer = Rc::new(RefCell::new(tracer));
 
-        assert_eq!(
-            instance
-                .invoke_export_trace(
-                    function_name,
-                    &args
-                        .into_iter()
-                        .map(|v| into_wasmi_value(v))
-                        .collect::<Vec<_>>(),
-                    &mut NopExternals,
-                    tracer.clone(),
-                )
-                .expect("failed to execute export"),
-            None,
-        );
+        instance
+            .invoke_export_trace(
+                function_name,
+                &args
+                    .into_iter()
+                    .map(|v| into_wasmi_value(v))
+                    .collect::<Vec<_>>(),
+                &mut NopExternals,
+                tracer.clone(),
+            )
+            .expect("failed to execute export");
 
         let tracer = tracer.borrow();
         let etable = tracer
