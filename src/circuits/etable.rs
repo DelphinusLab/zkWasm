@@ -412,6 +412,7 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_as_u64!(iid, entry.inst.iid);
             assign_as_u64!(mmid, entry.inst.mmid);
             assign_as_u64!(sp, entry.sp);
+            assign_as_u64!(last_jump_eid, entry.last_jump_eid);
             assign!(opcode, bn_to_field(&(entry.inst.opcode.clone().into())));
 
             //TODO: give correct last_jump_eid
@@ -449,7 +450,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 rest_jops_cell_opt = Some(rest_jops_cell.cell());
             }
 
-            rest_mops -= (entry.inst.opcode.mops() + entry.extra_mops());
+            rest_mops -= entry.inst.opcode.mops() + entry.extra_mops();
             if rest_jops > 0 {
                 rest_jops -= entry.inst.opcode.jops();
             }

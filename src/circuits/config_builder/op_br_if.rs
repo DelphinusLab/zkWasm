@@ -52,6 +52,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         let condition_inv = cols.next().unwrap();
         let dst_pc = meta.fixed_column();
 
+        rtable.configure_in_u16_range(meta, "op br_if drop limit", |meta| {
+            curr!(meta, drop) * curr!(meta, opcode_bit) * enable(meta)
+        });
+
+        meta.create_gate("op br_if keep is bit", |meta| {
+            vec![
+                curr!(meta, keep)
+                    * (curr!(meta, keep) - constant_from!(1))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+            ]
+        });
+
         mtable.configure_stack_read_in_table(
             "read cond",
             meta,
