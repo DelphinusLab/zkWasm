@@ -63,7 +63,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        // FIXME
         (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
         )) + curr!(meta, self.tvalue.vtype)

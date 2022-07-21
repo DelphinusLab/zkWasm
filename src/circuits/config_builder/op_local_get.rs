@@ -55,7 +55,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
             |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
-            |meta| curr!(meta, common.sp),
+            |meta| curr!(meta, common.sp) + curr!(meta, offset),
             |meta| curr!(meta, tvalue.vtype),
             |meta| curr!(meta, tvalue.value.value),
         );

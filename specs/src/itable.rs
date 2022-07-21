@@ -21,7 +21,7 @@ pub enum OpcodeClass {
 impl OpcodeClass {
     pub fn mops(&self) -> u64 {
         match self {
-            OpcodeClass::LocalGet => 1,
+            OpcodeClass::LocalGet => 2,
             OpcodeClass::Const => 1,
             OpcodeClass::Drop => 0,
             OpcodeClass::Return => 0,

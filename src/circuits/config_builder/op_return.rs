@@ -66,7 +66,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             |meta| curr!(meta, opcode_bit) * curr!(meta, keep) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
-            |meta| curr!(meta, common.sp),
+            |meta| curr!(meta, common.sp) + constant_from!(1),
             |meta| curr!(meta, tvalue.vtype),
             |meta| curr!(meta, tvalue.value.value),
         );
@@ -77,7 +77,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             |meta| curr!(meta, opcode_bit) * curr!(meta, keep) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
-            |meta| curr!(meta, common.sp) - curr!(meta, drop),
+            |meta| curr!(meta, common.sp) + curr!(meta, drop) + constant_from!(1),
             |meta| curr!(meta, tvalue.vtype),
             |meta| curr!(meta, tvalue.value.value),
         );
@@ -135,6 +135,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
 
     fn opcode_class(&self) -> OpcodeClass {
         OpcodeClass::Return
+    }
+
+    fn extra_mops(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        constant_from!(2) * curr!(meta, self.keep) * curr!(meta, self.enable)
     }
 
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
