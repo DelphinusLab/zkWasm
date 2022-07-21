@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{
     circuits::{
         etable::{EventTableCommonConfig, EventTableOpcodeConfig, EventTableOpcodeConfigBuilder},
@@ -9,17 +7,18 @@ use crate::{
         rtable::RangeTableConfig,
         utils::{bn_to_field, Context},
     },
-    constant, constant_from, curr, fixed_curr, next,
+    constant, constant_from, curr, next,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
 };
+use std::marker::PhantomData;
 
 pub struct CallConfig<F: FieldExt> {
     func_index: Column<Advice>,
@@ -66,6 +65,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
             |meta| curr!(meta, common.iid) + constant_from!(1),
         );
 
+        meta.create_gate("call last jump eid change", |meta| {
+            vec![
+                (curr!(meta, common.eid) - next!(meta, common.last_jump_eid))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+            ]
+        });
+
         Box::new(CallConfig {
             func_index,
             enable: opcode_bit,
@@ -83,7 +90,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig<F> {
             * curr!(meta, self.enable)
     }
 
-    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(F::zero())
     }
 
@@ -112,6 +119,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig<F> {
     }
 
     fn handle_fid(&self) -> bool {
+        true
+    }
+
+    fn last_jump_eid_change(&self) -> bool {
         true
     }
 }

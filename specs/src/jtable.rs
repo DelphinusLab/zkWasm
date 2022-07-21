@@ -19,7 +19,7 @@ impl JumpTableEntry {
         let mut bn = BigUint::from(self.eid);
         bn = bn << 16;
         bn += self.last_jump_eid;
-        bn = bn << 64;
+        bn = bn << 48;
         bn += self.inst.encode_instruction_address();
         bn
     }

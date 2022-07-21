@@ -36,7 +36,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             next!(meta, enable) * fixed_curr!(meta, sel)
         });
         let atype = cols.next().unwrap();
-        let vtype = cols.next().unwrap();
         let same_location = cols.next().unwrap();
         let rest_mops = cols.next().unwrap();
 

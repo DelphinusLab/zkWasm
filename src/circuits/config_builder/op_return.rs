@@ -84,7 +84,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
 
         jtable.configure_in_table(
             meta,
-            |meta| curr!(meta, opcode_bit) * curr!(meta, keep) * enable(meta),
+            |meta| curr!(meta, opcode_bit) * enable(meta) * next!(meta, common.enable),
             |meta| curr!(meta, common.last_jump_eid),
             |meta| next!(meta, common.last_jump_eid),
             |meta| next!(meta, common.moid),
@@ -111,6 +111,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     }
 
     fn handle_iid(&self) -> bool {
+        true
+    }
+
+    fn last_jump_eid_change(&self) -> bool {
         true
     }
 

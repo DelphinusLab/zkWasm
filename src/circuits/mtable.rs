@@ -3,7 +3,6 @@ use super::rtable::RangeTableConfig;
 use super::utils::bn_to_field;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::tvalue::TValueConfig;
-use super::utils::u64::U64Config;
 use super::utils::Context;
 use crate::constant;
 use crate::constant_from;

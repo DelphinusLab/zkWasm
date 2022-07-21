@@ -107,10 +107,10 @@ impl<F: FieldExt> JumpTableConfig<F> {
     }
 }
 
-const EID_SHIFT: usize = 96;
-const LAST_JUMP_EID_SHIFT: usize = 80;
+const EID_SHIFT: usize = 64;
+const LAST_JUMP_EID_SHIFT: usize = 48;
 const MOID_SHIFT: usize = 32;
-const FID_SHIFT: usize = 32;
+const FID_SHIFT: usize = 16;
 
 pub struct JumpTableChip<F: FieldExt> {
     config: JumpTableConfig<F>,
@@ -136,7 +136,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         let mut rest = entries.len() as u64 * 2;
         for (i, entry) in entries.iter().enumerate() {
             let rest_f = rest.into();
-            let entry_f = bn_to_field(&entry.inst.encode_instruction_address());
+            let entry_f = bn_to_field(&entry.encode());
 
             let cell = ctx.region.assign_advice(
                 || "jtable rest",
@@ -166,6 +166,34 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             rest -= 2;
             ctx.next()
+        }
+
+        {
+            let cell = ctx.region.assign_advice(
+                || "jtable rest",
+                self.config.rest,
+                ctx.offset,
+                || Ok(F::zero()),
+            )?;
+
+            if ctx.offset == 0 && etable_rest_jops_cell.is_some() {
+                ctx.region
+                    .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
+            }
+
+            ctx.region.assign_advice(
+                || "jtable entry",
+                self.config.entry,
+                ctx.offset,
+                || Ok(F::zero()),
+            )?;
+
+            ctx.region.assign_advice(
+                || "jtable aux",
+                self.config.aux,
+                ctx.offset,
+                || Ok(F::zero()),
+            )?;
         }
         Ok(())
     }

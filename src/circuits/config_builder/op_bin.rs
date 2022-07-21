@@ -7,7 +7,7 @@ use crate::{
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         rtable::RangeTableConfig,
-        utils::{bn_to_field, tvalue::TValueConfig, u64::U64Config, Context},
+        utils::{bn_to_field, u64::U64Config, Context},
     },
     constant, constant_from, curr,
 };
@@ -253,7 +253,6 @@ mod tests {
         test::test_circuit_builder::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
-    use specs::write_json;
 
     #[test]
     fn test_i32_add_ok() {

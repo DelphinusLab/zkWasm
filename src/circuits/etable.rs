@@ -66,6 +66,9 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn handle_fid(&self) -> bool {
         false
     }
+    fn last_jump_eid_change(&self) -> bool {
+        false
+    }
 }
 
 const ETABLE_ROWS: usize = 1usize << 16;
@@ -338,6 +341,26 @@ impl<F: FieldExt> EventTableConfig<F> {
             ]
         });
 
+        meta.create_gate("next inst addr", |meta| {
+            let mut acc = constant_from!(1);
+            for op in OpcodeClass::iter() {
+                if let Some(x) = opcode_bitmaps.get(&op) {
+                    if let Some(config) = opcode_configs.get(&op) {
+                        if config.last_jump_eid_change() {
+                            acc = acc - curr!(meta, *x);
+                        }
+                    }
+                }
+            }
+
+            vec![
+                next!(meta, common_config.enable)
+                    * fixed_curr!(meta, common_config.sel)
+                    * (next!(meta, common_config.last_jump_eid) - curr!(meta, common_config.last_jump_eid))
+                    * acc
+            ]
+        });
+
         EventTableConfig {
             common_config,
             opcode_bitmaps,
@@ -414,9 +437,6 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_as_u64!(sp, entry.sp);
             assign_as_u64!(last_jump_eid, entry.last_jump_eid);
             assign!(opcode, bn_to_field(&(entry.inst.opcode.clone().into())));
-
-            //TODO: give correct last_jump_eid
-            assign_as_u64!(last_jump_eid, 0);
 
             let opcode_class = entry.inst.opcode.clone().into();
 

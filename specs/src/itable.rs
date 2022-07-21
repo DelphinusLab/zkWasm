@@ -230,7 +230,6 @@ impl InstructionTableEntry {
         bn += self.fid;
         bn = bn << 16;
         bn += self.iid;
-        bn = bn << 16;
         bn
     }
 }
