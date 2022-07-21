@@ -27,6 +27,7 @@ pub struct BrIfConfig<F: FieldExt> {
     condition: Column<Advice>,
     condition_inv: Column<Advice>,
     dst_pc: Column<Fixed>,
+    enable: Column<Advice>,
 }
 
 pub struct BrIfConfigBuilder {}
@@ -124,6 +125,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
             dst_pc,
             condition,
             condition_inv,
+            enable: opcode_bit,
         })
     }
 }
@@ -134,25 +136,28 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
     }
 
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
+        (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::BrIf as u64) << OPCODE_CLASS_SHIFT)
         )) + curr!(meta, self.drop)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + curr!(meta, self.keep)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
-            + fixed_curr!(meta, self.dst_pc)
+            + fixed_curr!(meta, self.dst_pc))
+            * curr!(meta, self.enable)
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(F::one())
+        (constant!(F::one())
             + (curr!(meta, self.condition) * curr!(meta, self.condition_inv))
-                * (curr!(meta, self.drop))
+                * (curr!(meta, self.drop)))
+            * curr!(meta, self.enable)
     }
 
     fn extra_mops(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        (curr!(meta, self.condition) * curr!(meta, self.condition_inv))
+        ((curr!(meta, self.condition) * curr!(meta, self.condition_inv))
             * constant_from!(2)
-            * curr!(meta, self.keep)
+            * curr!(meta, self.keep))
+            * curr!(meta, self.enable)
     }
 
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
