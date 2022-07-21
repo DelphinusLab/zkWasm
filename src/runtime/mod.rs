@@ -63,7 +63,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: VarType::I32,
-                value: *condition as u64,
+                value: *condition as u32 as u64,
             }];
 
             sp = sp + 1;
@@ -79,11 +79,11 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         eid,
                         emid: *emid,
                         mmid: 0,
-                        offset: sp as u64,
+                        offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
                         vtype: keep[i].into(),
-                        value: keep_values[i] as u64,
+                        value: keep_values[i],
                     });
 
                     sp = sp + 1;
@@ -100,11 +100,11 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         eid,
                         emid: *emid,
                         mmid: 0,
-                        offset: sp as u64,
+                        offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
                         vtype: keep[i].into(),
-                        value: keep_values[i] as u64,
+                        value: keep_values[i],
                     });
 
                     sp = sp - 1;
@@ -133,11 +133,11 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         eid,
                         emid: *emid,
                         mmid: 0,
-                        offset: sp as u64,
+                        offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
                         vtype: keep[i].into(),
-                        value: keep_values[i] as u64,
+                        value: keep_values[i],
                     });
 
                     sp = sp + 1;
@@ -154,11 +154,11 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         eid,
                         emid: *emid,
                         mmid: 0,
-                        offset: sp as u64,
+                        offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
                         vtype: keep[i].into(),
-                        value: keep_values[i] as u64,
+                        value: keep_values[i],
                     });
 
                     sp = sp - 1;
@@ -256,7 +256,7 @@ pub(crate) fn mem_op_from_stack_only_step(
             eid,
             emid: *emid,
             mmid: 0,
-            offset: sp + 1 as u64,
+            offset: sp + 1,
             ltype: LocationType::Stack,
             atype: AccessType::Read,
             vtype: inputs_type,
@@ -271,7 +271,7 @@ pub(crate) fn mem_op_from_stack_only_step(
             eid,
             emid: *emid,
             mmid: 0,
-            offset: sp as u64,
+            offset: sp,
             ltype: LocationType::Stack,
             atype: AccessType::Write,
             vtype: outputs_type,
