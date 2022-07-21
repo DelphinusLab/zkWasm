@@ -29,7 +29,7 @@ impl OpcodeClass {
             OpcodeClass::BinBit => 3,
             OpcodeClass::Rel => 3,
             OpcodeClass::BrIf => 1,
-            OpcodeClass::Call => 0, // FIXME: should be the number of args?
+            OpcodeClass::Call => 0, // FIXME: should be the number of locals?
         }
     }
 

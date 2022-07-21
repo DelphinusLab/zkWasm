@@ -129,4 +129,25 @@ mod tests {
         let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
+
+    #[test]
+    fn test_call_with_arg_ok() {
+        let textual_repr = r#"
+                (module
+                    (func $dummy (param i32))
+
+                    (func (export "test")
+                      (block
+                        (i32.const 0)
+                        (call $dummy)
+                      )
+                    )
+                   )
+                "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
 }
