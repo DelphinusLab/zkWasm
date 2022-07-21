@@ -38,9 +38,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         opcode_bit: Column<Advice>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
         rtable: &RangeTableConfig<F>,
-        itable: &InstructionTableConfig<F>,
+        _itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
-        jtable: &JumpTableConfig<F>,
+        _jtable: &JumpTableConfig<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let drop = cols.next().unwrap();
@@ -53,18 +53,17 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         let dst_pc = meta.fixed_column();
 
         mtable.configure_stack_read_in_table(
-            "bin mlookup",
+            "br_if mlookup",
             meta,
             |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1),
             |meta| curr!(meta, common.sp) + constant_from!(1),
-            |meta| constant_from!(VarType::I32),
+            |_meta| constant_from!(VarType::I32),
             |meta| curr!(meta, condition),
         );
 
         // meta.create_gate("read keep")
-
         // meta.create_gate("write keep")
 
         meta.create_gate("br pc jump", |meta| {
@@ -94,6 +93,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
+    fn handle_jump(&self) -> bool {
+        true
+    }
+
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::BrIf as u64) << OPCODE_CLASS_SHIFT)

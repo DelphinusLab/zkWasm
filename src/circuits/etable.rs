@@ -31,6 +31,7 @@ use specs::itable::OpcodeClass;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use strum::IntoEnumIterator;
 
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
@@ -49,6 +50,9 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
+    fn handle_jump(&self) -> bool {
+        false
+    }
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
     fn opcode_class(&self) -> OpcodeClass;
 }
@@ -277,6 +281,36 @@ impl<F: FieldExt> EventTableConfig<F> {
                 (curr!(meta, common_config.enable) - constant_from!(1))
                     * curr!(meta, common_config.enable)
                     * fixed_curr!(meta, common_config.sel),
+            ]
+        });
+
+        meta.create_gate("next inst addr", |meta| {
+            let mut bit_acc = constant_from!(1);
+            for op in OpcodeClass::iter() {
+                if let Some(x) = opcode_bitmaps.get(&op) {
+                    if let Some(config) = opcode_configs.get(&op) {
+                        if config.handle_jump() {
+                            bit_acc = bit_acc - curr!(meta, *x);
+                        }
+                    }
+                }
+            }
+
+            vec![
+                next!(meta, common_config.enable)
+                    * fixed_curr!(meta, common_config.sel)
+                    * (next!(meta, common_config.moid) - curr!(meta, common_config.moid))
+                    * bit_acc.clone(),
+                next!(meta, common_config.enable)
+                    * fixed_curr!(meta, common_config.sel)
+                    * (next!(meta, common_config.fid) - curr!(meta, common_config.fid))
+                    * bit_acc.clone(),
+                next!(meta, common_config.enable)
+                    * fixed_curr!(meta, common_config.sel)
+                    * (next!(meta, common_config.iid)
+                        - curr!(meta, common_config.iid)
+                        - constant_from!(1))
+                    * bit_acc.clone(),
             ]
         });
 

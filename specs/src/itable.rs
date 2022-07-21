@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 use strum_macros::EnumIter;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq,PartialOrd, Ord, Hash)]
 pub enum OpcodeClass {
     LocalGet = 1,
     Const,
