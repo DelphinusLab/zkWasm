@@ -58,21 +58,21 @@ pub mod tests {
 
     /*
      * int arr[2] = {1,2};
-     * int memory_lw() {
+     * int memory_rw() {
      *   arr[0] = arr[0] + arr[1];
      *   return arr[0];
      * }
      */
     #[test]
-    fn test_memory_lw() {
+    fn test_memory_rw() {
         let textual_repr = r#"
            (module
             (table 0 anyfunc)
             (memory $0 1)
             (data (i32.const 12) "\01\00\00\00\02\00\00\00")
             (export "memory" (memory $0))
-            (export "memory_lw" (func $memory_lw))
-            (func $memory_lw (; 0 ;) (result i32)
+            (export "memory_rw" (func $memory_rw))
+            (func $memory_rw (; 0 ;) (result i32)
              (local $0 i32)
              (i32.store offset=12
               (i32.const 0)
@@ -94,7 +94,7 @@ pub mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler.compile(textual_repr).unwrap();
-        let execution_log = compiler.run(&compiled_module, "memory_lw", vec![]).unwrap();
+        let execution_log = compiler.run(&compiled_module, "memory_rw", vec![]).unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }

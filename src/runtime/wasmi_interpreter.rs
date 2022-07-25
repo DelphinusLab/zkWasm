@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use specs::{
+    imtable::InitMemoryTable,
     mtable::MTable,
     types::{CompileError, ExecutionError, Value},
     CompileTable, ExecutionTable,
@@ -34,25 +35,34 @@ impl WasmRuntime for WasmiRuntime {
 
         let module = wasmi::Module::from_buffer(&binary).expect("failed to load wasm");
 
-        let instance = ModuleInstance::new(&module, &ImportsBuilder::default())
+        let tracer = wasmi::tracer::Tracer::default();
+        let tracer = Rc::new(RefCell::new(tracer));
+
+        ModuleInstance::new(&module, &ImportsBuilder::default(), Some(tracer.clone()))
             .expect("failed to instantiate wasm module")
             .assert_no_start();
 
-        let mut tracer = wasmi::tracer::Tracer::default();
-        tracer.register_module_instance(&module, &instance);
+        let itable = tracer
+            .borrow()
+            .itable
+            .0
+            .iter()
+            .map(|ientry| ientry.clone().into())
+            .collect();
+        let imtable = InitMemoryTable::new(
+            tracer
+                .borrow()
+                .imtable
+                .0
+                .iter()
+                .map(|imentry| imentry.clone().into())
+                .collect(),
+        );
 
         Ok(CompileOutcome {
             textual_repr: textual_repr.to_string(),
             module,
-            tables: CompileTable {
-                itable: tracer
-                    .itable
-                    .0
-                    .iter()
-                    .map(|ientry| ientry.clone().into())
-                    .collect(),
-                imtable: vec![], // TODO
-            },
+            tables: CompileTable { itable, imtable },
         })
     }
 
@@ -62,13 +72,16 @@ impl WasmRuntime for WasmiRuntime {
         function_name: &str,
         args: Vec<Value>,
     ) -> Result<ExecutionOutcome, ExecutionError> {
-        let instance = ModuleInstance::new(&compile_outcome.module, &ImportsBuilder::default())
-            .expect("failed to instantiate wasm module")
-            .assert_no_start();
-
-        let mut tracer = wasmi::tracer::Tracer::default();
-        tracer.register_module_instance(&compile_outcome.module, &instance);
+        let tracer = wasmi::tracer::Tracer::default();
         let tracer = Rc::new(RefCell::new(tracer));
+
+        let instance = ModuleInstance::new(
+            &compile_outcome.module,
+            &ImportsBuilder::default(),
+            Some(tracer.clone()),
+        )
+        .expect("failed to instantiate wasm module")
+        .assert_no_start();
 
         instance
             .invoke_export_trace(

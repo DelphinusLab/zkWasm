@@ -1,10 +1,11 @@
 use std::{env, io::Write, path::PathBuf};
 
+use imtable::InitMemoryTable;
 use mtable::MTable;
 use serde::Serialize;
 
 use self::{
-    etable::EventTableEntry, imtable::InitMemoryTableEntry, itable::InstructionTableEntry,
+    etable::EventTableEntry, itable::InstructionTableEntry,
     jtable::JumpTableEntry,
 };
 
@@ -19,7 +20,7 @@ pub mod types;
 #[derive(Default, Serialize)]
 pub struct CompileTable {
     pub itable: Vec<InstructionTableEntry>,
-    pub imtable: Vec<InitMemoryTableEntry>,
+    pub imtable: InitMemoryTable,
 }
 
 impl CompileTable {
