@@ -5,7 +5,7 @@ use crate::{
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         rtable::RangeTableConfig,
-        utils::{bn_to_field, tvalue::TValueConfig, Context},
+        utils::{bn_to_field, u64::U64Config, Context},
     },
     constant, constant_from, curr,
 };
@@ -22,7 +22,9 @@ use std::marker::PhantomData;
 
 pub struct LocalGetConfig<F: FieldExt> {
     offset: Column<Advice>,
-    tvalue: TValueConfig<F>,
+    value: U64Config<F>,
+    vtype: Column<Advice>,
+    enable: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -41,7 +43,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let offset = cols.next().unwrap();
-        let tvalue = TValueConfig::configure(meta, cols, rtable, |meta| {
+        let vtype = cols.next().unwrap();
+        let value = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
 
@@ -56,8 +59,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
             |meta| curr!(meta, common.sp) + curr!(meta, offset),
-            |meta| curr!(meta, tvalue.vtype),
-            |meta| curr!(meta, tvalue.value.value),
+            |meta| curr!(meta, vtype),
+            |meta| curr!(meta, value.value),
         );
 
         mtable.configure_stack_write_in_table(
@@ -67,13 +70,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
             |meta| curr!(meta, common.sp),
-            |meta| curr!(meta, tvalue.vtype),
-            |meta| curr!(meta, tvalue.value.value),
+            |meta| curr!(meta, vtype),
+            |meta| curr!(meta, value.value),
         );
 
         Box::new(LocalGetConfig {
             offset,
-            tvalue,
+            value,
+            vtype,
+            enable: opcode_bit,
             _mark: PhantomData,
         })
     }
@@ -81,15 +86,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
+        (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
-        )) + curr!(meta, self.tvalue.vtype)
+        )) + curr!(meta, self.vtype)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + curr!(meta, self.offset)
+            + curr!(meta, self.offset))
+            * curr!(meta, self.enable)
     }
 
-    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(-F::one())
+    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        constant!(-F::one()) * curr!(meta, self.enable)
     }
 
     fn opcode_class(&self) -> OpcodeClass {
@@ -104,16 +110,53 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
                 value,
             } => {
                 ctx.region.assign_advice(
-                    || "op_const offset",
+                    || "op_local_get offset",
                     self.offset,
                     ctx.offset,
                     || Ok(F::from(depth as u64)),
                 )?;
 
-                self.tvalue.assign(ctx, vtype, value)?;
+                ctx.region.assign_advice(
+                    || "op_local_get vtype",
+                    self.vtype,
+                    ctx.offset,
+                    || Ok(F::from(vtype as u64)),
+                )?;
+
+                self.value.assign(ctx, value)?;
             }
             _ => unreachable!(),
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        runtime::{WasmInterpreter, WasmRuntime},
+        test::test_circuit_builder::run_test_circuit,
+    };
+    use halo2_proofs::pairing::bn256::Fr as Fp;
+    use specs::types::Value;
+
+    #[test]
+    fn test_local_get() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test") (param $0 i32)
+                      (local.get $0)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler
+            .run(&compiled_module, "test", vec![Value::I32(0)])
+            .unwrap();
+
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }
