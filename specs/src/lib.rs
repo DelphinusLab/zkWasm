@@ -17,7 +17,7 @@ pub mod mtable;
 pub mod step;
 pub mod types;
 
-#[derive(Default, Serialize)]
+#[derive(Default, Serialize, Debug)]
 pub struct CompileTable {
     pub itable: Vec<InstructionTableEntry>,
     pub imtable: InitMemoryTable,
