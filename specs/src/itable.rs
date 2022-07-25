@@ -8,6 +8,7 @@ use strum_macros::EnumIter;
 #[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum OpcodeClass {
     LocalGet = 1,
+    LocalTee,
     Const,
     Drop,
     Return,
@@ -16,12 +17,15 @@ pub enum OpcodeClass {
     Rel,
     BrIf,
     Call,
+    Load,
+    Store,
 }
 
 impl OpcodeClass {
     pub fn mops(&self) -> u64 {
         match self {
             OpcodeClass::LocalGet => 2,
+            OpcodeClass::LocalTee => todo!(),
             OpcodeClass::Const => 1,
             OpcodeClass::Drop => 0,
             OpcodeClass::Return => 0,
@@ -30,6 +34,8 @@ impl OpcodeClass {
             OpcodeClass::Rel => 3,
             OpcodeClass::BrIf => 1,
             OpcodeClass::Call => 0, // FIXME: should be the number of locals?
+            OpcodeClass::Store => todo!(), // Load value from stack, then write memory
+            OpcodeClass::Load => todo!(), // load value from memory, then write stack
         }
     }
 
@@ -85,6 +91,10 @@ pub enum Opcode {
         vtype: VarType,
         offset: u64,
     },
+    LocalTee {
+        vtype: VarType,
+        offset: u64,
+    },
     Const {
         vtype: VarType,
         value: u64,
@@ -113,6 +123,14 @@ pub enum Opcode {
     },
     Call {
         index: u16,
+    },
+    Load {
+        offset: u32,
+        vtype: VarType,
+    },
+    Store {
+        offset: u32,
+        vtype: VarType,
     },
 }
 
@@ -146,6 +164,11 @@ impl Into<BigUint> for Opcode {
         let bn = match self {
             Opcode::LocalGet { vtype, offset } => {
                 (BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + offset
+            }
+            Opcode::LocalTee { vtype, offset } => {
+                (BigUint::from(OpcodeClass::LocalTee as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
@@ -187,6 +210,12 @@ impl Into<BigUint> for Opcode {
                 (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
             }
+            Opcode::Load { .. } => {
+                todo!()
+            }
+            Opcode::Store { .. } => {
+                todo!()
+            }
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
         bn
@@ -197,6 +226,7 @@ impl Into<OpcodeClass> for Opcode {
     fn into(self) -> OpcodeClass {
         match self {
             Opcode::LocalGet { .. } => OpcodeClass::LocalGet,
+            Opcode::LocalTee { .. } => OpcodeClass::LocalTee,
             Opcode::Const { .. } => OpcodeClass::Const,
             Opcode::Drop { .. } => OpcodeClass::Drop,
             Opcode::Return { .. } => OpcodeClass::Return,
@@ -205,6 +235,8 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Rel { .. } => OpcodeClass::Rel,
             Opcode::BrIf { .. } => OpcodeClass::BrIf,
             Opcode::Call { .. } => OpcodeClass::Call,
+            Opcode::Load { .. } => OpcodeClass::Load,
+            Opcode::Store { .. } => OpcodeClass::Store,
         }
     }
 }

@@ -1,6 +1,7 @@
 pub mod test_circuit;
 pub mod test_circuit_builder;
 
+#[cfg(test)]
 pub mod tests {
     use super::test_circuit_builder::run_test_circuit;
     use crate::runtime::{WasmInterpreter, WasmRuntime};
@@ -52,6 +53,48 @@ pub mod tests {
         let execution_log = compiler
             .run(&compiled_module, "fibonacci", vec![Value::I32(15)])
             .unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
+
+    /*
+     * int arr[2] = {1,2};
+     * int memory_lw() {
+     *   arr[0] = arr[0] + arr[1];
+     *   return arr[0];
+     * }
+     */
+    #[test]
+    fn test_memory_lw() {
+        let textual_repr = r#"
+           (module
+            (table 0 anyfunc)
+            (memory $0 1)
+            (data (i32.const 12) "\01\00\00\00\02\00\00\00")
+            (export "memory" (memory $0))
+            (export "memory_lw" (func $memory_lw))
+            (func $memory_lw (; 0 ;) (result i32)
+             (local $0 i32)
+             (i32.store offset=12
+              (i32.const 0)
+              (tee_local $0
+               (i32.add
+                (i32.load offset=12
+                 (i32.const 0)
+                )
+                (i32.load offset=16
+                 (i32.const 0)
+                )
+               )
+              )
+             )
+             (get_local $0)
+            )
+           )
+        "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let execution_log = compiler.run(&compiled_module, "memory_lw", vec![]).unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }

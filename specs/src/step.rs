@@ -32,6 +32,24 @@ pub enum StepInfo {
         depth: u32,
         value: u64,
     },
+    TeeLocal {
+        vtype: VarType,
+        depth: u32,
+        value: u64,
+    },
+
+    Load {
+        vtype: VarType,
+        offset: u32,
+        address: u32,
+        value: u64,
+    },
+    Store {
+        vtype: VarType,
+        offset: u32,
+        address: u32,
+        value: u64,
+    },
 
     I32Const {
         value: i32,

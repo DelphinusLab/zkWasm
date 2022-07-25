@@ -202,6 +202,17 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             *emid = (*emid).checked_add(1).unwrap();
             vec![read, write]
         }
+        StepInfo::TeeLocal { .. } => {
+            todo!()
+        }
+
+        StepInfo::Load { .. } => {
+            todo!()
+        }
+        StepInfo::Store { .. } => {
+            todo!()
+        }
+
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
