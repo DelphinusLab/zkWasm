@@ -11,6 +11,7 @@ use crate::circuits::config_builder::op_bin::BinOpConfigBuilder;
 use crate::circuits::config_builder::op_bin_bit::BinBitOpConfigBuilder;
 use crate::circuits::config_builder::op_br_if::BrIfConfigBuilder;
 use crate::circuits::config_builder::op_call::CallConfigBuilder;
+use crate::circuits::config_builder::op_local_tee::LocalTeeConfigBuilder;
 use crate::circuits::config_builder::op_rel::RelOpConfigBuilder;
 use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
 use crate::circuits::utils::bn_to_field;
@@ -170,6 +171,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             ConstConfigBuilder,
             DropConfigBuilder,
             LocalGetConfigBuilder,
+            LocalTeeConfigBuilder,
             ReturnConfigBuilder,
             BinOpConfigBuilder,
             BinBitOpConfigBuilder,
@@ -356,8 +358,9 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![
                 next!(meta, common_config.enable)
                     * fixed_curr!(meta, common_config.sel)
-                    * (next!(meta, common_config.last_jump_eid) - curr!(meta, common_config.last_jump_eid))
-                    * acc
+                    * (next!(meta, common_config.last_jump_eid)
+                        - curr!(meta, common_config.last_jump_eid))
+                    * acc,
             ]
         });
 

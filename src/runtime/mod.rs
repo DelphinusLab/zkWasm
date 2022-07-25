@@ -202,8 +202,35 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             *emid = (*emid).checked_add(1).unwrap();
             vec![read, write]
         }
-        StepInfo::TeeLocal { .. } => {
-            todo!()
+        StepInfo::TeeLocal {
+            vtype,
+            depth,
+            value,
+        } => {
+            let read = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution + 1 as u64,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: *vtype,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            let write = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution + *depth as u64,
+                ltype: LocationType::Stack,
+                atype: AccessType::Write,
+                vtype: *vtype,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+            vec![read, write]
         }
 
         StepInfo::Load { .. } => {
