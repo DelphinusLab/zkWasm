@@ -258,7 +258,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 eid,
                 emid: *emid,
                 mmid: *mmid,
-                offset: (*effective_address) as u64,
+                offset: ((*effective_address) / 8) as u64,
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
                 // Load u64 from address which align with 8

@@ -30,6 +30,9 @@ pub struct LoadConfig<F: FieldExt> {
     block_value: U64Config<F>,
     vtype: Column<Advice>,
     mmid: Column<Advice>,
+    // Effective address div 8 to meet imtable's unit
+    block_effective_address: Column<Advice>,
+    position: Column<Advice>,
     enable: Column<Advice>,
     _mark: PhantomData<F>,
 }
@@ -51,6 +54,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let effective_address = TValueConfig::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
+        let block_effective_address = cols.next().unwrap();
+        let position = cols.next().unwrap();
         let offset = cols.next().unwrap();
         let vtype = cols.next().unwrap();
         let raw_address = cols.next().unwrap();
@@ -66,9 +71,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             curr!(meta, opcode_bit) * curr!(meta, offset) * enable(meta)
         });
 
-       // meta.create_gate("op_load relation between block_value and value", |meta| {
-       //     vec![todo!()]
-        //});
+        // TODO: position should in range 0..8
 
         mtable.configure_stack_read_in_table(
             "op_load get raw_address",
@@ -88,7 +91,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
             |meta| curr!(meta, common.mmid),
-            |meta| curr!(meta, effective_address.value.value),
+            |meta| curr!(meta, block_effective_address),
             |_meta| constant_from!(VarType::U64),
             |meta| curr!(meta, block_value.value),
         );
@@ -107,6 +110,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         meta.create_gate("effective_address equals offset plus raw_address", |meta| {
             vec![
                 (curr!(meta, raw_address) + curr!(meta, offset)
+                    - (curr!(meta, effective_address.value.value)))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+                (curr!(meta, block_effective_address) * constant_from!(8) + curr!(meta, position)
                     - curr!(meta, effective_address.value.value))
                     * curr!(meta, opcode_bit)
                     * enable(meta),
@@ -121,6 +128,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             vtype,
             raw_address,
             effective_address,
+            block_effective_address,
+            position,
             enable: opcode_bit,
             _mark: PhantomData,
         })
@@ -178,7 +187,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 )?;
 
                 self.effective_address
-                    .assign(ctx, VarType::U32, effective_address as u64)?;
+                    .assign(ctx, VarType::U32, (effective_address) as u64)?;
 
                 ctx.region.assign_advice(
                     || "op_load mmid",
@@ -189,6 +198,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 self.value.assign(ctx, value)?;
                 self.block_value.assign(ctx, block_value)?;
+
+                ctx.region.assign_advice(
+                    || "op_load position",
+                    self.position,
+                    ctx.offset,
+                    || Ok(F::from((effective_address % 8) as u64)),
+                )?;
+
+                ctx.region.assign_advice(
+                    || "op_load block_effective_address",
+                    self.block_effective_address,
+                    ctx.offset,
+                    || Ok(F::from((effective_address / 8) as u64)),
+                )?;
             }
             _ => unreachable!(),
         }
