@@ -176,6 +176,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             ]
         });
 
+        // FIXME: how to handle partially lookup
         imtable.configure_in_table(meta, "mtable heap first line", |meta| {
             self.is_enable(meta)
                 * self.is_diff_location(meta)

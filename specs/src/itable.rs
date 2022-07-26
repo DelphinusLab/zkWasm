@@ -35,7 +35,7 @@ impl OpcodeClass {
             OpcodeClass::BrIf => 1,
             OpcodeClass::Call => 0, // FIXME: should be the number of locals?
             OpcodeClass::Store => todo!(), // Load value from stack, then write memory
-            OpcodeClass::Load => todo!(), // load value from memory, then write stack
+            OpcodeClass::Load => 3, // pop address, load memory, push stack
         }
     }
 
@@ -210,8 +210,10 @@ impl Into<BigUint> for Opcode {
                 (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
             }
-            Opcode::Load { .. } => {
-                todo!()
+            Opcode::Load { offset, vtype } => {
+                (BigUint::from(OpcodeClass::Load as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + offset
             }
             Opcode::Store { .. } => {
                 todo!()

@@ -125,6 +125,64 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             )]
         });
     }
+
+    pub fn configure_memory_load_in_table(
+        &self,
+        key: &'static str,
+        meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        eid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        emid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        mmid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        address: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        vtype: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        block_value: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup_any(key, |meta| {
+            vec![(
+                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
+                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
+                    + mmid(meta) * constant!(bn_to_field(&MMID_SHIFT))
+                    + address(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
+                    + constant!(bn_to_field(&LOC_TYPE_SHIFT)) * constant_from!(LocationType::Heap)
+                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
+                        * constant_from!(AccessType::Read)
+                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+                    + block_value(meta))
+                    * enable(meta),
+                self.encode_for_lookup(meta),
+            )]
+        });
+    }
+
+    pub fn configure_memory_store_in_table(
+        &self,
+        key: &'static str,
+        meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        eid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        emid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        mmid: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        address: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        vtype: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        block_value: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup_any(key, |meta| {
+            vec![(
+                (eid(meta) * constant!(bn_to_field(&EID_SHIFT))
+                    + emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
+                    + mmid(meta) * constant!(bn_to_field(&MMID_SHIFT))
+                    + address(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
+                    + constant!(bn_to_field(&LOC_TYPE_SHIFT)) * constant_from!(LocationType::Heap)
+                    + constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
+                        * constant_from!(AccessType::Write)
+                    + vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
+                    + block_value(meta))
+                    * enable(meta),
+                self.encode_for_lookup(meta),
+            )]
+        });
+    }
 }
 
 pub struct MemoryTableChip<F: FieldExt> {

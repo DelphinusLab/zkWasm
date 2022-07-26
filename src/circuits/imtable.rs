@@ -58,23 +58,27 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
 
 pub struct MInitTableChip<F: FieldExt> {
     config: InitMemoryTableConfig<F>,
-    _phantom: PhantomData<F>,
 }
 
 impl<F: FieldExt> MInitTableChip<F> {
-    pub fn add_memory_init(
+    pub fn new(config: InitMemoryTableConfig<F>) -> Self {
+        MInitTableChip { config }
+    }
+
+    pub fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        minit: Vec<InitMemoryTableEntry>,
+        minit: &Vec<InitMemoryTableEntry>,
     ) -> Result<(), Error> {
         layouter.assign_table(
             || "minit",
             |mut table| {
+                table.assign_cell(|| "minit talbe", self.config.col, 0, || Ok(F::zero()))?;
                 for (i, v) in minit.iter().enumerate() {
                     table.assign_cell(
                         || "minit talbe",
                         self.config.col,
-                        i,
+                        i + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),
                     )?;
                 }

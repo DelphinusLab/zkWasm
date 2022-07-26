@@ -1,6 +1,6 @@
 use crate::circuits::{
     etable::{EventTableChip, EventTableConfig},
-    imtable::InitMemoryTableConfig,
+    imtable::{InitMemoryTableConfig, MInitTableChip},
     itable::{InstructionTableChip, InstructionTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable::{MemoryTableChip, MemoryTableConfig},
@@ -21,7 +21,7 @@ const VAR_COLUMNS: usize = 130;
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     itable: InstructionTableConfig<F>,
-    _imtable: InitMemoryTableConfig<F>,
+    imtable: InitMemoryTableConfig<F>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -71,7 +71,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         Self::Config {
             rtable,
             itable,
-            _imtable: imtable,
+            imtable,
             mtable,
             jtable,
             etable,
@@ -88,9 +88,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let ichip = InstructionTableChip::new(config.itable);
         let mchip = MemoryTableChip::new(config.mtable);
         let jchip = JumpTableChip::new(config.jtable);
+        let imchip = MInitTableChip::new(config.imtable);
 
         rchip.init(&mut layouter)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
+        if self.compile_tables.imtable.0.len() > 0 {
+            imchip.assign(&mut layouter, &self.compile_tables.imtable.0)?;
+        }
 
         layouter.assign_region(
             || "table",

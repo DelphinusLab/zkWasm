@@ -58,7 +58,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn is_diff_location(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.same_location) - constant_from!(1)
+        constant_from!(1) - curr!(meta, self.same_location)
     }
 
     pub(super) fn is_next_same_location(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

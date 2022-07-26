@@ -12,8 +12,6 @@ pub mod tests {
     fn test_fibonacci() {
         let textual_repr = r#"
         (module
-            (memory $0 1)
-            (export "memory" (memory $0))
             (export "fibonacci" (func $fibonacci))
             (func $fibonacci (; 0 ;) (param $0 i32) (result i32)
              (block $label$0

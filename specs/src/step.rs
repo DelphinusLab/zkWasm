@@ -41,14 +41,19 @@ pub enum StepInfo {
     Load {
         vtype: VarType,
         offset: u32,
-        address: u32,
+        raw_address: u32,
+        effective_address: u32,
         value: u64,
+        block_value: u64,
+        mmid: u64,
     },
     Store {
         vtype: VarType,
         offset: u32,
-        address: u32,
+        raw_address: u32,
+        effective_address: u32,
         value: u64,
+        mmid: u64,
     },
 
     I32Const {

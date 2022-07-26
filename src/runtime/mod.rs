@@ -233,8 +233,54 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             vec![read, write]
         }
 
-        StepInfo::Load { .. } => {
-            todo!()
+        StepInfo::Load {
+            vtype,
+            offset: _offset,
+            raw_address,
+            effective_address,
+            value,
+            block_value,
+            mmid,
+        } => {
+            let load_address_from_stack = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution + 1 as u64,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: VarType::I32,
+                value: *raw_address as u64,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            let load_value = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: *mmid,
+                offset: (*effective_address) as u64,
+                ltype: LocationType::Heap,
+                atype: AccessType::Read,
+                // Load u64 from address which align with 8
+                vtype: VarType::U64,
+                // The value will be used to lookup within imtable, hence block_value is given here
+                value: *block_value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            let push_value = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution,
+                ltype: LocationType::Stack,
+                atype: AccessType::Write,
+                vtype: *vtype,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            vec![load_address_from_stack, load_value, push_value]
         }
         StepInfo::Store { .. } => {
             todo!()
