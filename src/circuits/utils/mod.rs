@@ -9,6 +9,9 @@ pub mod bytes8;
 pub mod row_diff;
 pub mod tvalue;
 pub mod u64;
+pub mod u32;
+pub mod u16;
+pub mod u8;
 
 pub struct Context<'a, F: FieldExt> {
     pub region: Box<Region<'a, F>>,
@@ -102,6 +105,13 @@ macro_rules! fixed_next {
 macro_rules! constant_from {
     ($x: expr) => {
         halo2_proofs::plonk::Expression::Constant(F::from($x as u64))
+    };
+}
+
+#[macro_export]
+macro_rules! constant_from_bn {
+    ($x: expr) => {
+        halo2_proofs::plonk::Expression::Constant(bn_to_field($x))
     };
 }
 

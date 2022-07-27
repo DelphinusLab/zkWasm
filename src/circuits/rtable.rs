@@ -1,4 +1,5 @@
 use crate::constant_from;
+use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::ConstraintSystem;
@@ -6,10 +7,13 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::plonk::VirtualCells;
+use num_bigint::BigUint;
 use specs::itable::BitOp;
 use specs::mtable::VarType;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
+
+use super::utils::bn_to_field;
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
@@ -23,17 +27,23 @@ pub struct RangeTableConfig<F: FieldExt> {
     vtype_byte_col: TableColumn,
     // op | left | right | res
     bitop_col: TableColumn,
+    // vartype | offset | pos | byte | value
+    byte_shift_res_col: TableColumn,
+    // byte shift sets
+    byte_shift_validation_col: TableColumn,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 5]) -> Self {
+    pub fn configure(cols: [TableColumn; 7]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
             u4_col: cols[2],
             vtype_byte_col: cols[3],
             bitop_col: cols[4],
+            byte_shift_res_col: cols[5],
+            byte_shift_validation_col: cols[6],
             _mark: PhantomData,
         }
     }
@@ -115,11 +125,74 @@ impl<F: FieldExt> RangeTableConfig<F> {
             )]
         });
     }
+
+    pub fn configure_in_byte_shift_range(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        pos_vtype_offset_byte_value: impl Fn(
+            &mut VirtualCells<'_, F>,
+        ) -> (
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+        ),
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| {
+            let (pos, vtype, offset, byte, value) = pos_vtype_offset_byte_value(meta);
+
+            vec![(
+                (vtype * constant_from_bn!(&(BigUint::from(1u64) << 88))
+                    + offset * constant_from_bn!(&(BigUint::from(1u64) << 80))
+                    + pos * constant_from_bn!(&(BigUint::from(1u64) << 72))
+                    + byte * constant_from_bn!(&(BigUint::from(1u64) << 64))
+                    + value.clone())
+                    * enable(meta),
+                self.byte_shift_res_col,
+            )]
+        });
+
+        meta.lookup("bytes shift validation", |meta| {
+            let (_, _, _, _, value) = pos_vtype_offset_byte_value(meta);
+
+            vec![(value, self.byte_shift_validation_col)]
+        });
+    }
 }
 
 pub struct RangeTableChip<F: FieldExt> {
     config: RangeTableConfig<F>,
     _phantom: PhantomData<F>,
+}
+
+pub fn byte_shift(vtype: VarType, offset: usize, pos: usize, byte: u64) -> u64 {
+    let size = vtype.byte_size() as usize;
+    if pos >= offset && pos < offset + size {
+        byte << ((pos - offset) * 8)
+    } else {
+        0
+    }
+}
+
+pub fn byte_shift_tbl_encode<F: FieldExt>(
+    vtype: VarType,
+    offset: usize,
+    pos: usize,
+    byte: u64,
+) -> F {
+    let mut bn = BigUint::from(vtype as u64);
+    bn = bn << 8usize;
+    bn += offset;
+    bn = bn << 8usize;
+    bn += pos;
+    bn = bn << 8usize;
+    bn += byte;
+    bn = bn << 64usize;
+    bn += byte_shift(vtype, offset, pos, byte);
+    bn_to_field(&bn)
 }
 
 impl<F: FieldExt> RangeTableChip<F> {
@@ -188,7 +261,11 @@ impl<F: FieldExt> RangeTableChip<F> {
                                 || "range table",
                                 self.config.bitop_col,
                                 i,
-                                || Ok(F::from(((op.clone() as u64) << 12) | (l << 8) | (r << 4) | res)),
+                                || {
+                                    Ok(F::from(
+                                        ((op.clone() as u64) << 12) | (l << 8) | (r << 4) | res,
+                                    ))
+                                },
                             )?;
                             i += 1;
                         }
@@ -225,6 +302,58 @@ impl<F: FieldExt> RangeTableChip<F> {
                     index,
                     || Ok(F::zero()),
                 )?;
+
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "byte shift res table",
+            |mut table| {
+                let mut index = 0usize;
+
+                for t in VarType::iter() {
+                    for offset in 0..8 {
+                        for pos in 0..8 {
+                            for b in 0..256u64 {
+                                table.assign_cell(
+                                    || "byte shift res table",
+                                    self.config.byte_shift_res_col,
+                                    index,
+                                    || Ok(byte_shift_tbl_encode::<F>(t, offset, pos, b)),
+                                )?;
+                                index += 1;
+                            }
+                        }
+                    }
+                }
+
+                table.assign_cell(
+                    || "byte shift res table",
+                    self.config.byte_shift_res_col,
+                    index,
+                    || Ok(F::zero()),
+                )?;
+
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "byte shift validation table",
+            |mut table| {
+                let mut index = 0usize;
+                for shift in 0..8 {
+                    for b in 0..256u64 {
+                        table.assign_cell(
+                            || "byte shift validation table",
+                            self.config.byte_shift_validation_col,
+                            index,
+                            || Ok(F::from(b << (shift * 8))),
+                        )?;
+                        index += 1;
+                    }
+                }
 
                 Ok(())
             },

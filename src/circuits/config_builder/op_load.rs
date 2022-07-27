@@ -4,8 +4,8 @@ use crate::{
         itable::InstructionTableConfig,
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
-        rtable::RangeTableConfig,
-        utils::{bn_to_field, tvalue::TValueConfig, u64::U64Config, Context},
+        rtable::{byte_shift, RangeTableConfig},
+        utils::{bn_to_field, bytes8::Bytes8Config, u32::U32Config, u8::U8Config, Context},
     },
     constant, constant_from, curr,
 };
@@ -22,17 +22,20 @@ use specs::{
 use std::marker::PhantomData;
 
 pub struct LoadConfig<F: FieldExt> {
-    offset: Column<Advice>,
-    raw_address: Column<Advice>,
-    effective_address: TValueConfig<F>,
-    value: U64Config<F>,
-    // Used to lookup within imtable
-    block_value: U64Config<F>,
-    vtype: Column<Advice>,
-    mmid: Column<Advice>,
-    // Effective address div 8 to meet imtable's unit
-    block_effective_address: Column<Advice>,
-    position: Column<Advice>,
+    load_base: U32Config<F>,
+    load_offset: U32Config<F>,
+
+    // bytes8_offset + bytes8_address * 8 = load_base + load_offset
+    // offset range also limited by configure_in_byte_shift_range
+    bytes8_offset: U8Config<F>,
+    bytes8_address: U32Config<F>,
+    bytes8_value: Bytes8Config<F>,
+
+    final_bytes_shifts: [Column<Advice>; 8],
+    final_value: Column<Advice>,
+    // final_vtype range also limited by configure_in_byte_shift_range
+    final_vtype: U8Config<F>,
+
     enable: Column<Advice>,
     _mark: PhantomData<F>,
 }
@@ -51,87 +54,99 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         _jtable: &JumpTableConfig<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let effective_address = TValueConfig::configure(meta, cols, rtable, |meta| {
-            curr!(meta, opcode_bit) * enable(meta)
-        });
-        let block_effective_address = cols.next().unwrap();
-        let position = cols.next().unwrap();
-        let offset = cols.next().unwrap();
-        let vtype = cols.next().unwrap();
-        let raw_address = cols.next().unwrap();
-        let mmid = cols.next().unwrap();
-        let value = U64Config::configure(meta, cols, rtable, |meta| {
-            curr!(meta, opcode_bit) * enable(meta)
-        });
-        let block_value = U64Config::configure(meta, cols, rtable, |meta| {
-            curr!(meta, opcode_bit) * enable(meta)
-        });
+        let enable_fn = |meta: &mut VirtualCells<F>| curr!(meta, opcode_bit) * enable(meta);
 
-        rtable.configure_in_common_range(meta, "load offset range", |meta| {
-            curr!(meta, opcode_bit) * curr!(meta, offset) * enable(meta)
-        });
+        let load_base = U32Config::configure(meta, cols, rtable, &enable_fn);
+        let load_offset = U32Config::configure(meta, cols, rtable, &enable_fn);
+        let bytes8_address = U32Config::configure(meta, cols, rtable, &enable_fn);
+        let bytes8_offset = U8Config::configure(meta, cols, rtable, &enable_fn);
+        let bytes8_value = Bytes8Config::configure(meta, cols, rtable, &enable_fn);
 
-        // TODO: position should in range 0..8
+        let final_bytes_shifts = [0; 8].map(|_| cols.next().unwrap());
+        let final_value = cols.next().unwrap();
+        let final_vtype = U8Config::configure(meta, cols, rtable, &enable_fn);
 
         mtable.configure_stack_read_in_table(
-            "op_load get raw_address",
+            "op_load get load_base",
             meta,
-            |meta| curr!(meta, opcode_bit) * enable(meta),
+            &enable_fn,
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
             |meta| curr!(meta, common.sp) + constant_from!(1),
             |_meta| constant_from!(VarType::I32),
-            |meta| curr!(meta, raw_address),
+            |meta| curr!(meta, load_base.value),
         );
 
         mtable.configure_memory_load_in_table(
-            "op_load get raw_address",
+            "op_load read heap",
             meta,
-            |meta| curr!(meta, opcode_bit) * enable(meta),
+            &enable_fn,
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
             |meta| curr!(meta, common.mmid),
-            |meta| curr!(meta, block_effective_address),
+            |meta| curr!(meta, bytes8_address.value),
             |_meta| constant_from!(VarType::U64),
-            |meta| curr!(meta, block_value.value),
+            |meta| curr!(meta, bytes8_value.value),
         );
 
         mtable.configure_stack_write_in_table(
             "op_load push value to stack",
             meta,
-            |meta| curr!(meta, opcode_bit) * enable(meta),
+            &enable_fn,
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(3u64),
             |meta| curr!(meta, common.sp) + constant_from!(1),
-            |meta| curr!(meta, vtype),
-            |meta| curr!(meta, value.value),
+            |meta| curr!(meta, final_vtype.value),
+            |meta| curr!(meta, final_value),
         );
 
-        meta.create_gate("effective_address equals offset plus raw_address", |meta| {
+        meta.create_gate("op_load address equation", |meta| {
             vec![
-                (curr!(meta, raw_address) + curr!(meta, offset)
-                    - (curr!(meta, effective_address.value.value)))
-                    * curr!(meta, opcode_bit)
-                    * enable(meta),
-                (curr!(meta, block_effective_address) * constant_from!(8) + curr!(meta, position)
-                    - curr!(meta, effective_address.value.value))
-                    * curr!(meta, opcode_bit)
-                    * enable(meta),
+                (curr!(meta, load_base.value) + curr!(meta, load_offset.value)
+                    - curr!(meta, bytes8_address.value) * constant_from!(8)
+                    - curr!(meta, bytes8_offset.value))
+                    * enable_fn(meta),
             ]
         });
 
+        for i in 0..8 {
+            rtable.configure_in_byte_shift_range(
+                meta,
+                "op_load bytes shift",
+                |meta| {
+                    (
+                        constant_from!(i),
+                        curr!(meta, final_vtype.value),
+                        curr!(meta, bytes8_offset.value),
+                        curr!(meta, bytes8_value.bytes_le[i]),
+                        curr!(meta, final_bytes_shifts[i]),
+                    )
+                },
+                &enable_fn,
+            )
+        }
+
+        meta.create_gate("op_load final value equation", |meta| {
+            let acc = final_bytes_shifts
+                .iter()
+                .map(|col| curr!(meta, *col))
+                .reduce(|acc, v| acc + v)
+                .unwrap();
+
+            vec![(acc - curr!(meta, final_value)) * enable_fn(meta)]
+        });
+
         Box::new(LoadConfig {
-            offset,
-            mmid,
-            value,
-            block_value,
-            vtype,
-            raw_address,
-            effective_address,
-            block_effective_address,
-            position,
             enable: opcode_bit,
             _mark: PhantomData,
+            load_base,
+            load_offset,
+            bytes8_offset,
+            bytes8_address,
+            bytes8_value,
+            final_bytes_shifts,
+            final_value,
+            final_vtype,
         })
     }
 }
@@ -140,9 +155,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         (constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Load as u64) << OPCODE_CLASS_SHIFT)
-        )) + curr!(meta, self.vtype)
+        )) + curr!(meta, self.final_vtype.value)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + curr!(meta, self.offset))
+            + curr!(meta, self.load_offset.value))
             * curr!(meta, self.enable)
     }
 
@@ -163,55 +178,35 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 block_value,
                 raw_address,
                 effective_address,
-                mmid,
+                ..
             } => {
-                ctx.region.assign_advice(
-                    || "op_load offset",
-                    self.offset,
-                    ctx.offset,
-                    || Ok(F::from(offset as u64)),
-                )?;
+                self.load_base.assign(ctx, raw_address.into())?;
+                self.load_offset.assign(ctx, offset.into())?;
+                self.bytes8_address
+                    .assign(ctx, effective_address as u64 / 8)?;
+                self.bytes8_offset
+                    .assign(ctx, effective_address as u64 % 8)?;
+                self.bytes8_value.assign(ctx, block_value)?;
+                self.final_vtype.assign(ctx, vtype as u64)?;
 
                 ctx.region.assign_advice(
-                    || "op_load vtype",
-                    self.vtype,
+                    || "op_load final_value",
+                    self.final_value,
                     ctx.offset,
-                    || Ok(F::from(vtype as u64)),
+                    || Ok(F::from(value)),
                 )?;
 
-                ctx.region.assign_advice(
-                    || "op_load raw_address",
-                    self.raw_address,
-                    ctx.offset,
-                    || Ok(F::from(raw_address as u64)),
-                )?;
+                let bytes = block_value.to_le_bytes();
+                for i in 0..8 {
+                    let value = byte_shift(vtype, offset as usize, i, bytes[i] as u64);
 
-                self.effective_address
-                    .assign(ctx, VarType::U32, (effective_address) as u64)?;
-
-                ctx.region.assign_advice(
-                    || "op_load mmid",
-                    self.mmid,
-                    ctx.offset,
-                    || Ok(F::from(mmid)),
-                )?;
-
-                self.value.assign(ctx, value)?;
-                self.block_value.assign(ctx, block_value)?;
-
-                ctx.region.assign_advice(
-                    || "op_load position",
-                    self.position,
-                    ctx.offset,
-                    || Ok(F::from((effective_address % 8) as u64)),
-                )?;
-
-                ctx.region.assign_advice(
-                    || "op_load block_effective_address",
-                    self.block_effective_address,
-                    ctx.offset,
-                    || Ok(F::from((effective_address / 8) as u64)),
-                )?;
+                    ctx.region.assign_advice(
+                        || "op_load final_bytes_shifts",
+                        self.final_bytes_shifts[i],
+                        ctx.offset,
+                        || Ok(value.into()),
+                    )?;
+                }
             }
             _ => unreachable!(),
         }
