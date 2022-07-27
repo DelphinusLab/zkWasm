@@ -1,7 +1,7 @@
 use serde::Serialize;
 use strum_macros::EnumIter;
 
-use crate::types::Value;
+use crate::{imtable::InitMemoryTable, types::Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum LocationType {
@@ -121,6 +121,30 @@ impl MTable {
 
         mtable.sort();
         mtable
+    }
+
+    pub fn push_accessed_memory_initialization(&mut self, imtable: &InitMemoryTable) {
+        let mut to_add = vec![];
+
+        self.0.iter().for_each(|entry| {
+            if entry.ltype == LocationType::Heap {
+                let value = imtable.find(entry.mmid, entry.offset);
+
+                to_add.push(MemoryTableEntry {
+                    eid: 0,
+                    emid: 0,
+                    mmid: entry.mmid,
+                    offset: entry.offset,
+                    ltype: entry.ltype,
+                    atype: AccessType::Init,
+                    vtype: VarType::U64,
+                    value,
+                });
+            }
+        });
+
+        self.0.append(&mut to_add);
+        self.sort()
     }
 
     fn sort(&mut self) {

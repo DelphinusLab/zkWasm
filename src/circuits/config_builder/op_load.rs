@@ -102,7 +102,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             |meta| curr!(meta, opcode_bit) * enable(meta),
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(3u64),
-            |meta| curr!(meta, common.sp),
+            |meta| curr!(meta, common.sp) + constant_from!(1),
             |meta| curr!(meta, vtype),
             |meta| curr!(meta, value.value),
         );

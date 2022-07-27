@@ -105,8 +105,13 @@ impl WasmRuntime for WasmiRuntime {
             .map(|eentry| memory_event_of_step(eentry, &mut 1))
             .collect::<Vec<Vec<_>>>();
         // concat vectors without Clone
-        let mentries = mentries.into_iter().flat_map(|x| x.into_iter()).collect();
-        let mtable = MTable::new(mentries, &args);
+        let mentries = mentries
+            .into_iter()
+            .flat_map(|x| x.into_iter())
+            .collect::<Vec<_>>();
+
+        let mut mtable = MTable::new(mentries, &args);
+        mtable.push_accessed_memory_initialization(&compile_outcome.tables.imtable);
 
         let jtable = tracer
             .jtable

@@ -18,4 +18,14 @@ impl InitMemoryTable {
     pub fn to_string(&self) -> String {
         serde_json::to_string(&self.0).unwrap()
     }
+
+    pub fn find(&self, mmid: u64, offset: u64) -> u64 {
+        for entry in self.0.iter() {
+            if entry.mmid == mmid && entry.offset == offset {
+                return entry.value;
+            }
+        }
+
+        unreachable!()
+    }
 }
