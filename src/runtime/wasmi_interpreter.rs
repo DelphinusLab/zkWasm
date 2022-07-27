@@ -6,7 +6,7 @@ use specs::{
     types::{CompileError, ExecutionError, Value},
     CompileTable, ExecutionTable,
 };
-use wasmi::{ImportsBuilder, ModuleInstance, NopExternals, RuntimeValue};
+use wasmi::{Externals, ImportResolver, ModuleInstance, RuntimeValue};
 
 use crate::runtime::{memory_event_of_step, ExecutionOutcome};
 
@@ -25,12 +25,18 @@ fn into_wasmi_value(v: &Value) -> RuntimeValue {
 
 impl WasmRuntime for WasmiRuntime {
     type Module = wasmi::Module;
+    type Tracer = wasmi::tracer::Tracer;
+    type Instance = wasmi::ModuleRef;
 
     fn new() -> Self {
         WasmiRuntime {}
     }
 
-    fn compile(&self, textual_repr: &str) -> Result<CompileOutcome<Self::Module>, CompileError> {
+    fn compile<I: ImportResolver>(
+        &self,
+        textual_repr: &str,
+        imports: &I,
+    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError> {
         let binary = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
         let module = wasmi::Module::from_buffer(&binary).expect("failed to load wasm");
@@ -38,7 +44,7 @@ impl WasmRuntime for WasmiRuntime {
         let tracer = wasmi::tracer::Tracer::default();
         let tracer = Rc::new(RefCell::new(tracer));
 
-        ModuleInstance::new(&module, &ImportsBuilder::default(), Some(tracer.clone()))
+        let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
             .expect("failed to instantiate wasm module")
             .assert_no_start();
 
@@ -63,36 +69,29 @@ impl WasmRuntime for WasmiRuntime {
             textual_repr: textual_repr.to_string(),
             module,
             tables: CompileTable { itable, imtable },
+            instance,
+            tracer,
         })
     }
 
-    fn run(
+    fn run<E: Externals>(
         &self,
-        compile_outcome: &CompileOutcome<Self::Module>,
+        externals: &mut E,
+        compile_outcome: &CompileOutcome<Self::Module, Self::Instance, Self::Tracer>,
         function_name: &str,
         args: Vec<Value>,
     ) -> Result<ExecutionOutcome, ExecutionError> {
-        let tracer = wasmi::tracer::Tracer::default();
-        let tracer = Rc::new(RefCell::new(tracer));
-
-        let instance = ModuleInstance::new(
-            &compile_outcome.module,
-            &ImportsBuilder::default(),
-            Some(tracer.clone()),
-        )
-        .expect("failed to instantiate wasm module")
-        .assert_no_start();
-
-        instance
+        compile_outcome
+            .instance
             .invoke_export_trace(
                 function_name,
                 &args.iter().map(|v| into_wasmi_value(v)).collect::<Vec<_>>(),
-                &mut NopExternals,
-                tracer.clone(),
+                externals,
+                compile_outcome.tracer.clone(),
             )
             .expect("failed to execute export");
 
-        let tracer = tracer.borrow();
+        let tracer = compile_outcome.tracer.borrow();
         let etable = tracer
             .etable
             .get_entries()
@@ -115,8 +114,6 @@ impl WasmRuntime for WasmiRuntime {
 
         let jtable = tracer
             .jtable
-            .as_ref()
-            .unwrap()
             .0
             .iter()
             .map(|jentry| (*jentry).clone().into())

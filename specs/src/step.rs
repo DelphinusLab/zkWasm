@@ -26,6 +26,9 @@ pub enum StepInfo {
     Call {
         index: u16,
     },
+    CallHostTime {
+        ret_val: Option<u64>,
+    },
 
     GetLocal {
         vtype: VarType,

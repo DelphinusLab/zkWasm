@@ -4,6 +4,7 @@ pub mod op_br_if;
 pub mod op_call;
 pub mod op_const;
 pub mod op_drop;
+pub mod op_host_time;
 pub mod op_load;
 pub mod op_local_get;
 pub mod op_local_tee;

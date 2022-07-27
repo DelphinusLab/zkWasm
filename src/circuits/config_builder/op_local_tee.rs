@@ -139,6 +139,7 @@ mod tests {
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
+    use wasmi::{ImportsBuilder, NopExternals};
 
     #[test]
     fn test_local_tee() {
@@ -153,9 +154,16 @@ mod tests {
                 "#;
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let compiled_module = compiler
+            .compile(textual_repr, &ImportsBuilder::default())
+            .unwrap();
         let execution_log = compiler
-            .run(&compiled_module, "test", vec![Value::I32(0)])
+            .run(
+                &mut NopExternals,
+                &compiled_module,
+                "test",
+                vec![Value::I32(0)],
+            )
             .unwrap();
 
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()

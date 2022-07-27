@@ -134,6 +134,7 @@ mod tests {
         test::test_circuit_builder::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
+    use wasmi::{ImportsBuilder, NopExternals};
 
     #[test]
     fn test_call_ok() {
@@ -150,8 +151,12 @@ mod tests {
                 "#;
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(textual_repr).unwrap();
-        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        let compiled_module = compiler
+            .compile(textual_repr, &ImportsBuilder::default())
+            .unwrap();
+        let execution_log = compiler
+            .run(&mut NopExternals, &compiled_module, "test", vec![])
+            .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 
@@ -171,8 +176,12 @@ mod tests {
                 "#;
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(textual_repr).unwrap();
-        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        let compiled_module = compiler
+            .compile(textual_repr, &ImportsBuilder::default())
+            .unwrap();
+        let execution_log = compiler
+            .run(&mut NopExternals, &compiled_module, "test", vec![])
+            .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }

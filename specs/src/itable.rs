@@ -17,6 +17,7 @@ pub enum OpcodeClass {
     Rel,
     BrIf,
     Call,
+    CallHostTime,
     Load,
     Store,
 }
@@ -33,9 +34,10 @@ impl OpcodeClass {
             OpcodeClass::BinBit => 3,
             OpcodeClass::Rel => 3,
             OpcodeClass::BrIf => 1,
-            OpcodeClass::Call => 0, // FIXME: should be the number of locals?
+            OpcodeClass::Call => 0,
+            OpcodeClass::CallHostTime => 1,
             OpcodeClass::Store => todo!(), // Load value from stack, then write memory
-            OpcodeClass::Load => 3, // pop address, load memory, push stack
+            OpcodeClass::Load => 3,        // pop address, load memory, push stack
         }
     }
 
@@ -124,6 +126,7 @@ pub enum Opcode {
     Call {
         index: u16,
     },
+    CallHostTime,
     Load {
         offset: u32,
         vtype: VarType,
@@ -210,6 +213,9 @@ impl Into<BigUint> for Opcode {
                 (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
             }
+            Opcode::CallHostTime => {
+                BigUint::from(OpcodeClass::CallHostTime as u64) << OPCODE_CLASS_SHIFT
+            }
             Opcode::Load { offset, vtype } => {
                 (BigUint::from(OpcodeClass::Load as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
@@ -237,6 +243,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Rel { .. } => OpcodeClass::Rel,
             Opcode::BrIf { .. } => OpcodeClass::BrIf,
             Opcode::Call { .. } => OpcodeClass::Call,
+            Opcode::CallHostTime => OpcodeClass::CallHostTime,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
         }

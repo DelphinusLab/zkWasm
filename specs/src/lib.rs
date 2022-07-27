@@ -4,12 +4,10 @@ use imtable::InitMemoryTable;
 use mtable::MTable;
 use serde::Serialize;
 
-use self::{
-    etable::EventTableEntry, itable::InstructionTableEntry,
-    jtable::JumpTableEntry,
-};
+use self::{etable::EventTableEntry, itable::InstructionTableEntry, jtable::JumpTableEntry};
 
 pub mod etable;
+pub mod host_function;
 pub mod imtable;
 pub mod itable;
 pub mod jtable;

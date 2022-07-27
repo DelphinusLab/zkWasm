@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use specs::{
     etable::EventTableEntry,
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
@@ -5,15 +7,18 @@ use specs::{
     types::{CompileError, ExecutionError, Value},
     CompileTable, ExecutionTable,
 };
+use wasmi::{Externals, ImportResolver};
 
 use self::wasmi_interpreter::WasmiRuntime;
 
 pub mod wasmi_interpreter;
 
-pub struct CompileOutcome<M> {
+pub struct CompileOutcome<M, I, T> {
     pub textual_repr: String,
     pub module: M,
     pub tables: CompileTable,
+    pub instance: I,
+    pub tracer: Rc<RefCell<T>>,
 }
 
 pub struct ExecutionOutcome {
@@ -22,12 +27,19 @@ pub struct ExecutionOutcome {
 
 pub trait WasmRuntime {
     type Module;
+    type Tracer;
+    type Instance;
 
     fn new() -> Self;
-    fn compile(&self, textual_repr: &str) -> Result<CompileOutcome<Self::Module>, CompileError>;
-    fn run(
+    fn compile<I: ImportResolver>(
         &self,
-        compile_outcome: &CompileOutcome<Self::Module>,
+        textual_repr: &str,
+        imports: &I,
+    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
+    fn run<E: Externals>(
+        &self,
+        externals: &mut E,
+        compile_outcome: &CompileOutcome<Self::Module, Self::Instance, Self::Tracer>,
         function_name: &str,
         args: Vec<Value>,
     ) -> Result<ExecutionOutcome, ExecutionError>;
@@ -172,6 +184,23 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         StepInfo::Call { index: _ } => {
             vec![]
         }
+        StepInfo::CallHostTime { ret_val } => {
+            let entry = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution,
+                ltype: LocationType::Stack,
+                atype: AccessType::Write,
+                vtype: VarType::U64,
+                value: ret_val.unwrap(),
+            };
+
+            *emid = (*emid).checked_add(1).unwrap();
+
+            vec![entry]
+        }
+
         StepInfo::GetLocal {
             vtype,
             depth,

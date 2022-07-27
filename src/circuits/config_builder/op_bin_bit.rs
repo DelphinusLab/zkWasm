@@ -286,6 +286,7 @@ mod tests {
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::write_json;
+    use wasmi::{NopExternals, ImportsBuilder};
 
     #[test]
     fn test_i32_or_ok() {
@@ -301,8 +302,12 @@ mod tests {
                 "#;
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(textual_repr).unwrap();
-        let execution_log = compiler.run(&compiled_module, "test", vec![]).unwrap();
+        let compiled_module = compiler
+            .compile(textual_repr, &ImportsBuilder::default())
+            .unwrap();
+        let execution_log = compiler
+            .run(&mut NopExternals, &compiled_module, "test", vec![])
+            .unwrap();
         write_json(&compiled_module.tables, &execution_log.tables);
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }

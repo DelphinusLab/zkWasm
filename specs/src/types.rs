@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::mtable::VarType;
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 pub enum ValueType {
     I32,
     I64,
@@ -49,6 +49,12 @@ impl Value {
             Value::U64(v) => (*v) as u64,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum FunctionType {
+    WasmFunction,
+    HostFunction(usize),
 }
 
 #[derive(Debug)]

@@ -11,6 +11,7 @@ use crate::circuits::config_builder::op_bin::BinOpConfigBuilder;
 use crate::circuits::config_builder::op_bin_bit::BinBitOpConfigBuilder;
 use crate::circuits::config_builder::op_br_if::BrIfConfigBuilder;
 use crate::circuits::config_builder::op_call::CallConfigBuilder;
+use crate::circuits::config_builder::op_host_time::CallHostTimeConfigBuilder;
 use crate::circuits::config_builder::op_load::LoadConfigBuilder;
 use crate::circuits::config_builder::op_local_tee::LocalTeeConfigBuilder;
 use crate::circuits::config_builder::op_rel::RelOpConfigBuilder;
@@ -179,6 +180,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             RelOpConfigBuilder,
             BrIfConfigBuilder,
             CallConfigBuilder,
+            CallHostTimeConfigBuilder,
             LoadConfigBuilder
         ];
 

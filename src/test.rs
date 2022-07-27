@@ -7,6 +7,7 @@ pub mod tests {
     use crate::runtime::{WasmInterpreter, WasmRuntime};
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
+    use wasmi::{ImportsBuilder, NopExternals};
 
     #[test]
     fn test_fibonacci() {
@@ -47,9 +48,16 @@ pub mod tests {
         "#;
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(textual_repr).unwrap();
+        let compiled_module = compiler
+            .compile(textual_repr, &ImportsBuilder::default())
+            .unwrap();
         let execution_log = compiler
-            .run(&compiled_module, "fibonacci", vec![Value::I32(15)])
+            .run(
+                &mut NopExternals,
+                &compiled_module,
+                "fibonacci",
+                vec![Value::I32(15)],
+            )
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
@@ -91,8 +99,12 @@ pub mod tests {
         "#;
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(textual_repr).unwrap();
-        let execution_log = compiler.run(&compiled_module, "memory_rw", vec![]).unwrap();
+        let compiled_module = compiler
+            .compile(textual_repr, &ImportsBuilder::default())
+            .unwrap();
+        let execution_log = compiler
+            .run(&mut NopExternals, &compiled_module, "memory_rw", vec![])
+            .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }
