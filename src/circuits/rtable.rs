@@ -158,7 +158,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         meta.lookup("bytes shift validation", |meta| {
             let (_, _, _, _, value) = pos_vtype_offset_byte_value(meta);
 
-            vec![(value, self.byte_shift_validation_col)]
+            vec![(value * enable(meta), self.byte_shift_validation_col)]
         });
     }
 }
