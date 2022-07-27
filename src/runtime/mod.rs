@@ -272,7 +272,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 eid,
                 emid: *emid,
                 mmid: 0,
-                offset: sp_before_execution,
+                offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
