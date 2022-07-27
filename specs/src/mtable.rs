@@ -1,22 +1,24 @@
+use std::collections::HashSet;
+
 use serde::Serialize;
 use strum_macros::EnumIter;
 
 use crate::{imtable::InitMemoryTable, types::Value};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub enum LocationType {
     Heap = 0,
     Stack = 1,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Hash, Eq)]
 pub enum AccessType {
     Read = 1,
     Write = 2,
     Init = 3,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
 pub enum VarType {
     U8 = 1,
     I8,
@@ -63,7 +65,7 @@ impl VarType {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
 pub struct MemoryTableEntry {
     pub eid: u64,
     // emid is small memory id of eid,
@@ -124,13 +126,13 @@ impl MTable {
     }
 
     pub fn push_accessed_memory_initialization(&mut self, imtable: &InitMemoryTable) {
-        let mut to_add = vec![];
+        let mut set = HashSet::<MemoryTableEntry>::default();
 
         self.0.iter().for_each(|entry| {
             if entry.ltype == LocationType::Heap {
                 let value = imtable.find(entry.mmid, entry.offset);
 
-                to_add.push(MemoryTableEntry {
+                set.insert(MemoryTableEntry {
                     eid: 0,
                     emid: 0,
                     mmid: entry.mmid,
@@ -143,7 +145,9 @@ impl MTable {
             }
         });
 
-        self.0.append(&mut to_add);
+        let mut entries = set.into_iter().collect();
+
+        self.0.append(&mut entries);
         self.sort()
     }
 
