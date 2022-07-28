@@ -96,6 +96,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostTimeConfig<F> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use crate::{
         runtime::{WasmInterpreter, WasmRuntime},
         test::test_circuit_builder::run_test_circuit,
@@ -103,8 +105,8 @@ mod tests {
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::host_function::TIME_FUNC_INDEX;
     use wasmi::{
-        Error, Externals, FuncInstance, ImportsBuilder, ModuleImportResolver, NopExternals,
-        RuntimeArgs, RuntimeValue, Signature, Trap, ValueType,
+        Error, Externals, FuncInstance, ImportsBuilder, ModuleImportResolver, RuntimeArgs,
+        RuntimeValue, Signature, Trap, ValueType,
     };
 
     struct TestHost {}
@@ -123,9 +125,12 @@ mod tests {
         ) -> Result<Option<RuntimeValue>, Trap> {
             match index {
                 TIME_FUNC_INDEX => {
-                    // let tt = SystemTime::now();
-                    // let t: i32 = Instant::now();
-                    Ok(Some(0.into()))
+                    let start = SystemTime::now();
+                    let since_the_epoch = start
+                        .duration_since(UNIX_EPOCH)
+                        .expect("Time went backwards");
+
+                    Ok(Some(since_the_epoch.as_secs().into()))
                 }
                 _ => panic!("env doesn't provide function at index {}", index),
             }
@@ -135,7 +140,7 @@ mod tests {
     impl TestHost {
         fn check_signature(&self, index: usize, signature: &Signature) -> bool {
             let (params, ret_ty): (&[ValueType], Option<ValueType>) = match index {
-                TIME_FUNC_INDEX => (&[], Some(ValueType::I32)),
+                TIME_FUNC_INDEX => (&[], Some(ValueType::I64)),
                 _ => return false,
             };
 
@@ -171,59 +176,10 @@ mod tests {
     }
 
     #[test]
-    fn test_call_ok() {
-        let textual_repr = r#"
-                (module
-                    (func $dummy)
-
-                    (func (export "test")
-                      (block
-                        (call $dummy)
-                      )
-                    )
-                   )
-                "#;
-
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
-    }
-
-    #[test]
-    fn test_call_with_arg_ok() {
-        let textual_repr = r#"
-                (module
-                    (func $dummy (param i32))
-
-                    (func (export "test")
-                      (block
-                        (i32.const 0)
-                        (call $dummy)
-                      )
-                    )
-                   )
-                "#;
-
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
-    }
-
-    #[test]
     fn test_host_function() {
         let textual_repr = r#"
             (module
-                (import "env" "time" (func $time (result i32)))
+                (import "env" "time" (func $time (result i64)))
                 (func (export "test")
                     (call $time)
                     drop
