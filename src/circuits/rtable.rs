@@ -389,12 +389,12 @@ impl<F: FieldExt> RangeTableChip<F> {
                 for t in VarType::iter() {
                     for offset in 0..8 {
                         for pos in 0..8 {
-                            let range = if pos >= offset && pos < offset + t.byte_size() {
-                                511u64
+                            let (start, end) = if pos >= offset && pos < offset + t.byte_size() {
+                                (0, 511u64)
                             } else {
-                                1u64
+                                (255, 256u64)
                             };
-                            for b in 0..range {
+                            for b in start..end {
                                 table.assign_cell(
                                     || "byte unchangable table",
                                     self.config.byte_offset_unchanged_validation_col,

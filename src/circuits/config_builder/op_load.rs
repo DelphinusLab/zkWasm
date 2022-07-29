@@ -182,10 +182,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
             } => {
                 self.load_base.assign(ctx, raw_address.into())?;
                 self.load_offset.assign(ctx, offset.into())?;
+
+                let bytes8_offset = effective_address as u64 % 8;
                 self.bytes8_address
                     .assign(ctx, effective_address as u64 / 8)?;
                 self.bytes8_offset
-                    .assign(ctx, effective_address as u64 % 8)?;
+                    .assign(ctx, bytes8_offset)?;
                 self.bytes8_value.assign(ctx, block_value)?;
                 self.final_vtype.assign(ctx, vtype as u64)?;
 
@@ -198,7 +200,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 let bytes = block_value.to_le_bytes();
                 for i in 0..8 {
-                    let value = byte_shift(vtype, offset as usize, i, bytes[i] as u64);
+                    let value = byte_shift(vtype, bytes8_offset as usize, i, bytes[i] as u64);
 
                     ctx.region.assign_advice(
                         || "op_load final_bytes_shifts",
@@ -231,6 +233,9 @@ mod tests {
                     (data (i32.const 0) "\01\00\00\00\01\00\00\00")
                     (func (export "test")
                       (i32.const 0)
+                      (i32.load offset=0)
+                      (drop)
+                      (i32.const 4)
                       (i32.load offset=0)
                       (drop)
                     )

@@ -147,14 +147,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                         curr!(meta, vtype.value),
                         curr!(meta, bytes8_offset.value),
                         curr!(meta, bytes8_value_post.bytes_le[i])
-                            - curr!(meta, bytes8_value_pre.bytes_le[i]) + constant_from!(255),
+                            - curr!(meta, bytes8_value_pre.bytes_le[i])
+                            + constant_from!(255),
                     )
                 },
                 &enable_fn,
             );
         }
 
-        meta.create_gate("op_store final value equation", |meta| {
+        meta.create_gate("op_store value equation", |meta| {
             let acc = bytes_shifts
                 .iter()
                 .map(|col| curr!(meta, *col))
@@ -212,10 +213,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
             } => {
                 self.store_base.assign(ctx, raw_address.into())?;
                 self.store_offset.assign(ctx, offset.into())?;
+
+                let bytes8_offset = effective_address as u64 % 8;
                 self.bytes8_address
                     .assign(ctx, effective_address as u64 / 8)?;
-                self.bytes8_offset
-                    .assign(ctx, effective_address as u64 % 8)?;
+                self.bytes8_offset.assign(ctx, bytes8_offset)?;
                 self.bytes8_value_pre.assign(ctx, pre_block_value)?;
                 self.bytes8_value_post.assign(ctx, updated_block_value)?;
                 self.vtype.assign(ctx, vtype as u64)?;
@@ -229,7 +231,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 let bytes = updated_block_value.to_le_bytes();
                 for i in 0..8 {
-                    let value = byte_shift(vtype, offset as usize, i, bytes[i] as u64);
+                    let value = byte_shift(vtype, bytes8_offset as usize, i, bytes[i] as u64);
 
                     ctx.region.assign_advice(
                         || "op_store final_bytes_shifts",
