@@ -16,6 +16,7 @@ use crate::circuits::config_builder::op_load::LoadConfigBuilder;
 use crate::circuits::config_builder::op_local_tee::LocalTeeConfigBuilder;
 use crate::circuits::config_builder::op_rel::RelOpConfigBuilder;
 use crate::circuits::config_builder::op_return::ReturnConfigBuilder;
+use crate::circuits::config_builder::op_store::StoreConfigBuilder;
 use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
@@ -181,7 +182,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             BrIfConfigBuilder,
             CallConfigBuilder,
             CallHostTimeConfigBuilder,
-            LoadConfigBuilder
+            LoadConfigBuilder,
+            StoreConfigBuilder
         ];
 
         meta.create_gate("opcode consistent", |meta| {

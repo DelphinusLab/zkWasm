@@ -68,14 +68,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let vtype = U8Config::configure(meta, cols, rtable, &enable_fn);
 
         mtable.configure_stack_read_in_table(
-            "op_store get load_base",
+            "op_store get value",
             meta,
             &enable_fn,
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(1u64),
             |meta| curr!(meta, common.sp) + constant_from!(1),
-            |_meta| constant_from!(VarType::I32),
-            |meta| curr!(meta, store_base.value),
+            |meta| curr!(meta, vtype.value),
+            |meta| curr!(meta, value),
         );
 
         mtable.configure_stack_read_in_table(
@@ -85,8 +85,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             |meta| curr!(meta, common.eid),
             |_meta| constant_from!(2u64),
             |meta| curr!(meta, common.sp) + constant_from!(2),
-            |meta| curr!(meta, vtype.value),
-            |meta| curr!(meta, value),
+            |_meta| constant_from!(VarType::I32),
+            |meta| curr!(meta, store_base.value),
         );
 
         mtable.configure_memory_load_in_table(
@@ -204,21 +204,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 vtype,
                 offset,
                 value,
-                // FIXME: we need the pre value of mem block, block_value,
                 raw_address,
                 effective_address,
+                pre_block_value,
+                updated_block_value,
                 ..
             } => {
-                // FIME: placeholder, remove it once fixed
-                let block_value = 0;
-
                 self.store_base.assign(ctx, raw_address.into())?;
                 self.store_offset.assign(ctx, offset.into())?;
                 self.bytes8_address
                     .assign(ctx, effective_address as u64 / 8)?;
                 self.bytes8_offset
                     .assign(ctx, effective_address as u64 % 8)?;
-                self.bytes8_value_pre.assign(ctx, block_value)?;
+                self.bytes8_value_pre.assign(ctx, pre_block_value)?;
+                self.bytes8_value_post.assign(ctx, updated_block_value)?;
                 self.vtype.assign(ctx, vtype as u64)?;
 
                 ctx.region.assign_advice(
@@ -228,7 +227,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     || Ok(F::from(value)),
                 )?;
 
-                let bytes = block_value.to_le_bytes();
+                let bytes = updated_block_value.to_le_bytes();
                 for i in 0..8 {
                     let value = byte_shift(vtype, offset as usize, i, bytes[i] as u64);
 
@@ -239,16 +238,44 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                         || Ok(value.into()),
                     )?;
                 }
-
-                let mut block_value_bytes = block_value.to_le_bytes();
-                let value_bytes = value.to_le_bytes();
-                for i in 0..vtype.byte_size() as usize {
-                    block_value_bytes[i + offset as usize] = value_bytes[i];
-                }
-                self.bytes8_value_post.assign(ctx, u64::from_le_bytes(block_value_bytes))?;
             }
             _ => unreachable!(),
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        runtime::{WasmInterpreter, WasmRuntime},
+        test::test_circuit_builder::run_test_circuit,
+    };
+    use halo2_proofs::pairing::bn256::Fr as Fp;
+    use wasmi::{ImportsBuilder, NopExternals};
+
+    #[test]
+    fn test_store() {
+        let textual_repr = r#"
+                (module
+                    (memory $0 1)
+                    (data (i32.const 0) "\01\00\00\00\01\00\00\00")
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 2)
+                      (i32.store offset=0)
+                    )
+                   )
+                "#;
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler
+            .compile(textual_repr, &ImportsBuilder::default())
+            .unwrap();
+        let execution_log = compiler
+            .run(&mut NopExternals, &compiled_module, "test", vec![])
+            .unwrap();
+
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
 }

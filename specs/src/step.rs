@@ -55,6 +55,8 @@ pub enum StepInfo {
         offset: u32,
         raw_address: u32,
         effective_address: u32,
+        pre_block_value: u64,
+        updated_block_value: u64,
         value: u64,
         mmid: u64,
     },

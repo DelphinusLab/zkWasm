@@ -36,8 +36,8 @@ impl OpcodeClass {
             OpcodeClass::BrIf => 1,
             OpcodeClass::Call => 0,
             OpcodeClass::CallHostTime => 1,
-            OpcodeClass::Store => todo!(), // Load value from stack, then write memory
-            OpcodeClass::Load => 3,        // pop address, load memory, push stack
+            OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
+            OpcodeClass::Load => 3,  // pop address, load memory, push stack
         }
     }
 
@@ -221,8 +221,10 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
-            Opcode::Store { .. } => {
-                todo!()
+            Opcode::Store { offset, vtype } => {
+                (BigUint::from(OpcodeClass::Store as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + offset
             }
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
