@@ -31,11 +31,13 @@ pub struct RangeTableConfig<F: FieldExt> {
     byte_shift_res_col: TableColumn,
     // byte shift sets
     byte_shift_validation_col: TableColumn,
+    // vartype | offset | pos | changes
+    byte_offset_unchanged_validation_col: TableColumn,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 7]) -> Self {
+    pub fn configure(cols: [TableColumn; 8]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
@@ -44,6 +46,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
             bitop_col: cols[4],
             byte_shift_res_col: cols[5],
             byte_shift_validation_col: cols[6],
+            byte_offset_unchanged_validation_col: cols[7],
             _mark: PhantomData,
         }
     }
@@ -120,6 +123,26 @@ impl<F: FieldExt> RangeTableConfig<F> {
 
             vec![(
                 (pos * constant_from!(1 << 12) + vtype * constant_from!(1 << 8) + byte)
+                    * enable(meta),
+                self.vtype_byte_col,
+            )]
+        });
+    }
+
+    pub fn configure_in_unchangable_range(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        pos_vtype_offset_byte: impl FnOnce(
+            &mut VirtualCells<'_, F>,
+        ) -> (Expression<F>, Expression<F>, Expression<F>, Expression<F>),
+        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| {
+            let (pos, vtype, offset, byte) = pos_vtype_offset_byte(meta);
+
+            vec![(
+                (vtype * constant_from!(1 << 24) + offset * constant_from!(1 << 16) + pos * constant_from!(1 << 8) + byte)
                     * enable(meta),
                 self.vtype_byte_col,
             )]
@@ -354,6 +377,42 @@ impl<F: FieldExt> RangeTableChip<F> {
                         index += 1;
                     }
                 }
+
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "byte offset unchangable validation table",
+            |mut table| {
+                let mut index = 0usize;
+                for t in VarType::iter() {
+                    for offset in 0..8 {
+                        for pos in 0..8 {
+                            let range = if pos >= offset && pos < offset + t.byte_size() {
+                                256u64
+                            } else {
+                                1u64
+                            };
+                            for b in 0..range {
+                                table.assign_cell(
+                                    || "byte unchangable table",
+                                    self.config.byte_offset_unchanged_validation_col,
+                                    index,
+                                    || Ok(F::from(((t as u64) << 24) + (offset << 16) + (pos << 8) + b)),
+                                )?;
+                                index += 1;
+                            }
+                        }
+                    }
+                }
+
+                table.assign_cell(
+                    || "byte shift res table",
+                    self.config.byte_offset_unchanged_validation_col,
+                    index,
+                    || Ok(F::zero()),
+                )?;
 
                 Ok(())
             },
