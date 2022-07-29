@@ -147,7 +147,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                         curr!(meta, vtype.value),
                         curr!(meta, bytes8_offset.value),
                         curr!(meta, bytes8_value_post.bytes_le[i])
-                            - curr!(meta, bytes8_value_pre.bytes_le[i]),
+                            - curr!(meta, bytes8_value_pre.bytes_le[i]) + constant_from!(255),
                     )
                 },
                 &enable_fn,
@@ -259,9 +259,12 @@ mod tests {
         let textual_repr = r#"
                 (module
                     (memory $0 1)
-                    (data (i32.const 0) "\01\00\00\00\01\00\00\00")
+                    (data (i32.const 0) "\03\00\00\00\01\00\00\00")
                     (func (export "test")
                       (i32.const 0)
+                      (i32.const 2)
+                      (i32.store offset=0)
+                      (i32.const 1)
                       (i32.const 2)
                       (i32.store offset=0)
                     )

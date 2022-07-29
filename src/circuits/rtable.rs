@@ -142,9 +142,9 @@ impl<F: FieldExt> RangeTableConfig<F> {
             let (pos, vtype, offset, byte) = pos_vtype_offset_byte(meta);
 
             vec![(
-                (vtype * constant_from!(1 << 24) + offset * constant_from!(1 << 16) + pos * constant_from!(1 << 8) + byte)
+                (vtype * constant_from!(1u64 << 32) + offset * constant_from!(1 << 24) + pos * constant_from!(1 << 16) + byte)
                     * enable(meta),
-                self.vtype_byte_col,
+                self.byte_offset_unchanged_validation_col,
             )]
         });
     }
@@ -390,7 +390,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                     for offset in 0..8 {
                         for pos in 0..8 {
                             let range = if pos >= offset && pos < offset + t.byte_size() {
-                                256u64
+                                511u64
                             } else {
                                 1u64
                             };
@@ -399,7 +399,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                                     || "byte unchangable table",
                                     self.config.byte_offset_unchanged_validation_col,
                                     index,
-                                    || Ok(F::from(((t as u64) << 24) + (offset << 16) + (pos << 8) + b)),
+                                    || Ok(F::from(((t as u64) << 32) + (offset << 24) + (pos << 16) + b)),
                                 )?;
                                 index += 1;
                             }
