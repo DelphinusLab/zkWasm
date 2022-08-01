@@ -5,7 +5,7 @@ use crate::{
         jtable::JumpTableConfig,
         mtable::MemoryTableConfig,
         rtable::RangeTableConfig,
-        utils::{bn_to_field, u64::U64Config, Context},
+        utils::{bn_to_field, bytes8::Bytes8Config, Context},
     },
     constant, constant_from, curr,
 };
@@ -22,18 +22,69 @@ use specs::{
 use std::vec;
 
 pub struct RelOpConfig<F: FieldExt> {
-    left: U64Config<F>,
-    right: U64Config<F>,
+    left: Bytes8Config<F>,
+    right: Bytes8Config<F>,
     res: Column<Advice>,
     vtype: Column<Advice>,
     enable: Column<Advice>,
     is_eq: Column<Advice>,
     is_ne: Column<Advice>,
+    is_gt: Column<Advice>,
+    is_ge: Column<Advice>,
+    is_signed: Column<Advice>,
     is_same: Column<Advice>,
+    eq_bytes: [Column<Advice>; 8],
+    gt_bytes: [Column<Advice>; 8],
+    lt_bytes: [Column<Advice>; 8],
     inv: Column<Advice>,
 }
 
 pub struct RelOpConfigBuilder {}
+
+impl RelOpConfigBuilder {
+    fn _constraint_builder<F: FieldExt>(
+        meta: &mut VirtualCells<F>,
+        gt_bytes: &[Column<Advice>; 8],
+        eq_bytes: &[Column<Advice>; 8],
+        lt_bytes: &[Column<Advice>; 8],
+        res_gt: impl Fn(&mut VirtualCells<F>) -> Expression<F>,
+        res_eq: impl Fn(&mut VirtualCells<F>) -> Expression<F>,
+        res_lt: impl Fn(&mut VirtualCells<F>) -> Expression<F>,
+        position: usize,
+    ) -> Expression<F> {
+        curr!(meta, gt_bytes[position]) * res_gt(meta)
+            + curr!(meta, lt_bytes[position]) * res_lt(meta)
+            + curr!(meta, eq_bytes[position])
+                * (if position == 7 {
+                    res_eq(meta)
+                } else {
+                    Self::_constraint_builder(
+                        meta,
+                        gt_bytes,
+                        eq_bytes,
+                        lt_bytes,
+                        res_gt,
+                        res_eq,
+                        res_lt,
+                        position + 1,
+                    )
+                })
+    }
+
+    fn constraint_builder<F: FieldExt>(
+        meta: &mut VirtualCells<F>,
+        gt_bytes: &[Column<Advice>; 8],
+        eq_bytes: &[Column<Advice>; 8],
+        lt_bytes: &[Column<Advice>; 8],
+        res_gt: impl Fn(&mut VirtualCells<F>) -> Expression<F>,
+        res_eq: impl Fn(&mut VirtualCells<F>) -> Expression<F>,
+        res_lt: impl Fn(&mut VirtualCells<F>) -> Expression<F>,
+    ) -> Expression<F> {
+        Self::_constraint_builder(
+            meta, gt_bytes, eq_bytes, lt_bytes, res_gt, res_eq, res_lt, 0,
+        )
+    }
+}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
     fn configure(
@@ -49,29 +100,40 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_eq = cols.next().unwrap();
         let is_ne = cols.next().unwrap();
+        let is_gt = cols.next().unwrap();
+        let is_ge = cols.next().unwrap();
+        let is_signed = cols.next().unwrap();
         let inv = cols.next().unwrap();
         let is_same = cols.next().unwrap();
         let res = cols.next().unwrap();
         let vtype = cols.next().unwrap();
 
-        let left = U64Config::configure(meta, cols, rtable, |meta| {
+        let left = Bytes8Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
-        let right = U64Config::configure(meta, cols, rtable, |meta| {
+        let right = Bytes8Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
+        let eq_bytes = [(); 8].map(|_| cols.next().unwrap());
+        let lt_bytes = [(); 8].map(|_| cols.next().unwrap());
+        let gt_bytes = [(); 8].map(|_| cols.next().unwrap());
 
-        meta.create_gate("rel is eq or ne", |meta| {
+        meta.create_gate("rel is eq or ne or gt", |meta| {
+            macro_rules! is_op {
+                ($select_op:ident) => {
+                    curr!(meta, $select_op)
+                        * (curr!(meta, $select_op) - constant_from!(1))
+                        * curr!(meta, opcode_bit)
+                        * enable(meta)
+                };
+            }
             vec![
-                curr!(meta, is_eq)
-                    * (curr!(meta, is_eq) - constant_from!(1))
-                    * curr!(meta, opcode_bit)
-                    * enable(meta),
-                curr!(meta, is_ne)
-                    * (curr!(meta, is_ne) - constant_from!(1))
-                    * curr!(meta, opcode_bit)
-                    * enable(meta),
-                (curr!(meta, is_eq) + curr!(meta, is_ne) - constant_from!(1))
+                is_op!(is_eq),
+                is_op!(is_ne),
+                is_op!(is_gt),
+                is_op!(is_ge),
+                (curr!(meta, is_eq) + curr!(meta, is_ne) + curr!(meta, is_gt) + curr!(meta, is_ge)
+                    - constant_from!(1))
                     * curr!(meta, opcode_bit)
                     * enable(meta),
             ]
@@ -91,7 +153,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             ]
         });
 
-        meta.create_gate("res constaints", |meta| {
+        meta.create_gate("eq or ne res constaints", |meta| {
             vec![
                 curr!(meta, is_eq)
                     * (curr!(meta, res) - curr!(meta, is_same))
@@ -101,6 +163,117 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
                     * (curr!(meta, res) + curr!(meta, is_same) - constant_from!(1))
                     * curr!(meta, opcode_bit)
                     * enable(meta),
+            ]
+        });
+
+        meta.create_gate("is_signed is either zero or one", |meta| {
+            vec![
+                curr!(meta, is_signed)
+                    * (constant_from!(1) - curr!(meta, is_signed))
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+            ]
+        });
+
+        meta.create_gate("rel bytes select one", |meta| {
+            (0..8usize)
+                .map(|i| {
+                    (curr!(meta, lt_bytes[i]) + curr!(meta, gt_bytes[i]) + curr!(meta, eq_bytes[i])
+                        - constant_from!(1))
+                        * curr!(meta, opcode_bit)
+                        * enable(meta)
+                })
+                .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("eq bytes is either zero or one", |meta| {
+            (0..8usize)
+                .map(|i| {
+                    (curr!(meta, eq_bytes[i]) * (curr!(meta, eq_bytes[i]) - constant_from!(1)))
+                        * curr!(meta, opcode_bit)
+                        * enable(meta)
+                })
+                .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("lt bytes is either zero or one", |meta| {
+            (0..8usize)
+                .map(|i| {
+                    (curr!(meta, lt_bytes[i]) * (curr!(meta, lt_bytes[i]) - constant_from!(1)))
+                        * curr!(meta, opcode_bit)
+                        * enable(meta)
+                })
+                .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("gt bytes is either zero or one", |meta| {
+            (0..8usize)
+                .map(|i| {
+                    (curr!(meta, gt_bytes[i]) * (curr!(meta, gt_bytes[i]) - constant_from!(1)))
+                        * curr!(meta, opcode_bit)
+                        * enable(meta)
+                })
+                .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("eq bytes constraints", |meta| {
+            (0..8usize)
+                .map(|i| {
+                    curr!(meta, eq_bytes[i])
+                        * (curr!(meta, left.bytes_le[i]) - curr!(meta, right.bytes_le[i]))
+                        * curr!(meta, opcode_bit)
+                        * enable(meta)
+                })
+                .collect::<Vec<_>>()
+        });
+
+        for i in 0..8usize {
+            rtable.configure_lt_lookup(
+                meta,
+                "lt byte lookup",
+                |meta| {
+                    (
+                        curr!(meta, left.bytes_le[i]),
+                        curr!(meta, right.bytes_le[i]),
+                    )
+                },
+                |meta| curr!(meta, opcode_bit) * enable(meta) * curr!(meta, lt_bytes[i]),
+            )
+        }
+
+        meta.create_gate("gt_u constraint", |meta| {
+            vec![
+                curr!(meta, opcode_bit)
+                    * enable(meta)
+                    * curr!(meta, is_gt)
+                    * (constant_from!(1) - curr!(meta, is_signed))
+                    * Self::constraint_builder(
+                        meta,
+                        &gt_bytes,
+                        &eq_bytes,
+                        &lt_bytes,
+                        |meta| curr!(meta, res) - constant_from!(1),
+                        |meta| curr!(meta, res),
+                        |meta| curr!(meta, res),
+                    ),
+            ]
+        });
+
+        meta.create_gate("ge_u constraint", |meta| {
+            vec![
+                curr!(meta, opcode_bit)
+                    * enable(meta)
+                    * curr!(meta, is_ge)
+                    * (constant_from!(1) - curr!(meta, is_signed))
+                    * Self::constraint_builder(
+                        meta,
+                        &gt_bytes,
+                        &eq_bytes,
+                        &lt_bytes,
+                        |meta| curr!(meta, res) - constant_from!(1),
+                        |meta| curr!(meta, res) - constant_from!(1),
+                        |meta| curr!(meta, res),
+                    ),
             ]
         });
 
@@ -145,7 +318,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             enable: opcode_bit,
             is_eq,
             is_ne,
+            is_gt,
+            is_ge,
+            is_signed,
             is_same,
+            eq_bytes,
+            gt_bytes,
+            lt_bytes,
             inv,
         })
     }
@@ -153,16 +332,58 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        (constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
-        )) + curr!(meta, self.is_eq)
-            * constant!(bn_to_field(
-                &(BigUint::from(RelOp::Eq as u64) << OPCODE_ARG0_SHIFT)
-            ))
-            + curr!(meta, self.is_ne)
+        let subop_eq = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_eq)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::Eq as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_ne = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_ne)
                 * constant!(bn_to_field(
                     &(BigUint::from(RelOp::Ne as u64) << OPCODE_ARG0_SHIFT)
                 ))
+        };
+        let subop_gt_s = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_gt)
+                * curr!(meta, self.is_signed)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::SignedGt as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_gt_u = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_gt)
+                * (constant_from!(1) - curr!(meta, self.is_signed))
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::UnsignedGt as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_ge_s = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_ge)
+                * curr!(meta, self.is_signed)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::SignedGe as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_ge_u = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_ge)
+                * (constant_from!(1) - curr!(meta, self.is_signed))
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::UnsignedGe as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop = |meta: &mut VirtualCells<F>| {
+            subop_eq(meta)
+                + subop_ne(meta)
+                + subop_gt_s(meta)
+                + subop_gt_u(meta)
+                + subop_ge_s(meta)
+                + subop_ge_u(meta)
+        };
+
+        (constant!(bn_to_field(
+            &(BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
+        )) + subop(meta)
             + curr!(meta, self.vtype)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT))))
             * curr!(meta, self.enable)
@@ -219,6 +440,45 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
                     || Ok((VarType::I32 as u64).into()),
                 )?;
 
+                let mut left_bytes = Vec::from((left as u32 as u64).to_le_bytes());
+                left_bytes.resize(8, 0);
+                let mut right_bytes = Vec::from((right as u32 as u64).to_le_bytes());
+                right_bytes.resize(8, 0);
+                for position in 0..8usize {
+                    ctx.region.assign_advice(
+                        || "gt bytes",
+                        self.gt_bytes[position],
+                        ctx.offset,
+                        || {
+                            Ok(F::from(
+                                (left_bytes[position] > right_bytes[position]) as u64,
+                            ))
+                        },
+                    )?;
+
+                    ctx.region.assign_advice(
+                        || "lt bytes",
+                        self.lt_bytes[position],
+                        ctx.offset,
+                        || {
+                            Ok(F::from(
+                                (left_bytes[position] < right_bytes[position]) as u64,
+                            ))
+                        },
+                    )?;
+
+                    ctx.region.assign_advice(
+                        || "eq bytes",
+                        self.eq_bytes[position],
+                        ctx.offset,
+                        || {
+                            Ok(F::from(
+                                (left_bytes[position] == right_bytes[position]) as u64,
+                            ))
+                        },
+                    )?;
+                }
+
                 match class {
                     RelOp::Eq => {
                         ctx.region.assign_advice(
@@ -236,6 +496,50 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
                             || Ok(F::one()),
                         )?;
                     }
+                    RelOp::SignedGt => {
+                        ctx.region.assign_advice(
+                            || "rel op i32 gt_s",
+                            self.is_gt,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                        ctx.region.assign_advice(
+                            || "rel op i32 signed",
+                            self.is_signed,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                    }
+                    RelOp::UnsignedGt => {
+                        ctx.region.assign_advice(
+                            || "rel op i32 gt_u",
+                            self.is_gt,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                    }
+                    RelOp::SignedGe => {
+                        ctx.region.assign_advice(
+                            || "rel op i32 ge_s",
+                            self.is_ge,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                        ctx.region.assign_advice(
+                            || "rel op i32 signed",
+                            self.is_signed,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                    }
+                    RelOp::UnsignedGe => {
+                        ctx.region.assign_advice(
+                            || "rel op i32 gt_u",
+                            self.is_ge,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                    }
                 }
             }
             _ => unreachable!(),
@@ -246,12 +550,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        runtime::{WasmInterpreter, WasmRuntime},
-        test::test_circuit_builder::run_test_circuit,
-    };
-    use halo2_proofs::pairing::bn256::Fr as Fp;
-    use wasmi::{ImportsBuilder, NopExternals};
+    use crate::test::test_circuit_builder::test_circuit_noexternal;
 
     #[test]
     fn test_i32_ne() {
@@ -266,14 +565,7 @@ mod tests {
                    )
                 "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap()
     }
 
     #[test]
@@ -289,13 +581,134 @@ mod tests {
                    )
                 "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt_s() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.gt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt1_u() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.gt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt2_u() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      (i32.gt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt3_u() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.gt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_s() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.ge_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_u_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      (i32.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_u_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
     }
 }

@@ -33,11 +33,13 @@ pub struct RangeTableConfig<F: FieldExt> {
     byte_shift_validation_col: TableColumn,
     // vartype | offset | pos | changes
     byte_offset_unchanged_validation_col: TableColumn,
+    // byte | byte
+    byte_lt_col: TableColumn,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 8]) -> Self {
+    pub fn configure(cols: [TableColumn; 9]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
@@ -47,6 +49,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
             byte_shift_res_col: cols[5],
             byte_shift_validation_col: cols[6],
             byte_offset_unchanged_validation_col: cols[7],
+            byte_lt_col: cols[8],
             _mark: PhantomData,
         }
     }
@@ -135,14 +138,22 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         pos_vtype_offset_byte: impl FnOnce(
             &mut VirtualCells<'_, F>,
-        ) -> (Expression<F>, Expression<F>, Expression<F>, Expression<F>),
+        ) -> (
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+        ),
         enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup(key, |meta| {
             let (pos, vtype, offset, byte) = pos_vtype_offset_byte(meta);
 
             vec![(
-                (vtype * constant_from!(1u64 << 32) + offset * constant_from!(1 << 24) + pos * constant_from!(1 << 16) + byte)
+                (vtype * constant_from!(1u64 << 32)
+                    + offset * constant_from!(1 << 24)
+                    + pos * constant_from!(1 << 16)
+                    + byte)
                     * enable(meta),
                 self.byte_offset_unchanged_validation_col,
             )]
@@ -182,6 +193,27 @@ impl<F: FieldExt> RangeTableConfig<F> {
             let (_, _, _, _, value) = pos_vtype_offset_byte_value(meta);
 
             vec![(value * enable(meta), self.byte_shift_validation_col)]
+        });
+    }
+
+    pub fn configure_lt_lookup(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        left_right_bytes: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>),
+        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| {
+            let (left, right) = left_right_bytes(meta);
+
+            // When prefix is not existing, left = 0 and right = 0 can successfully lookup,
+            // since the table contains zero entry.
+            let prefix = constant_from!(1 << 16);
+
+            vec![(
+                (prefix + left * constant_from!(1 << 8) + right) * enable(meta),
+                self.byte_lt_col,
+            )]
         });
     }
 }
@@ -399,7 +431,11 @@ impl<F: FieldExt> RangeTableChip<F> {
                                     || "byte unchangable table",
                                     self.config.byte_offset_unchanged_validation_col,
                                     index,
-                                    || Ok(F::from(((t as u64) << 32) + (offset << 24) + (pos << 16) + b)),
+                                    || {
+                                        Ok(F::from(
+                                            ((t as u64) << 32) + (offset << 24) + (pos << 16) + b,
+                                        ))
+                                    },
                                 )?;
                                 index += 1;
                             }
@@ -411,6 +447,35 @@ impl<F: FieldExt> RangeTableChip<F> {
                     || "byte shift res table",
                     self.config.byte_offset_unchanged_validation_col,
                     index,
+                    || Ok(F::zero()),
+                )?;
+
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "lt table",
+            |mut table| {
+                let mut offset = 0;
+
+                for i in 1u64..(1 << 8) {
+                    for j in 0u64..i {
+                        table.assign_cell(
+                            || "range table",
+                            self.config.byte_lt_col,
+                            offset,
+                            || Ok(F::from((1 << 16) + (j << 8) + i)),
+                        )?;
+
+                        offset += 1;
+                    }
+                }
+
+                table.assign_cell(
+                    || "byte shift res table",
+                    self.config.byte_lt_col,
+                    offset,
                     || Ok(F::zero()),
                 )?;
 

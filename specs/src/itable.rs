@@ -85,6 +85,10 @@ impl BitOp {
 pub enum RelOp {
     Eq,
     Ne,
+    SignedGt,
+    UnsignedGt,
+    SignedGe,
+    UnsignedGe,
 }
 
 #[derive(Clone, Debug, Serialize)]
