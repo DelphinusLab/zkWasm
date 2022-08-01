@@ -13,6 +13,7 @@ pub enum OpcodeClass {
     Drop,
     Return,
     Bin,
+    BinShift,
     BinBit,
     Rel,
     BrIf,
@@ -31,6 +32,7 @@ impl OpcodeClass {
             OpcodeClass::Drop => 0,
             OpcodeClass::Return => 0,
             OpcodeClass::Bin => 3,
+            OpcodeClass::BinShift => 3,
             OpcodeClass::BinBit => 3,
             OpcodeClass::Rel => 3,
             OpcodeClass::BrIf => 1,
@@ -53,6 +55,12 @@ impl OpcodeClass {
 #[derive(Copy, Clone, Debug, Serialize)]
 pub enum BinOp {
     Add,
+}
+
+#[derive(Copy, Clone, Debug, Serialize)]
+pub enum ShiftOp {
+    Shl,
+    UnsignedShr,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, EnumIter)]
@@ -112,6 +120,10 @@ pub enum Opcode {
     },
     Bin {
         class: BinOp,
+        vtype: VarType,
+    },
+    BinShift {
+        class: ShiftOp,
         vtype: VarType,
     },
     BinBit {
@@ -196,6 +208,11 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
+            Opcode::BinShift { class, vtype } => {
+                (BigUint::from(OpcodeClass::BinShift as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+            }
             Opcode::BinBit { class, vtype } => {
                 (BigUint::from(OpcodeClass::BinBit as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
@@ -245,6 +262,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Drop { .. } => OpcodeClass::Drop,
             Opcode::Return { .. } => OpcodeClass::Return,
             Opcode::Bin { .. } => OpcodeClass::Bin,
+            Opcode::BinShift { .. } => OpcodeClass::BinShift,
             Opcode::BinBit { .. } => OpcodeClass::BinBit,
             Opcode::Rel { .. } => OpcodeClass::Rel,
             Opcode::BrIf { .. } => OpcodeClass::BrIf,

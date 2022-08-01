@@ -10,4 +10,5 @@ pub mod op_local_get;
 pub mod op_local_tee;
 pub mod op_rel;
 pub mod op_return;
+pub mod op_shift;
 pub mod op_store;

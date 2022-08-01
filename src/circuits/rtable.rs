@@ -35,11 +35,13 @@ pub struct RangeTableConfig<F: FieldExt> {
     byte_offset_unchanged_validation_col: TableColumn,
     // byte | byte
     byte_lt_col: TableColumn,
+    // value | shift
+    pow_2_col: TableColumn,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 9]) -> Self {
+    pub fn configure(cols: [TableColumn; 10]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
@@ -50,6 +52,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
             byte_shift_validation_col: cols[6],
             byte_offset_unchanged_validation_col: cols[7],
             byte_lt_col: cols[8],
+            pow_2_col: cols[9],
             _mark: PhantomData,
         }
     }
@@ -213,6 +216,26 @@ impl<F: FieldExt> RangeTableConfig<F> {
             vec![(
                 (prefix + left * constant_from!(1 << 8) + right) * enable(meta),
                 self.byte_lt_col,
+            )]
+        });
+    }
+
+    pub fn configure_pow_2_lookup(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        shift: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>),
+        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| {
+            let (result, shift) = shift(meta);
+
+            vec![(
+                (result * constant_from!(1 << 16)
+                    + shift * constant_from!(1 << 8)
+                    + constant_from!(1))
+                    * enable(meta),
+                self.pow_2_col,
             )]
         });
     }
@@ -475,6 +498,33 @@ impl<F: FieldExt> RangeTableChip<F> {
                 table.assign_cell(
                     || "byte shift res table",
                     self.config.byte_lt_col,
+                    offset,
+                    || Ok(F::zero()),
+                )?;
+
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "pow 2 table",
+            |mut table| {
+                let mut offset = 0;
+
+                for i in 0u64..64 {
+                    table.assign_cell(
+                        || "pow 2 table enable",
+                        self.config.pow_2_col,
+                        offset,
+                        || Ok(F::from(((1 << i) << 16) + (i << 8) + 1)),
+                    )?;
+
+                    offset += 1;
+                }
+
+                table.assign_cell(
+                    || "pow 2 shift disable",
+                    self.config.pow_2_col,
                     offset,
                     || Ok(F::zero()),
                 )?;

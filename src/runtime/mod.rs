@@ -393,6 +393,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         StepInfo::I32BinOp {
             left, right, value, ..
         }
+        | StepInfo::I32BinShiftOp {
+            left, right, value, ..
+        }
         | StepInfo::I32BinBitOp {
             left, right, value, ..
         } => mem_op_from_stack_only_step(
