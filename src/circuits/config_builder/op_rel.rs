@@ -497,6 +497,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
                         )?;
                     }
                     RelOp::SignedGt => {
+                        // support constraint
+                        unimplemented!();
+
                         ctx.region.assign_advice(
                             || "rel op i32 gt_s",
                             self.is_gt,
@@ -519,6 +522,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
                         )?;
                     }
                     RelOp::SignedGe => {
+                        // support constraint
+                        unimplemented!();
+
                         ctx.region.assign_advice(
                             || "rel op i32 ge_s",
                             self.is_ge,
