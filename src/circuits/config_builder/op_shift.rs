@@ -26,11 +26,12 @@ const N32: u64 = 32;
 
 pub struct BinShiftOpConfig<F: FieldExt> {
     left: U64Config<F>,
-    left_cut: Column<Advice>,
     right: U64Config<F>,
     shift: TValueConfig<F>,
     right_div_n: Column<Advice>,
     pow_of_shift: Column<Advice>,
+    aux: Column<Advice>,
+    aux2: Column<Advice>,
     res: U64Config<F>,
     enable: Column<Advice>,
     is_shl: Column<Advice>,
@@ -62,15 +63,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftOpConfigBuilder {
         let left = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
-        let left_cut = cols.next().unwrap();
         let right = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
+
         let shift = TValueConfig::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
         let right_div_n = cols.next().unwrap();
         let pow_of_shift = cols.next().unwrap();
+
+        let aux = cols.next().unwrap();
+        let aux2 = cols.next().unwrap();
         let res = U64Config::configure(meta, cols, rtable, |meta| {
             curr!(meta, opcode_bit) * enable(meta)
         });
@@ -171,9 +175,23 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftOpConfigBuilder {
 
         meta.create_gate("shr_u result", |meta| {
             vec![
-                (curr!(meta, left_cut) + curr!(meta, res.value) * curr!(meta, pow_of_shift)
+                (curr!(meta, aux) + curr!(meta, res.value) * curr!(meta, pow_of_shift)
                     - curr!(meta, left.value))
                     * curr!(meta, is_shr_u)
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+            ]
+        });
+
+        meta.create_gate("shl result", |meta| {
+            vec![
+                (curr!(meta, left.value) * curr!(meta, pow_of_shift) - curr!(meta, aux))
+                    * curr!(meta, is_shl)
+                    * curr!(meta, opcode_bit)
+                    * enable(meta),
+                (curr!(meta, aux2) * constant!(F::from(1 << N32)) + curr!(meta, res.value)
+                    - curr!(meta, aux))
+                    * curr!(meta, is_shl)
                     * curr!(meta, opcode_bit)
                     * enable(meta),
             ]
@@ -203,11 +221,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftOpConfigBuilder {
             vtype_len_bitmask,
             enable: opcode_bit,
             left,
-            left_cut,
             right,
             right_div_n,
             shift,
             pow_of_shift,
+            aux,
+            aux2,
             res,
             vtype,
         })
@@ -267,6 +286,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftOpConfig<F> {
                 self.res.assign(ctx, value as u32 as u64)?;
 
                 let shift = (right as u32 as u64) % N32;
+                self.shift.assign(ctx, VarType::U32, shift)?;
+
                 ctx.region.assign_advice(
                     || "right div n",
                     self.right_div_n,
@@ -274,8 +295,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftOpConfig<F> {
                     || Ok(F::from(right / N32)),
                 )?;
 
-                // FIXME: u32 or i32?
-                self.shift.assign(ctx, VarType::U32, shift)?;
                 ctx.region.assign_advice(
                     || "pow of shift",
                     self.pow_of_shift,
@@ -292,7 +311,19 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftOpConfig<F> {
                             || Ok(F::one()),
                         )?;
 
-                        unimplemented!();
+                        ctx.region.assign_advice(
+                            || "shl without module",
+                            self.aux,
+                            ctx.offset,
+                            || Ok(F::from(left) * F::from(1 << shift)),
+                        )?;
+
+                        ctx.region.assign_advice(
+                            || "quotient",
+                            self.aux2,
+                            ctx.offset,
+                            || Ok(F::from(left * (1 << shift) / (1 << 32))),
+                        )?;
                     }
                     ShiftOp::UnsignedShr => {
                         ctx.region.assign_advice(
@@ -304,7 +335,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftOpConfig<F> {
 
                         ctx.region.assign_advice(
                             || "left cut",
-                            self.left_cut,
+                            self.aux,
                             ctx.offset,
                             || Ok(F::from(left % (1 << shift))),
                         )?;
@@ -345,6 +376,70 @@ mod tests {
                       (i32.const 12)
                       (i32.const 35)
                       (i32.shr_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_shl_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 12)
+                      (i32.const 0)
+                      (i32.shl)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_shl_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 12)
+                      (i32.const 1)
+                      (i32.shl)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_shl_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 12)
+                      (i32.const 33)
+                      (i32.shl)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_shl_overflow_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4294967295)
+                      (i32.const 1)
+                      (i32.shl)
                       (drop)
                     )
                    )
