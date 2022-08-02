@@ -17,6 +17,7 @@ impl EventTableEntry {
     pub fn extra_mops(&self) -> u64 {
         match &self.step_info {
             StepInfo::Return { keep, .. } => 2 * keep.len() as u64,
+            StepInfo::Br { keep, .. } => 2 * keep.len() as u64,
             StepInfo::BrIfNez {
                 condition, keep, ..
             } => {

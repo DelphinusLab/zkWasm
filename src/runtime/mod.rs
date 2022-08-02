@@ -53,15 +53,66 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
     let sp_before_execution = event.sp;
 
     match &event.step_info {
+        StepInfo::Br {
+            drop,
+            keep,
+            keep_values,
+            ..
+        } => {
+            assert_eq!(keep.len(), keep_values.len());
+            assert!(keep.len() <= 1);
+
+            let mut sp = sp_before_execution + 1;
+            let mut ops = vec![];
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: keep[i].into(),
+                        value: keep_values[i],
+                    });
+
+                    sp = sp + 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            sp = sp + ((*drop) as u64);
+            sp -= 1;
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Write,
+                        vtype: keep[i].into(),
+                        value: keep_values[i],
+                    });
+
+                    sp = sp - 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            ops
+        }
         StepInfo::BrIfNez {
             condition,
             drop,
             keep,
-            drop_values,
             keep_values,
             ..
         } => {
-            assert_eq!(*drop as usize, drop_values.len());
             assert_eq!(keep.len(), keep_values.len());
             assert!(keep.len() <= 1);
 
@@ -231,6 +282,41 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             *emid = (*emid).checked_add(1).unwrap();
             vec![read, write]
         }
+        StepInfo::SetLocal {
+            vtype,
+            depth,
+            value,
+        } => {
+            let mut sp = sp_before_execution;
+
+            let read = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp + 1 as u64,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: *vtype,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            sp += 1;
+
+            let write = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp + *depth as u64,
+                ltype: LocationType::Stack,
+                atype: AccessType::Write,
+                vtype: *vtype,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            vec![read, write]
+        }
         StepInfo::TeeLocal {
             vtype,
             depth,
@@ -240,12 +326,13 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 eid,
                 emid: *emid,
                 mmid: 0,
-                offset: sp_before_execution + 1 as u64,
+                offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
                 value: *value,
             };
+
             *emid = (*emid).checked_add(1).unwrap();
 
             let write = MemoryTableEntry {

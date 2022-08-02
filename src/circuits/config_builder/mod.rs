@@ -12,3 +12,5 @@ pub mod op_rel;
 pub mod op_return;
 pub mod op_shift;
 pub mod op_store;
+pub mod op_local_set;
+pub mod op_br;

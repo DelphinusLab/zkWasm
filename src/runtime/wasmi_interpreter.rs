@@ -18,7 +18,7 @@ fn into_wasmi_value(v: &Value) -> RuntimeValue {
     match v {
         Value::I32(v) => RuntimeValue::I32(*v),
         Value::I64(v) => RuntimeValue::I64(*v),
-        Value::U32(_) => todo!(),
+        Value::U32(v) => RuntimeValue::I32(*v as i32),
         Value::U64(_) => todo!(),
     }
 }

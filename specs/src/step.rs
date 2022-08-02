@@ -7,12 +7,17 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 pub enum StepInfo {
+    Br {
+        dst_pc: u32,
+        drop: u32,
+        keep: Vec<ValueType>,
+        keep_values: Vec<u64>,
+    },
     BrIfNez {
         condition: i32,
         dst_pc: u32,
         drop: u32,
         keep: Vec<ValueType>,
-        drop_values: Vec<u64>,
         keep_values: Vec<u64>,
     },
     Return {
@@ -31,6 +36,11 @@ pub enum StepInfo {
     },
 
     GetLocal {
+        vtype: VarType,
+        depth: u32,
+        value: u64,
+    },
+    SetLocal {
         vtype: VarType,
         depth: u32,
         value: u64,

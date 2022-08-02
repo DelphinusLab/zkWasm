@@ -168,7 +168,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
                 drop,
                 keep,
                 keep_values,
-                ..
             } => {
                 assert!(keep.len() <= 1);
                 if keep.len() > 0 {

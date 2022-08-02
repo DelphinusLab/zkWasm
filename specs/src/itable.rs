@@ -8,6 +8,7 @@ use strum_macros::EnumIter;
 #[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum OpcodeClass {
     LocalGet = 1,
+    LocalSet,
     LocalTee,
     Const,
     Drop,
@@ -16,6 +17,7 @@ pub enum OpcodeClass {
     BinShift,
     BinBit,
     Rel,
+    Br,
     BrIf,
     Call,
     CallHostTime,
@@ -27,6 +29,7 @@ impl OpcodeClass {
     pub fn mops(&self) -> u64 {
         match self {
             OpcodeClass::LocalGet => 2,
+            OpcodeClass::LocalSet => 2,
             OpcodeClass::LocalTee => 2,
             OpcodeClass::Const => 1,
             OpcodeClass::Drop => 0,
@@ -35,6 +38,7 @@ impl OpcodeClass {
             OpcodeClass::BinShift => 3,
             OpcodeClass::BinBit => 3,
             OpcodeClass::Rel => 3,
+            OpcodeClass::Br => 0,
             OpcodeClass::BrIf => 1,
             OpcodeClass::Call => 0,
             OpcodeClass::CallHostTime => 1,
@@ -105,6 +109,10 @@ pub enum Opcode {
         vtype: VarType,
         offset: u64,
     },
+    LocalSet {
+        vtype: VarType,
+        offset: u64,
+    },
     LocalTee {
         vtype: VarType,
         offset: u64,
@@ -133,6 +141,11 @@ pub enum Opcode {
     Rel {
         class: RelOp,
         vtype: VarType,
+    },
+    Br {
+        drop: u32,
+        keep: Vec<ValueType>,
+        dst_pc: u32,
     },
     BrIf {
         drop: u32,
@@ -186,6 +199,11 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
+            Opcode::LocalSet { vtype, offset } => {
+                (BigUint::from(OpcodeClass::LocalSet as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + offset
+            }
             Opcode::LocalTee { vtype, offset } => {
                 (BigUint::from(OpcodeClass::LocalTee as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
@@ -223,6 +241,13 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
+            Opcode::Br { drop, keep, dst_pc } => {
+                // TODO: should encode type of keep values?
+                (BigUint::from(OpcodeClass::Br as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
+                    + dst_pc
+            }
             Opcode::BrIf { drop, keep, dst_pc } => {
                 // TODO: should encode type of keep values?
                 (BigUint::from(OpcodeClass::BrIf as u64) << OPCODE_CLASS_SHIFT)
@@ -257,6 +282,7 @@ impl Into<OpcodeClass> for Opcode {
     fn into(self) -> OpcodeClass {
         match self {
             Opcode::LocalGet { .. } => OpcodeClass::LocalGet,
+            Opcode::LocalSet { .. } => OpcodeClass::LocalSet,
             Opcode::LocalTee { .. } => OpcodeClass::LocalTee,
             Opcode::Const { .. } => OpcodeClass::Const,
             Opcode::Drop { .. } => OpcodeClass::Drop,
@@ -265,6 +291,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::BinShift { .. } => OpcodeClass::BinShift,
             Opcode::BinBit { .. } => OpcodeClass::BinBit,
             Opcode::Rel { .. } => OpcodeClass::Rel,
+            Opcode::Br { .. } => OpcodeClass::Br,
             Opcode::BrIf { .. } => OpcodeClass::BrIf,
             Opcode::Call { .. } => OpcodeClass::Call,
             Opcode::CallHostTime => OpcodeClass::CallHostTime,
