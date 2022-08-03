@@ -187,10 +187,12 @@ mod tests {
             )
         "#;
 
+        let wasm = wabt::wat2wasm(textual_repr).unwrap();
+
         let compiler = WasmInterpreter::new();
         let mut env = TestHost::new();
         let imports = ImportsBuilder::new().with_resolver("env", &env);
-        let compiled_module = compiler.compile(textual_repr, &imports).unwrap();
+        let compiled_module = compiler.compile(&wasm, &imports).unwrap();
         let execution_log = compiler
             .run(&mut env, &compiled_module, "test", vec![])
             .unwrap();

@@ -280,13 +280,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitOpConfig<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        runtime::{WasmInterpreter, WasmRuntime},
-        test::test_circuit_builder::run_test_circuit,
-    };
-    use halo2_proofs::pairing::bn256::Fr as Fp;
-    use specs::write_json;
-    use wasmi::{NopExternals, ImportsBuilder};
+    use crate::test::test_circuit_builder::test_circuit_noexternal;
 
     #[test]
     fn test_i32_or_ok() {
@@ -301,14 +295,6 @@ mod tests {
                    )
                 "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        write_json(&compiled_module.tables, &execution_log.tables);
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 }

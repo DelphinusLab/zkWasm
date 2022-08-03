@@ -2,7 +2,7 @@ use super::itable::InstructionTableEntry;
 use num_bigint::BigUint;
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct JumpTableEntry {
     // caller eid (unique)
     pub eid: u64,

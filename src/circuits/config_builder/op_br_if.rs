@@ -223,12 +223,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        runtime::{WasmInterpreter, WasmRuntime},
-        test::test_circuit_builder::run_test_circuit,
-    };
-    use halo2_proofs::pairing::bn256::Fr as Fp;
-    use wasmi::{ImportsBuilder, NopExternals};
+    use crate::test::test_circuit_builder::test_circuit_noexternal;
 
     #[test]
     fn test_br_if_trivial_nojump_ok() {
@@ -243,14 +238,7 @@ mod tests {
            )
         "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 
     #[test]
@@ -268,14 +256,7 @@ mod tests {
            )
         "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 
     #[test]
@@ -293,14 +274,7 @@ mod tests {
            )
         "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 
     #[test]
@@ -318,14 +292,7 @@ mod tests {
            )
         "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 
     #[test]
@@ -347,14 +314,7 @@ mod tests {
            )
         "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 
     #[test]
@@ -376,13 +336,6 @@ mod tests {
            )
         "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 }

@@ -14,7 +14,6 @@ use self::wasmi_interpreter::WasmiRuntime;
 pub mod wasmi_interpreter;
 
 pub struct CompileOutcome<M, I, T> {
-    pub textual_repr: String,
     pub module: M,
     pub tables: CompileTable,
     pub instance: I,
@@ -33,7 +32,7 @@ pub trait WasmRuntime {
     fn new() -> Self;
     fn compile<I: ImportResolver>(
         &self,
-        textual_repr: &str,
+        textual_repr: &Vec<u8>,
         imports: &I,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
     fn run<E: Externals>(

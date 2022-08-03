@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub struct InitMemoryTableEntry {
     pub mmid: u64,
     pub offset: u64,
@@ -8,7 +8,7 @@ pub struct InitMemoryTableEntry {
     pub value: u64,
 }
 
-#[derive(Serialize, Default, Debug)]
+#[derive(Serialize, Default, Debug, Clone)]
 pub struct InitMemoryTable(pub Vec<InitMemoryTableEntry>);
 
 impl InitMemoryTable {

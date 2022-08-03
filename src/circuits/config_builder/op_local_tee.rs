@@ -153,10 +153,10 @@ mod tests {
                    )
                 "#;
 
+        let wasm = wabt::wat2wasm(textual_repr).unwrap();
+
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
+        let compiled_module = compiler.compile(&wasm, &ImportsBuilder::default()).unwrap();
         let execution_log = compiler
             .run(
                 &mut NopExternals,

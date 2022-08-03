@@ -15,7 +15,7 @@ pub mod mtable;
 pub mod step;
 pub mod types;
 
-#[derive(Default, Serialize, Debug)]
+#[derive(Default, Serialize, Debug, Clone)]
 pub struct CompileTable {
     pub itable: Vec<InstructionTableEntry>,
     pub imtable: InitMemoryTable,
@@ -27,7 +27,7 @@ impl CompileTable {
     }
 }
 
-#[derive(Default, Serialize)]
+#[derive(Default, Serialize, Clone)]
 pub struct ExecutionTable {
     pub etable: Vec<EventTableEntry>,
     pub mtable: MTable,

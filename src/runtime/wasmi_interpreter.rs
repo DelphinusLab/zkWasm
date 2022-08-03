@@ -34,13 +34,10 @@ impl WasmRuntime for WasmiRuntime {
 
     fn compile<I: ImportResolver>(
         &self,
-        textual_repr: &str,
+        wasm: &Vec<u8>,
         imports: &I,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError> {
-        let binary = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
-
-        let module = wasmi::Module::from_buffer(&binary).expect("failed to load wasm");
-
+        let module = wasmi::Module::from_buffer(wasm).expect("failed to load wasm");
         let tracer = wasmi::tracer::Tracer::default();
         let tracer = Rc::new(RefCell::new(tracer));
 
@@ -66,7 +63,6 @@ impl WasmRuntime for WasmiRuntime {
         );
 
         Ok(CompileOutcome {
-            textual_repr: textual_repr.to_string(),
             module,
             tables: CompileTable { itable, imtable },
             instance,

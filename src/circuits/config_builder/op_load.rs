@@ -186,8 +186,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 let bytes8_offset = effective_address as u64 % 8;
                 self.bytes8_address
                     .assign(ctx, effective_address as u64 / 8)?;
-                self.bytes8_offset
-                    .assign(ctx, bytes8_offset)?;
+                self.bytes8_offset.assign(ctx, bytes8_offset)?;
                 self.bytes8_value.assign(ctx, block_value)?;
                 self.final_vtype.assign(ctx, vtype as u64)?;
 
@@ -218,12 +217,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        runtime::{WasmInterpreter, WasmRuntime},
-        test::test_circuit_builder::run_test_circuit,
-    };
-    use halo2_proofs::pairing::bn256::Fr as Fp;
-    use wasmi::{ImportsBuilder, NopExternals};
+    use crate::test::test_circuit_builder::test_circuit_noexternal;
 
     #[test]
     fn test_load() {
@@ -242,14 +236,6 @@ mod tests {
                    )
                 "#;
 
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(textual_repr, &ImportsBuilder::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
-            .unwrap();
-
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 }

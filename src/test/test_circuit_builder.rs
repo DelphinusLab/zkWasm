@@ -8,10 +8,10 @@ use wasmi::{ImportsBuilder, NopExternals};
 const K: u32 = 18;
 
 pub fn test_circuit_noexternal(textual_repr: &str) -> Result<(), Error> {
+    let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+
     let compiler = WasmInterpreter::new();
-    let compiled_module = compiler
-        .compile(textual_repr, &ImportsBuilder::default())
-        .unwrap();
+    let compiled_module = compiler.compile(&wasm, &ImportsBuilder::default()).unwrap();
     let execution_log = compiler
         .run(&mut NopExternals, &compiled_module, "test", vec![])
         .unwrap();

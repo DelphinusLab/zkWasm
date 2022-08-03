@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-std = { version = "0.3.0", features = ["print-trace"] }
 halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
@@ -13,6 +14,7 @@ num-traits = "0.2.15"
 wabt = "0.10.0"
 wasmi = { path = "./wasmi" }
 lazy_static = "1.4.0"
+rand = "0.8.4"
 specs = { path = "./specs" }
 strum = "0.24.1"
 

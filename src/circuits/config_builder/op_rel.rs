@@ -31,6 +31,8 @@ pub struct RelOpConfig<F: FieldExt> {
     is_ne: Column<Advice>,
     is_gt: Column<Advice>,
     is_ge: Column<Advice>,
+    is_lt: Column<Advice>,
+    is_le: Column<Advice>,
     is_signed: Column<Advice>,
     is_same: Column<Advice>,
     eq_bytes: [Column<Advice>; 8],
@@ -102,6 +104,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
         let is_ne = cols.next().unwrap();
         let is_gt = cols.next().unwrap();
         let is_ge = cols.next().unwrap();
+        let is_lt = cols.next().unwrap();
+        let is_le = cols.next().unwrap();
         let is_signed = cols.next().unwrap();
         let inv = cols.next().unwrap();
         let is_same = cols.next().unwrap();
@@ -132,7 +136,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
                 is_op!(is_ne),
                 is_op!(is_gt),
                 is_op!(is_ge),
-                (curr!(meta, is_eq) + curr!(meta, is_ne) + curr!(meta, is_gt) + curr!(meta, is_ge)
+                is_op!(is_lt),
+                is_op!(is_le),
+                (curr!(meta, is_eq)
+                    + curr!(meta, is_ne)
+                    + curr!(meta, is_gt)
+                    + curr!(meta, is_ge)
+                    + curr!(meta, is_lt)
+                    + curr!(meta, is_le)
                     - constant_from!(1))
                     * curr!(meta, opcode_bit)
                     * enable(meta),
@@ -277,6 +288,42 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             ]
         });
 
+        meta.create_gate("lt_u constraint", |meta| {
+            vec![
+                curr!(meta, opcode_bit)
+                    * enable(meta)
+                    * curr!(meta, is_lt)
+                    * (constant_from!(1) - curr!(meta, is_signed))
+                    * Self::constraint_builder(
+                        meta,
+                        &gt_bytes,
+                        &eq_bytes,
+                        &lt_bytes,
+                        |meta| curr!(meta, res),
+                        |meta| curr!(meta, res),
+                        |meta| curr!(meta, res) - constant_from!(1),
+                    ),
+            ]
+        });
+
+        meta.create_gate("le_u constraint", |meta| {
+            vec![
+                curr!(meta, opcode_bit)
+                    * enable(meta)
+                    * curr!(meta, is_le)
+                    * (constant_from!(1) - curr!(meta, is_signed))
+                    * Self::constraint_builder(
+                        meta,
+                        &gt_bytes,
+                        &eq_bytes,
+                        &lt_bytes,
+                        |meta| curr!(meta, res),
+                        |meta| curr!(meta, res) - constant_from!(1),
+                        |meta| curr!(meta, res) - constant_from!(1),
+                    ),
+            ]
+        });
+
         mtable.configure_stack_read_in_table(
             "rel mlookup",
             meta,
@@ -320,6 +367,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelOpConfigBuilder {
             is_ne,
             is_gt,
             is_ge,
+            is_lt,
+            is_le,
             is_signed,
             is_same,
             eq_bytes,
@@ -372,6 +421,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
                     &(BigUint::from(RelOp::UnsignedGe as u64) << OPCODE_ARG0_SHIFT)
                 ))
         };
+        let subop_lt_u = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_lt)
+                * (constant_from!(1) - curr!(meta, self.is_signed))
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::UnsignedLt as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_le_u = |meta: &mut VirtualCells<F>| {
+            curr!(meta, self.is_le)
+                * (constant_from!(1) - curr!(meta, self.is_signed))
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::UnsignedLe as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
         let subop = |meta: &mut VirtualCells<F>| {
             subop_eq(meta)
                 + subop_ne(meta)
@@ -379,6 +442,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
                 + subop_gt_u(meta)
                 + subop_ge_s(meta)
                 + subop_ge_u(meta)
+                + subop_lt_u(meta)
+                + subop_le_u(meta)
         };
 
         (constant!(bn_to_field(
@@ -542,6 +607,22 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelOpConfig<F> {
                         ctx.region.assign_advice(
                             || "rel op i32 gt_u",
                             self.is_ge,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                    }
+                    RelOp::UnsignedLt => {
+                        ctx.region.assign_advice(
+                            || "rel op i32 lt_u",
+                            self.is_lt,
+                            ctx.offset,
+                            || Ok(F::one()),
+                        )?;
+                    }
+                    RelOp::UnsignedLe => {
+                        ctx.region.assign_advice(
+                            || "rel op i32 le_u",
+                            self.is_le,
                             ctx.offset,
                             || Ok(F::one()),
                         )?;
@@ -710,6 +791,102 @@ mod tests {
                       (i32.const 1)
                       (i32.const 0)
                       (i32.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.le_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_u_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.le_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_u_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      (i32.le_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_lt_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.lt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_lt_u_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.lt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_lt_u_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      (i32.lt_u)
                       (drop)
                     )
                    )

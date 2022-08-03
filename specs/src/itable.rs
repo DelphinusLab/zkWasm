@@ -101,6 +101,8 @@ pub enum RelOp {
     UnsignedGt,
     SignedGe,
     UnsignedGe,
+    UnsignedLt,
+    UnsignedLe,
 }
 
 #[derive(Clone, Debug, Serialize)]
