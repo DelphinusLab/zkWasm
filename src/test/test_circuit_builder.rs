@@ -1,4 +1,4 @@
-use super::test_circuit::TestCircuit;
+use crate::circuits::TestCircuit;
 use crate::runtime::{WasmInterpreter, WasmRuntime};
 use halo2_proofs::pairing::bn256::Fr as Fp;
 use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, plonk::Error};
