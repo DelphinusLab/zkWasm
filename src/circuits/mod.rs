@@ -14,7 +14,7 @@ use halo2_proofs::{
     pairing::bn256::{Bn256, Fr, G1Affine},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
-        SingleVerifier,
+        ProvingKey, SingleVerifier, VerifyingKey,
     },
     poly::commitment::{Params, ParamsVerifier},
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
@@ -22,7 +22,12 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
 use specs::{CompileTable, ExecutionTable};
-use std::marker::PhantomData;
+use std::{
+    fs::File,
+    io::{Cursor, Read, Write},
+    marker::PhantomData,
+    path::PathBuf,
+};
 
 pub mod config_builder;
 pub mod etable;
@@ -152,50 +157,134 @@ pub struct ZkWasmCircuitBuilder {
     pub execution_tables: ExecutionTable,
 }
 
+const PARAMS: &str = "param.data";
+const VK: &str = "vk.data";
+const PROOF: &str = "proof.data";
+
 impl ZkWasmCircuitBuilder {
     fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
         TestCircuit::new(self.compile_tables.clone(), self.execution_tables.clone())
     }
 
-    pub fn bench(&self) {
+    fn prepare_param(&self) -> Params<G1Affine> {
+        let path = PathBuf::from(PARAMS);
+
+        if path.exists() {
+            let mut fd = File::open(path.as_path()).unwrap();
+            let mut buf = vec![];
+
+            fd.read_to_end(&mut buf).unwrap();
+            Params::<G1Affine>::read(Cursor::new(buf)).unwrap()
+        } else {
+            // Initialize the polynomial commitment parameters
+            let timer = start_timer!(|| "build params with K = 18");
+            let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+            end_timer!(timer);
+
+            let mut fd = File::create(path.as_path()).unwrap();
+            params.write(&mut fd).unwrap();
+
+            params
+        }
+    }
+
+    fn prepare_vk(
+        &self,
+        circuit: &TestCircuit<Fr>,
+        params: &Params<G1Affine>,
+    ) -> VerifyingKey<G1Affine> {
+        let path = PathBuf::from(VK);
+
+        if path.exists() {
+            let mut fd = File::open(path.as_path()).unwrap();
+            let mut buf = vec![];
+
+            fd.read_to_end(&mut buf).unwrap();
+            VerifyingKey::read::<_, TestCircuit<Fr>>(&mut Cursor::new(buf), params).unwrap()
+        } else {
+            let timer = start_timer!(|| "build vk");
+            let vk = keygen_vk(params, circuit).expect("keygen_vk should not fail");
+            end_timer!(timer);
+
+            let mut fd = File::create(path.as_path()).unwrap();
+            vk.write(&mut fd).unwrap();
+
+            vk
+        }
+    }
+
+    fn prepare_pk(
+        &self,
+        circuit: &TestCircuit<Fr>,
+        params: &Params<G1Affine>,
+        vk: VerifyingKey<G1Affine>,
+    ) -> ProvingKey<G1Affine> {
+        let timer = start_timer!(|| "build pk");
+        let pk = keygen_pk(&params, vk, circuit).expect("keygen_pk should not fail");
+        end_timer!(timer);
+
+        pk
+    }
+
+    fn create_proof(
+        &self,
+        circuits: &[TestCircuit<Fr>],
+        params: &Params<G1Affine>,
+        pk: &ProvingKey<G1Affine>,
+    ) -> Vec<u8> {
+        let path = PathBuf::from(PROOF);
+
+        if path.exists() {
+            let mut fd = File::open(path.as_path()).unwrap();
+            let mut buf = vec![];
+
+            fd.read_to_end(&mut buf).unwrap();
+            buf
+        } else {
+            let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+
+            let timer = start_timer!(|| "create proof");
+            create_proof(params, pk, circuits, &[&[]], OsRng, &mut transcript)
+                .expect("proof generation should not fail");
+            end_timer!(timer);
+
+            let proof = transcript.finalize();
+
+            let mut fd = File::create(path.as_path()).unwrap();
+            fd.write(&proof).unwrap();
+
+            proof
+        }
+    }
+
+    fn verify_check(
+        &self,
+        vk: &VerifyingKey<G1Affine>,
+        params: &Params<G1Affine>,
+        proof: &Vec<u8>,
+    ) {
         let public_inputs_size = 0;
 
-        let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
-
-        // Initialize the polynomial commitment parameters
-        let timer = start_timer!(|| "build params with K = 18");
-        let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
         let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
-        end_timer!(timer);
-
-        // Initialize the proving key
-        let timer = start_timer!(|| "build vk, pk");
-        let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
-        let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
-        end_timer!(timer);
-
-        // Create a proof
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-
-        let timer = start_timer!(|| "create proof");
-        create_proof(&params, &pk, &[circuit], &[&[]], OsRng, &mut transcript)
-            .expect("proof generation should not fail");
-        end_timer!(timer);
-
-        let proof = transcript.finalize();
 
         let strategy = SingleVerifier::new(&params_verifier);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
 
         let timer = start_timer!(|| "verify proof");
-        verify_proof(
-            &params_verifier,
-            pk.get_vk(),
-            strategy,
-            &[&[]],
-            &mut transcript,
-        )
-        .unwrap();
+        verify_proof(&params_verifier, vk, strategy, &[&[]], &mut transcript).unwrap();
         end_timer!(timer);
+    }
+
+    pub fn bench(&self) {
+        let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
+
+        let params = self.prepare_param();
+
+        let vk = self.prepare_vk(&circuit, &params);
+        let pk = self.prepare_pk(&circuit, &params, vk);
+
+        let proof = self.create_proof(&[circuit], &params, &pk);
+
+        self.verify_check(pk.get_vk(), &params, &proof);
     }
 }
