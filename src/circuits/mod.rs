@@ -111,7 +111,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             || "table",
             |region| {
                 let mut ctx = Context::new(region);
-                mchip.assign(&mut ctx, &self.execution_tables.mtable.entries(), None)?;
+                mchip.assign(&mut ctx, &self.execution_tables.mtable, None)?;
                 Ok(())
             },
         )?;

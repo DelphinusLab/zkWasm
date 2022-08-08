@@ -1,13 +1,16 @@
 use super::*;
+use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
 use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use specs::mtable::AccessType;
+use specs::mtable::MTable;
 
 pub const STEP_SIZE: i32 = 9;
 

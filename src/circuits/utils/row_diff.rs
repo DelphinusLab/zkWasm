@@ -50,14 +50,26 @@ impl<F: FieldExt> RowDiffConfig<F> {
         }
     }
 
-    pub fn assign(&self, ctx: &mut Context<F>, data: F, diff: F) -> Result<(), Error> {
+    pub fn assign(
+        &self,
+        ctx: &mut Context<F>,
+        offset_force: Option<usize>,
+        data: F,
+        diff: F,
+    ) -> Result<(), Error> {
+        let offset = if offset_force.is_some() {
+            offset_force.unwrap()
+        } else {
+            ctx.offset
+        };
+
         ctx.region
-            .assign_advice(|| "row diff data", self.data, ctx.offset, || Ok(data))?;
+            .assign_advice(|| "row diff data", self.data, offset, || Ok(data))?;
 
         ctx.region.assign_advice(
             || "row diff inv",
             self.inv,
-            ctx.offset,
+            offset,
             || Ok(diff.invert().unwrap_or(F::zero())),
         )?;
 
@@ -65,14 +77,14 @@ impl<F: FieldExt> RowDiffConfig<F> {
             ctx.region.assign_advice_from_constant(
                 || "row diff same",
                 self.same,
-                ctx.offset,
+                offset,
                 F::zero(),
             )?;
         } else {
             ctx.region.assign_advice(
                 || "row diff same",
                 self.same,
-                ctx.offset,
+                offset,
                 || {
                     Ok(if diff.is_zero().into() {
                         F::one()

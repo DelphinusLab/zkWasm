@@ -3,6 +3,21 @@ use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::Context;
+use crate::circuits::mtable_compact::configure::STEP_SIZE;
+use crate::circuits::mtable_compact::expression::ROTATION_ATYPE;
+use crate::circuits::mtable_compact::expression::ROTATION_CONSTANT_ONE;
+use crate::circuits::mtable_compact::expression::ROTATION_INDEX_EID;
+use crate::circuits::mtable_compact::expression::ROTATION_INDEX_EMID;
+use crate::circuits::mtable_compact::expression::ROTATION_INDEX_LTYPE;
+use crate::circuits::mtable_compact::expression::ROTATION_INDEX_MMID;
+use crate::circuits::mtable_compact::expression::ROTATION_INDEX_OFFSET;
+use crate::circuits::mtable_compact::expression::ROTATION_REST_MOPS;
+use crate::circuits::mtable_compact::expression::ROTATION_SAME_EID;
+use crate::circuits::mtable_compact::expression::ROTATION_SAME_LTYPE;
+use crate::circuits::mtable_compact::expression::ROTATION_SAME_MMID;
+use crate::circuits::mtable_compact::expression::ROTATION_SAME_OFFSET;
+use crate::circuits::mtable_compact::expression::ROTATION_VALUE;
+use crate::circuits::mtable_compact::expression::ROTATION_VTYPE;
 use crate::curr;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
@@ -12,10 +27,12 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use num_bigint::BigUint;
+use specs::mtable::AccessType;
+use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::marker::PhantomData;
 
-const MTABLE_ROWS: usize = 1usize << 16;
+const MTABLE_ROWS: usize = (1usize << 16) / 9 * 9;
 
 lazy_static! {
     static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
@@ -95,87 +112,142 @@ impl<F: FieldExt> MemoryTableChip<F> {
     pub fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        entries: &Vec<MemoryTableEntry>,
+        mtable: &MTable,
         etable_rest_mops_cell: Option<Cell>,
     ) -> Result<(), Error> {
-        /*
-            for i in 0..MTABLE_ROWS {
-                ctx.region
-                    .assign_fixed(|| "mtable sel", self.config.sel, i, || Ok(F::one()))?;
-            }
+        assert_eq!(MTABLE_ROWS % (STEP_SIZE as usize), 0);
 
-            let mut mops = entries.iter().fold(0, |acc, e| {
-                acc + if e.atype == AccessType::Init { 0 } else { 1 }
-            });
+        for i in 0..MTABLE_ROWS {
+            ctx.region
+                .assign_fixed(|| "mtable sel", self.config.sel, i, || Ok(F::one()))?;
 
-            let mut last_entry: Option<&MemoryTableEntry> = None;
-            for (i, entry) in entries.into_iter().enumerate() {
-                macro_rules! row_diff_assign {
-                    ($x: ident) => {
-                        self.config.$x.assign(
-                            ctx,
-                            (entry.$x as u64).into(),
-                            (F::from(entry.$x as u64)
-                                - F::from(last_entry.as_ref().map(|x| x.$x as u64).unwrap_or(0u64))),
-                        )?;
-                    };
-                }
-
-                row_diff_assign!(eid);
-                row_diff_assign!(emid);
-                row_diff_assign!(mmid);
-                row_diff_assign!(offset);
-                row_diff_assign!(ltype);
-
-                ctx.region.assign_advice(
-                    || "mtable atype",
-                    self.config.atype,
-                    ctx.offset,
-                    || Ok((entry.atype as u64).into()),
-                )?;
-
-                self.config.tvalue.assign(ctx, entry.vtype, entry.value)?;
-
-                ctx.region.assign_advice(
-                    || "mtable enable",
-                    self.config.enable,
-                    ctx.offset,
+            if i % (STEP_SIZE as usize) == 0 {
+                ctx.region.assign_fixed(
+                    || "block_first_line_sel",
+                    self.config.block_first_line_sel,
+                    i,
                     || Ok(F::one()),
                 )?;
+            }
 
-                let cell = ctx.region.assign_advice(
-                    || "mtable enable",
-                    self.config.rest_mops,
-                    ctx.offset,
-                    || Ok(F::from(mops)),
+            if i > STEP_SIZE as usize {
+                ctx.region.assign_fixed(
+                    || "following_block_sel",
+                    self.config.following_block_sel,
+                    i,
+                    || Ok(F::one()),
                 )?;
-                if i == 0 && etable_rest_mops_cell.is_some() {
+            }
+        }
+
+        let mut mops = mtable.entries().iter().fold(0, |acc, e| {
+            acc + if e.atype == AccessType::Init { 0 } else { 1 }
+        });
+
+        let mut last_entry: Option<&MemoryTableEntry> = None;
+        for (index, entry) in mtable.entries().iter().enumerate() {
+            macro_rules! assign_advice {
+                ($key: expr, $offset: expr, $column: ident, $value: expr) => {
+                    ctx.region.assign_advice(
+                        || $key,
+                        self.config.$column,
+                        index * (STEP_SIZE as usize) + ($offset as usize),
+                        || Ok($value),
+                    )?
+                };
+            }
+
+            macro_rules! assign_row_diff {
+                ($offset: expr, $column: ident) => {
+                    self.config.index.assign(
+                        ctx,
+                        Some($offset as usize),
+                        (entry.$column as u64).into(),
+                        (F::from(entry.$column as u64)
+                            - F::from(
+                                last_entry
+                                    .as_ref()
+                                    .map(|x| x.$column as u64)
+                                    .unwrap_or(0u64),
+                            )),
+                    )?;
+                };
+            }
+
+            // enable column
+            {
+                assign_advice!("enable", 0, enable, F::one());
+            }
+
+            // index column
+            {
+                assign_row_diff!(ROTATION_INDEX_LTYPE, ltype);
+                assign_row_diff!(ROTATION_INDEX_MMID, mmid);
+                assign_row_diff!(ROTATION_INDEX_OFFSET, offset);
+                assign_row_diff!(ROTATION_INDEX_EID, eid);
+                assign_row_diff!(ROTATION_INDEX_EMID, emid);
+            }
+
+            // aux column
+            {
+                let mut same_ltype = false;
+                let mut same_mmid = false;
+                let mut same_offset = false;
+                let mut same_eid = false;
+
+                if let Some(last_entry) = last_entry {
+                    same_ltype = last_entry.ltype == entry.ltype;
+                    same_mmid = last_entry.mmid == entry.mmid && same_ltype;
+                    same_offset = last_entry.offset == entry.offset && same_mmid;
+                    same_eid = last_entry.eid == entry.eid && same_offset;
+                }
+
+                assign_advice!("constant 1", ROTATION_CONSTANT_ONE, aux, F::one());
+                assign_advice!(
+                    "same ltype",
+                    ROTATION_SAME_LTYPE,
+                    aux,
+                    F::from(same_ltype as u64)
+                );
+                assign_advice!(
+                    "same mmid",
+                    ROTATION_SAME_MMID,
+                    aux,
+                    F::from(same_mmid as u64)
+                );
+                assign_advice!(
+                    "same offset",
+                    ROTATION_SAME_OFFSET,
+                    aux,
+                    F::from(same_offset as u64)
+                );
+                assign_advice!("same eid", ROTATION_SAME_EID, aux, F::from(same_eid as u64));
+                assign_advice!("atype", ROTATION_ATYPE, aux, F::from(entry.atype as u64));
+                assign_advice!("vtype", ROTATION_VTYPE, aux, F::from(entry.vtype as u64));
+                let cell = assign_advice!("rest mops", ROTATION_REST_MOPS, aux, F::from(mops));
+                if index == 0 && etable_rest_mops_cell.is_some() {
                     ctx.region
                         .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
                 }
-
-                ctx.region.assign_advice(
-                    || "mtable same_location",
-                    self.config.same_location,
-                    ctx.offset,
-                    || {
-                        Ok(last_entry.as_ref().map_or(F::zero(), |last_entry| {
-                            if last_entry.is_same_location(&entry) {
-                                F::one()
-                            } else {
-                                F::zero()
-                            }
-                        }))
-                    },
-                )?;
-
-                if entry.atype != AccessType::Init {
-                    mops -= 1;
-                }
-                last_entry = Some(entry);
-                ctx.next();
+                assign_advice!("value", ROTATION_VALUE, aux, F::from(entry.value));
             }
-        */
+
+            // bytes column
+            {
+                let mut bytes = Vec::from(entry.value.to_le_bytes());
+                bytes.resize(8, 0);
+                for i in 0..8 {
+                    assign_advice!("bytes", i, bytes, F::from(bytes[i] as u64));
+                }
+            }
+
+            if entry.atype != AccessType::Init {
+                mops -= 1;
+            }
+
+            last_entry = Some(entry);
+        }
+
         Ok(())
     }
 }

@@ -7,20 +7,21 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 
-const ROTATION_INDEX_LTYPE: i32 = 0;
-const ROTATION_INDEX_MMID: i32 = 1;
-const ROTATION_INDEX_OFFSET: i32 = 2;
-const ROTATION_INDEX_EID: i32 = 3;
-const ROTATION_INDEX_EMID: i32 = 4;
+pub(crate) const ROTATION_INDEX_LTYPE: i32 = 0;
+pub(crate) const ROTATION_INDEX_MMID: i32 = 1;
+pub(crate) const ROTATION_INDEX_OFFSET: i32 = 2;
+pub(crate) const ROTATION_INDEX_EID: i32 = 3;
+pub(crate) const ROTATION_INDEX_EMID: i32 = 4;
 
-const ROTATION_SAME_LTYPE: i32 = 1;
-const ROTATION_SAME_MMID: i32 = 2;
-const ROTATION_SAME_OFFSET: i32 = 3;
-const ROTATION_SAME_EID: i32 = 4;
-const ROTATION_ATYPE: i32 = 5;
-const ROTATION_VTYPE: i32 = 6;
-const ROTATION_REST_MOPS: i32 = 7;
-const ROTATION_VALUE: i32 = 8;
+pub(crate) const ROTATION_CONSTANT_ONE: i32 = 0;
+pub(crate) const ROTATION_SAME_LTYPE: i32 = 1;
+pub(crate) const ROTATION_SAME_MMID: i32 = 2;
+pub(crate) const ROTATION_SAME_OFFSET: i32 = 3;
+pub(crate) const ROTATION_SAME_EID: i32 = 4;
+pub(crate) const ROTATION_ATYPE: i32 = 5;
+pub(crate) const ROTATION_VTYPE: i32 = 6;
+pub(crate) const ROTATION_REST_MOPS: i32 = 7;
+pub(crate) const ROTATION_VALUE: i32 = 8;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
