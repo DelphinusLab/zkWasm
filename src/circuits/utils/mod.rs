@@ -8,9 +8,9 @@ pub mod bitvalue;
 pub mod bytes8;
 pub mod row_diff;
 pub mod tvalue;
-pub mod u64;
-pub mod u32;
 pub mod u16;
+pub mod u32;
+pub mod u64;
 pub mod u8;
 
 pub struct Context<'a, F: FieldExt> {
@@ -77,6 +77,13 @@ macro_rules! prev {
 macro_rules! next {
     ($meta: expr, $x: expr) => {
         $meta.query_advice($x, halo2_proofs::poly::Rotation::next())
+    };
+}
+
+#[macro_export]
+macro_rules! nextn {
+    ($meta: expr, $x: expr, $n:expr) => {
+        $meta.query_advice($x, halo2_proofs::poly::Rotation($n))
     };
 }
 

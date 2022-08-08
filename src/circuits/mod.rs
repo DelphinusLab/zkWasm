@@ -1,9 +1,6 @@
 use crate::circuits::{
-    etable::{EventTableChip, EventTableConfig},
     imtable::{InitMemoryTableConfig, MInitTableChip},
     itable::{InstructionTableChip, InstructionTableConfig},
-    jtable::{JumpTableChip, JumpTableConfig},
-    mtable::{MemoryTableChip, MemoryTableConfig},
     rtable::{RangeTableChip, RangeTableConfig},
     utils::Context,
 };
@@ -29,12 +26,11 @@ use std::{
     path::PathBuf,
 };
 
-pub mod config_builder;
-pub mod etable;
+use self::mtable_compact::{MemoryTableChip, MemoryTableConfig};
+
 pub mod imtable;
 pub mod itable;
-pub mod jtable;
-pub mod mtable;
+pub mod mtable_compact;
 pub mod rtable;
 pub mod utils;
 
@@ -47,8 +43,6 @@ pub struct TestCircuitConfig<F: FieldExt> {
     itable: InstructionTableConfig<F>,
     imtable: InitMemoryTableConfig<F>,
     mtable: MemoryTableConfig<F>,
-    jtable: JumpTableConfig<F>,
-    etable: EventTableConfig<F>,
 }
 
 #[derive(Default)]
@@ -88,17 +82,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
         let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
-        let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
-        let etable =
-            EventTableConfig::configure(meta, &mut cols, &rtable, &itable, &mtable, &jtable);
 
         Self::Config {
             rtable,
             itable,
             imtable,
             mtable,
-            jtable,
-            etable,
         }
     }
 
@@ -107,12 +96,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let echip = EventTableChip::new(config.etable);
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
-        let mchip = MemoryTableChip::new(config.mtable);
-        let jchip = JumpTableChip::new(config.jtable);
         let imchip = MInitTableChip::new(config.imtable);
+        let mchip = MemoryTableChip::new(config.mtable);
 
         rchip.init(&mut layouter)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
@@ -124,22 +111,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             || "table",
             |region| {
                 let mut ctx = Context::new(region);
-                let (rest_mops_cell, rest_jops_cell) =
-                    echip.assign(&mut ctx, &self.execution_tables.etable)?;
-
-                ctx.reset();
-                mchip.assign(
-                    &mut ctx,
-                    &self.execution_tables.mtable.entries(),
-                    Some(rest_mops_cell),
-                )?;
-
-                ctx.reset();
-                jchip.assign(
-                    &mut ctx,
-                    &self.execution_tables.jtable,
-                    Some(rest_jops_cell),
-                )?;
+                mchip.assign(&mut ctx, &self.execution_tables.mtable.entries(), None)?;
                 Ok(())
             },
         )?;
