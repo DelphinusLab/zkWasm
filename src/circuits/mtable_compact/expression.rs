@@ -54,11 +54,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn same_offset_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_INDEX_OFFSET)
+        nextn!(meta, self.index.same, ROTATION_INDEX_OFFSET)
     }
 
     pub(super) fn same_eid_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_INDEX_EID)
+        nextn!(meta, self.index.same, ROTATION_INDEX_EID)
     }
 
     pub(super) fn same_ltype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -85,12 +85,16 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.aux, ROTATION_ATYPE)
     }
 
+    pub(super) fn prev_atype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.aux, ROTATION_ATYPE - STEP_SIZE)
+    }
+
     pub(super) fn vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.aux, ROTATION_VTYPE)
     }
 
     pub(super) fn prev_vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_VTYPE)
+        nextn!(meta, self.aux, ROTATION_VTYPE - STEP_SIZE)
     }
 
     pub(super) fn value(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
