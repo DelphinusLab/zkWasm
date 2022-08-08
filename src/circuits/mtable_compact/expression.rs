@@ -76,6 +76,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.aux, ROTATION_SAME_EID)
     }
 
+    pub(super) fn ltype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.index.data, ROTATION_INDEX_LTYPE)
+    }
+
     pub(super) fn atype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.aux, ROTATION_ATYPE)
     }

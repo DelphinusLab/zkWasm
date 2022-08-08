@@ -10,7 +10,7 @@ use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use specs::mtable::AccessType;
-use specs::mtable::MTable;
+use specs::mtable::LocationType;
 
 pub const STEP_SIZE: i32 = 9;
 
@@ -151,6 +151,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             vec![
                 (self.atype(meta) - constant_from!(AccessType::Write))
                     * (self.atype(meta) - constant_from!(AccessType::Init))
+                    * self.same_offset(meta)
                     * (self.prev_value(meta) - self.value(meta)),
             ]
             .into_iter()
@@ -162,6 +163,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             vec![
                 (self.atype(meta) - constant_from!(AccessType::Write))
                     * (self.atype(meta) - constant_from!(AccessType::Init))
+                    * self.same_offset(meta)
                     * (self.prev_vtype(meta) - self.vtype(meta)),
             ]
             .into_iter()
@@ -173,20 +175,41 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     fn configure_heap_first_init(
         &self,
         meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
     ) {
-        todo!()
+        meta.create_gate("mtable configure_heap_first_init", |meta| {
+            vec![
+                (self.ltype(meta) - constant_from!(LocationType::Stack))
+                    * (constant_from!(1) - self.same_offset(meta))
+                    * (self.atype(meta) - constant_from!(AccessType::Init)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
     }
 
     fn configure_stack_first_write(
         &self,
         meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
     ) {
-        todo!()
+        meta.create_gate("mtable configure_heap_first_init", |meta| {
+            vec![
+                (self.ltype(meta) - constant_from!(LocationType::Heap))
+                    * (constant_from!(1) - self.same_offset(meta))
+                    * (self.atype(meta) - constant_from!(AccessType::Write)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
     }
 
     fn configure_tvalue_bytes(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
+        rtable.configure_in_u8_range(meta, "mtable bytes", |meta| {
+            curr!(meta, self.bytes) * self.is_enabled_line(meta)
+        });
         todo!()
     }
 
