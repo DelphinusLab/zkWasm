@@ -21,6 +21,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
     ) {
+        /*
         self.configure_enable_as_bit(meta, rtable);
         self.configure_index_sort(meta, rtable);
         self.configure_rest_mops_decrease(meta, rtable);
@@ -30,6 +31,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         self.configure_stack_first_write(meta, rtable);
         self.configure_tvalue_bytes(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
+         */
     }
 
     fn configure_enable_as_bit(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
@@ -210,7 +212,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         rtable.configure_in_u8_range(meta, "mtable bytes", |meta| {
             curr!(meta, self.bytes) * self.is_enabled_line(meta)
         });
-        todo!()
+        //todo!()
     }
 
     fn configure_heap_init_in_imtable(
@@ -219,7 +221,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
     ) {
-        todo!()
+        //todo!()
     }
 }
 
@@ -233,13 +235,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let block_first_line_sel = meta.fixed_column();
         let enable = cols.next().unwrap();
         let index = RowDiffConfig::configure("mtable index", meta, cols, STEP_SIZE, |meta| {
-            fixed_curr!(meta, following_block_sel)
+            fixed_curr!(meta, following_block_sel) * curr!(meta, enable)
         });
         let aux = cols.next().unwrap();
         let bytes = cols.next().unwrap();
-
-        meta.enable_equality(aux);
-        meta.enable_equality(enable);
 
         MemoryTableConfig {
             sel,

@@ -8,6 +8,7 @@ use crate::circuits::mtable_compact::expression::ROTATION_ATYPE;
 use crate::circuits::mtable_compact::expression::ROTATION_CONSTANT_ONE;
 use crate::circuits::mtable_compact::expression::ROTATION_INDEX_EID;
 use crate::circuits::mtable_compact::expression::ROTATION_INDEX_EMID;
+use crate::circuits::mtable_compact::expression::ROTATION_INDEX_END;
 use crate::circuits::mtable_compact::expression::ROTATION_INDEX_LTYPE;
 use crate::circuits::mtable_compact::expression::ROTATION_INDEX_MMID;
 use crate::circuits::mtable_compact::expression::ROTATION_INDEX_OFFSET;
@@ -32,7 +33,8 @@ use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::marker::PhantomData;
 
-const MTABLE_ROWS: usize = (1usize << 16) / 9 * 9;
+const MAX_MATBLE_ROWS: usize = 1usize << 16;
+const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / 9 * 9;
 
 lazy_static! {
     static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
@@ -88,10 +90,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     ) -> Self {
         let mtconfig = Self::new(meta, cols);
         mtconfig.configure(meta, rtable, imtable);
-        rtable.configure_in_u8_range(meta, "mtable bytes", |meta| {
-            curr!(meta, mtconfig.bytes) * mtconfig.is_enabled_line(meta)
-        });
-
         mtconfig
     }
 }
@@ -130,7 +128,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 )?;
             }
 
-            if i > STEP_SIZE as usize {
+            if i >= STEP_SIZE as usize {
                 ctx.region.assign_fixed(
                     || "following_block_sel",
                     self.config.following_block_sel,
@@ -161,7 +159,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 ($offset: expr, $column: ident) => {
                     self.config.index.assign(
                         ctx,
-                        Some($offset as usize),
+                        Some($offset as usize + index * STEP_SIZE as usize),
                         (entry.$column as u64).into(),
                         (F::from(entry.$column as u64)
                             - F::from(
@@ -186,6 +184,15 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 assign_row_diff!(ROTATION_INDEX_OFFSET, offset);
                 assign_row_diff!(ROTATION_INDEX_EID, eid);
                 assign_row_diff!(ROTATION_INDEX_EMID, emid);
+
+                for i in ROTATION_INDEX_END..STEP_SIZE {
+                    self.config.index.assign(
+                        ctx,
+                        Some(index * STEP_SIZE as usize + i as usize),
+                        F::zero(),
+                        F::zero(),
+                    )?;
+                }
             }
 
             // aux column

@@ -27,13 +27,15 @@ impl<F: FieldExt> RowDiffConfig<F> {
         let same = cols.next().unwrap();
         let inv = cols.next().unwrap();
 
+        meta.enable_equality(same);
+
         meta.create_gate(key, |meta| {
             let enable = enable(meta);
             let diff = curr!(meta, data) - nextn!(meta, data, -distance);
             let inv = curr!(meta, inv);
             let same = curr!(meta, same);
             vec![
-                diff.clone() * inv.clone() - same.clone() - constant_from!(1),
+                diff.clone() * inv.clone() + same.clone() - constant_from!(1),
                 diff * same,
             ]
             .into_iter()
@@ -73,7 +75,7 @@ impl<F: FieldExt> RowDiffConfig<F> {
             || Ok(diff.invert().unwrap_or(F::zero())),
         )?;
 
-        if ctx.offset < self.distance as usize {
+        if offset < self.distance as usize {
             ctx.region.assign_advice_from_constant(
                 || "row diff same",
                 self.same,

@@ -12,6 +12,7 @@ pub(crate) const ROTATION_INDEX_MMID: i32 = 1;
 pub(crate) const ROTATION_INDEX_OFFSET: i32 = 2;
 pub(crate) const ROTATION_INDEX_EID: i32 = 3;
 pub(crate) const ROTATION_INDEX_EMID: i32 = 4;
+pub(crate) const ROTATION_INDEX_END: i32 = 5;
 
 pub(crate) const ROTATION_CONSTANT_ONE: i32 = 0;
 pub(crate) const ROTATION_SAME_LTYPE: i32 = 1;
