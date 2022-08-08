@@ -1,11 +1,9 @@
 use self::configure::MemoryTableConstriants;
-use self::configure::STEP_SIZE;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::Context;
 use crate::curr;
-use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Advice;
@@ -36,6 +34,7 @@ pub mod expression;
 pub struct MemoryTableConfig<F: FieldExt> {
     pub(crate) sel: Column<Fixed>,
     pub(crate) following_block_sel: Column<Fixed>,
+    pub(crate) block_first_line_sel: Column<Fixed>,
     pub(crate) enable: Column<Advice>,
 
     // Rotation
@@ -55,6 +54,7 @@ pub struct MemoryTableConfig<F: FieldExt> {
     // 5: atype
     // 6: vtype
     // 7: rest mops
+    // 8: value
     pub(crate) aux: Column<Advice>,
 
     // Rotation:
@@ -72,9 +72,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let mtconfig = Self::new(meta, cols);
         mtconfig.configure(meta, rtable, imtable);
         rtable.configure_in_u8_range(meta, "mtable bytes", |meta| {
-            curr!(meta, mtconfig.bytes) * mtconfig.enable_line(meta)
+            curr!(meta, mtconfig.bytes) * mtconfig.is_enabled_line(meta)
         });
-        
+
         mtconfig
     }
 }

@@ -1,3 +1,4 @@
+use super::configure::STEP_SIZE;
 use super::*;
 use crate::curr;
 use crate::fixed_curr;
@@ -12,36 +13,34 @@ const ROTATION_INDEX_OFFSET: i32 = 2;
 const ROTATION_INDEX_EID: i32 = 3;
 const ROTATION_INDEX_EMID: i32 = 4;
 
-const ROTATION_REST_MOPS: i32 = 0;
 const ROTATION_SAME_LTYPE: i32 = 1;
 const ROTATION_SAME_MMID: i32 = 2;
 const ROTATION_SAME_OFFSET: i32 = 3;
 const ROTATION_SAME_EID: i32 = 4;
 const ROTATION_ATYPE: i32 = 5;
 const ROTATION_VTYPE: i32 = 6;
-const ROTATION_VALUE: i32 = 7;
+const ROTATION_REST_MOPS: i32 = 7;
+const ROTATION_VALUE: i32 = 8;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.enable) * fixed_curr!(meta, self.sel)
+        curr!(meta, self.enable)
+            * fixed_curr!(meta, self.sel)
+            * fixed_curr!(meta, self.block_first_line_sel)
     }
 
     pub(super) fn is_enabled_following_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         curr!(meta, self.enable)
-            * fixed_curr!(meta, self.sel)
+            * fixed_curr!(meta, self.block_first_line_sel)
             * fixed_curr!(meta, self.following_block_sel)
     }
 
-    pub(super) fn enable_line(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+    pub(super) fn is_enabled_line(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         fixed_curr!(meta, self.sel)
     }
 
     pub(super) fn is_enabled_following_line(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        fixed_curr!(meta, self.sel) * fixed_curr!(meta, self.following_block_sel)
-    }
-
-    pub(super) fn index_diff(&self, meta: &mut VirtualCells<F>, key: i32) -> Expression<F> {
-        nextn!(meta, self.index_diff, key)
+        fixed_curr!(meta, self.following_block_sel)
     }
 
     pub(super) fn same_ltype_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -84,7 +83,23 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.aux, ROTATION_VTYPE)
     }
 
+    pub(super) fn prev_vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.aux, ROTATION_VTYPE)
+    }
+
     pub(super) fn value(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.aux, ROTATION_VALUE)
+    }
+
+    pub(super) fn prev_value(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.aux, ROTATION_VALUE - STEP_SIZE)
+    }
+
+    pub(super) fn rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.aux, ROTATION_REST_MOPS)
+    }
+
+    pub(super) fn prev_rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.aux, ROTATION_REST_MOPS - STEP_SIZE)
     }
 }

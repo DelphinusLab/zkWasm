@@ -11,7 +11,7 @@ pub struct RowDiffConfig<F: FieldExt> {
     pub data: Column<Advice>,
     pub same: Column<Advice>,
     pub inv: Column<Advice>,
-    pub distance: u32,
+    pub distance: i32,
     _mark: PhantomData<F>,
 }
 
@@ -20,7 +20,7 @@ impl<F: FieldExt> RowDiffConfig<F> {
         key: &'static str,
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-        distance: u32,
+        distance: i32,
         enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Self {
         let data = cols.next().unwrap();
@@ -29,9 +29,9 @@ impl<F: FieldExt> RowDiffConfig<F> {
 
         meta.create_gate(key, |meta| {
             let enable = enable(meta);
-            let diff = nextn!(meta, data, distance as i32) - curr!(meta, data);
-            let inv = nextn!(meta, inv, distance as i32);
-            let same = nextn!(meta, same, distance as i32);
+            let diff = curr!(meta, data) - nextn!(meta, data, -distance);
+            let inv = curr!(meta, inv);
+            let same = curr!(meta, same);
             vec![
                 diff.clone() * inv.clone() - same.clone() - constant_from!(1),
                 diff * same,

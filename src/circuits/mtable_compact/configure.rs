@@ -7,8 +7,9 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
+use specs::mtable::AccessType;
 
-pub const STEP_SIZE: i32 = 8;
+pub const STEP_SIZE: i32 = 9;
 
 pub trait MemoryTableConstriants<F: FieldExt> {
     fn configure(
@@ -21,7 +22,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         self.configure_index_sort(meta, rtable);
         self.configure_rest_mops_decrease(meta, rtable);
         self.configure_final_rest_mops_zero(meta, rtable);
-        self.configure_read_after_write(meta, rtable);
+        self.configure_read_nochange(meta, rtable);
         self.configure_heap_first_init(meta, rtable);
         self.configure_stack_first_write(meta, rtable);
         self.configure_tvalue_bytes(meta, rtable);
@@ -41,11 +42,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
     );
-    fn configure_read_after_write(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
-    );
+    fn configure_read_nochange(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_heap_first_init(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -69,13 +66,15 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     fn configure_enable_as_bit(
         &self,
         meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
     ) {
         meta.create_gate("mtable configure_enable_as_bit", |meta| {
             vec![
                 curr!(meta, self.enable)
                     * (curr!(meta, self.enable) - constant_from!(1))
                     * fixed_curr!(meta, self.sel),
+                curr!(meta, self.enable)
+                    * (fixed_curr!(meta, self.block_first_line_sel) - constant_from!(1)),
             ]
         });
     }
@@ -108,30 +107,64 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 * curr!(meta, self.aux)
                 * self.is_enabled_following_block(meta)
         });
+
+        rtable.configure_in_common_range(meta, "mtable configure_index_sort", |meta| {
+            curr!(meta, self.index.data) * self.is_enabled_line(meta)
+        });
     }
 
     fn configure_rest_mops_decrease(
         &self,
         meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
     ) {
-        todo!()
+        meta.create_gate("mtable configure_rest_mops_decrease", |meta| {
+            vec![self.prev_rest_mops(meta) - self.rest_mops(meta) - constant_from!(1)]
+                .into_iter()
+                .map(|e| e * self.is_enabled_following_block(meta))
+                .collect::<Vec<_>>()
+        });
     }
 
     fn configure_final_rest_mops_zero(
         &self,
         meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
     ) {
-        todo!()
+        meta.create_gate("mtable configure_final_rest_mops_zero", |meta| {
+            vec![self.rest_mops(meta)]
+                .into_iter()
+                .map(|e| e * self.is_enabled_following_block(meta))
+                .collect::<Vec<_>>()
+        });
     }
 
-    fn configure_read_after_write(
+    fn configure_read_nochange(
         &self,
         meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
     ) {
-        todo!()
+        meta.create_gate("mtable configure_read_nochange", |meta| {
+            vec![
+                (self.atype(meta) - constant_from!(AccessType::Write))
+                    * (self.atype(meta) - constant_from!(AccessType::Init))
+                    * (self.prev_value(meta) - self.value(meta)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("mtable configure_read_nochange", |meta| {
+            vec![
+                (self.atype(meta) - constant_from!(AccessType::Write))
+                    * (self.atype(meta) - constant_from!(AccessType::Init))
+                    * (self.prev_vtype(meta) - self.vtype(meta)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
     }
 
     fn configure_heap_first_init(
@@ -171,12 +204,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     ) -> Self {
         let sel = meta.fixed_column();
         let following_block_sel = meta.fixed_column();
+        let block_first_line_sel = meta.fixed_column();
         let enable = cols.next().unwrap();
-        let index =
-            RowDiffConfig::configure("mtable index", meta, cols, STEP_SIZE as u32, |meta| {
-                fixed_curr!(meta, sel)
-            });
-        let index_diff = cols.next().unwrap();
+        let index = RowDiffConfig::configure("mtable index", meta, cols, STEP_SIZE, |meta| {
+            fixed_curr!(meta, following_block_sel)
+        });
         let aux = cols.next().unwrap();
         let bytes = cols.next().unwrap();
 
@@ -186,11 +218,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         MemoryTableConfig {
             sel,
             following_block_sel,
+            block_first_line_sel,
             enable,
             index,
             aux,
             bytes,
-            index_diff,
         }
     }
 }
