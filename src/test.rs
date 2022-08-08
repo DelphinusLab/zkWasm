@@ -2,6 +2,8 @@ pub mod test_circuit_builder;
 
 #[cfg(test)]
 pub mod tests {
+    use std::{fs::File, io::Read, path::PathBuf};
+
     use super::test_circuit_builder::run_test_circuit;
     use crate::runtime::{WasmInterpreter, WasmRuntime};
     use halo2_proofs::pairing::bn256::Fr as Fp;
@@ -132,91 +134,16 @@ pub mod tests {
     */
     #[test]
     fn test_binary_search() {
-        let textual_repr = r#"
-        (module
-            (table 0 anyfunc)
-            (memory $0 1)
-            (data (i32.const 16) "\01\00\00\00\02\00\00\00\03\00\00\00\04\00\00\00\05\00\00\00")
-            (export "memory" (memory $0))
-            (export "bsearch" (func $bsearch))
-            (func $bsearch (; 0 ;) (param $0 i32) (result i32)
-             (local $1 i32)
-             (local $2 i32)
-             (local $3 i32)
-             (local $4 i32)
-             (set_local $3
-              (i32.const 4)
-             )
-             (set_local $1
-              (i32.const 0)
-             )
-             (block $label$0
-              (loop $label$1
-               (br_if $label$0
-                (i32.gt_u
-                 (get_local $1)
-                 (get_local $3)
-                )
-               )
-               (block $label$2
-                (br_if $label$2
-                 (i32.ge_u
-                  (tee_local $2
-                   (i32.load
-                    (i32.add
-                     (i32.shl
-                      (tee_local $4
-                       (i32.shr_u
-                        (i32.add
-                         (get_local $3)
-                         (get_local $1)
-                        )
-                        (i32.const 1)
-                       )
-                      )
-                      (i32.const 2)
-                     )
-                     (i32.const 16)
-                    )
-                   )
-                  )
-                  (get_local $0)
-                 )
-                )
-                (set_local $1
-                 (i32.add
-                  (get_local $4)
-                  (i32.const 1)
-                 )
-                )
-                (br $label$1)
-               )
-               (set_local $3
-                (i32.add
-                 (get_local $4)
-                 (i32.const -1)
-                )
-               )
-               (br_if $label$1
-                (i32.gt_u
-                 (get_local $2)
-                 (get_local $0)
-                )
-               )
-              )
-              (return
-               (get_local $4)
-              )
-             )
-             (i32.const 5)
-            )
-           )
-        "#;
+        let mut binary = vec![];
 
-        let wasm = wabt::wat2wasm(textual_repr).unwrap();
+        let path = PathBuf::from("wasm/bsearch.wasm");
+        let mut f = File::open(path).unwrap();
+        f.read_to_end(&mut binary).unwrap();
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(&wasm, &ImportsBuilder::default()).unwrap();
+        let compiled_module = compiler
+            .compile(&binary, &ImportsBuilder::default())
+            .unwrap();
         let execution_log = compiler
             .run(
                 &mut NopExternals,
