@@ -25,6 +25,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         self.configure_read_nochange(meta, rtable);
         self.configure_heap_first_init(meta, rtable);
         self.configure_stack_first_not_read(meta, rtable);
+        self.configure_init_on_first(meta, rtable);
         self.configure_index_sort(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
         self.configure_tvalue_bytes(meta, rtable);
@@ -56,6 +57,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
     );
+    fn configure_init_on_first(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_tvalue_bytes(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_heap_init_in_imtable(
         &self,
@@ -225,6 +227,23 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                     * (constant_from!(1) - self.same_offset(meta))
                     * (self.atype(meta) - constant_from!(AccessType::Write))
                     * (self.atype(meta) - constant_from!(AccessType::Init)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
+    }
+
+    fn configure_init_on_first(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        _rtable: &RangeTableConfig<F>,
+    ) {
+        meta.create_gate("mtable configure_init_on_first", |meta| {
+            vec![
+                self.same_offset(meta)
+                    * (self.atype(meta) - constant_from!(AccessType::Write))
+                    * (self.atype(meta) - constant_from!(AccessType::Read)),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
