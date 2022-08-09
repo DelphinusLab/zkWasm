@@ -17,9 +17,10 @@ use crate::circuits::mtable_compact::expression::ROTATION_SAME_EID;
 use crate::circuits::mtable_compact::expression::ROTATION_SAME_LTYPE;
 use crate::circuits::mtable_compact::expression::ROTATION_SAME_MMID;
 use crate::circuits::mtable_compact::expression::ROTATION_SAME_OFFSET;
-use crate::circuits::mtable_compact::expression::ROTATION_VALUE;
-use crate::circuits::mtable_compact::expression::ROTATION_VTYPE;
-use crate::curr;
+use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_EIGHT_BYTES;
+use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_FOUR_BYTES;
+use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_TWO_BYTES;
+use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_SIGN;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Advice;
@@ -33,7 +34,7 @@ use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::marker::PhantomData;
 
-const MAX_MATBLE_ROWS: usize = 1usize << 16;
+const MAX_MATBLE_ROWS: usize = 1usize << 15;
 const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / 9 * 9;
 
 lazy_static! {
@@ -54,7 +55,14 @@ pub struct MemoryTableConfig<F: FieldExt> {
     pub(crate) sel: Column<Fixed>,
     pub(crate) following_block_sel: Column<Fixed>,
     pub(crate) block_first_line_sel: Column<Fixed>,
-    pub(crate) enable: Column<Advice>,
+
+    // Rotation
+    // 0: enable
+    // 1: vtype ge 2 bytes
+    // 2: vtype ge 4 bytes
+    // 3: vtype ge 8 bytes
+    // 4: sign mask
+    pub(crate) bit: Column<Advice>,
 
     // Rotation
     // 0: ltype  (Stack, Heap)
@@ -71,9 +79,7 @@ pub struct MemoryTableConfig<F: FieldExt> {
     // 3: same offset
     // 4: same eid
     // 5: atype
-    // 6: vtype
-    // 7: rest mops
-    // 8: value
+    // 6: rest mops
     pub(crate) aux: Column<Advice>,
 
     // Rotation:
@@ -174,7 +180,47 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             // enable column
             {
-                assign_advice!("enable", 0, enable, F::one());
+                assign_advice!("enable", 0, bit, F::one());
+                assign_advice!(
+                    "vtype ge two bytes",
+                    ROTATION_VTYPE_GE_TWO_BYTES,
+                    bit,
+                    if entry.vtype.byte_size() >= 2 {
+                        F::one()
+                    } else {
+                        F::zero()
+                    }
+                );
+                assign_advice!(
+                    "vtype ge four bytes",
+                    ROTATION_VTYPE_GE_FOUR_BYTES,
+                    bit,
+                    if entry.vtype.byte_size() >= 4 {
+                        F::one()
+                    } else {
+                        F::zero()
+                    }
+                );
+                assign_advice!(
+                    "vtype ge eight bytes",
+                    ROTATION_VTYPE_GE_EIGHT_BYTES,
+                    bit,
+                    if entry.vtype.byte_size() >= 8 {
+                        F::one()
+                    } else {
+                        F::zero()
+                    }
+                );
+                assign_advice!(
+                    "vtype sign",
+                    ROTATION_VTYPE_SIGN,
+                    bit,
+                    if entry.vtype as usize & 1 == 1 {
+                        F::one()
+                    } else {
+                        F::zero()
+                    }
+                );
             }
 
             // index column
@@ -230,13 +276,11 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 );
                 assign_advice!("same eid", ROTATION_SAME_EID, aux, F::from(same_eid as u64));
                 assign_advice!("atype", ROTATION_ATYPE, aux, F::from(entry.atype as u64));
-                assign_advice!("vtype", ROTATION_VTYPE, aux, F::from(entry.vtype as u64));
                 let cell = assign_advice!("rest mops", ROTATION_REST_MOPS, aux, F::from(mops));
                 if index == 0 && etable_rest_mops_cell.is_some() {
                     ctx.region
                         .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
                 }
-                assign_advice!("value", ROTATION_VALUE, aux, F::from(entry.value));
             }
 
             // bytes column
@@ -253,6 +297,47 @@ impl<F: FieldExt> MemoryTableChip<F> {
             }
 
             last_entry = Some(entry);
+            ctx.offset += STEP_SIZE as usize;
+        }
+
+        match last_entry {
+            None => {}
+            Some(last_entry) => {
+                self.config.index.assign(
+                    ctx,
+                    None,
+                    F::zero(),
+                    -F::from(last_entry.ltype as u64),
+                )?;
+                ctx.offset += 1;
+                self.config
+                    .index
+                    .assign(ctx, None, F::zero(), -F::from(last_entry.mmid as u64))?;
+                ctx.offset += 1;
+                self.config.index.assign(
+                    ctx,
+                    None,
+                    F::zero(),
+                    -F::from(last_entry.offset as u64),
+                )?;
+                ctx.offset += 1;
+                self.config
+                    .index
+                    .assign(ctx, None, F::zero(), -F::from(last_entry.eid as u64))?;
+                ctx.offset += 1;
+                self.config
+                    .index
+                    .assign(ctx, None, F::zero(), -F::from(last_entry.emid as u64))?;
+                ctx.offset += 1;
+            }
+        }
+
+        println!("offset {}", ctx.offset);
+
+        for i in ctx.offset..MAX_MATBLE_ROWS {
+            self.config
+                .index
+                .assign(ctx, Some(i), F::zero(), F::zero())?;
         }
 
         Ok(())

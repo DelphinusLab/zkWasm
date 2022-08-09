@@ -10,7 +10,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 
-pub const STEP_SIZE: i32 = 9;
+pub const STEP_SIZE: i32 = 8;
 
 pub trait MemoryTableConstriants<F: FieldExt> {
     fn configure(
@@ -28,9 +28,11 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         self.configure_index_sort(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
         self.configure_tvalue_bytes(meta, rtable);
+        self.configure_encode_range(meta, rtable);
     }
 
     fn configure_enable_as_bit(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
+    fn configure_encode_range(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_enable_seq(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_index_sort(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_rest_mops_decrease(
@@ -64,6 +66,12 @@ pub trait MemoryTableConstriants<F: FieldExt> {
 }
 
 impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
+    fn configure_encode_range(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
+        rtable.configure_in_common_range(meta, "mtable encode in common range", |meta| {
+            curr!(meta, self.aux) * self.is_enabled_line(meta)
+        })
+    }
+
     fn configure_enable_as_bit(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -71,22 +79,20 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     ) {
         meta.create_gate("mtable configure_enable_as_bit", |meta| {
             vec![
-                curr!(meta, self.enable)
-                    * (curr!(meta, self.enable) - constant_from!(1))
-                    * fixed_curr!(meta, self.sel),
-                curr!(meta, self.enable)
-                    * (fixed_curr!(meta, self.block_first_line_sel) - constant_from!(1))
+                curr!(meta, self.bit)
+                    * (curr!(meta, self.bit) - constant_from!(1))
                     * fixed_curr!(meta, self.sel),
             ]
         });
     }
 
-    fn configure_enable_seq(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
+    fn configure_enable_seq(&self, meta: &mut ConstraintSystem<F>, _rtable: &RangeTableConfig<F>) {
         meta.create_gate("mtable configure_enable_seq", |meta| {
             vec![
-                nextn!(meta, self.enable, STEP_SIZE)
-                    * (curr!(meta, self.enable) - constant_from!(1))
-                    * fixed_curr!(meta, self.sel),
+                nextn!(meta, self.bit, STEP_SIZE)
+                    * (curr!(meta, self.bit) - constant_from!(1))
+                    * fixed_curr!(meta, self.sel)
+                    * fixed_curr!(meta, self.block_first_line_sel),
             ]
         });
     }
@@ -154,7 +160,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         _rtable: &RangeTableConfig<F>,
     ) {
         meta.create_gate("mtable configure_final_rest_mops_zero", |meta| {
-            vec![self.rest_mops(meta) * (curr!(meta, self.enable) - constant_from!(1))]
+            vec![self.rest_mops(meta) * (curr!(meta, self.bit) - constant_from!(1))]
                 .into_iter()
                 .map(|e| e * self.is_enabled_following_block(meta))
                 .collect::<Vec<_>>()
@@ -231,21 +237,23 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             curr!(meta, self.bytes) * self.is_enabled_line(meta)
         });
 
-        // TODO Optimization: the pos can be classified into 2 bits
-        for i in 0..8 {
-            rtable.configure_in_vtype_byte_range(
-                meta,
-                "tvalue byte",
-                |meta| {
-                    (
-                        constant_from!(i),
-                        self.vtype(meta),
-                        nextn!(meta, self.bytes, i),
-                    )
-                },
-                |meta| self.is_enabled_block(meta),
-            );
-        }
+        meta.create_gate("mtable byte mask consistent", |meta| {
+            vec![
+                (self.ge_two_bytes(meta) - constant_from!(1)) * self.byte(meta, 1),
+                (self.ge_four_bytes(meta) - constant_from!(1))
+                    * (self.byte(meta, 2) + self.byte(meta, 3)),
+                (self.ge_eight_bytes(meta) - constant_from!(1))
+                    * (self.byte(meta, 4)
+                        + self.byte(meta, 5)
+                        + self.byte(meta, 6)
+                        + self.byte(meta, 7)),
+                self.ge_eight_bytes(meta) * (self.ge_four_bytes(meta) - constant_from!(1)),
+                self.ge_four_bytes(meta) * (self.ge_two_bytes(meta) - constant_from!(1)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
     }
 
     fn configure_heap_init_in_imtable(
@@ -271,9 +279,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let sel = meta.fixed_column();
         let following_block_sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
-        let enable = cols.next().unwrap();
+        let bit = cols.next().unwrap();
         let index = RowDiffConfig::configure("mtable index", meta, cols, STEP_SIZE, |meta| {
-            fixed_curr!(meta, following_block_sel) * curr!(meta, enable)
+            fixed_curr!(meta, following_block_sel)
         });
         let aux = cols.next().unwrap();
         let bytes = cols.next().unwrap();
@@ -282,7 +290,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             sel,
             following_block_sel,
             block_first_line_sel,
-            enable,
+            bit,
             index,
             aux,
             bytes,

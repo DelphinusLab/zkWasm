@@ -22,19 +22,22 @@ pub(crate) const ROTATION_SAME_MMID: i32 = 2;
 pub(crate) const ROTATION_SAME_OFFSET: i32 = 3;
 pub(crate) const ROTATION_SAME_EID: i32 = 4;
 pub(crate) const ROTATION_ATYPE: i32 = 5;
-pub(crate) const ROTATION_VTYPE: i32 = 6;
-pub(crate) const ROTATION_REST_MOPS: i32 = 7;
-pub(crate) const ROTATION_VALUE: i32 = 8;
+pub(crate) const ROTATION_REST_MOPS: i32 = 6;
+
+pub(crate) const ROTATION_VTYPE_GE_TWO_BYTES: i32 = 1;
+pub(crate) const ROTATION_VTYPE_GE_FOUR_BYTES: i32 = 2;
+pub(crate) const ROTATION_VTYPE_GE_EIGHT_BYTES: i32 = 3;
+pub(crate) const ROTATION_VTYPE_SIGN: i32 = 4;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.enable)
+        curr!(meta, self.bit)
             * fixed_curr!(meta, self.sel)
             * fixed_curr!(meta, self.block_first_line_sel)
     }
 
     pub(super) fn is_enabled_following_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.enable)
+        curr!(meta, self.bit)
             * fixed_curr!(meta, self.block_first_line_sel)
             * fixed_curr!(meta, self.following_block_sel)
     }
@@ -106,19 +109,37 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_VTYPE)
+        (self.ge_two_bytes(meta) + self.ge_four_bytes(meta) + self.ge_eight_bytes(meta))
+            * constant_from!(2)
+            + self.sign(meta)
     }
 
     pub(super) fn prev_vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_VTYPE - STEP_SIZE)
+        (self.prev_ge_two_bytes(meta)
+            + self.prev_ge_four_bytes(meta)
+            + self.prev_ge_eight_bytes(meta))
+            * constant_from!(2)
+            + self.sign(meta)
     }
 
     pub(super) fn value(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_VALUE)
+        let mut acc = self.byte(meta, 0);
+        let mut base = 1u64;
+        for i in 1..8 {
+            base <<= 8;
+            acc = acc + constant_from!(base) * self.byte(meta, i);
+        }
+        acc
     }
 
     pub(super) fn prev_value(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_VALUE - STEP_SIZE)
+        let mut acc = self.byte(meta, -STEP_SIZE);
+        let mut base = 1u64;
+        for i in 1..8 {
+            base <<= 8;
+            acc = acc + constant_from!(base) * self.byte(meta, i - STEP_SIZE);
+        }
+        acc
     }
 
     pub(super) fn rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -127,5 +148,41 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     pub(super) fn prev_rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.aux, ROTATION_REST_MOPS - STEP_SIZE)
+    }
+
+    pub(super) fn byte(&self, meta: &mut VirtualCells<F>, index: i32) -> Expression<F> {
+        nextn!(meta, self.bytes, index)
+    }
+
+    pub(super) fn ge_two_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_GE_TWO_BYTES)
+    }
+
+    pub(super) fn ge_four_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_GE_FOUR_BYTES)
+    }
+
+    pub(super) fn ge_eight_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_GE_EIGHT_BYTES)
+    }
+
+    pub(super) fn sign(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_SIGN)
+    }
+
+    pub(super) fn prev_ge_two_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_GE_TWO_BYTES)
+    }
+
+    pub(super) fn prev_ge_four_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_GE_FOUR_BYTES)
+    }
+
+    pub(super) fn prev_ge_eight_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_GE_EIGHT_BYTES)
+    }
+
+    pub(super) fn prev_sign(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_SIGN)
     }
 }
