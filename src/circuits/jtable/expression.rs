@@ -5,28 +5,26 @@ use halo2_proofs::{
 
 use crate::nextn;
 
-use super::{
-    JumpTableConfig, JTABLE_OFFSET_AUX, JTABLE_OFFSET_ENTRY, JTABLE_OFFSET_REST, JTABLE_STEP_SIZE,
-};
+use super::{JtableOffset, JumpTableConfig};
 
 impl<F: FieldExt> JumpTableConfig<F> {
+    pub(super) fn enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.data, JtableOffset::JtableOffsetEnable as i32)
+    }
+
     pub(super) fn rest(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JTABLE_OFFSET_REST as i32)
+        nextn!(meta, self.data, JtableOffset::JtableOffsetRest as i32)
     }
 
     pub(super) fn next_rest(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,
             self.data,
-            JTABLE_OFFSET_REST as i32 + JTABLE_STEP_SIZE
+            JtableOffset::JtableOffsetRest as i32 + JtableOffset::JtableOffsetMax as i32
         )
     }
 
     pub(super) fn entry(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JTABLE_OFFSET_ENTRY as i32)
-    }
-
-    pub(super) fn aux(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JTABLE_OFFSET_AUX as i32)
+        nextn!(meta, self.data, JtableOffset::JtableOffsetEntry as i32)
     }
 }

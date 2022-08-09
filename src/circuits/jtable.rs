@@ -16,13 +16,16 @@ use std::marker::PhantomData;
 mod configure;
 mod expression;
 
-const JTABLE_STEP_SIZE: i32 = 3;
-const JTABLE_OFFSET_REST: i32 = 0;
-const JTABLE_OFFSET_ENTRY: i32 = 1;
-const JTABLE_OFFSET_AUX: i32 = 2;
+pub enum JtableOffset {
+    JtableOffsetEnable = 0,
+    JtableOffsetRest = 1,
+    JtableOffsetEntry = 2,
+    JtableOffsetMax = 3,
+}
 
-const MAX_JATBLE_ROWS: usize = 1usize << 14;
-const JTABLE_ROWS: usize = MAX_JATBLE_ROWS / JTABLE_STEP_SIZE as usize * JTABLE_STEP_SIZE as usize;
+const MAX_JATBLE_ROWS: usize = 1usize << 15;
+const JTABLE_ROWS: usize = MAX_JATBLE_ROWS / JtableOffset::JtableOffsetMax as usize
+    * JtableOffset::JtableOffsetMax as usize;
 
 #[derive(Clone)]
 pub struct JumpTableConfig<F: FieldExt> {
@@ -59,7 +62,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         etable_rest_jops_cell: Option<Cell>,
     ) -> Result<(), Error> {
         for i in 0..JTABLE_ROWS {
-            if i % JTABLE_ROWS == 0 {
+            if (i as u32) % (JtableOffset::JtableOffsetMax as u32) == 0 {
                 ctx.region
                     .assign_fixed(|| "jtable sel", self.config.sel, i, || Ok(F::one()))?;
             }
@@ -70,6 +73,14 @@ impl<F: FieldExt> JumpTableChip<F> {
         for (i, entry) in entries.iter().enumerate() {
             let rest_f = rest.into();
             let entry_f = bn_to_field(&entry.encode());
+
+            ctx.region.assign_advice(
+                || "jtable enable",
+                self.config.data,
+                ctx.offset,
+                || Ok(F::one()),
+            )?;
+            ctx.next();
 
             let cell = ctx.region.assign_advice(
                 || "jtable rest",
@@ -92,18 +103,18 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            ctx.region.assign_advice(
-                || "jtable aux",
-                self.config.data,
-                ctx.offset,
-                || Ok(rest_f * entry_f.invert().unwrap()),
-            )?;
-            ctx.next();
-
             rest -= 2;
         }
 
         {
+            ctx.region.assign_advice(
+                || "jtable enable",
+                self.config.data,
+                ctx.offset,
+                || Ok(F::zero()),
+            )?;
+            ctx.next();
+
             let cell = ctx.region.assign_advice(
                 || "jtable rest",
                 self.config.data,
@@ -119,14 +130,6 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             ctx.region.assign_advice(
                 || "jtable entry",
-                self.config.data,
-                ctx.offset,
-                || Ok(F::zero()),
-            )?;
-            ctx.next();
-
-            ctx.region.assign_advice(
-                || "jtable aux",
                 self.config.data,
                 ctx.offset,
                 || Ok(F::zero()),
