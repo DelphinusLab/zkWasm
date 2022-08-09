@@ -26,10 +26,14 @@ use std::{
     path::PathBuf,
 };
 
-use self::mtable_compact::{MemoryTableChip, MemoryTableConfig};
+use self::{
+    jtable::{JumpTableChip, JumpTableConfig},
+    mtable_compact::{MemoryTableChip, MemoryTableConfig},
+};
 
 pub mod imtable;
 pub mod itable;
+pub mod jtable;
 pub mod mtable_compact;
 pub mod rtable;
 pub mod utils;
@@ -43,6 +47,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     itable: InstructionTableConfig<F>,
     imtable: InitMemoryTableConfig<F>,
     mtable: MemoryTableConfig<F>,
+    jtable: JumpTableConfig<F>,
 }
 
 #[derive(Default)]
@@ -82,12 +87,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
         let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
+        let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
 
         Self::Config {
             rtable,
             itable,
             imtable,
             mtable,
+            jtable,
         }
     }
 
@@ -100,6 +107,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let ichip = InstructionTableChip::new(config.itable);
         let imchip = MInitTableChip::new(config.imtable);
         let mchip = MemoryTableChip::new(config.mtable);
+        let jchip = JumpTableChip::new(config.jtable);
 
         rchip.init(&mut layouter)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
@@ -108,10 +116,19 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         }
 
         layouter.assign_region(
-            || "table",
+            || "mtable",
             |region| {
                 let mut ctx = Context::new(region);
                 mchip.assign(&mut ctx, &self.execution_tables.mtable, None)?;
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_region(
+            || "jtable",
+            |region| {
+                let mut ctx = Context::new(region);
+                jchip.assign(&mut ctx, &self.execution_tables.jtable, None)?;
                 Ok(())
             },
         )?;
