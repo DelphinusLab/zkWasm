@@ -1,11 +1,13 @@
 use super::configure::STEP_SIZE;
 use super::*;
+use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
 use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+use specs::mtable::LocationType;
 
 pub(crate) const ROTATION_INDEX_LTYPE: i32 = 0;
 pub(crate) const ROTATION_INDEX_MMID: i32 = 1;
@@ -79,6 +81,20 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     pub(super) fn ltype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.index.data, ROTATION_INDEX_LTYPE)
+    }
+
+    pub(super) fn mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.index.data, ROTATION_INDEX_MMID)
+    }
+
+    pub(super) fn offset(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.index.data, ROTATION_INDEX_OFFSET)
+    }
+
+    pub(super) fn is_heap(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        assert_eq!(LocationType::Heap as u64, 0u64);
+        assert_eq!(LocationType::Stack as u64, 1u64);
+        constant_from!(1) - self.ltype(meta)
     }
 
     pub(super) fn atype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

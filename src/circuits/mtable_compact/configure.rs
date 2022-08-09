@@ -26,10 +26,8 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         self.configure_heap_first_init(meta, rtable);
         self.configure_stack_first_not_read(meta, rtable);
         self.configure_index_sort(meta, rtable);
-        /*
-        self.configure_tvalue_bytes(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
-         */
+        self.configure_tvalue_bytes(meta, rtable);
     }
 
     fn configure_enable_as_bit(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
@@ -232,16 +230,36 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         rtable.configure_in_u8_range(meta, "mtable bytes", |meta| {
             curr!(meta, self.bytes) * self.is_enabled_line(meta)
         });
-        todo!()
+
+        // TODO Optimization: the pos can be classified into 2 bits
+        for i in 0..8 {
+            rtable.configure_in_vtype_byte_range(
+                meta,
+                "tvalue byte",
+                |meta| {
+                    (
+                        constant_from!(i),
+                        self.vtype(meta),
+                        nextn!(meta, self.bytes, i),
+                    )
+                },
+                |meta| self.is_enabled_block(meta),
+            );
+        }
     }
 
     fn configure_heap_init_in_imtable(
         &self,
         meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
+        _rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
     ) {
-        todo!()
+        imtable.configure_in_table(meta, "mtable configure_heap_init_in_imtable", |meta| {
+            self.same_offset(meta)
+                * self.is_heap(meta)
+                * imtable.encode(self.mmid(meta), self.offset(meta), self.value(meta))
+                * self.is_enabled_block(meta)
+        })
     }
 }
 
