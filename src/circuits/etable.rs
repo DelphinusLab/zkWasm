@@ -41,6 +41,8 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use strum::IntoEnumIterator;
 
+pub mod op_configure;
+
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
         meta: &mut ConstraintSystem<F>,
