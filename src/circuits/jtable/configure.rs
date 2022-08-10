@@ -1,7 +1,7 @@
 use super::JumpTableConfig;
 use crate::{
     circuits::{rtable::RangeTableConfig, utils::bn_to_field},
-    constant, constant_from, curr, fixed_curr, fixed_prev,
+    constant, constant_from, fixed_curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -61,22 +61,6 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
             ]
         });
     }
-
-    // FIXME: necessary? related to line 113
-    /*
-    fn disabled_block_should_be_empty(&self, meta: &mut ConstraintSystem<F>) {
-        meta.create_gate("disabled block should be empty", |meta| {
-            vec![
-                self.entry(meta)
-                    * (constant_from!(1) - self.enable(meta))
-                    * fixed_curr!(meta, self.sel),
-                self.rest(meta)
-                    * (constant_from!(1) - self.enable(meta))
-                    * fixed_curr!(meta, self.sel),
-            ]
-        });
-    }
-    */
 
     fn configure_rest_jops_in_u16_range(
         &self,
