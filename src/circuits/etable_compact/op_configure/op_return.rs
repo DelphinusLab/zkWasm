@@ -26,7 +26,7 @@ pub struct ReturnConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
     fn configure(
         meta: &mut ConstraintSystem<F>,
-        common: &mut EventTableCellAllocator,
+        common: &mut EventTableCellAllocator<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let drop = common.alloc_common_range_value();

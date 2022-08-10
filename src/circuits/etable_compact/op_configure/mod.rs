@@ -28,8 +28,8 @@ pub struct U64Cell {
     pub u4_col: Column<Advice>,
 }
 
-pub struct EventTableCellAllocator {
-    pub config: EventTableCommonConfig,
+pub struct EventTableCellAllocator<F> {
+    pub config: EventTableCommonConfig<F>,
     pub bit_index: i32,
     pub common_range_index: i32,
     pub unlimit_index: i32,
@@ -37,8 +37,8 @@ pub struct EventTableCellAllocator {
     pub mtable_lookup_index: i32,
 }
 
-impl EventTableCellAllocator {
-    pub fn new(config: EventTableCommonConfig) -> Self {
+impl<F: FieldExt> EventTableCellAllocator<F> {
+    pub fn new(config: EventTableCommonConfig<F>) -> Self {
         Self {
             config,
             bit_index: EventTableBitColumnRotation::Max as i32,
@@ -104,7 +104,7 @@ impl EventTableCellAllocator {
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
         meta: &mut ConstraintSystem<F>,
-        common: &mut EventTableCellAllocator,
+        common: &mut EventTableCellAllocator<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }

@@ -26,7 +26,7 @@ pub mod op_configure;
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
         meta: &mut ConstraintSystem<F>,
-        common: &EventTableCommonConfig,
+        common: &EventTableCommonConfig<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
@@ -97,7 +97,7 @@ pub(crate) enum EventTableUnlimitColumnRotation {
 }
 
 #[derive(Clone)]
-pub struct EventTableCommonConfig {
+pub struct EventTableCommonConfig<F> {
     pub sel: Column<Fixed>,
     pub block_first_line_sel: Column<Fixed>,
 
@@ -129,11 +129,13 @@ pub struct EventTableCommonConfig {
     pub aux: Column<Advice>,
 
     pub u4_shared: [Column<Advice>; U4_COLUMNS],
+
+    _mark: PhantomData<F>,
 }
 
 #[derive(Clone)]
 pub struct EventTableConfig<F: FieldExt> {
-    common_config: EventTableCommonConfig,
+    common_config: EventTableCommonConfig<F>,
     op_bitmaps: BTreeMap<OpcodeClass, (i32, i32)>,
     op_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
     _mark: PhantomData<F>,
@@ -189,6 +191,14 @@ impl<F: FieldExt> EventTableConfig<F> {
             curr!(meta, aux) * fixed_curr!(meta, itable_lookup)
         });
 
+        mtable.configure_in_table(meta, "etable mtable lookup", |meta| {
+            curr!(meta, aux) * fixed_curr!(meta, mtable_lookup)
+        });
+
+        jtable.configure_in_table(meta, "etable jtable lookup", |meta| {
+            curr!(meta, aux) * fixed_curr!(meta, jtable_lookup)
+        });
+
         for i in 0..U4_COLUMNS {
             meta.create_gate("etable u64", |meta| {
                 let mut acc = nextn!(
@@ -206,8 +216,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             });
         }
 
-        //TODO: also add lookups for mtable & jtable
-
         let common_config = EventTableCommonConfig {
             sel,
             block_first_line_sel,
@@ -219,6 +227,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             mtable_lookup,
             aux,
             u4_shared,
+            _mark: PhantomData,
         };
 
         const MAX_OP_LVL1: i32 = 8;
