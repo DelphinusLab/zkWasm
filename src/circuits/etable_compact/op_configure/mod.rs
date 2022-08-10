@@ -114,6 +114,9 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
     fn opcode_class(&self) -> OpcodeClass;
+    fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        None
+    }
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }

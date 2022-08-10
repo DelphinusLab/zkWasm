@@ -1,3 +1,5 @@
+use self::op_configure::EventTableOpcodeConfig;
+use super::*;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
@@ -18,8 +20,6 @@ use std::collections::BTreeSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use super::*;
-
 pub mod expression;
 pub mod op_configure;
 
@@ -29,29 +29,6 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
         common: &EventTableCommonConfig<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
-}
-
-pub trait EventTableOpcodeConfig<F: FieldExt> {
-    fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
-    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
-    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
-    fn opcode_class(&self) -> OpcodeClass;
-    /// For br and return
-    fn extra_mops(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant_from!(0)
-    }
-    fn handle_iid(&self) -> bool {
-        false
-    }
-    fn handle_moid(&self) -> bool {
-        false
-    }
-    fn handle_fid(&self) -> bool {
-        false
-    }
-    fn last_jump_eid_change(&self) -> bool {
-        false
-    }
 }
 
 const ETABLE_ROWS: usize = 1usize << 16;
@@ -259,11 +236,43 @@ impl<F: FieldExt> EventTableConfig<F> {
                         &common_config,
                         |meta| fixed_curr!(meta, common_config.block_first_line_sel)
                     );
-                    opcode_bitmaps.insert(config.opcode_class(), (op_lvl1, op_lvl2));
-                    opcode_configs.insert(config.opcode_class(), Rc::new(config));
+                    op_bitmaps.insert(config.opcode_class(), (op_lvl1, op_lvl2));
+                    op_configs.insert(config.opcode_class(), Rc::new(config));
                 )*
             })
         ];
+
+        meta.create_gate("etable common change", |meta| {
+            let mut rest_mops_acc =
+                common_config.next_rest_mops(meta) - common_config.rest_mops(meta);
+            let mut rest_jops_acc =
+                common_config.next_rest_jops(meta) - common_config.rest_jops(meta);
+
+            for (op, (lvl1, lvl2)) in op_bitmaps.iter() {
+                let config = op_configs.get(op).unwrap();
+                match config.mops(meta) {
+                    Some(e) => {
+                        rest_mops_acc =
+                            rest_mops_acc - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
+                match config.jops(meta) {
+                    Some(e) => {
+                        rest_jops_acc =
+                            rest_jops_acc - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+            }
+
+            // TODO: add others common part
+            vec![
+                rest_mops_acc * common_config.enabled_block(meta),
+                rest_jops_acc * common_config.enabled_block(meta),
+            ]
+        });
 
         Self {
             common_config,
