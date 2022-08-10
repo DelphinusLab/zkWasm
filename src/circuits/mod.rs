@@ -31,6 +31,7 @@ use self::{
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
 };
 
+pub mod etable_compact;
 pub mod imtable;
 pub mod itable;
 pub mod jtable;
