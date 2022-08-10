@@ -1,18 +1,19 @@
 use super::JumpTableConfig;
 use crate::{
-    circuits::{rtable::RangeTableConfig, utils::bn_to_field},
-    constant, constant_from, fixed_curr,
+    circuits::{rtable::RangeTableConfig, Lookup},
+    constant_from, fixed_curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
-use num_bigint::BigUint;
 
+/*
 const EID_SHIFT: usize = 64;
 const LAST_JUMP_EID_SHIFT: usize = 48;
 const MOID_SHIFT: usize = 32;
 const FID_SHIFT: usize = 16;
+*/
 
 pub trait JTableConstraint<F: FieldExt> {
     fn configure(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
@@ -26,7 +27,6 @@ pub trait JTableConstraint<F: FieldExt> {
     fn enable_rest_jops_permutation(&self, meta: &mut ConstraintSystem<F>);
     fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>);
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>);
-    // fn disabled_block_should_be_empty(&self, meta: &mut ConstraintSystem<F>);
     fn configure_rest_jops_in_u16_range(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -73,32 +73,27 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
     }
 }
 
-impl<F: FieldExt> JumpTableConfig<F> {
-    pub fn configure_in_table(
+impl<F: FieldExt> Lookup<F> for JumpTableConfig<F> {
+    fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
-        eid: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-        last_jump_eid: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-        moid: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-        fid: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-        iid: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        let one = BigUint::from(1u64);
-        meta.lookup_any("jtable lookup", |meta| {
+        meta.lookup_any(key, |meta| {
             vec![(
-                enable(meta)
-                    * (eid(meta) * constant!(bn_to_field(&(&one << EID_SHIFT)))
-                        + last_jump_eid(meta)
-                            * constant!(bn_to_field(&(&one << LAST_JUMP_EID_SHIFT)))
-                        + moid(meta) * constant!(bn_to_field(&(&one << MOID_SHIFT)))
-                        + fid(meta) * constant!(bn_to_field(&(&one << FID_SHIFT)))
-                        + iid(meta)),
+                expr(meta),
                 self.entry(meta) * self.enable(meta) * fixed_curr!(meta, self.sel),
             )]
         });
     }
 
+    fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.entry(meta) * self.enable(meta) * fixed_curr!(meta, self.sel)
+    }
+}
+
+impl<F: FieldExt> JumpTableConfig<F> {
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,

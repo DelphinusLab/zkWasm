@@ -11,7 +11,7 @@ use halo2_proofs::{
     pairing::bn256::{Bn256, Fr, G1Affine},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
-        ProvingKey, SingleVerifier, VerifyingKey,
+        Expression, ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
     },
     poly::commitment::{Params, ParamsVerifier},
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
@@ -139,6 +139,19 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
 trait Encode {
     fn encode(&self) -> BigUint;
+}
+
+pub(self) trait Lookup<F: FieldExt> {
+    fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
+
+    fn configure_in_table(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup_any(key, |meta| vec![(expr(meta), self.encode(meta))]);
+    }
 }
 
 pub struct ZkWasmCircuitBuilder {

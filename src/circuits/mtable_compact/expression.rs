@@ -94,6 +94,14 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.index.data, ROTATION_INDEX_OFFSET)
     }
 
+    pub(super) fn eid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.index.data, ROTATION_INDEX_EID)
+    }
+
+    pub(super) fn emid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.index.data, ROTATION_INDEX_EMID)
+    }
+
     pub(super) fn is_heap(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         assert_eq!(LocationType::Heap as u64, 0u64);
         assert_eq!(LocationType::Stack as u64, 1u64);
