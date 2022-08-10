@@ -11,20 +11,24 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use specs::mtable::LocationType;
 
-pub(crate) const ROTATION_INDEX_LTYPE: i32 = 0;
-pub(crate) const ROTATION_INDEX_MMID: i32 = 1;
-pub(crate) const ROTATION_INDEX_OFFSET: i32 = 2;
-pub(crate) const ROTATION_INDEX_EID: i32 = 3;
-pub(crate) const ROTATION_INDEX_EMID: i32 = 4;
-pub(crate) const ROTATION_INDEX_END: i32 = 5;
+pub(super) enum RotationIndex {
+    LTYPE = 0,
+    MMID,
+    OFFSET,
+    EID,
+    EMID,
+    MAX,
+}
 
-pub(crate) const ROTATION_CONSTANT_ONE: i32 = 0;
-pub(crate) const ROTATION_SAME_LTYPE: i32 = 1;
-pub(crate) const ROTATION_SAME_MMID: i32 = 2;
-pub(crate) const ROTATION_SAME_OFFSET: i32 = 3;
-pub(crate) const ROTATION_SAME_EID: i32 = 4;
-pub(crate) const ROTATION_ATYPE: i32 = 5;
-pub(crate) const ROTATION_REST_MOPS: i32 = 6;
+pub(super) enum RotationAux {
+    ConstantOne = 0,
+    SameLtype,
+    SameMmid,
+    SameOffset,
+    SameEid,
+    Atype,
+    RestMops,
+}
 
 pub(crate) const ROTATION_VTYPE_GE_TWO_BYTES: i32 = 1;
 pub(crate) const ROTATION_VTYPE_GE_FOUR_BYTES: i32 = 2;
@@ -53,19 +57,19 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn same_ltype_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.same, ROTATION_INDEX_LTYPE)
+        nextn!(meta, self.index.same, RotationIndex::LTYPE as i32)
     }
 
     pub(super) fn same_mmid_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.same, ROTATION_INDEX_MMID)
+        nextn!(meta, self.index.same, RotationIndex::MMID as i32)
     }
 
     pub(super) fn same_offset_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.same, ROTATION_INDEX_OFFSET)
+        nextn!(meta, self.index.same, RotationIndex::OFFSET as i32)
     }
 
     pub(super) fn same_eid_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.same, ROTATION_INDEX_EID)
+        nextn!(meta, self.index.same, RotationIndex::EID as i32)
     }
 
     pub(super) fn same_ltype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -73,35 +77,35 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn same_mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_SAME_MMID)
+        nextn!(meta, self.aux, RotationAux::SameMmid as i32)
     }
 
     pub(super) fn same_offset(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_SAME_OFFSET)
+        nextn!(meta, self.aux, RotationAux::SameOffset as i32)
     }
 
     pub(super) fn same_eid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_SAME_EID)
+        nextn!(meta, self.aux, RotationAux::SameEid as i32)
     }
 
     pub(super) fn ltype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.data, ROTATION_INDEX_LTYPE)
+        nextn!(meta, self.index.data, RotationIndex::LTYPE as i32)
     }
 
     pub(super) fn mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.data, ROTATION_INDEX_MMID)
+        nextn!(meta, self.index.data, RotationIndex::MMID as i32)
     }
 
     pub(super) fn offset(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.data, ROTATION_INDEX_OFFSET)
+        nextn!(meta, self.index.data, RotationIndex::OFFSET as i32)
     }
 
     pub(super) fn eid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.data, ROTATION_INDEX_EID)
+        nextn!(meta, self.index.data, RotationIndex::EID as i32)
     }
 
     pub(super) fn emid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.data, ROTATION_INDEX_EMID)
+        nextn!(meta, self.index.data, RotationIndex::EMID as i32)
     }
 
     pub(super) fn is_heap(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -111,11 +115,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn atype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_ATYPE)
+        nextn!(meta, self.aux, RotationAux::Atype as i32)
     }
 
     pub(super) fn prev_atype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_ATYPE - STEP_SIZE)
+        nextn!(meta, self.aux, RotationAux::Atype as i32 - STEP_SIZE)
     }
 
     pub(super) fn vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -153,11 +157,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_REST_MOPS)
+        nextn!(meta, self.aux, RotationAux::RestMops as i32)
     }
 
     pub(super) fn prev_rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, ROTATION_REST_MOPS - STEP_SIZE)
+        nextn!(meta, self.aux, RotationAux::RestMops as i32 - STEP_SIZE)
     }
 
     pub(super) fn byte(&self, meta: &mut VirtualCells<F>, index: i32) -> Expression<F> {

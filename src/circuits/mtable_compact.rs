@@ -4,19 +4,8 @@ use super::rtable::RangeTableConfig;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::Context;
 use crate::circuits::mtable_compact::configure::STEP_SIZE;
-use crate::circuits::mtable_compact::expression::ROTATION_ATYPE;
-use crate::circuits::mtable_compact::expression::ROTATION_CONSTANT_ONE;
-use crate::circuits::mtable_compact::expression::ROTATION_INDEX_EID;
-use crate::circuits::mtable_compact::expression::ROTATION_INDEX_EMID;
-use crate::circuits::mtable_compact::expression::ROTATION_INDEX_END;
-use crate::circuits::mtable_compact::expression::ROTATION_INDEX_LTYPE;
-use crate::circuits::mtable_compact::expression::ROTATION_INDEX_MMID;
-use crate::circuits::mtable_compact::expression::ROTATION_INDEX_OFFSET;
-use crate::circuits::mtable_compact::expression::ROTATION_REST_MOPS;
-use crate::circuits::mtable_compact::expression::ROTATION_SAME_EID;
-use crate::circuits::mtable_compact::expression::ROTATION_SAME_LTYPE;
-use crate::circuits::mtable_compact::expression::ROTATION_SAME_MMID;
-use crate::circuits::mtable_compact::expression::ROTATION_SAME_OFFSET;
+use crate::circuits::mtable_compact::expression::RotationAux;
+use crate::circuits::mtable_compact::expression::RotationIndex;
 use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_EIGHT_BYTES;
 use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_FOUR_BYTES;
 use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_TWO_BYTES;
@@ -225,13 +214,13 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             // index column
             {
-                assign_row_diff!(ROTATION_INDEX_LTYPE, ltype);
-                assign_row_diff!(ROTATION_INDEX_MMID, mmid);
-                assign_row_diff!(ROTATION_INDEX_OFFSET, offset);
-                assign_row_diff!(ROTATION_INDEX_EID, eid);
-                assign_row_diff!(ROTATION_INDEX_EMID, emid);
+                assign_row_diff!(RotationIndex::LTYPE, ltype);
+                assign_row_diff!(RotationIndex::MMID, mmid);
+                assign_row_diff!(RotationIndex::OFFSET, offset);
+                assign_row_diff!(RotationIndex::EID, eid);
+                assign_row_diff!(RotationIndex::EMID, emid);
 
-                for i in ROTATION_INDEX_END..STEP_SIZE {
+                for i in (RotationIndex::MAX as i32)..STEP_SIZE {
                     self.config.index.assign(
                         ctx,
                         Some(index * STEP_SIZE as usize + i as usize),
@@ -255,28 +244,38 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     same_eid = last_entry.eid == entry.eid && same_offset;
                 }
 
-                assign_advice!("constant 1", ROTATION_CONSTANT_ONE, aux, F::one());
+                assign_advice!("constant 1", RotationAux::ConstantOne, aux, F::one());
                 assign_advice!(
                     "same ltype",
-                    ROTATION_SAME_LTYPE,
+                    RotationAux::SameLtype,
                     aux,
                     F::from(same_ltype as u64)
                 );
                 assign_advice!(
                     "same mmid",
-                    ROTATION_SAME_MMID,
+                    RotationAux::SameMmid,
                     aux,
                     F::from(same_mmid as u64)
                 );
                 assign_advice!(
                     "same offset",
-                    ROTATION_SAME_OFFSET,
+                    RotationAux::SameOffset,
                     aux,
                     F::from(same_offset as u64)
                 );
-                assign_advice!("same eid", ROTATION_SAME_EID, aux, F::from(same_eid as u64));
-                assign_advice!("atype", ROTATION_ATYPE, aux, F::from(entry.atype as u64));
-                let cell = assign_advice!("rest mops", ROTATION_REST_MOPS, aux, F::from(mops));
+                assign_advice!(
+                    "same eid",
+                    RotationAux::SameEid,
+                    aux,
+                    F::from(same_eid as u64)
+                );
+                assign_advice!(
+                    "atype",
+                    RotationAux::Atype,
+                    aux,
+                    F::from(entry.atype as u64)
+                );
+                let cell = assign_advice!("rest mops", RotationAux::RestMops, aux, F::from(mops));
                 if index == 0 && etable_rest_mops_cell.is_some() {
                     ctx.region
                         .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
