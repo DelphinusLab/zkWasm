@@ -1,18 +1,10 @@
 use super::*;
-use crate::{
-    circuits::utils::{bn_to_field, Context},
-    constant, constant_from, curr, next,
-};
+use crate::circuits::utils::Context;
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{ConstraintSystem, Error, Expression, VirtualCells},
 };
-use num_bigint::BigUint;
-use specs::{
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::VarType,
-};
+use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct ReturnConfig {
     keep: BitCell,
@@ -25,9 +17,9 @@ pub struct ReturnConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
+        _meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let drop = common.alloc_common_range_value();
         let keep = common.alloc_bit_value();

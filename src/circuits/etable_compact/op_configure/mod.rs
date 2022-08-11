@@ -25,8 +25,18 @@ pub struct CommonRangeCell {
 }
 
 impl CommonRangeCell {
-    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, _value: u16) -> Result<(), Error> {
-        todo!()
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: u16) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "common range cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(F::from(value as u64)),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
     }
 }
 
@@ -37,8 +47,34 @@ pub struct U64Cell {
 }
 
 impl U64Cell {
-    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, _value: u64) -> Result<(), Error> {
-        todo!()
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        mut value: u64,
+    ) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "u64 range cell",
+            self.value_col,
+            (ctx.offset as i32 + self.value_rot) as usize,
+            || Ok(F::from(value)),
+        )?;
+
+        for i in 0..16usize {
+            let v = value & 0xf;
+            value >>= 4;
+            ctx.region.assign_advice(
+                || "u4 range cell",
+                self.u4_col,
+                ctx.offset + i,
+                || Ok(F::from(v)),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.value_col, self.value_rot)
     }
 }
 
@@ -151,8 +187,8 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     fn mtable_lookup(
         &self,
         _meta: &mut VirtualCells<'_, F>,
-        _mtable: &MemoryTableConfig<F>,
         _item: MLookupItem,
+        _common: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
     }

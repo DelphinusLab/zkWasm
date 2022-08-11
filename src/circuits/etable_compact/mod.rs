@@ -517,7 +517,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 }
 
                 for i in 0..MTABLE_LOOKUPS_SIZE {
-                    match config.mtable_lookup(meta, mtable, i.try_into().unwrap()) {
+                    match config.mtable_lookup(meta, i.try_into().unwrap(), &common_config) {
                         Some(e) => {
                             mtable_lookup[i] = mtable_lookup[i].clone()
                                 - e * common_config.op_enabled(meta, *lvl1, *lvl2)

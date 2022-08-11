@@ -12,26 +12,20 @@ use specs::{etable::EventTableEntry, itable::OpcodeClass, mtable::VarType};
 pub struct ConstConfig {
     vtype: CommonRangeCell,
     value: U64Cell,
-    stack_write_lookup: MTableLookupCell,
 }
 
 pub struct ConstConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
+        _meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let vtype = common.alloc_common_range_value();
         let value = common.alloc_u64();
-        let stack_write_lookup = common.alloc_mtable_lookup();
 
-        Box::new(ConstConfig {
-            vtype,
-            value,
-            stack_write_lookup,
-        })
+        Box::new(ConstConfig { vtype, value })
     }
 }
 
@@ -63,17 +57,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
     fn mtable_lookup(
         &self,
         meta: &mut VirtualCells<'_, F>,
-        mtable: &MemoryTableConfig<F>,
         item: MLookupItem,
+        common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         match item {
-            MLookupItem::First => Some(mtable.encode_stack_write(
-                todo!(),
-                todo!(),
-                todo!(),
-                todo!(),
-                curr!(meta, self.vtype.col),       // FIXME: curr or ?
-                curr!(meta, self.value.value_col), // FIXME: curr or?
+            MLookupItem::First => Some(MemoryTableConfig::encode_stack_write(
+                common_config.eid(meta),
+                constant_from!(1),
+                common_config.sp(meta),
+                self.vtype.expr(meta),
+                self.value.expr(meta),
             )),
             MLookupItem::Second => None,
             MLookupItem::Third => None,
