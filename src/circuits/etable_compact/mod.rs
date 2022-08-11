@@ -42,6 +42,20 @@ const ETABLE_ROWS: usize = 1usize << 16;
 const ETABLE_STEP_SIZE: usize = 16usize;
 const U4_COLUMNS: usize = 4usize;
 const MTABLE_LOOKUPS_SIZE: usize = 4usize;
+const MAX_OP_LVL1: i32 = 8;
+const MAX_OP_LVL2: i32 = ETABLE_STEP_SIZE as i32;
+
+fn opclass_to_two_level(class: OpcodeClass) -> (usize, usize) {
+    let mut id = class as i32;
+    assert!(id <= MAX_OP_LVL1 * (MAX_OP_LVL2 - MAX_OP_LVL1));
+
+    id -= 1;
+
+    (
+        (id / MAX_OP_LVL1) as usize,
+        ((id % MAX_OP_LVL1) + 8) as usize,
+    )
+}
 
 pub(crate) enum EventTableBitColumnRotation {
     Enable = 0,
@@ -123,6 +137,35 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                     || Ok(F::one()),
                 )?;
             }
+
+            if i % EventTableUnlimitColumnRotation::ITableLookup as usize == 0 {
+                ctx.region.assign_fixed(
+                    || "itable lookup",
+                    self.itable_lookup,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
+
+            if i % EventTableUnlimitColumnRotation::JTableLookup as usize == 0 {
+                ctx.region.assign_fixed(
+                    || "jtable lookup",
+                    self.jtable_lookup,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
+
+            if i >= EventTableUnlimitColumnRotation::MTableLookupStart as usize
+                && i < EventTableUnlimitColumnRotation::U64Start as usize
+            {
+                ctx.region.assign_fixed(
+                    || "jtable lookup",
+                    self.mtable_lookup,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
         }
 
         let mut rest_mops_cell: Option<Cell> = None;
@@ -131,91 +174,103 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         let mut rest_jops = etable.rest_jops();
 
         macro_rules! assign_advice {
-            ($c:ident, $k:expr, $v:expr) => {
-                ctx.region
-                    .assign_advice(|| $k, self.$c, ctx.offset, || Ok(F::from($v)))?
+            ($c:ident, $o:expr, $k:expr, $v:expr) => {
+                ctx.region.assign_advice(
+                    || $k,
+                    self.$c,
+                    ctx.offset + $o as usize,
+                    || Ok(F::from($v)),
+                )?
             };
         }
 
         for entry in etable.entries().iter() {
+            assign_advice!(
+                shared_bits,
+                EventTableBitColumnRotation::Enable,
+                "shared_bits",
+                1
+            );
+
             {
-                /* Offset 0 */
-                todo!(); // fill shared_bits correctly
-                assign_advice!(shared_bits, "shared_bits", 0);
-                assign_advice!(opcode_bits, "opcode_bits", 1);
+                let op: OpcodeClass = entry.inst.opcode.clone().into();
+                let (op_lvl1, op_lvl2) = opclass_to_two_level(op);
 
-                let cell = assign_advice!(state, "rest mops", rest_mops.next().unwrap());
-                if rest_mops_cell == None {
-                    rest_mops_cell = Some(cell.cell());
-                }
-
-                ctx.region.assign_fixed(
-                    || "itable lookup",
-                    self.itable_lookup,
-                    ctx.offset,
-                    || Ok(F::from(1)),
-                )?;
-
-                // from_str_vartime is ugly
-                ctx.region.assign_advice(
-                    || "itable lookup entry",
-                    self.aux,
-                    ctx.offset,
-                    || Ok(F::from_str_vartime(&entry.inst.encode().to_str_radix(16)).unwrap()),
-                )?;
-
-                ctx.next();
+                assign_advice!(opcode_bits, op_lvl1, "opcode level 1", 1);
+                assign_advice!(opcode_bits, op_lvl2, "opcode level 2", 1);
             }
 
-            {
-                /* Offset 1 */
-                let cell = assign_advice!(state, "rest jops", rest_jops.next().unwrap());
-                if rest_jops_cell == None {
-                    rest_jops_cell = Some(cell.cell());
-                }
-
-                ctx.next();
+            let cell = assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::RestMOps,
+                "rest mops",
+                rest_mops.next().unwrap()
+            );
+            if rest_mops_cell == None {
+                rest_mops_cell = Some(cell.cell());
             }
 
-            {
-                /* Offset 2 */
-                assign_advice!(state, "eid", entry.eid);
-
-                ctx.next();
+            /* Offset 1 */
+            let cell = assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::RestJOps,
+                "rest jops",
+                rest_jops.next().unwrap()
+            );
+            if rest_jops_cell == None {
+                rest_jops_cell = Some(cell.cell());
             }
 
-            {
-                /* Offset 3 */
-                assign_advice!(state, "moid", entry.inst.moid as u64);
+            assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::EID,
+                "eid",
+                entry.eid
+            );
 
-                ctx.next();
-            }
+            assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::MOID,
+                "moid",
+                entry.inst.moid as u64
+            );
 
-            {
-                /* Offset 4 */
-                assign_advice!(state, "fid", entry.inst.fid as u64);
+            assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::FID,
+                "fid",
+                entry.inst.fid as u64
+            );
 
-                ctx.next();
-            }
+            assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::IID,
+                "iid",
+                entry.inst.iid as u64
+            );
 
-            {
-                /* Offset 5 */
-                assign_advice!(state, "iid", entry.inst.iid as u64);
+            assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::MMID,
+                "mmid",
+                entry.inst.mmid as u64
+            );
 
-                ctx.next();
-            }
+            assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::SP,
+                "sp",
+                entry.sp
+            );
 
-            {
-                /* Offset 6 */
-                assign_advice!(state, "mmid", entry.inst.mmid as u64);
+            ctx.region.assign_advice(
+                || "itable lookup entry",
+                self.aux,
+                ctx.offset + EventTableUnlimitColumnRotation::ITableLookup as usize,
+                || Ok(F::from_str_vartime(&entry.inst.encode().to_str_radix(16)).unwrap()),
+            )?;
 
-                ctx.next();
-            }
-
-            {
-                /* Offset 7 */
-                assign_advice!(state, "sp", entry.sp);
-
+            for _ in 0..ETABLE_STEP_SIZE {
                 ctx.next();
             }
         }
@@ -321,12 +376,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             _mark: PhantomData,
         };
 
-        const MAX_OP_LVL1: i32 = 8;
-        const MAX_OP_LVL2: i32 = ETABLE_STEP_SIZE as i32;
-
-        let mut op_lvl1 = 0;
-        let mut op_lvl2 = MAX_OP_LVL1;
-
         let mut op_bitmaps_vec: Vec<(i32, i32)> = vec![];
         let mut op_bitmaps: BTreeMap<OpcodeClass, (i32, i32)> = BTreeMap::new();
         let mut op_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
@@ -335,14 +384,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         macro_rules! configure [
             ($($x:ident),*) => (
                 {
-                let curr_op_lvl2 = op_lvl2;
-                op_lvl2 += 1;
-                if op_lvl2 == MAX_OP_LVL2 {
-                    op_lvl2 = 1;
-                    op_lvl1 += 1;
-                    assert!(op_lvl1 < MAX_OP_LVL1);
-                }
-
                 let mut opcode_bitmaps_iter = opcode_bitmaps_vec.iter();
                 $(
                     let opcode_bit = opcode_bitmaps_iter.next().unwrap();
@@ -351,6 +392,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                         &common_config,
                         |meta| fixed_curr!(meta, common_config.block_first_line_sel)
                     );
+                    let (op_lvl1, op_lvl2) = opclass_to_two_level(config.opcode_class());
                     op_bitmaps.insert(config.opcode_class(), (op_lvl1, op_lvl2));
                     op_configs.insert(config.opcode_class(), Rc::new(config));
                 )*
@@ -523,8 +565,6 @@ impl<F: FieldExt> EventTableChip<F> {
         ctx: &mut Context<'_, F>,
         etable: &EventTable,
     ) -> Result<(Cell, Cell), Error> {
-        self.config.common_config.assign(ctx, etable)?;
-
-        todo!()
+        self.config.common_config.assign(ctx, etable)
     }
 }
