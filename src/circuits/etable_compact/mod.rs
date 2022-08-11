@@ -28,6 +28,7 @@ pub mod op_configure;
 // TODO:
 // 1. add constraints for termination
 // 2. add input output for circuits
+// 3. enable seq
 
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
@@ -94,9 +95,9 @@ pub struct EventTableCommonConfig<F> {
     // Rotation
     // 0      itable lookup
     // 1      jtable lookup
-    // 2..7   mtable lookup
-    // 8..11  u4 sum
-    // 12..15 shared
+    // 2..5   mtable lookup
+    // 6..9  u4 sum
+    // 10..15 shared
     pub aux: Column<Advice>,
 
     pub u4_shared: [Column<Advice>; U4_COLUMNS],
