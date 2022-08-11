@@ -1,6 +1,9 @@
 use self::op_configure::EventTableOpcodeConfig;
 use super::itable::Encode;
 use super::*;
+use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
+use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
+use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
@@ -28,15 +31,6 @@ pub mod op_configure;
 // TODO:
 // 1. add constraints for termination
 // 2. add input output for circuits
-// 3. enable seq
-
-pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
-    fn configure(
-        meta: &mut ConstraintSystem<F>,
-        common: &EventTableCommonConfig<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
-    ) -> Box<dyn EventTableOpcodeConfig<F>>;
-}
 
 const ETABLE_ROWS: usize = 1usize << 16;
 const ETABLE_STEP_SIZE: usize = 16usize;
@@ -383,28 +377,35 @@ impl<F: FieldExt> EventTableConfig<F> {
             _mark: PhantomData,
         };
 
-        let mut op_bitmaps_vec: Vec<(i32, i32)> = vec![];
         let mut op_bitmaps: BTreeMap<OpcodeClass, (i32, i32)> = BTreeMap::new();
         let mut op_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
         macro_rules! configure [
-            ($($x:ident),*) => (
-                {
-                let mut opcode_bitmaps_iter = opcode_bitmaps_vec.iter();
-                $(
-                    let opcode_bit = opcode_bitmaps_iter.next().unwrap();
+            ($op:expr, $x:ident) => (
+                if opcode_set.contains(&($op)) {
+                    let (op_lvl1, op_lvl2) = opclass_to_two_level($op);
+                    let mut allocator = EventTableCellAllocator::new(&common_config);
                     let config = $x::configure(
                         meta,
-                        &common_config,
+                        &mut allocator,
                         |meta| fixed_curr!(meta, common_config.block_first_line_sel)
                     );
-                    let (op_lvl1, op_lvl2) = opclass_to_two_level(config.opcode_class());
-                    op_bitmaps.insert(config.opcode_class(), (op_lvl1, op_lvl2));
+                    op_bitmaps.insert(config.opcode_class(), (op_lvl1 as i32, op_lvl2 as i32));
                     op_configs.insert(config.opcode_class(), Rc::new(config));
-                )*
-            })
+                }
+            )
         ];
+
+        configure!(OpcodeClass::Return, ReturnConfigBuilder);
+
+        meta.create_gate("enable seq", |meta| {
+            vec![
+                common_config.next_enable(meta)
+                    * (common_config.enable(meta) - constant_from!(1))
+                    * fixed_curr!(meta, common_config.block_first_line_sel),
+            ]
+        });
 
         meta.create_gate("etable common change", |meta| {
             let mut rest_mops_acc =
