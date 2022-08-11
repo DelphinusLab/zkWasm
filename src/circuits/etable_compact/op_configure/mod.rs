@@ -64,7 +64,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let allocated_index = self.common_range_index;
         self.common_range_index += 1;
         CommonRangeCell {
-            col: self.config.aux_in_common,
+            col: self.config.state,
             rot: allocated_index,
         }
     }

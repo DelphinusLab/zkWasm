@@ -13,7 +13,7 @@ use num_traits::One;
 use specs::itable::InstructionTableEntry;
 use std::marker::PhantomData;
 
-trait Encode {
+pub trait Encode {
     fn encode(&self) -> BigUint;
     fn encode_addr(&self) -> BigUint;
 }

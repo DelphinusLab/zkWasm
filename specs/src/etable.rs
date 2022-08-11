@@ -34,3 +34,75 @@ impl EventTableEntry {
         serde_json::to_string(self).unwrap()
     }
 }
+
+pub struct RestMops {
+    rest_mops: Vec<u64>,
+}
+
+impl Iterator for RestMops {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.rest_mops.pop()
+    }
+}
+
+pub struct RestJops {
+    rest_jops: Vec<u64>,
+}
+
+impl Iterator for RestJops {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.rest_jops.pop()
+    }
+}
+
+pub struct EventTable(Vec<EventTableEntry>);
+
+impl EventTable {
+    pub fn entries(&self) -> &Vec<EventTableEntry> {
+        &self.0
+    }
+
+    pub fn rest_mops(&self) -> RestMops {
+        let mut v = Vec::with_capacity(self.0.len());
+
+        let mut mops_count = self.0.iter().fold(0, |acc, entry| {
+            acc + entry.extra_mops() + entry.inst.opcode.mops()
+        });
+
+        for entry in self.0.iter() {
+            v.push(mops_count);
+            mops_count -= entry.extra_mops() + entry.inst.opcode.mops();
+        }
+
+        v.reverse();
+
+        RestMops { rest_mops: v }
+    }
+
+    pub fn rest_jops(&self) -> RestJops {
+        let mut v = Vec::with_capacity(self.0.len());
+
+        // minus 1 becuase the last return is not a jump
+        let mut rest_jops = self
+            .0
+            .iter()
+            .fold(0, |acc, entry| acc + entry.inst.opcode.jops())
+            - 1;
+
+        for entry in self.0.iter() {
+            v.push(rest_jops);
+
+            if rest_jops > 0 {
+                rest_jops -= entry.inst.opcode.jops();
+            }
+        }
+
+        v.reverse();
+
+        RestJops { rest_jops: v }
+    }
+}

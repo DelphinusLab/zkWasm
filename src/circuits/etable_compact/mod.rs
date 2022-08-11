@@ -1,4 +1,5 @@
 use self::op_configure::EventTableOpcodeConfig;
+use super::itable::Encode;
 use super::*;
 use crate::constant_from;
 use crate::curr;
@@ -13,6 +14,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
+use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use std::collections::BTreeMap;
@@ -92,7 +94,7 @@ pub struct EventTableCommonConfig<F> {
     // 5 iid
     // 6 mmid
     // 7 sp
-    pub aux_in_common: Column<Advice>,
+    pub state: Column<Advice>,
 
     pub itable_lookup: Column<Fixed>,
     pub jtable_lookup: Column<Fixed>,
@@ -108,6 +110,125 @@ pub struct EventTableCommonConfig<F> {
     pub u4_shared: [Column<Advice>; U4_COLUMNS],
 
     _mark: PhantomData<F>,
+}
+
+impl<F: FieldExt> EventTableCommonConfig<F> {
+    pub fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        etable: &EventTable,
+    ) -> Result<(Cell, Cell), Error> {
+        for i in 0..ETABLE_ROWS {
+            ctx.region
+                .assign_fixed(|| "etable common sel", self.sel, i, || Ok(F::one()))?;
+
+            if i % ETABLE_STEP_SIZE == 0 {
+                ctx.region.assign_fixed(
+                    || "etable common block first line sel",
+                    self.block_first_line_sel,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
+        }
+
+        let mut rest_mops_cell: Option<Cell> = None;
+        let mut rest_jops_cell: Option<Cell> = None;
+        let mut rest_mops = etable.rest_mops();
+        let mut rest_jops = etable.rest_jops();
+
+        macro_rules! assign_advice {
+            ($c:ident, $k:expr, $v:expr) => {
+                ctx.region
+                    .assign_advice(|| $k, self.$c, ctx.offset, || Ok(F::from($v)))?
+            };
+        }
+
+        for entry in etable.entries().iter() {
+            {
+                /* Offset 0 */
+                todo!(); // fill shared_bits correctly
+                assign_advice!(shared_bits, "shared_bits", 0);
+                assign_advice!(opcode_bits, "opcode_bits", 1);
+
+                let cell = assign_advice!(state, "rest mops", rest_mops.next().unwrap());
+                if rest_mops_cell == None {
+                    rest_mops_cell = Some(cell.cell());
+                }
+
+                ctx.region.assign_fixed(
+                    || "itable lookup",
+                    self.itable_lookup,
+                    ctx.offset,
+                    || Ok(F::from(1)),
+                )?;
+
+                // from_str_vartime is ugly
+                ctx.region.assign_advice(
+                    || "itable lookup entry",
+                    self.aux,
+                    ctx.offset,
+                    || Ok(F::from_str_vartime(&entry.inst.encode().to_str_radix(16)).unwrap()),
+                )?;
+
+                ctx.next();
+            }
+
+            {
+                /* Offset 1 */
+                let cell = assign_advice!(state, "rest jops", rest_jops.next().unwrap());
+                if rest_jops_cell == None {
+                    rest_jops_cell = Some(cell.cell());
+                }
+
+                ctx.next();
+            }
+
+            {
+                /* Offset 2 */
+                assign_advice!(state, "eid", entry.eid);
+
+                ctx.next();
+            }
+
+            {
+                /* Offset 3 */
+                assign_advice!(state, "moid", entry.inst.moid as u64);
+
+                ctx.next();
+            }
+
+            {
+                /* Offset 4 */
+                assign_advice!(state, "fid", entry.inst.fid as u64);
+
+                ctx.next();
+            }
+
+            {
+                /* Offset 5 */
+                assign_advice!(state, "iid", entry.inst.iid as u64);
+
+                ctx.next();
+            }
+
+            {
+                /* Offset 6 */
+                assign_advice!(state, "mmid", entry.inst.mmid as u64);
+
+                ctx.next();
+            }
+
+            {
+                /* Offset 7 */
+                assign_advice!(state, "sp", entry.sp);
+
+                ctx.next();
+            }
+        }
+
+        Ok((rest_mops_cell.unwrap(), rest_jops_cell.unwrap()))
+    }
 }
 
 #[derive(Clone)]
@@ -133,7 +254,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let shared_bits = cols.next().unwrap();
         let opcode_bits = cols.next().unwrap();
 
-        let aux_in_common = cols.next().unwrap();
+        let state = cols.next().unwrap();
         let aux = cols.next().unwrap();
 
         let itable_lookup = meta.fixed_column();
@@ -142,7 +263,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let u4_shared = [0; 4].map(|_| cols.next().unwrap());
 
-        meta.enable_equality(aux_in_common);
+        meta.enable_equality(state);
 
         meta.create_gate("etable bits", |meta| {
             vec![
@@ -155,7 +276,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_common_range(meta, "etable aux in common", |meta| {
-            curr!(meta, aux_in_common) * fixed_curr!(meta, sel)
+            curr!(meta, state) * fixed_curr!(meta, sel)
         });
 
         for i in 0..U4_COLUMNS {
@@ -198,7 +319,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             block_first_line_sel,
             shared_bits,
             opcode_bits,
-            aux_in_common,
+            state,
             itable_lookup,
             jtable_lookup,
             mtable_lookup,
@@ -299,8 +420,10 @@ impl<F: FieldExt> EventTableChip<F> {
     pub fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        entries: &Vec<EventTableEntry>,
+        etable: &EventTable,
     ) -> Result<(Cell, Cell), Error> {
-        todo!();
+        self.config.common_config.assign(ctx, etable)?;
+
+        todo!()
     }
 }
