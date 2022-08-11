@@ -275,6 +275,13 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             }
         }
 
+        assign_advice!(
+            shared_bits,
+            EventTableBitColumnRotation::Enable,
+            "shared_bits",
+            0
+        );
+
         Ok((rest_mops_cell.unwrap(), rest_jops_cell.unwrap()))
     }
 }
