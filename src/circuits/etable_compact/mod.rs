@@ -76,6 +76,27 @@ pub(crate) enum EventTableUnlimitColumnRotation {
     SharedStart = 10,
 }
 
+pub(self) enum MLookupItem {
+    First = 0,
+    Second,
+    Third,
+    Fourth,
+}
+
+impl TryFrom<usize> for MLookupItem {
+    type Error = Error;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::First),
+            1 => Ok(Self::Second),
+            2 => Ok(Self::Third),
+            3 => Ok(Self::Fourth),
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F> {
     pub sel: Column<Fixed>,
@@ -204,7 +225,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 rest_mops_cell = Some(cell.cell());
             }
 
-            /* Offset 1 */
             let cell = assign_advice!(
                 state,
                 EventTableCommonRangeColumnRotation::RestJOps,
@@ -497,7 +517,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 }
 
                 for i in 0..MTABLE_LOOKUPS_SIZE {
-                    match config.mtable_lookup(meta, i as i32) {
+                    match config.mtable_lookup(meta, mtable, i.try_into().unwrap()) {
                         Some(e) => {
                             mtable_lookup[i] = mtable_lookup[i].clone()
                                 - e * common_config.op_enabled(meta, *lvl1, *lvl2)

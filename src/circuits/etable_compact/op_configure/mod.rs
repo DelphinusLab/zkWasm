@@ -1,7 +1,9 @@
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
+pub mod op_const;
 pub mod op_return;
+
 pub struct Cell {
     pub col: Column<Advice>,
     pub rot: i32,
@@ -22,10 +24,22 @@ pub struct CommonRangeCell {
     pub rot: i32,
 }
 
+impl CommonRangeCell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, _value: u16) -> Result<(), Error> {
+        todo!()
+    }
+}
+
 pub struct U64Cell {
     pub value_col: Column<Advice>,
     pub value_rot: i32,
     pub u4_col: Column<Advice>,
+}
+
+impl U64Cell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, _value: u64) -> Result<(), Error> {
+        todo!()
+    }
 }
 
 pub struct EventTableCellAllocator<'a, F> {
@@ -101,7 +115,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
     }
 }
 
-pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
+pub(super) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
         meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
@@ -109,7 +123,7 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 
-pub trait EventTableOpcodeConfig<F: FieldExt> {
+pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
     fn opcode_class(&self) -> OpcodeClass;
@@ -134,7 +148,12 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn mtable_lookup(&self, _meta: &mut VirtualCells<'_, F>, _i: i32) -> Option<Expression<F>> {
+    fn mtable_lookup(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _mtable: &MemoryTableConfig<F>,
+        _item: MLookupItem,
+    ) -> Option<Expression<F>> {
         None
     }
     fn jtable_lookup(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
