@@ -48,44 +48,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         todo!()
     }
 
-    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        todo!()
-    }
-
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
         todo!()
     }
 
     fn opcode_class(&self) -> OpcodeClass {
         todo!()
-    }
-
-    fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        None
-    }
-
-    fn last_jump_eid_change(&self) -> Option<Expression<F>> {
-        None
-    }
-
-    fn next_iid(&self) -> Option<Expression<F>> {
-        None
-    }
-
-    fn next_moid(&self) -> Option<Expression<F>> {
-        None
-    }
-
-    fn mtable_lookup(&self, i: i32) -> Option<Expression<F>> {
-        None
-    }
-
-    fn jtable_lookup(&self) -> Option<Expression<F>> {
-        None
-    }
-
-    fn itable_lookup(&self) -> Option<Expression<F>> {
-        None
     }
 }
 

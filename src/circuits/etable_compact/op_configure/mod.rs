@@ -111,7 +111,6 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
-    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
     fn opcode_class(&self) -> OpcodeClass;
     fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
@@ -120,22 +119,28 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn last_jump_eid_change(&self) -> Option<Expression<F>> {
+    fn next_last_jump_eid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn next_iid(&self) -> Option<Expression<F>> {
+    fn next_moid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn next_moid(&self) -> Option<Expression<F>> {
+    fn next_fid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn mtable_lookup(&self, _i: i32) -> Option<Expression<F>> {
+    fn next_iid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn jtable_lookup(&self) -> Option<Expression<F>> {
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn itable_lookup(&self) -> Option<Expression<F>> {
+    fn mtable_lookup(&self, _meta: &mut VirtualCells<'_, F>, _i: i32) -> Option<Expression<F>> {
+        None
+    }
+    fn jtable_lookup(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        None
+    }
+    fn itable_lookup(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
 }

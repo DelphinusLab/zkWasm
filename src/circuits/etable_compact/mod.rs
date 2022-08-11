@@ -25,6 +25,10 @@ use std::rc::Rc;
 pub mod expression;
 pub mod op_configure;
 
+// TODO:
+// 1. add constraints for termination
+// 2. add input output for circuits
+
 pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
         meta: &mut ConstraintSystem<F>,
@@ -35,20 +39,8 @@ pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
 
 const ETABLE_ROWS: usize = 1usize << 16;
 const ETABLE_STEP_SIZE: usize = 16usize;
-
-pub const ROTATION_ENABLE: i32 = 0;
-
-pub const ROTATION_REST_MOPS: i32 = 0;
-pub const ROTATION_REST_JOPS: i32 = 1;
-pub const ROTATION_EID: i32 = 2;
-pub const ROTATION_MOID: i32 = 3;
-pub const ROTATION_FID: i32 = 4;
-pub const ROTATION_IID: i32 = 5;
-pub const ROTATION_MMID: i32 = 6;
-pub const ROTATION_SP: i32 = 7;
-pub const ROTATION_LAST_JUMP_EID: i32 = 8;
-
 const U4_COLUMNS: usize = 4usize;
+const MTABLE_LOOKUPS_SIZE: usize = 4usize;
 
 pub(crate) enum EventTableBitColumnRotation {
     Enable = 0,
@@ -71,8 +63,8 @@ pub(crate) enum EventTableUnlimitColumnRotation {
     ITableLookup = 0,
     JTableLookup,
     MTableLookupStart,
-    U64Start = 8,
-    SharedStart = 12,
+    U64Start = 6,
+    SharedStart = 10,
 }
 
 #[derive(Clone)]
@@ -340,7 +332,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             BTreeMap::new();
 
         macro_rules! configure [
-            ($($x:ident),*) => ({
+            ($($x:ident),*) => (
+                {
                 let curr_op_lvl2 = op_lvl2;
                 op_lvl2 += 1;
                 if op_lvl2 == MAX_OP_LVL2 {
@@ -368,6 +361,23 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.next_rest_mops(meta) - common_config.rest_mops(meta);
             let mut rest_jops_acc =
                 common_config.next_rest_jops(meta) - common_config.rest_jops(meta);
+            let mut moid_acc = common_config.next_moid(meta) - common_config.moid(meta);
+            let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
+            let mut iid_acc = common_config.next_iid(meta) - common_config.iid(meta);
+            let mut sp_acc = common_config.next_sp(meta) - common_config.sp(meta);
+
+            let eid_diff =
+                common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1);
+            // MMID equals to MOID in single module version
+            let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
+
+            let mut itable_lookup = common_config.itable_lookup(meta);
+            let mut jtable_lookup = common_config.jtable_lookup(meta);
+            let mut mtable_lookup = vec![];
+
+            for i in 0..MTABLE_LOOKUPS_SIZE {
+                mtable_lookup.push(common_config.mtable_lookup(meta, i as i32));
+            }
 
             for (op, (lvl1, lvl2)) in op_bitmaps.iter() {
                 let config = op_configs.get(op).unwrap();
@@ -386,13 +396,103 @@ impl<F: FieldExt> EventTableConfig<F> {
                     }
                     _ => {}
                 }
+
+                match config.next_moid(meta) {
+                    Some(e) => {
+                        moid_acc = moid_acc
+                            - (e - common_config.moid(meta))
+                                * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
+                match config.next_fid(meta) {
+                    Some(e) => {
+                        fid_acc = fid_acc
+                            - (e - common_config.fid(meta))
+                                * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
+                match config.next_iid(meta) {
+                    Some(e) => {
+                        iid_acc = iid_acc
+                            - (e - common_config.iid(meta))
+                                * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
+                match config.sp_diff(meta) {
+                    Some(e) => sp_acc = sp_acc - e * common_config.op_enabled(meta, *lvl1, *lvl2),
+                    _ => {}
+                }
+
+                match config.itable_lookup(meta) {
+                    Some(e) => {
+                        itable_lookup =
+                            itable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
+                match config.jtable_lookup(meta) {
+                    Some(e) => {
+                        jtable_lookup =
+                            jtable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
+                for i in 0..MTABLE_LOOKUPS_SIZE {
+                    match config.mtable_lookup(meta, i as i32) {
+                        Some(e) => {
+                            mtable_lookup[i] = mtable_lookup[i].clone()
+                                - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                        }
+                        _ => {}
+                    }
+                }
             }
 
-            // TODO: add others common part
             vec![
-                rest_mops_acc * common_config.enabled_block(meta),
-                rest_jops_acc * common_config.enabled_block(meta),
+                vec![
+                    rest_mops_acc,
+                    rest_jops_acc,
+                    eid_diff,
+                    moid_acc,
+                    fid_acc,
+                    iid_acc,
+                    mmid_diff,
+                    sp_acc,
+                    itable_lookup,
+                    jtable_lookup,
+                ],
+                mtable_lookup,
             ]
+            .into_iter()
+            .flatten()
+            .map(|x| x * common_config.enabled_block(meta))
+            .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("etable op lvl bits sum", |meta| {
+            let mut acc_lvl1 = constant_from!(1);
+            let mut acc_lvl2 = constant_from!(1);
+
+            for i in 0..MAX_OP_LVL1 {
+                acc_lvl1 = acc_lvl1 - nextn!(meta, common_config.opcode_bits, i);
+            }
+
+            for i in MAX_OP_LVL2..ETABLE_STEP_SIZE as i32 {
+                acc_lvl2 = acc_lvl2 - nextn!(meta, common_config.opcode_bits, i);
+            }
+
+            vec![acc_lvl1, acc_lvl2]
+                .into_iter()
+                .map(|x| x * common_config.enabled_block(meta))
+                .collect::<Vec<_>>()
         });
 
         Self {
