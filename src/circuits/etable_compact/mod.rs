@@ -578,7 +578,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 acc_lvl1 = acc_lvl1 - nextn!(meta, common_config.opcode_bits, i);
             }
 
-            for i in MAX_OP_LVL2..ETABLE_STEP_SIZE as i32 {
+            for i in MAX_OP_LVL1..ETABLE_STEP_SIZE as i32 {
                 acc_lvl2 = acc_lvl2 - nextn!(meta, common_config.opcode_bits, i);
             }
 
