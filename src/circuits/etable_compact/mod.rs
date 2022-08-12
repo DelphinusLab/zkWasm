@@ -450,7 +450,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.next_last_jump_eid(meta) - common_config.last_jump_eid(meta);
 
             let eid_diff =
-                common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1);
+                (common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1))
+                    * common_config.next_enable(meta);
             // MMID equals to MOID in single module version
             let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
 

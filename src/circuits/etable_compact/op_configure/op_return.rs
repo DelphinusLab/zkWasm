@@ -90,10 +90,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         Some(self.drop.expr(meta))
     }
 
-    fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1))
-    }
-
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(2) * self.keep.expr(meta))
     }
