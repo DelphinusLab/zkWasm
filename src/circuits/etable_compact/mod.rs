@@ -468,7 +468,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.next_moid(meta) {
+                match config.next_moid(meta, &common_config) {
                     Some(e) => {
                         moid_acc = moid_acc
                             - (e - common_config.moid(meta))
@@ -477,7 +477,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.next_fid(meta) {
+                match config.next_fid(meta, &common_config) {
                     Some(e) => {
                         fid_acc = fid_acc
                             - (e - common_config.fid(meta))
@@ -486,7 +486,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.next_iid(meta) {
+                match config.next_iid(meta, &common_config) {
                     Some(e) => {
                         iid_acc = iid_acc
                             - (e - common_config.iid(meta))
@@ -500,7 +500,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.itable_lookup(meta) {
+                match config.itable_lookup(meta, &common_config) {
                     Some(e) => {
                         itable_lookup =
                             itable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2)
@@ -508,7 +508,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.jtable_lookup(meta) {
+                match config.jtable_lookup(meta, &common_config) {
                     Some(e) => {
                         jtable_lookup =
                             jtable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2)

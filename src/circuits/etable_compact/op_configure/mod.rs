@@ -2,6 +2,7 @@ use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 pub mod op_const;
+pub mod op_drop;
 pub mod op_return;
 
 pub struct Cell {
@@ -17,6 +18,22 @@ pub struct MTableLookupCell {
 pub struct BitCell {
     pub col: Column<Advice>,
     pub rot: i32,
+}
+
+impl BitCell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: bool) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "bit cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(F::from(value as u64)),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
 }
 
 pub struct CommonRangeCell {
@@ -163,25 +180,39 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
     fn opcode_class(&self) -> OpcodeClass;
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>>;
     fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn next_last_jump_eid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn next_last_jump_eid(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
         None
     }
-    fn next_moid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn next_moid(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
         None
     }
-    fn next_fid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn next_fid(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
         None
     }
-    fn next_iid(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        None
-    }
-    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn next_iid(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
         None
     }
     fn mtable_lookup(
@@ -192,10 +223,18 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> Option<Expression<F>> {
         None
     }
-    fn jtable_lookup(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn jtable_lookup(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
         None
     }
-    fn itable_lookup(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn itable_lookup(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
         None
     }
 }

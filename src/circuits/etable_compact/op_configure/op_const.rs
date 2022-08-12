@@ -1,13 +1,20 @@
 use super::*;
 use crate::{
-    circuits::{mtable_compact::expression::MtableLookupEntryEncode, utils::Context},
+    circuits::{
+        mtable_compact::expression::MtableLookupEntryEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{ConstraintSystem, Error, Expression, VirtualCells},
 };
-use specs::{etable::EventTableEntry, itable::OpcodeClass, mtable::VarType};
+use specs::{
+    etable::EventTableEntry,
+    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
+    mtable::VarType,
+};
 
 pub struct ConstConfig {
     vtype: CommonRangeCell,
@@ -31,7 +38,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        todo!()
+        constant!(bn_to_field(
+            &(BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
+        )) + self.vtype.expr(meta)
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
+            + self.value.expr(meta)
     }
 
     fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {

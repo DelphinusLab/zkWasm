@@ -14,7 +14,7 @@ use specs::jtable::JumpTableEntry;
 use std::marker::PhantomData;
 
 mod configure;
-mod expression;
+pub(crate) mod expression;
 
 pub enum JtableOffset {
     JtableOffsetEnable = 0,

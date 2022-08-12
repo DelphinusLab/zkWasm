@@ -8,13 +8,6 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
 
-/*
-const EID_SHIFT: usize = 64;
-const LAST_JUMP_EID_SHIFT: usize = 48;
-const MOID_SHIFT: usize = 32;
-const FID_SHIFT: usize = 16;
-*/
-
 pub trait JTableConstraint<F: FieldExt> {
     fn configure(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
         self.enable_is_bit(meta);
