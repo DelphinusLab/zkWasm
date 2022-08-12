@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use specs::{
+    etable::EventTable,
     imtable::InitMemoryTable,
     mtable::MTable,
     types::{CompileError, ExecutionError, Value},
@@ -117,7 +118,7 @@ impl WasmRuntime for WasmiRuntime {
 
         Ok(ExecutionOutcome {
             tables: ExecutionTable {
-                etable,
+                etable: EventTable::new(etable),
                 mtable,
                 jtable,
             },

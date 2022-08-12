@@ -106,7 +106,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         mtable: &MTable,
-        etable_rest_mops_cell: Option<Cell>,
+        etable_rest_mops_cell: Cell,
     ) -> Result<(), Error> {
         assert_eq!(MTABLE_ROWS % (STEP_SIZE as usize), 0);
 
@@ -276,9 +276,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     F::from(entry.atype as u64)
                 );
                 let cell = assign_advice!("rest mops", RotationAux::RestMops, aux, F::from(mops));
-                if index == 0 && etable_rest_mops_cell.is_some() {
+                if index == 0 {
                     ctx.region
-                        .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
+                        .constrain_equal(cell.cell(), etable_rest_mops_cell)?;
                 }
             }
 

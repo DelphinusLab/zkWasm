@@ -65,6 +65,7 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
     IID,
     MMID,
     SP,
+    LastJumpEid,
     Max,
 }
 
@@ -116,6 +117,7 @@ pub struct EventTableCommonConfig<F> {
     // 5 iid
     // 6 mmid
     // 7 sp
+    // 8 last_jump_eid
     pub state: Column<Advice>,
 
     pub itable_lookup: Column<Fixed>,
@@ -153,7 +155,8 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
-            if i % EventTableUnlimitColumnRotation::ITableLookup as usize == 0 {
+            if i % (ETABLE_STEP_SIZE + EventTableUnlimitColumnRotation::ITableLookup as usize) == 0
+            {
                 ctx.region.assign_fixed(
                     || "itable lookup",
                     self.itable_lookup,
@@ -275,6 +278,13 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 EventTableCommonRangeColumnRotation::SP,
                 "sp",
                 entry.sp
+            );
+
+            assign_advice!(
+                state,
+                EventTableCommonRangeColumnRotation::LastJumpEid,
+                "last jump eid",
+                entry.last_jump_eid
             );
 
             ctx.region.assign_advice(
@@ -436,6 +446,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
             let mut iid_acc = common_config.next_iid(meta) - common_config.iid(meta);
             let mut sp_acc = common_config.next_sp(meta) - common_config.sp(meta);
+            let mut last_jump_eid_acc =
+                common_config.next_last_jump_eid(meta) - common_config.last_jump_eid(meta);
 
             let eid_diff =
                 common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1);
@@ -464,6 +476,15 @@ impl<F: FieldExt> EventTableConfig<F> {
                     Some(e) => {
                         rest_jops_acc =
                             rest_jops_acc - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
+                match config.next_last_jump_eid(meta, &common_config) {
+                    Some(e) => {
+                        last_jump_eid_acc = last_jump_eid_acc
+                            - (e - common_config.last_jump_eid(meta))
+                                * common_config.op_enabled(meta, *lvl1, *lvl2)
                     }
                     _ => {}
                 }
@@ -537,6 +558,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     iid_acc,
                     mmid_diff,
                     sp_acc,
+                    last_jump_eid_acc,
                     itable_lookup,
                     jtable_lookup,
                 ],

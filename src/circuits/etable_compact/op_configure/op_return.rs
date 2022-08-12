@@ -100,10 +100,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
 
     fn next_last_jump_eid(
         &self,
-        _meta: &mut VirtualCells<'_, F>,
+        meta: &mut VirtualCells<'_, F>,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        todo!()
+        Some(common_config.next_last_jump_eid(meta))
     }
 
     fn next_moid(
@@ -136,8 +136,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         Some(JumpTableConfig::encode_lookup(
-            todo!(),
-            todo!(),
+            common_config.last_jump_eid(meta),
+            common_config.next_last_jump_eid(meta),
             common_config.next_moid(meta),
             common_config.next_fid(meta),
             common_config.next_iid(meta),

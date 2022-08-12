@@ -59,7 +59,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         entries: &Vec<JumpTableEntry>,
-        etable_rest_jops_cell: Option<Cell>,
+        etable_rest_jops_cell: Cell,
     ) -> Result<(), Error> {
         for i in 0..JTABLE_ROWS {
             if (i as u32) % (JtableOffset::JtableOffsetMax as u32) == 0 {
@@ -90,9 +90,9 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            if i == 0 && etable_rest_jops_cell.is_some() {
+            if i == 0 {
                 ctx.region
-                    .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
+                    .constrain_equal(cell.cell(), etable_rest_jops_cell)?;
             }
 
             ctx.region.assign_advice(
@@ -123,9 +123,9 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            if ctx.offset == 0 && etable_rest_jops_cell.is_some() {
+            if ctx.offset == 0 {
                 ctx.region
-                    .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
+                    .constrain_equal(cell.cell(), etable_rest_jops_cell)?;
             }
 
             ctx.region.assign_advice(

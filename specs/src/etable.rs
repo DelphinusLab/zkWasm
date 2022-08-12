@@ -59,9 +59,14 @@ impl Iterator for RestJops {
     }
 }
 
+#[derive(Default, Clone, Serialize)]
 pub struct EventTable(Vec<EventTableEntry>);
 
 impl EventTable {
+    pub fn new(entries: Vec<EventTableEntry>) -> Self {
+        Self(entries)
+    }
+
     pub fn entries(&self) -> &Vec<EventTableEntry> {
         &self.0
     }

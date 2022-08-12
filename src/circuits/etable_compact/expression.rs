@@ -157,6 +157,22 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         )
     }
 
+    pub fn last_jump_eid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.state,
+            EventTableCommonRangeColumnRotation::LastJumpEid as i32
+        )
+    }
+
+    pub fn next_last_jump_eid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.state,
+            EventTableCommonRangeColumnRotation::LastJumpEid as i32 + ETABLE_STEP_SIZE as i32
+        )
+    }
+
     pub fn itable_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,

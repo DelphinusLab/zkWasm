@@ -1,10 +1,11 @@
 use std::{env, io::Write, path::PathBuf};
 
+use etable::EventTable;
 use imtable::InitMemoryTable;
 use mtable::MTable;
 use serde::Serialize;
 
-use self::{etable::EventTableEntry, itable::InstructionTableEntry, jtable::JumpTableEntry};
+use self::{itable::InstructionTableEntry, jtable::JumpTableEntry};
 
 pub mod etable;
 pub mod host_function;
@@ -29,7 +30,7 @@ impl CompileTable {
 
 #[derive(Default, Serialize, Clone)]
 pub struct ExecutionTable {
-    pub etable: Vec<EventTableEntry>,
+    pub etable: EventTable,
     pub mtable: MTable,
     pub jtable: Vec<JumpTableEntry>,
 }
