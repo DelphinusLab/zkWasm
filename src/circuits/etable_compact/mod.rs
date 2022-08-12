@@ -249,7 +249,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 "rest mops",
                 rest_mops.next().unwrap()
             );
-            if rest_mops_cell == None {
+            if rest_mops_cell.is_none() {
                 rest_mops_cell = Some(cell.cell());
             }
 
@@ -259,7 +259,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 "rest jops",
                 rest_jops.next().unwrap()
             );
-            if rest_jops_cell == None {
+            if rest_jops_cell.is_none() {
                 rest_jops_cell = Some(cell.cell());
             }
 
