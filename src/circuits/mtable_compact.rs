@@ -24,7 +24,7 @@ use specs::mtable::MemoryTableEntry;
 use std::marker::PhantomData;
 
 const MAX_MATBLE_ROWS: usize = 1usize << 15;
-const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / 9 * 9;
+const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / STEP_SIZE as usize * STEP_SIZE as usize;
 
 lazy_static! {
     static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
