@@ -41,7 +41,7 @@ pub mod mtable_compact;
 pub mod rtable;
 pub mod utils;
 
-const VAR_COLUMNS: usize = 130;
+const VAR_COLUMNS: usize = 15;
 const K: u32 = 18;
 
 #[derive(Clone)]
