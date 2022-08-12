@@ -384,7 +384,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 entry,
             )?;
 
-            // assign mtable
+            // TODO: assign mtable
 
             for _ in 0..ETABLE_STEP_SIZE {
                 ctx.next();
@@ -457,6 +457,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             curr!(meta, aux) * fixed_curr!(meta, mtable_lookup)
         });
 
+        // TODO: elegantly handle the last return
         jtable.configure_in_table(meta, "etable jtable lookup", |meta| {
             curr!(meta, aux)
                 * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
@@ -635,6 +636,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 }
             }
 
+            // TODO: elegantly handle the last row and then
+            // delete common_config.next_enable(meta)
             vec![
                 vec![
                     rest_mops_acc,
