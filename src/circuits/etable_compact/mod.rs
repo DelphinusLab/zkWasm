@@ -84,6 +84,22 @@ pub(self) enum MLookupItem {
     Fourth,
 }
 
+#[derive(Clone)]
+struct Status {
+    eid: u64,
+    moid: u16,
+    fid: u16,
+    iid: u16,
+    mmid: u16,
+    sp: u64,
+    last_jump_eid: u64,
+}
+
+pub(self) struct StepStatus<'a> {
+    current: &'a Status,
+    next: &'a Status,
+}
+
 impl TryFrom<usize> for MLookupItem {
     type Error = Error;
 
@@ -99,7 +115,7 @@ impl TryFrom<usize> for MLookupItem {
 }
 
 #[derive(Clone)]
-pub struct EventTableCommonConfig<F> {
+pub(super) struct EventTableCommonConfig<F> {
     pub sel: Column<Fixed>,
     pub block_first_line_sel: Column<Fixed>,
 
@@ -137,11 +153,16 @@ pub struct EventTableCommonConfig<F> {
 }
 
 impl<F: FieldExt> EventTableCommonConfig<F> {
-    pub fn assign(
+    fn assign(
         &self,
         ctx: &mut Context<'_, F>,
+        op_configs: &BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         etable: &EventTable,
     ) -> Result<(Cell, Cell), Error> {
+        let mut status_entries = Vec::with_capacity(etable.entries().len() + 1);
+
+        // Step 1: fill fixed columns
+
         for i in 0..ETABLE_ROWS {
             ctx.region
                 .assign_fixed(|| "etable common sel", self.sel, i, || Ok(F::one()))?;
@@ -202,7 +223,11 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             };
         }
 
+        // Step 2: fill Status for each eentry
+
         for entry in etable.entries().iter() {
+            let opcode: OpcodeClass = entry.inst.opcode.clone().into();
+
             assign_advice!(
                 shared_bits,
                 EventTableBitColumnRotation::Enable,
@@ -211,8 +236,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             );
 
             {
-                let op: OpcodeClass = entry.inst.opcode.clone().into();
-                let (op_lvl1, op_lvl2) = opclass_to_two_level(op);
+                let (op_lvl1, op_lvl2) = opclass_to_two_level(opcode);
 
                 assign_advice!(opcode_bits, op_lvl1, "opcode level 1", 1);
                 assign_advice!(opcode_bits, op_lvl2, "opcode level 2", 1);
@@ -294,17 +318,77 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 || Ok(F::from_str_vartime(&entry.inst.encode().to_str_radix(16)).unwrap()),
             )?;
 
+            status_entries.push(Status {
+                eid: entry.eid,
+                moid: entry.inst.moid,
+                fid: entry.inst.fid,
+                iid: entry.inst.iid,
+                mmid: entry.inst.mmid,
+                sp: entry.sp,
+                last_jump_eid: entry.last_jump_eid,
+            });
+
             for _ in 0..ETABLE_STEP_SIZE {
                 ctx.next();
             }
         }
 
-        assign_advice!(
-            shared_bits,
-            EventTableBitColumnRotation::Enable,
-            "shared_bits",
-            0
-        );
+        // Step 3: fill the first disabled row
+
+        {
+            status_entries.push(Status {
+                eid: 0,
+                moid: 0,
+                fid: 0,
+                iid: 0,
+                mmid: 0,
+                sp: 0,
+                last_jump_eid: 0,
+            });
+
+            assign_advice!(
+                shared_bits,
+                EventTableBitColumnRotation::Enable,
+                "shared_bits",
+                0
+            );
+        }
+
+        // Step 4: fill lookup aux
+
+        ctx.reset();
+
+        for (index, entry) in etable.entries().iter().enumerate() {
+            let opcode: OpcodeClass = entry.inst.opcode.clone().into();
+
+            let step_status = StepStatus {
+                current: &status_entries[index],
+                next: &status_entries[index + 1],
+            };
+
+            let config = op_configs.get(&opcode).unwrap();
+
+            config.assign_jtable_lookup(
+                &step_status,
+                &mut |v: F| {
+                    ctx.region.assign_advice(
+                        || "jtable lookup entry",
+                        self.aux,
+                        ctx.offset + EventTableUnlimitColumnRotation::JTableLookup as usize,
+                        || Ok(v),
+                    )?;
+
+                    Ok(())
+                },
+                entry,
+            )?;
+
+            // assign mtable
+
+            for _ in 0..ETABLE_STEP_SIZE {
+                ctx.next();
+            }
+        }
 
         Ok((rest_mops_cell.unwrap(), rest_jops_cell.unwrap()))
     }
@@ -450,8 +534,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.next_last_jump_eid(meta) - common_config.last_jump_eid(meta);
 
             let eid_diff =
-                (common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1))
-                    * common_config.next_enable(meta);
+                common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1);
             // MMID equals to MOID in single module version
             let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
 
@@ -553,14 +636,14 @@ impl<F: FieldExt> EventTableConfig<F> {
                 vec![
                     rest_mops_acc,
                     rest_jops_acc,
-                    eid_diff,
+                    eid_diff * common_config.next_enable(meta),
                     moid_acc,
                     fid_acc,
                     iid_acc,
                     mmid_diff,
-                    sp_acc,
+                    sp_acc * common_config.next_enable(meta),
                     last_jump_eid_acc,
-                    itable_lookup,
+                    itable_lookup * common_config.next_enable(meta),
                     jtable_lookup,
                 ],
                 mtable_lookup,
@@ -611,11 +694,13 @@ impl<F: FieldExt> EventTableChip<F> {
         }
     }
 
-    pub fn assign(
+    pub(super) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
         etable: &EventTable,
     ) -> Result<(Cell, Cell), Error> {
-        self.config.common_config.assign(ctx, etable)
+        self.config
+            .common_config
+            .assign(ctx, &self.config.op_configs, etable)
     }
 }

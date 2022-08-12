@@ -18,10 +18,7 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::{
-    itable::{Opcode, OpcodeClass},
-    CompileTable, ExecutionTable,
-};
+use specs::{itable::OpcodeClass, CompileTable, ExecutionTable};
 use std::{
     collections::BTreeSet,
     fs::File,

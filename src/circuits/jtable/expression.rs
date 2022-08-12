@@ -6,10 +6,10 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 
-const EID_SHIFT: usize = 64;
-const LAST_JUMP_EID_SHIFT: usize = 48;
-const MOID_SHIFT: usize = 32;
-const FID_SHIFT: usize = 16;
+pub(crate) const EID_SHIFT: usize = 64;
+pub(crate) const LAST_JUMP_EID_SHIFT: usize = 48;
+pub(crate) const MOID_SHIFT: usize = 32;
+pub(crate) const FID_SHIFT: usize = 16;
 
 impl<F: FieldExt> JumpTableConfig<F> {
     pub(super) fn enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

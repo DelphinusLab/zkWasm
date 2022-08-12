@@ -95,7 +95,7 @@ impl U64Cell {
     }
 }
 
-pub struct EventTableCellAllocator<'a, F> {
+pub(super) struct EventTableCellAllocator<'a, F> {
     pub config: &'a EventTableCommonConfig<F>,
     pub bit_index: i32,
     pub common_range_index: i32,
@@ -105,7 +105,7 @@ pub struct EventTableCellAllocator<'a, F> {
 }
 
 impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
-    pub fn new(config: &'a EventTableCommonConfig<F>) -> Self {
+    pub(super) fn new(config: &'a EventTableCommonConfig<F>) -> Self {
         Self {
             config,
             bit_index: EventTableBitColumnRotation::Max as i32,
@@ -178,8 +178,18 @@ pub(super) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
 
 pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
-    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
     fn opcode_class(&self) -> OpcodeClass;
+
+    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
+    fn assign_jtable_lookup(
+        &self,
+        _step: &StepStatus,
+        _assign_aux: &mut dyn FnMut(F) -> Result<(), Error>,
+        _entry: &EventTableEntry,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>>;
     fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None

@@ -1,9 +1,6 @@
 use super::*;
 use crate::{
-    circuits::{
-        mtable_compact::expression::MtableLookupEntryEncode,
-        utils::{bn_to_field, Context},
-    },
+    circuits::utils::{bn_to_field, Context},
     constant,
 };
 use halo2_proofs::{
@@ -13,7 +10,6 @@ use halo2_proofs::{
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
-    mtable::VarType,
 };
 
 pub struct DropConfig {}
