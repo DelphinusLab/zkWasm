@@ -4,6 +4,7 @@ use super::*;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
+use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
@@ -315,7 +316,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 || "itable lookup entry",
                 self.aux,
                 ctx.offset + EventTableUnlimitColumnRotation::ITableLookup as usize,
-                || Ok(F::from_str_vartime(&entry.inst.encode().to_str_radix(16)).unwrap()),
+                || Ok(bn_to_field(&entry.inst.encode())),
             )?;
 
             status_entries.push(Status {
@@ -457,7 +458,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         jtable.configure_in_table(meta, "etable jtable lookup", |meta| {
-            curr!(meta, aux) * fixed_curr!(meta, jtable_lookup)
+            curr!(meta, aux)
+                * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
+                * fixed_curr!(meta, jtable_lookup)
         });
 
         for i in 0..U4_COLUMNS {
