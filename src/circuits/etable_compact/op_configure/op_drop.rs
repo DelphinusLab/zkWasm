@@ -33,7 +33,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for DropConfig {
         ))
     }
 
-    fn assign(&self, _ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
+    fn assign(
+        &self,
+        _ctx: &mut Context<'_, F>,
+        _step: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> Result<(), Error> {
         match &entry.step_info {
             specs::step::StepInfo::Drop => Ok(()),
             _ => unreachable!(),

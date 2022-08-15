@@ -1,9 +1,7 @@
 use super::*;
+use crate::circuits::mtable_compact::lookup::{MtableLookupEntryEncode, MtableLookupVTypeEncode};
 use crate::{
-    circuits::{
-        mtable_compact::expression::MtableLookupEntryEncode,
-        utils::{bn_to_field, Context},
-    },
+    circuits::utils::{bn_to_field, Context},
     constant,
 };
 use halo2_proofs::{
@@ -19,6 +17,7 @@ use specs::{
 pub struct ConstConfig {
     vtype: CommonRangeCell,
     value: U64Cell,
+    lookup_stack_write: MTableLookupCell,
 }
 
 pub struct ConstConfigBuilder {}
@@ -31,8 +30,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let vtype = common.alloc_common_range_value();
         let value = common.alloc_u64();
+        let lookup_stack_write = common.alloc_mtable_lookup();
 
-        Box::new(ConstConfig { vtype, value })
+        Box::new(ConstConfig {
+            vtype,
+            value,
+            lookup_stack_write,
+        })
     }
 }
 
@@ -45,11 +49,26 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
             + self.value.expr(meta)
     }
 
-    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
+    fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        step_info: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> Result<(), Error> {
         match &entry.step_info {
             specs::step::StepInfo::I32Const { value } => {
-                self.value.assign(ctx, *value as u64)?;
-                self.vtype.assign(ctx, VarType::I32 as u16)?;
+                self.value.assign(ctx, *value as u32 as u64)?;
+                self.vtype.assign(ctx, VarType::I32.encode())?;
+                self.lookup_stack_write.assign(
+                    ctx,
+                    &MemoryTableConfig::<F>::encode_stack_write(
+                        BigUint::from(step_info.current.eid),
+                        BigUint::from(1 as u64),
+                        BigUint::from(step_info.current.sp),
+                        BigUint::from(VarType::I32.encode()),
+                        BigUint::from(*value as u32 as u64),
+                    ),
+                )?;
 
                 Ok(())
             }
@@ -63,6 +82,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant!(-F::one()))
+    }
+
+    fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(1))
     }
 
     fn mtable_lookup(
@@ -83,5 +106,24 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
             MLookupItem::Third => None,
             MLookupItem::Fourth => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::test_circuit_builder::test_circuit_noexternal;
+
+    #[test]
+    fn test_op_const_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 }

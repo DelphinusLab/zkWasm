@@ -5,6 +5,8 @@ pub mod op_const;
 pub mod op_drop;
 pub mod op_return;
 
+// TODO: replace repeated code with macro
+
 pub struct Cell {
     pub col: Column<Advice>,
     pub rot: i32,
@@ -13,6 +15,51 @@ pub struct Cell {
 pub struct MTableLookupCell {
     pub col: Column<Advice>,
     pub rot: i32,
+}
+
+impl MTableLookupCell {
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: &BigUint,
+    ) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "mlookup cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(bn_to_field(value)),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
+}
+
+pub struct JTableLookupCell {
+    pub col: Column<Advice>,
+    pub rot: i32,
+}
+
+impl JTableLookupCell {
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: &BigUint,
+    ) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "jlookup cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(bn_to_field(value)),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
 }
 
 pub struct BitCell {
@@ -102,6 +149,7 @@ pub(super) struct EventTableCellAllocator<'a, F> {
     pub unlimit_index: i32,
     pub u64_index: i32,
     pub mtable_lookup_index: i32,
+    pub jtable_lookup_index: i32,
 }
 
 impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
@@ -113,6 +161,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             unlimit_index: EventTableUnlimitColumnRotation::SharedStart as i32,
             u64_index: 0,
             mtable_lookup_index: EventTableUnlimitColumnRotation::MTableLookupStart as i32,
+            jtable_lookup_index: EventTableUnlimitColumnRotation::JTableLookup as i32,
         }
     }
 
@@ -166,6 +215,18 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             rot: allocated_index,
         }
     }
+
+    pub fn alloc_jtable_lookup(&mut self) -> JTableLookupCell {
+        assert!(
+            self.jtable_lookup_index < EventTableUnlimitColumnRotation::MTableLookupStart as i32
+        );
+        let allocated_index = self.jtable_lookup_index;
+        self.jtable_lookup_index += 1;
+        JTableLookupCell {
+            col: self.config.aux,
+            rot: allocated_index,
+        }
+    }
 }
 
 pub(super) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
@@ -180,15 +241,12 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn opcode_class(&self) -> OpcodeClass;
 
-    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error>;
-    fn assign_jtable_lookup(
+    fn assign(
         &self,
-        _step: &StepStatus,
-        _assign_aux: &mut dyn FnMut(F) -> Result<(), Error>,
-        _entry: &EventTableEntry,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
+        ctx: &mut Context<'_, F>,
+        step: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> Result<(), Error>;
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>>;
     fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

@@ -2,8 +2,7 @@ use super::*;
 use crate::circuits::jtable::expression::{
     JtableLookupEntryEncode, EID_SHIFT, FID_SHIFT, LAST_JUMP_EID_SHIFT, MOID_SHIFT,
 };
-use crate::circuits::mtable_compact::expression::MtableLookupEntryEncode;
-use crate::circuits::utils::field_to_bn;
+use crate::circuits::mtable_compact::lookup::MtableLookupEntryEncode;
 use crate::{
     circuits::utils::{bn_to_field, Context},
     constant,
@@ -23,6 +22,7 @@ pub struct ReturnConfig {
     drop: CommonRangeCell,
     vtype: CommonRangeCell,
     value: U64Cell,
+    return_lookup: JTableLookupCell,
 }
 
 pub struct ReturnConfigBuilder {}
@@ -37,12 +37,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         let keep = common.alloc_bit_value();
         let vtype = common.alloc_common_range_value();
         let value = common.alloc_u64();
+        let return_lookup = common.alloc_jtable_lookup();
 
         Box::new(ReturnConfig {
             keep,
             drop,
             vtype,
             value,
+            return_lookup,
         })
     }
 }
@@ -58,7 +60,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
             + self.vtype.expr(meta)
     }
 
-    fn assign(&self, ctx: &mut Context<'_, F>, entry: &EventTableEntry) -> Result<(), Error> {
+    fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        step: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> Result<(), Error> {
         match &entry.step_info {
             specs::step::StepInfo::Return {
                 drop,
@@ -80,29 +87,24 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
                     self.value.assign(ctx, keep_values[0])?;
                 }
 
+                {
+                    let one = BigUint::from(1u64);
+
+                    let value: BigUint = step.current.last_jump_eid.to_biguint().unwrap()
+                        * (&one << EID_SHIFT)
+                        + step.next.last_jump_eid.to_biguint().unwrap()
+                            * (&one << LAST_JUMP_EID_SHIFT)
+                        + step.next.moid.to_biguint().unwrap() * (&one << MOID_SHIFT)
+                        + step.next.fid.to_biguint().unwrap() * (&one << FID_SHIFT)
+                        + step.next.iid.to_biguint().unwrap();
+
+                    self.return_lookup.assign(ctx, &value)?;
+                }
+
                 Ok(())
             }
             _ => unreachable!(),
         }
-    }
-
-    fn assign_jtable_lookup(
-        &self,
-        step: &StepStatus,
-        assign_aux: &mut dyn FnMut(F) -> Result<(), Error>,
-        _entry: &EventTableEntry,
-    ) -> Result<(), Error> {
-        let one = BigUint::from(1u64);
-
-        let value: BigUint = step.current.last_jump_eid.to_biguint().unwrap() * (&one << EID_SHIFT)
-            + step.next.last_jump_eid.to_biguint().unwrap() * (&one << LAST_JUMP_EID_SHIFT)
-            + step.next.moid.to_biguint().unwrap() * (&one << MOID_SHIFT)
-            + step.next.fid.to_biguint().unwrap() * (&one << FID_SHIFT)
-            + step.next.iid.to_biguint().unwrap();
-
-        assign_aux(bn_to_field(&value))?;
-
-        Ok(())
     }
 
     fn opcode_class(&self) -> OpcodeClass {

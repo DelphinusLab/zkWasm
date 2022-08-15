@@ -1,8 +1,9 @@
 use super::configure::STEP_SIZE;
+use super::lookup::MtableLookupEntryEncode;
 use super::*;
 use crate::circuits::utils::bn_to_field;
-use crate::constant;
 use crate::constant_from;
+use crate::constant_from_bn;
 use crate::curr;
 use crate::fixed_curr;
 use crate::nextn;
@@ -201,105 +202,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 }
 
-pub(crate) trait MtableLookupEntryEncode<F> {
-    fn encode_stack_read(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        sp: Expression<F>,
-        vtype: Expression<F>,
-        value: Expression<F>,
-    ) -> Expression<F>;
-    fn encode_stack_write(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        sp: Expression<F>,
-        vtype: Expression<F>,
-        value: Expression<F>,
-    ) -> Expression<F>;
-    fn encode_memory_load(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        mmid: Expression<F>,
-        address: Expression<F>,
-        vtype: Expression<F>,
-        block_value: Expression<F>,
-    ) -> Expression<F>;
-    fn encode_memory_store(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        mmid: Expression<F>,
-        address: Expression<F>,
-        vtype: Expression<F>,
-        block_value: Expression<F>,
-    ) -> Expression<F>;
-}
-
-impl<F: FieldExt> MtableLookupEntryEncode<F> for MemoryTableConfig<F> {
-    fn encode_stack_read(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        sp: Expression<F>,
-        vtype: Expression<F>,
-        value: Expression<F>,
-    ) -> Expression<F> {
-        eid * constant!(bn_to_field(&EID_SHIFT))
-            + emid * constant!(bn_to_field(&EMID_SHIFT))
-            + sp * constant!(bn_to_field(&OFFSET_SHIFT))
-            + constant!(bn_to_field(&LOC_TYPE_SHIFT)) * constant_from!(LocationType::Stack)
-            + constant!(bn_to_field(&ACCESS_TYPE_SHIFT)) * constant_from!(AccessType::Read)
-            + vtype * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-            + value
-    }
-
-    fn encode_stack_write(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        sp: Expression<F>,
-        vtype: Expression<F>,
-        value: Expression<F>,
-    ) -> Expression<F> {
-        eid * constant!(bn_to_field(&EID_SHIFT))
-            + emid * constant!(bn_to_field(&EMID_SHIFT))
-            + sp * constant!(bn_to_field(&OFFSET_SHIFT))
-            + constant!(bn_to_field(&LOC_TYPE_SHIFT)) * constant_from!(LocationType::Stack)
-            + constant!(bn_to_field(&ACCESS_TYPE_SHIFT)) * constant_from!(AccessType::Write)
-            + vtype * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-            + value
-    }
-
-    fn encode_memory_load(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        mmid: Expression<F>,
-        address: Expression<F>,
-        vtype: Expression<F>,
-        block_value: Expression<F>,
-    ) -> Expression<F> {
-        eid * constant!(bn_to_field(&EID_SHIFT))
-            + emid * constant!(bn_to_field(&EMID_SHIFT))
-            + mmid * constant!(bn_to_field(&MMID_SHIFT))
-            + address * constant!(bn_to_field(&OFFSET_SHIFT))
-            + constant!(bn_to_field(&LOC_TYPE_SHIFT)) * constant_from!(LocationType::Heap)
-            + constant!(bn_to_field(&ACCESS_TYPE_SHIFT)) * constant_from!(AccessType::Read)
-            + vtype * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-            + block_value
-    }
-
-    fn encode_memory_store(
-        eid: Expression<F>,
-        emid: Expression<F>,
-        mmid: Expression<F>,
-        address: Expression<F>,
-        vtype: Expression<F>,
-        block_value: Expression<F>,
-    ) -> Expression<F> {
-        eid * constant!(bn_to_field(&EID_SHIFT))
-            + emid * constant!(bn_to_field(&EMID_SHIFT))
-            + mmid * constant!(bn_to_field(&MMID_SHIFT))
-            + address * constant!(bn_to_field(&OFFSET_SHIFT))
-            + constant!(bn_to_field(&LOC_TYPE_SHIFT)) * constant_from!(LocationType::Heap)
-            + constant!(bn_to_field(&ACCESS_TYPE_SHIFT)) * constant_from!(AccessType::Write)
-            + vtype * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-            + block_value
+impl<F: FieldExt> MtableLookupEntryEncode<Expression<F>> for MemoryTableConfig<F> {
+    fn bn_to_t(v: &BigUint) -> Expression<F> {
+        constant_from_bn!(v)
     }
 }

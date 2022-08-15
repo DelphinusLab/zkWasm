@@ -1,6 +1,8 @@
 use self::op_configure::EventTableOpcodeConfig;
 use super::itable::Encode;
 use super::*;
+use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
@@ -85,6 +87,18 @@ pub(self) enum MLookupItem {
     Fourth,
 }
 
+impl From<usize> for MLookupItem {
+    fn from(i: usize) -> Self {
+        match i {
+            0 => Self::First,
+            1 => Self::Second,
+            2 => Self::Third,
+            3 => Self::Fourth,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct Status {
     eid: u64,
@@ -101,10 +115,10 @@ pub(self) struct StepStatus<'a> {
     next: &'a Status,
 }
 
-impl TryFrom<usize> for MLookupItem {
+impl TryFrom<u32> for MLookupItem {
     type Error = Error;
 
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Self::First),
             1 => Ok(Self::Second),
@@ -168,7 +182,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             ctx.region
                 .assign_fixed(|| "etable common sel", self.sel, i, || Ok(F::one()))?;
 
-            if i % ETABLE_STEP_SIZE == 0 {
+            if i % ETABLE_STEP_SIZE == EventTableBitColumnRotation::Enable as usize {
                 ctx.region.assign_fixed(
                     || "etable common block first line sel",
                     self.block_first_line_sel,
@@ -177,8 +191,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
-            if i % (ETABLE_STEP_SIZE + EventTableUnlimitColumnRotation::ITableLookup as usize) == 0
-            {
+            if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::ITableLookup as usize {
                 ctx.region.assign_fixed(
                     || "itable lookup",
                     self.itable_lookup,
@@ -187,7 +200,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
-            if i % EventTableUnlimitColumnRotation::JTableLookup as usize == 0 {
+            if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::JTableLookup as usize {
                 ctx.region.assign_fixed(
                     || "jtable lookup",
                     self.jtable_lookup,
@@ -196,11 +209,11 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
-            if i >= EventTableUnlimitColumnRotation::MTableLookupStart as usize
-                && i < EventTableUnlimitColumnRotation::U64Start as usize
+            if i % ETABLE_STEP_SIZE >= EventTableUnlimitColumnRotation::MTableLookupStart as usize
+                && i % ETABLE_STEP_SIZE < EventTableUnlimitColumnRotation::U64Start as usize
             {
                 ctx.region.assign_fixed(
-                    || "jtable lookup",
+                    || "mtable lookup",
                     self.mtable_lookup,
                     i,
                     || Ok(F::one()),
@@ -312,12 +325,14 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 entry.last_jump_eid
             );
 
+            /*
             ctx.region.assign_advice(
                 || "itable lookup entry",
                 self.aux,
                 ctx.offset + EventTableUnlimitColumnRotation::ITableLookup as usize,
                 || Ok(bn_to_field(&entry.inst.encode())),
             )?;
+            */
 
             status_entries.push(Status {
                 eid: entry.eid,
@@ -369,22 +384,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
             let config = op_configs.get(&opcode).unwrap();
 
-            config.assign_jtable_lookup(
-                &step_status,
-                &mut |v: F| {
-                    ctx.region.assign_advice(
-                        || "jtable lookup entry",
-                        self.aux,
-                        ctx.offset + EventTableUnlimitColumnRotation::JTableLookup as usize,
-                        || Ok(v),
-                    )?;
-
-                    Ok(())
-                },
-                entry,
-            )?;
-
-            // TODO: assign mtable
+            config.assign(ctx, &step_status, entry)?;
 
             for _ in 0..ETABLE_STEP_SIZE {
                 ctx.next();
@@ -516,6 +516,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         ];
 
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
+        configure!(OpcodeClass::Const, ConstConfigBuilder);
+        configure!(OpcodeClass::Drop, DropConfigBuilder);
 
         meta.create_gate("enable seq", |meta| {
             vec![
@@ -532,7 +534,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.next_rest_jops(meta) - common_config.rest_jops(meta);
             let mut moid_acc = common_config.next_moid(meta) - common_config.moid(meta);
             let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
-            let mut iid_acc = common_config.next_iid(meta) - common_config.iid(meta);
+            let mut iid_acc =
+                common_config.next_iid(meta) - common_config.iid(meta) - constant_from!(1);
             let mut sp_acc = common_config.next_sp(meta) - common_config.sp(meta);
             let mut last_jump_eid_acc =
                 common_config.next_last_jump_eid(meta) - common_config.last_jump_eid(meta);
@@ -555,7 +558,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 match config.mops(meta) {
                     Some(e) => {
                         rest_mops_acc =
-                            rest_mops_acc - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                            rest_mops_acc + e * common_config.op_enabled(meta, *lvl1, *lvl2)
                     }
                     _ => {}
                 }
@@ -563,7 +566,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 match config.jops(meta) {
                     Some(e) => {
                         rest_jops_acc =
-                            rest_jops_acc - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                            rest_jops_acc + e * common_config.op_enabled(meta, *lvl1, *lvl2)
                     }
                     _ => {}
                 }
@@ -645,11 +648,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                     eid_diff * common_config.next_enable(meta),
                     moid_acc,
                     fid_acc,
-                    iid_acc,
+                    iid_acc * common_config.next_enable(meta),
                     mmid_diff,
                     sp_acc * common_config.next_enable(meta),
                     last_jump_eid_acc,
-                    itable_lookup * common_config.next_enable(meta),
+                    itable_lookup,
                     jtable_lookup,
                 ],
                 mtable_lookup,

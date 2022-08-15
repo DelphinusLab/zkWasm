@@ -38,6 +38,7 @@ lazy_static! {
 
 pub mod configure;
 pub mod expression;
+pub(crate) mod lookup;
 
 #[derive(Clone)]
 pub struct MemoryTableConfig<F: FieldExt> {
@@ -84,6 +85,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         imtable: &InitMemoryTableConfig<F>,
     ) -> Self {
         let mtconfig = Self::new(meta, cols);
+        meta.enable_equality(mtconfig.aux);
         mtconfig.configure(meta, rtable, imtable);
         mtconfig
     }
@@ -330,8 +332,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 ctx.offset += 1;
             }
         }
-
-        println!("offset {}", ctx.offset);
 
         for i in ctx.offset..MAX_MATBLE_ROWS {
             self.config
