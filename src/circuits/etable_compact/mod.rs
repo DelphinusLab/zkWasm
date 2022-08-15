@@ -5,6 +5,8 @@ use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
+use crate::circuits::itable::encode_inst_expr;
+use crate::circuits::itable::Encode;
 use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
@@ -324,15 +326,12 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 entry.last_jump_eid
             );
 
-            // TODO: itable lookup
-            /*
             ctx.region.assign_advice(
                 || "itable lookup entry",
                 self.aux,
                 ctx.offset + EventTableUnlimitColumnRotation::ITableLookup as usize,
                 || Ok(bn_to_field(&entry.inst.encode())),
             )?;
-            */
 
             status_entries.push(Status {
                 eid: entry.eid,
@@ -612,13 +611,14 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.itable_lookup(meta, &common_config) {
-                    Some(e) => {
-                        itable_lookup =
-                            itable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2)
-                    }
-                    _ => {}
-                }
+                itable_lookup = itable_lookup
+                    - encode_inst_expr(
+                        common_config.moid(meta),
+                        common_config.mmid(meta),
+                        common_config.fid(meta),
+                        common_config.iid(meta),
+                        config.opcode(meta),
+                    ) * common_config.op_enabled(meta, *lvl1, *lvl2);
 
                 match config.jtable_lookup(meta, &common_config) {
                     Some(e) => {

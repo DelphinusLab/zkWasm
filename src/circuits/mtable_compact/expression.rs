@@ -127,6 +127,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         (self.ge_two_bytes(meta) + self.ge_four_bytes(meta) + self.ge_eight_bytes(meta))
             * constant_from!(2)
             + self.sign(meta)
+            + constant_from!(1)
     }
 
     pub(super) fn prev_vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

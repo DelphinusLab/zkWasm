@@ -207,9 +207,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     ROTATION_VTYPE_SIGN,
                     bit,
                     if entry.vtype as usize & 1 == 1 {
-                        F::one()
-                    } else {
                         F::zero()
+                    } else {
+                        F::one()
                     }
                 );
             }

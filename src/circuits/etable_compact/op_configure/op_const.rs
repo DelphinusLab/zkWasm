@@ -1,5 +1,5 @@
 use super::*;
-use crate::circuits::mtable_compact::lookup::{MtableLookupEntryEncode, MtableLookupVTypeEncode};
+use crate::circuits::mtable_compact::lookup::MtableLookupEntryEncode;
 use crate::{
     circuits::utils::{bn_to_field, Context},
     constant,
@@ -58,14 +58,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
         match &entry.step_info {
             specs::step::StepInfo::I32Const { value } => {
                 self.value.assign(ctx, *value as u32 as u64)?;
-                self.vtype.assign(ctx, VarType::I32.encode())?;
+                self.vtype.assign(ctx, VarType::I32 as u16)?;
+
                 self.lookup_stack_write.assign(
                     ctx,
                     &MemoryTableConfig::<F>::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
                         BigUint::from(step_info.current.sp),
-                        BigUint::from(VarType::I32.encode()),
+                        BigUint::from(VarType::I32 as u16),
                         BigUint::from(*value as u32 as u64),
                     ),
                 )?;

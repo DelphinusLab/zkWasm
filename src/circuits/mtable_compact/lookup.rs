@@ -1,27 +1,12 @@
 use halo2_proofs::arithmetic::FieldExt;
 use num_bigint::BigUint;
-use specs::mtable::{AccessType, LocationType, VarType};
+use specs::mtable::{AccessType, LocationType};
 use std::ops::{Add, Mul};
 
 use super::{
     MemoryTableConfig, ACCESS_TYPE_SHIFT, EID_SHIFT, EMID_SHIFT, LOC_TYPE_SHIFT, MMID_SHIFT,
     OFFSET_SHIFT, VAR_TYPE_SHIFT,
 };
-
-pub(crate) trait MtableLookupVTypeEncode {
-    fn encode(&self) -> u16;
-}
-
-impl MtableLookupVTypeEncode for VarType {
-    fn encode(&self) -> u16 {
-        let ge_2_bytes = (self.byte_size() >= 2) as u16;
-        let ge_4_bytes = (self.byte_size() >= 4) as u16;
-        let ge_8_bytes = (self.byte_size() >= 8) as u16;
-        let unsigned = (*self as u16) & 1;
-
-        (ge_2_bytes + ge_4_bytes + ge_8_bytes) * 2 + unsigned
-    }
-}
 
 pub(crate) trait MtableLookupEntryEncode<T: Add<T, Output = T> + Mul<T, Output = T>> {
     fn bn_to_t(_v: &BigUint) -> T;
