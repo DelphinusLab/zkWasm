@@ -1,5 +1,4 @@
 use self::op_configure::EventTableOpcodeConfig;
-use super::itable::Encode;
 use super::*;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
@@ -325,6 +324,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 entry.last_jump_eid
             );
 
+            // TODO: itable lookup
             /*
             ctx.region.assign_advice(
                 || "itable lookup entry",

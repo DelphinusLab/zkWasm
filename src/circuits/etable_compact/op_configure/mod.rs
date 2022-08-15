@@ -294,14 +294,14 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     fn jtable_lookup(
         &self,
         _meta: &mut VirtualCells<'_, F>,
-        common_config: &EventTableCommonConfig<F>,
+        _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
     }
     fn itable_lookup(
         &self,
         _meta: &mut VirtualCells<'_, F>,
-        common_config: &EventTableCommonConfig<F>,
+        _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
     }

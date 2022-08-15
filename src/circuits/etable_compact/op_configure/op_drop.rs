@@ -19,7 +19,7 @@ pub struct DropConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
     fn configure(
         _meta: &mut ConstraintSystem<F>,
-        common: &mut EventTableCellAllocator<F>,
+        _common: &mut EventTableCellAllocator<F>,
         _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         Box::new(DropConfig {})
@@ -27,7 +27,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for DropConfig {
-    fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+    fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Drop as u64) << OPCODE_CLASS_SHIFT)
         ))
