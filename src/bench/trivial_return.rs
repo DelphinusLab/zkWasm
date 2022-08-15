@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use specs::types::Value;
     use wasmi::{ImportsBuilder, NopExternals};
 
     use crate::{
@@ -25,12 +24,7 @@ mod tests {
             .compile(&binary, &ImportsBuilder::default())
             .unwrap();
         let execution_log = compiler
-            .run(
-                &mut NopExternals,
-                &compiled_module,
-                "test",
-                vec![],
-            )
+            .run(&mut NopExternals, &compiled_module, "test", vec![])
             .unwrap();
 
         let builder = ZkWasmCircuitBuilder {

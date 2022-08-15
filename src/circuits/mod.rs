@@ -1,4 +1,5 @@
 use crate::circuits::{
+    config::K,
     imtable::{InitMemoryTableConfig, MInitTableChip},
     itable::{InstructionTableChip, InstructionTableConfig},
     rtable::{RangeTableChip, RangeTableConfig},
@@ -28,11 +29,13 @@ use std::{
 };
 
 use self::{
+    config::VAR_COLUMNS,
     etable_compact::{EventTableChip, EventTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
 };
 
+pub mod config;
 pub mod etable_compact;
 pub mod imtable;
 pub mod itable;
@@ -40,9 +43,6 @@ pub mod jtable;
 pub mod mtable_compact;
 pub mod rtable;
 pub mod utils;
-
-const VAR_COLUMNS: usize = 15;
-const K: u32 = 18;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
@@ -197,7 +197,7 @@ impl ZkWasmCircuitBuilder {
             Params::<G1Affine>::read(Cursor::new(buf)).unwrap()
         } else {
             // Initialize the polynomial commitment parameters
-            let timer = start_timer!(|| "build params with K = 18");
+            let timer = start_timer!(|| format!("build params with K = {}", K));
             let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
             end_timer!(timer);
 

@@ -1,5 +1,6 @@
 use self::op_configure::EventTableOpcodeConfig;
 use super::*;
+use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
@@ -36,7 +37,6 @@ pub mod op_configure;
 // 1. add constraints for termination
 // 2. add input output for circuits
 
-const ETABLE_ROWS: usize = 1usize << 16;
 const ETABLE_STEP_SIZE: usize = 16usize;
 const U4_COLUMNS: usize = 4usize;
 const MTABLE_LOOKUPS_SIZE: usize = 4usize;
@@ -174,12 +174,11 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         ctx: &mut Context<'_, F>,
         op_configs: &BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         etable: &EventTable,
-    ) -> Result<(Cell, Cell), Error> {
+    ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         let mut status_entries = Vec::with_capacity(etable.entries().len() + 1);
 
         // Step 1: fill fixed columns
-
-        for i in 0..ETABLE_ROWS {
+        for i in 0..MAX_ETABLE_ROWS {
             ctx.region
                 .assign_fixed(|| "etable common sel", self.sel, i, || Ok(F::one()))?;
 
@@ -390,7 +389,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             }
         }
 
-        Ok((rest_mops_cell.unwrap(), rest_jops_cell.unwrap()))
+        Ok((rest_mops_cell, rest_jops_cell))
     }
 }
 
@@ -707,7 +706,7 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         etable: &EventTable,
-    ) -> Result<(Cell, Cell), Error> {
+    ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         self.config
             .common_config
             .assign(ctx, &self.config.op_configs, etable)

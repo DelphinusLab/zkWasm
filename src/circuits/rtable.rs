@@ -1,3 +1,5 @@
+use super::config::K;
+use super::utils::bn_to_field;
 use crate::constant_from;
 use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
@@ -12,8 +14,6 @@ use specs::itable::BitOp;
 use specs::mtable::VarType;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
-
-use super::utils::bn_to_field;
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
@@ -283,9 +283,9 @@ impl<F: FieldExt> RangeTableChip<F> {
 
     pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         layouter.assign_table(
-            || "u16 range table",
+            || "common range table",
             |mut table| {
-                for i in 0..(1 << 16) {
+                for i in 0..(1 << (K - 1)) {
                     table.assign_cell(
                         || "range table",
                         self.config.u16_col,
@@ -353,154 +353,155 @@ impl<F: FieldExt> RangeTableChip<F> {
             },
         )?;
 
-        layouter.assign_table(
-            || "byte shift res table",
-            |mut table| {
-                let mut index = 0usize;
+        /*
+                layouter.assign_table(
+                    || "byte shift res table",
+                    |mut table| {
+                        let mut index = 0usize;
 
-                for t in VarType::iter() {
-                    for offset in 0..8 {
-                        for pos in 0..8 {
+                        for t in VarType::iter() {
+                            for offset in 0..8 {
+                                for pos in 0..8 {
+                                    for b in 0..256u64 {
+                                        table.assign_cell(
+                                            || "byte shift res table",
+                                            self.config.byte_shift_res_col,
+                                            index,
+                                            || Ok(byte_shift_tbl_encode::<F>(t, offset, pos, b)),
+                                        )?;
+                                        index += 1;
+                                    }
+                                }
+                            }
+                        }
+
+                        table.assign_cell(
+                            || "byte shift res table",
+                            self.config.byte_shift_res_col,
+                            index,
+                            || Ok(F::zero()),
+                        )?;
+
+                        Ok(())
+                    },
+                )?;
+
+                layouter.assign_table(
+                    || "byte shift validation table",
+                    |mut table| {
+                        let mut index = 0usize;
+                        for shift in 0..8 {
                             for b in 0..256u64 {
                                 table.assign_cell(
-                                    || "byte shift res table",
-                                    self.config.byte_shift_res_col,
+                                    || "byte shift validation table",
+                                    self.config.byte_shift_validation_col,
                                     index,
-                                    || Ok(byte_shift_tbl_encode::<F>(t, offset, pos, b)),
+                                    || Ok(F::from(b << (shift * 8))),
                                 )?;
                                 index += 1;
                             }
                         }
-                    }
-                }
 
-                table.assign_cell(
-                    || "byte shift res table",
-                    self.config.byte_shift_res_col,
-                    index,
-                    || Ok(F::zero()),
+                        Ok(())
+                    },
                 )?;
 
-                Ok(())
-            },
-        )?;
+                layouter.assign_table(
+                    || "byte offset unchangable validation table",
+                    |mut table| {
+                        let mut index = 0usize;
+                        for t in VarType::iter() {
+                            for offset in 0..8 {
+                                for pos in 0..8 {
+                                    let (start, end) = if pos >= offset && pos < offset + t.byte_size() {
+                                        (0, 511u64)
+                                    } else {
+                                        (255, 256u64)
+                                    };
+                                    for b in start..end {
+                                        table.assign_cell(
+                                            || "byte unchangable table",
+                                            self.config.byte_offset_unchanged_validation_col,
+                                            index,
+                                            || {
+                                                Ok(F::from(
+                                                    ((t as u64) << 32) + (offset << 24) + (pos << 16) + b,
+                                                ))
+                                            },
+                                        )?;
+                                        index += 1;
+                                    }
+                                }
+                            }
+                        }
 
-        layouter.assign_table(
-            || "byte shift validation table",
-            |mut table| {
-                let mut index = 0usize;
-                for shift in 0..8 {
-                    for b in 0..256u64 {
                         table.assign_cell(
-                            || "byte shift validation table",
-                            self.config.byte_shift_validation_col,
+                            || "byte shift res table",
+                            self.config.byte_offset_unchanged_validation_col,
                             index,
-                            || Ok(F::from(b << (shift * 8))),
+                            || Ok(F::zero()),
                         )?;
-                        index += 1;
-                    }
-                }
 
-                Ok(())
-            },
-        )?;
-
-        layouter.assign_table(
-            || "byte offset unchangable validation table",
-            |mut table| {
-                let mut index = 0usize;
-                for t in VarType::iter() {
-                    for offset in 0..8 {
-                        for pos in 0..8 {
-                            let (start, end) = if pos >= offset && pos < offset + t.byte_size() {
-                                (0, 511u64)
-                            } else {
-                                (255, 256u64)
-                            };
-                            for b in start..end {
-                                table.assign_cell(
-                                    || "byte unchangable table",
-                                    self.config.byte_offset_unchanged_validation_col,
-                                    index,
-                                    || {
-                                        Ok(F::from(
-                                            ((t as u64) << 32) + (offset << 24) + (pos << 16) + b,
-                                        ))
-                                    },
-                                )?;
-                                index += 1;
-                            }
-                        }
-                    }
-                }
-
-                table.assign_cell(
-                    || "byte shift res table",
-                    self.config.byte_offset_unchanged_validation_col,
-                    index,
-                    || Ok(F::zero()),
+                        Ok(())
+                    },
                 )?;
 
-                Ok(())
-            },
-        )?;
+                layouter.assign_table(
+                    || "lt table",
+                    |mut table| {
+                        let mut offset = 0;
 
-        layouter.assign_table(
-            || "lt table",
-            |mut table| {
-                let mut offset = 0;
+                        for i in 1u64..(1 << 8) {
+                            for j in 0u64..i {
+                                table.assign_cell(
+                                    || "range table",
+                                    self.config.byte_lt_col,
+                                    offset,
+                                    || Ok(F::from((1 << 16) + (j << 8) + i)),
+                                )?;
 
-                for i in 1u64..(1 << 8) {
-                    for j in 0u64..i {
+                                offset += 1;
+                            }
+                        }
+
                         table.assign_cell(
-                            || "range table",
+                            || "byte shift res table",
                             self.config.byte_lt_col,
                             offset,
-                            || Ok(F::from((1 << 16) + (j << 8) + i)),
+                            || Ok(F::zero()),
                         )?;
 
-                        offset += 1;
-                    }
-                }
-
-                table.assign_cell(
-                    || "byte shift res table",
-                    self.config.byte_lt_col,
-                    offset,
-                    || Ok(F::zero()),
+                        Ok(())
+                    },
                 )?;
 
-                Ok(())
-            },
-        )?;
+                layouter.assign_table(
+                    || "pow 2 table",
+                    |mut table| {
+                        let mut offset = 0;
 
-        layouter.assign_table(
-            || "pow 2 table",
-            |mut table| {
-                let mut offset = 0;
+                        for i in 0u64..64 {
+                            table.assign_cell(
+                                || "pow 2 table enable",
+                                self.config.pow_2_col,
+                                offset,
+                                || Ok(F::from(((1 << i) << 16) + (i << 8) + 1)),
+                            )?;
 
-                for i in 0u64..64 {
-                    table.assign_cell(
-                        || "pow 2 table enable",
-                        self.config.pow_2_col,
-                        offset,
-                        || Ok(F::from(((1 << i) << 16) + (i << 8) + 1)),
-                    )?;
+                            offset += 1;
+                        }
 
-                    offset += 1;
-                }
+                        table.assign_cell(
+                            || "pow 2 shift disable",
+                            self.config.pow_2_col,
+                            offset,
+                            || Ok(F::zero()),
+                        )?;
 
-                table.assign_cell(
-                    || "pow 2 shift disable",
-                    self.config.pow_2_col,
-                    offset,
-                    || Ok(F::zero()),
+                        Ok(())
+                    },
                 )?;
-
-                Ok(())
-            },
-        )?;
-
+        */
         Ok(())
     }
 }

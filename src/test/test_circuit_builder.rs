@@ -1,11 +1,10 @@
+use crate::circuits::config::K;
 use crate::circuits::TestCircuit;
 use crate::runtime::{WasmInterpreter, WasmRuntime};
 use halo2_proofs::pairing::bn256::Fr as Fp;
 use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, plonk::Error};
 use specs::{write_json, CompileTable, ExecutionTable};
 use wasmi::{ImportsBuilder, NopExternals};
-
-const K: u32 = 18;
 
 pub fn test_circuit_noexternal(textual_repr: &str) -> Result<(), Error> {
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");

@@ -1,4 +1,5 @@
 use self::configure::MemoryTableConstriants;
+use super::config::MAX_MATBLE_ROWS;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::row_diff::RowDiffConfig;
@@ -23,7 +24,6 @@ use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::marker::PhantomData;
 
-const MAX_MATBLE_ROWS: usize = 1usize << 15;
 const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / STEP_SIZE as usize * STEP_SIZE as usize;
 
 lazy_static! {
@@ -108,7 +108,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         mtable: &MTable,
-        etable_rest_mops_cell: Cell,
+        etable_rest_mops_cell: Option<Cell>,
     ) -> Result<(), Error> {
         assert_eq!(MTABLE_ROWS % (STEP_SIZE as usize), 0);
 
@@ -278,9 +278,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     F::from(entry.atype as u64)
                 );
                 let cell = assign_advice!("rest mops", RotationAux::RestMops, aux, F::from(mops));
-                if index == 0 {
+                if index == 0 && etable_rest_mops_cell.is_some() {
                     ctx.region
-                        .constrain_equal(cell.cell(), etable_rest_mops_cell)?;
+                        .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
                 }
             }
 

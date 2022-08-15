@@ -1,5 +1,5 @@
 use self::configure::JTableConstraint;
-
+use super::config::MAX_JATBLE_ROWS;
 use super::rtable::RangeTableConfig;
 use super::utils::bn_to_field;
 use super::utils::Context;
@@ -23,7 +23,6 @@ pub enum JtableOffset {
     JtableOffsetMax = 3,
 }
 
-const MAX_JATBLE_ROWS: usize = 1usize << 15;
 const JTABLE_ROWS: usize = MAX_JATBLE_ROWS / JtableOffset::JtableOffsetMax as usize
     * JtableOffset::JtableOffsetMax as usize;
 
@@ -59,7 +58,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         entries: &Vec<JumpTableEntry>,
-        etable_rest_jops_cell: Cell,
+        etable_rest_jops_cell: Option<Cell>,
     ) -> Result<(), Error> {
         for i in 0..JTABLE_ROWS {
             if (i as u32) % (JtableOffset::JtableOffsetMax as u32) == 0 {
@@ -90,9 +89,9 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            if i == 0 {
+            if i == 0 && etable_rest_jops_cell.is_some() {
                 ctx.region
-                    .constrain_equal(cell.cell(), etable_rest_jops_cell)?;
+                    .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
             }
 
             ctx.region.assign_advice(
@@ -123,9 +122,9 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            if ctx.offset == 0 {
+            if ctx.offset == 0 && etable_rest_jops_cell.is_some() {
                 ctx.region
-                    .constrain_equal(cell.cell(), etable_rest_jops_cell)?;
+                    .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
             }
 
             ctx.region.assign_advice(
