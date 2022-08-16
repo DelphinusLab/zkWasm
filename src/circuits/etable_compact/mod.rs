@@ -2,6 +2,7 @@ use self::op_configure::EventTableOpcodeConfig;
 use super::*;
 use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_local_get::LocalGetConfigBuilder;
@@ -527,6 +528,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
         configure!(OpcodeClass::Bin, BinConfigBuilder);
+        configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
 
         meta.create_gate("enable seq", |meta| {
             vec![
@@ -543,8 +545,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.next_rest_jops(meta) - common_config.rest_jops(meta);
             let mut moid_acc = common_config.next_moid(meta) - common_config.moid(meta);
             let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
-            let mut iid_acc =
-                common_config.next_iid(meta) - common_config.iid(meta) - constant_from!(1);
+            let mut iid_acc = common_config.next_iid(meta) - common_config.iid(meta);
             let mut sp_acc = common_config.next_sp(meta) - common_config.sp(meta);
             let mut last_jump_eid_acc =
                 common_config.next_last_jump_eid(meta) - common_config.last_jump_eid(meta);

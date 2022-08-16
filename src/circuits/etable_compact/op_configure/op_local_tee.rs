@@ -1,5 +1,4 @@
 use super::*;
-use crate::circuits::mtable_compact::lookup::MtableLookupEntryEncode;
 use crate::{
     circuits::utils::{bn_to_field, Context},
     constant,
@@ -115,14 +114,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         match item {
-            MLookupItem::First => Some(MemoryTableConfig::encode_stack_read(
+            MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
                 self.vtype.expr(meta),
                 self.value.expr(meta),
             )),
-            MLookupItem::Second => Some(MemoryTableConfig::encode_stack_write(
+            MLookupItem::Second => Some(MemoryTableConfig::<F>::encode_stack_write(
                 common_config.eid(meta),
                 constant_from!(2),
                 common_config.sp(meta) + self.offset.expr(meta),

@@ -298,15 +298,16 @@ impl<F: FieldExt> Lookup<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut halo2_proofs::plonk::VirtualCells<'_, F>,
     ) -> halo2_proofs::plonk::Expression<F> {
-        (self.eid(meta) * constant!(bn_to_field(&EID_SHIFT))
-            + self.emid(meta) * constant!(bn_to_field(&EMID_SHIFT))
-            + self.mmid(meta) * constant!(bn_to_field(&MMID_SHIFT))
-            + self.offset(meta) * constant!(bn_to_field(&OFFSET_SHIFT))
-            + self.ltype(meta) * constant!(bn_to_field(&LOC_TYPE_SHIFT))
-            + self.atype(meta) * constant!(bn_to_field(&ACCESS_TYPE_SHIFT))
-            + self.vtype(meta) * constant!(bn_to_field(&VAR_TYPE_SHIFT))
-            + self.value(meta))
-            * self.is_enabled_block(meta)
+        Self::encode_for_lookup(
+            self.eid(meta),
+            self.emid(meta),
+            self.mmid(meta),
+            self.offset(meta),
+            self.ltype(meta),
+            self.atype(meta),
+            self.vtype(meta),
+            self.value(meta),
+        ) * self.is_enabled_block(meta)
     }
 }
 

@@ -1,7 +1,10 @@
+use crate::constant;
+
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 pub(super) mod op_bin;
+pub(super) mod op_br_if;
 pub(super) mod op_const;
 pub(super) mod op_drop;
 pub(super) mod op_local_get;
@@ -14,6 +17,22 @@ pub(super) mod op_return;
 pub struct Cell {
     pub col: Column<Advice>,
     pub rot: i32,
+}
+
+impl Cell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(value),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
 }
 
 pub struct MTableLookupCell {
@@ -79,6 +98,7 @@ impl BitCell {
             (ctx.offset as i32 + self.rot) as usize,
             || Ok(F::from(value as u64)),
         )?;
+
         Ok(())
     }
 
@@ -285,10 +305,10 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     }
     fn next_iid(
         &self,
-        _meta: &mut VirtualCells<'_, F>,
-        _common_config: &EventTableCommonConfig<F>,
+        meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        None
+        Some(common_config.iid(meta) + constant_from!(1))
     }
     fn mtable_lookup(
         &self,

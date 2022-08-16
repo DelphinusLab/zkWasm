@@ -1,0 +1,348 @@
+use super::*;
+use crate::{
+    circuits::utils::{bn_to_field, Context},
+    constant,
+};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+};
+use specs::itable::OPCODE_ARG1_SHIFT;
+use specs::mtable::VarType;
+use specs::step::StepInfo;
+use specs::{
+    etable::EventTableEntry,
+    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
+};
+
+pub struct BrIfConfig {
+    cond: U64Cell,
+    cond_inv: Cell,
+    keep: BitCell,
+    keep_value: U64Cell,
+    keep_type: CommonRangeCell,
+    drop: CommonRangeCell,
+    dst_pc: CommonRangeCell,
+    lookup_stack_read_cond: MTableLookupCell,
+    lookup_stack_read_return_value: MTableLookupCell,
+    lookup_stack_write_return_value: MTableLookupCell,
+}
+
+pub struct BrIfConfigBuilder {}
+
+impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
+    fn configure(
+        meta: &mut ConstraintSystem<F>,
+        common: &mut EventTableCellAllocator<F>,
+        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) -> Box<dyn EventTableOpcodeConfig<F>> {
+        let cond = common.alloc_u64();
+        let cond_inv = common.alloc_unlimited_value();
+        let keep = common.alloc_bit_value();
+        let keep_value = common.alloc_u64();
+        let keep_type = common.alloc_common_range_value();
+        let drop = common.alloc_common_range_value();
+        let dst_pc = common.alloc_common_range_value();
+        let lookup_stack_read_cond = common.alloc_mtable_lookup();
+        let lookup_stack_read_return_value = common.alloc_mtable_lookup();
+        let lookup_stack_write_return_value = common.alloc_mtable_lookup();
+
+        Box::new(BrIfConfig {
+            cond,
+            cond_inv,
+            keep,
+            keep_value,
+            keep_type,
+            drop,
+            dst_pc,
+            lookup_stack_read_cond,
+            lookup_stack_read_return_value,
+            lookup_stack_write_return_value,
+        })
+    }
+}
+
+impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
+    fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        constant!(bn_to_field(
+            &(BigUint::from(OpcodeClass::BrIf as u64) << OPCODE_CLASS_SHIFT)
+        )) + self.drop.expr(meta)
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
+            + self.keep.expr(meta)
+                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+            + self.dst_pc.expr(meta)
+    }
+
+    fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        step_info: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> Result<(), Error> {
+        match &entry.step_info {
+            StepInfo::BrIfNez {
+                condition,
+                dst_pc,
+                drop,
+                keep,
+                keep_values,
+            } => {
+                assert!(keep.len() <= 1);
+
+                let drop: u16 = (*drop).try_into().unwrap();
+                let cond = *condition as u32 as u64;
+
+                self.lookup_stack_read_cond.assign(
+                    ctx,
+                    &MemoryTableConfig::<F>::encode_stack_read(
+                        BigUint::from(entry.eid),
+                        BigUint::from(1 as u64),
+                        BigUint::from(entry.sp + 1),
+                        BigUint::from(VarType::I32 as u16),
+                        BigUint::from(cond),
+                    ),
+                )?;
+
+                self.drop.assign(ctx, drop)?;
+
+                if keep.len() > 0 {
+                    let keep_type: VarType = keep[0].into();
+
+                    self.keep.assign(ctx, true)?;
+                    self.keep_value.assign(ctx, keep_values[0])?;
+                    self.keep_type.assign(ctx, keep_type as u16)?;
+
+                    if *condition != 0 {
+                        self.lookup_stack_read_return_value.assign(
+                            ctx,
+                            &MemoryTableConfig::<F>::encode_stack_read(
+                                BigUint::from(entry.eid),
+                                BigUint::from(2 as u64),
+                                BigUint::from(entry.sp + 2),
+                                BigUint::from(keep_type as u16),
+                                BigUint::from(keep_values[0]),
+                            ),
+                        )?;
+
+                        self.lookup_stack_write_return_value.assign(
+                            ctx,
+                            &MemoryTableConfig::<F>::encode_stack_write(
+                                BigUint::from(step_info.current.eid),
+                                BigUint::from(3 as u64),
+                                BigUint::from(step_info.current.sp + 2 + drop as u64),
+                                BigUint::from(keep_type as u16),
+                                BigUint::from(keep_values[0]),
+                            ),
+                        )?;
+                    }
+                }
+
+                self.cond.assign(ctx, cond)?;
+                self.cond_inv
+                    .assign(ctx, F::from(cond).invert().unwrap_or(F::zero()))?;
+
+                self.dst_pc.assign(ctx, (*dst_pc).try_into().unwrap())?;
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(())
+    }
+
+    fn opcode_class(&self) -> OpcodeClass {
+        OpcodeClass::BrIf
+    }
+
+    fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(
+            constant_from!(1)
+                + constant_from!(2)
+                    * self.cond.expr(meta)
+                    * self.cond_inv.expr(meta)
+                    * self.keep.expr(meta),
+        )
+    }
+
+    fn mtable_lookup(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        item: MLookupItem,
+        common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        match item {
+            MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_read(
+                common_config.eid(meta),
+                constant_from!(1),
+                common_config.sp(meta) + constant_from!(1),
+                constant_from!(VarType::I32 as u32 as u64),
+                self.cond.expr(meta),
+            )),
+
+            MLookupItem::Second => Some(
+                self.cond.expr(meta)
+                    * self.cond_inv.expr(meta)
+                    * self.keep.expr(meta)
+                    * MemoryTableConfig::<F>::encode_stack_read(
+                        common_config.eid(meta),
+                        constant_from!(2),
+                        common_config.sp(meta) + constant_from!(2),
+                        self.keep_type.expr(meta),
+                        self.keep_value.expr(meta),
+                    ),
+            ),
+
+            MLookupItem::Third => Some(
+                self.cond.expr(meta)
+                    * self.cond_inv.expr(meta)
+                    * self.keep.expr(meta)
+                    * MemoryTableConfig::<F>::encode_stack_write(
+                        common_config.eid(meta),
+                        constant_from!(3),
+                        common_config.sp(meta) + constant_from!(2) + self.drop.expr(meta),
+                        self.keep_type.expr(meta),
+                        self.keep_value.expr(meta),
+                    ),
+            ),
+
+            MLookupItem::Fourth => None,
+        }
+    }
+
+    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(
+            constant_from!(1)
+                + self.cond.expr(meta) * self.cond_inv.expr(meta) * self.drop.expr(meta),
+        )
+    }
+
+    fn next_iid(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(
+            self.cond.expr(meta) * self.cond_inv.expr(meta) * self.dst_pc.expr(meta)
+                + (constant_from!(1) - self.cond.expr(meta) * self.cond_inv.expr(meta))
+                    * (common_config.iid(meta) + constant_from!(1)),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::test_circuit_builder::test_circuit_noexternal;
+
+    #[test]
+    fn test_br_if_trivial_nojump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block
+                (i32.const 0)
+                br_if 0
+              )
+            )
+           )
+        "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_br_if_trivial_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block
+                (i32.const 1)
+                br_if 0
+                (i32.const 0)
+                drop
+              )
+            )
+           )
+        "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_br_if_block_with_arg_do_not_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block (result i32)
+                (i32.const 0)
+                (i32.const 0)
+                br_if 0
+              )
+              drop
+            )
+           )
+        "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_br_if_block_with_arg_do_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block (result i32)
+                (i32.const 0)
+                (i32.const 1)
+                br_if 0
+              )
+              drop
+            )
+           )
+        "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_br_if_block_with_drop_do_not_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block
+                (block
+                  (i32.const 0)
+                  (i32.const 0)
+                  (i32.const 0)
+                  br_if 1
+                  drop
+                  drop
+                )
+              )
+            )
+           )
+        "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_br_if_block_with_drop_do_jump_ok() {
+        let textual_repr = r#"
+        (module
+            (func (export "test")
+              (block
+                (block
+                  (i32.const 0)
+                  (i32.const 0)
+                  (i32.const 1)
+                  br_if 1
+                  drop
+                  drop
+                )
+              )
+            )
+           )
+        "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+}

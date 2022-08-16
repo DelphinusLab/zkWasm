@@ -18,7 +18,6 @@ use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
-use num_bigint::BigUint;
 use specs::mtable::AccessType;
 use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
@@ -26,19 +25,9 @@ use std::marker::PhantomData;
 
 const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / STEP_SIZE as usize * STEP_SIZE as usize;
 
-lazy_static! {
-    static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
-    static ref ACCESS_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 77;
-    static ref LOC_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 79;
-    static ref OFFSET_SHIFT: BigUint = BigUint::from(1u64) << 80;
-    static ref MMID_SHIFT: BigUint = BigUint::from(1u64) << 96;
-    static ref EMID_SHIFT: BigUint = BigUint::from(1u64) << 112;
-    static ref EID_SHIFT: BigUint = BigUint::from(1u64) << 128;
-}
-
 pub mod configure;
+pub(crate) mod encode;
 pub mod expression;
-pub(crate) mod lookup;
 
 #[derive(Clone)]
 pub struct MemoryTableConfig<F: FieldExt> {

@@ -2,7 +2,6 @@ use super::*;
 use crate::circuits::jtable::expression::{
     JtableLookupEntryEncode, EID_SHIFT, FID_SHIFT, LAST_JUMP_EID_SHIFT, MOID_SHIFT,
 };
-use crate::circuits::mtable_compact::lookup::MtableLookupEntryEncode;
 use crate::{
     circuits::utils::{bn_to_field, Context},
     constant,
@@ -174,7 +173,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         match item {
             MLookupItem::First => Some(
                 self.keep.expr(meta)
-                    * MemoryTableConfig::encode_stack_read(
+                    * MemoryTableConfig::<F>::encode_stack_read(
                         common.eid(meta),
                         constant_from!(1),
                         common.sp(meta) + constant_from!(1),
@@ -184,7 +183,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
             ),
             MLookupItem::Second => Some(
                 self.keep.expr(meta)
-                    * MemoryTableConfig::encode_stack_write(
+                    * MemoryTableConfig::<F>::encode_stack_write(
                         common.eid(meta),
                         constant_from!(2),
                         common.sp(meta) + self.drop.expr(meta) + constant_from!(1),

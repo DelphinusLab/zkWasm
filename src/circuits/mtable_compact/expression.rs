@@ -1,9 +1,6 @@
 use super::configure::STEP_SIZE;
-use super::lookup::MtableLookupEntryEncode;
 use super::*;
-use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
-use crate::constant_from_bn;
 use crate::curr;
 use crate::fixed_curr;
 use crate::nextn;
@@ -215,11 +212,5 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     pub(super) fn prev_sign(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.bit, ROTATION_VTYPE_SIGN)
-    }
-}
-
-impl<F: FieldExt> MtableLookupEntryEncode<Expression<F>> for MemoryTableConfig<F> {
-    fn bn_to_t(v: &BigUint) -> Expression<F> {
-        constant_from_bn!(v)
     }
 }
