@@ -1,9 +1,12 @@
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
-pub mod op_const;
-pub mod op_drop;
-pub mod op_return;
+pub(super) mod op_const;
+pub(super) mod op_drop;
+pub(super) mod op_local_get;
+pub(super) mod op_local_set;
+pub(super) mod op_local_tee;
+pub(super) mod op_return;
 
 // TODO: replace repeated code with macro
 

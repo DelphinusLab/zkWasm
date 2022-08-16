@@ -3,6 +3,7 @@ use super::*;
 use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_local_get::LocalGetConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
@@ -516,6 +517,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
+        configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
 
         meta.create_gate("enable seq", |meta| {
             vec![

@@ -177,7 +177,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         _rtable: &RangeTableConfig<F>,
     ) {
-        meta.create_gate("mtable configure_read_nochange", |meta| {
+        meta.create_gate("mtable configure_read_nochange value", |meta| {
             vec![
                 (self.atype(meta) - constant_from!(AccessType::Write))
                     * (self.atype(meta) - constant_from!(AccessType::Init))
@@ -189,7 +189,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
-        meta.create_gate("mtable configure_read_nochange", |meta| {
+        meta.create_gate("mtable configure_read_nochange vtype", |meta| {
             vec![
                 (self.atype(meta) - constant_from!(AccessType::Write))
                     * (self.atype(meta) - constant_from!(AccessType::Init))

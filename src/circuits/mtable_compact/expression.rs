@@ -123,19 +123,34 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.aux, RotationAux::Atype as i32 - STEP_SIZE)
     }
 
-    pub(super) fn vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        (self.ge_two_bytes(meta) + self.ge_four_bytes(meta) + self.ge_eight_bytes(meta))
-            * constant_from!(2)
-            + self.sign(meta)
+    fn vtype_composer(
+        &self,
+        ge_two_bytes: Expression<F>,
+        ge_four_bytes: Expression<F>,
+        ge_eight_bytes: Expression<F>,
+        signed: Expression<F>,
+    ) -> Expression<F> {
+        (ge_two_bytes + ge_four_bytes + ge_eight_bytes) * constant_from!(2)
+            + signed
             + constant_from!(1)
     }
 
+    pub(super) fn vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        self.vtype_composer(
+            self.ge_two_bytes(meta),
+            self.ge_four_bytes(meta),
+            self.ge_eight_bytes(meta),
+            self.sign(meta),
+        )
+    }
+
     pub(super) fn prev_vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        (self.prev_ge_two_bytes(meta)
-            + self.prev_ge_four_bytes(meta)
-            + self.prev_ge_eight_bytes(meta))
-            * constant_from!(2)
-            + self.sign(meta)
+        self.vtype_composer(
+            self.prev_ge_two_bytes(meta),
+            self.prev_ge_four_bytes(meta),
+            self.prev_ge_eight_bytes(meta),
+            self.sign(meta),
+        )
     }
 
     pub(super) fn value(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

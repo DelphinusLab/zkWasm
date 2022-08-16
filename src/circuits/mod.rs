@@ -81,8 +81,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let opcode_set =
-            BTreeSet::from([OpcodeClass::Return, OpcodeClass::Drop, OpcodeClass::Const]);
+        let opcode_set = BTreeSet::from([
+            OpcodeClass::Return,
+            OpcodeClass::Drop,
+            OpcodeClass::Const,
+            OpcodeClass::LocalGet,
+        ]);
 
         let constants = meta.fixed_column();
         meta.enable_constant(constants);
