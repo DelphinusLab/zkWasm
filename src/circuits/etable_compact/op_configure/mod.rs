@@ -251,7 +251,10 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
         entry: &EventTableEntry,
     ) -> Result<(), Error>;
 
-    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>>;
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        None
+    }
+
     fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }

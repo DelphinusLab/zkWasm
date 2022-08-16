@@ -14,7 +14,7 @@ use specs::{
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
 };
 
-pub struct LocalGetConfig {
+pub struct LocalTeeConfig {
     offset: CommonRangeCell,
     vtype: CommonRangeCell,
     value: U64Cell,
@@ -22,9 +22,9 @@ pub struct LocalGetConfig {
     lookup_stack_write: MTableLookupCell,
 }
 
-pub struct LocalGetConfigBuilder {}
+pub struct LocalTeeConfigBuilder {}
 
-impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
+impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalTeeConfigBuilder {
     fn configure(
         _meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
@@ -36,7 +36,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
-        Box::new(LocalGetConfig {
+        Box::new(LocalTeeConfig {
             offset,
             vtype,
             value,
@@ -46,10 +46,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
+            &(BigUint::from(OpcodeClass::LocalTee as u64) << OPCODE_CLASS_SHIFT)
         )) + self.vtype.expr(meta)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + self.offset.expr(meta)
@@ -62,7 +62,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
         match &entry.step_info {
-            StepInfo::GetLocal {
+            StepInfo::TeeLocal {
                 vtype,
                 depth,
                 value,
@@ -76,7 +76,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
                     &MemoryTableConfig::<F>::encode_stack_read(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp + *depth as u64),
+                        BigUint::from(step_info.current.sp + 1 as u64),
                         BigUint::from(*vtype as u16),
                         BigUint::from(*value),
                     ),
@@ -87,7 +87,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
                     &MemoryTableConfig::<F>::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(2 as u64),
-                        BigUint::from(step_info.current.sp),
+                        BigUint::from(step_info.current.sp + *depth as u64),
                         BigUint::from(*vtype as u16),
                         BigUint::from(*value),
                     ),
@@ -101,11 +101,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
     }
 
     fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::LocalGet
-    }
-
-    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant!(-F::one()))
+        OpcodeClass::LocalTee
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
@@ -122,14 +118,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
             MLookupItem::First => Some(MemoryTableConfig::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
-                common_config.sp(meta) + self.offset.expr(meta),
+                common_config.sp(meta) + constant_from!(1),
                 self.vtype.expr(meta),
                 self.value.expr(meta),
             )),
             MLookupItem::Second => Some(MemoryTableConfig::encode_stack_write(
                 common_config.eid(meta),
                 constant_from!(2),
-                common_config.sp(meta),
+                common_config.sp(meta) + self.offset.expr(meta),
                 self.vtype.expr(meta),
                 self.value.expr(meta),
             )),
@@ -150,11 +146,12 @@ mod tests {
     use wasmi::{ImportsBuilder, NopExternals};
 
     #[test]
-    fn test_local_get() {
+    fn test_local_tee() {
         let textual_repr = r#"
                 (module
                     (func (export "test") (param $0 i32)
-                      (local.get $0)
+                      (i32.const 1)
+                      (local.tee $0)
                       (drop)
                     )
                    )
