@@ -167,6 +167,7 @@ pub(super) struct EventTableCommonConfig<F> {
     // 10..15 shared
     pub aux: Column<Advice>,
 
+    pub u4_bop: Column<Advice>,
     pub u4_shared: [Column<Advice>; U4_COLUMNS],
 
     _mark: PhantomData<F>,
@@ -428,6 +429,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mtable_lookup = meta.fixed_column();
 
         let u4_shared = [0; 4].map(|_| cols.next().unwrap());
+        let u4_bop = cols.next().unwrap();
 
         meta.enable_equality(state);
 
@@ -494,6 +496,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             mtable_lookup,
             aux,
             u4_shared,
+            u4_bop,
             _mark: PhantomData,
         };
 
