@@ -1,6 +1,7 @@
 use self::op_configure::EventTableOpcodeConfig;
 use super::*;
 use crate::circuits::config::MAX_ETABLE_ROWS;
+use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_local_get::LocalGetConfigBuilder;
@@ -508,7 +509,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     let config = $x::configure(
                         meta,
                         &mut allocator,
-                        |meta| fixed_curr!(meta, common_config.block_first_line_sel)
+                        |meta| fixed_curr!(meta, common_config.block_first_line_sel) * common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32),
                     );
                     op_bitmaps.insert(config.opcode_class(), (op_lvl1 as i32, op_lvl2 as i32));
                     op_configs.insert(config.opcode_class(), Rc::new(config));
@@ -522,6 +523,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
+        configure!(OpcodeClass::Bin, BinConfigBuilder);
 
         meta.create_gate("enable seq", |meta| {
             vec![

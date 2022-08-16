@@ -1,6 +1,7 @@
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
+pub(super) mod op_bin;
 pub(super) mod op_const;
 pub(super) mod op_drop;
 pub(super) mod op_local_get;
