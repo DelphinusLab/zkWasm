@@ -1,16 +1,12 @@
 use super::*;
-use crate::{
-    circuits::utils::{bn_to_field, Context},
-    constant,
-};
+use crate::{circuits::utils::Context, constant};
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::VarType,
 };
 
 pub struct CompareConfig {
@@ -24,7 +20,7 @@ pub struct CompareConfig {
     */
     vtype: CommonRangeCell,
 
-    diff_inv: Cell,
+    diff_inv: UnlimitedCell,
     res_is_eq: BitCell,
     res_is_lt: BitCell,
     res_is_gt: BitCell,
@@ -50,9 +46,8 @@ pub struct CompareConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CompareConfigBuilder {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let vtype = common.alloc_common_range_value();
         let diff_inv = common.alloc_unlimited_value();
@@ -75,46 +70,51 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CompareConfigBuilder {
         let lookup_stack_read_right = common.alloc_mtable_lookup();
         let lookup_stack_write_res = common.alloc_mtable_lookup();
 
-        meta.create_gate("compare diff", |meta| {
-            vec![
-                (left.expr(meta) + res_is_lt.expr(meta) * diff.expr(meta)
-                    - res_is_gt.expr(meta) * diff.expr(meta)
-                    - right.expr(meta)),
-                (res_is_gt.expr(meta) + res_is_lt.expr(meta) + res_is_eq.expr(meta)
-                    - constant_from!(1)),
-                (diff.expr(meta) * res_is_eq.expr(meta)),
-                (diff.expr(meta) * diff_inv.expr(meta) + res_is_eq.expr(meta) - constant_from!(1)),
-            ]
-            .into_iter()
-            .map(|x| x * enable(meta))
-            .collect::<Vec<_>>()
-        });
+        constraint_builder.push(
+            "compare diff",
+            Box::new(move |meta| {
+                vec![
+                    (left.expr(meta) + res_is_lt.expr(meta) * diff.expr(meta)
+                        - res_is_gt.expr(meta) * diff.expr(meta)
+                        - right.expr(meta)),
+                    (res_is_gt.expr(meta) + res_is_lt.expr(meta) + res_is_eq.expr(meta)
+                        - constant_from!(1)),
+                    (diff.expr(meta) * res_is_eq.expr(meta)),
+                    (diff.expr(meta) * diff_inv.expr(meta) + res_is_eq.expr(meta)
+                        - constant_from!(1)),
+                ]
+            }),
+        );
 
-        meta.create_gate("compare op", |meta| {
-            vec![
-                (op_is_eq.expr(meta)
-                    + op_is_ne.expr(meta) * op_is_lt.expr(meta)
-                    + op_is_gt.expr(meta)
-                    + op_is_le.expr(meta) * op_is_ge.expr(meta)
-                    - constant_from!(1)),
-            ]
-        });
+        constraint_builder.push(
+            "compare op",
+            Box::new(move |meta| {
+                vec![
+                    (op_is_eq.expr(meta)
+                        + op_is_ne.expr(meta) * op_is_lt.expr(meta)
+                        + op_is_gt.expr(meta)
+                        + op_is_le.expr(meta) * op_is_ge.expr(meta)
+                        - constant_from!(1)),
+                ]
+            }),
+        );
 
-        meta.create_gate("compare op res", |meta| {
-            vec![
-                op_is_eq.expr(meta) * (res.expr(meta) - res_is_eq.expr(meta)),
-                op_is_ne.expr(meta) * (res.expr(meta) - constant_from!(1) + res_is_eq.expr(meta)),
-                op_is_lt.expr(meta) * (res.expr(meta) - res_is_lt.expr(meta)),
-                op_is_le.expr(meta)
-                    * (res.expr(meta) - res_is_lt.expr(meta) - res_is_eq.expr(meta)),
-                op_is_gt.expr(meta) * (res.expr(meta) - res_is_gt.expr(meta)),
-                op_is_ge.expr(meta)
-                    * (res.expr(meta) - res_is_gt.expr(meta) - res_is_eq.expr(meta)),
-            ]
-            .into_iter()
-            .map(|x| x * enable(meta))
-            .collect::<Vec<_>>()
-        });
+        constraint_builder.push(
+            "compare op res",
+            Box::new(move |meta| {
+                vec![
+                    op_is_eq.expr(meta) * (res.expr(meta) - res_is_eq.expr(meta)),
+                    op_is_ne.expr(meta)
+                        * (res.expr(meta) - constant_from!(1) + res_is_eq.expr(meta)),
+                    op_is_lt.expr(meta) * (res.expr(meta) - res_is_lt.expr(meta)),
+                    op_is_le.expr(meta)
+                        * (res.expr(meta) - res_is_lt.expr(meta) - res_is_eq.expr(meta)),
+                    op_is_gt.expr(meta) * (res.expr(meta) - res_is_gt.expr(meta)),
+                    op_is_ge.expr(meta)
+                        * (res.expr(meta) - res_is_gt.expr(meta) - res_is_eq.expr(meta)),
+                ]
+            }),
+        );
 
         Box::new(CompareConfig {
             vtype,

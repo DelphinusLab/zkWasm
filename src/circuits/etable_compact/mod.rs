@@ -12,6 +12,7 @@ use crate::circuits::etable_compact::op_configure::op_local_set::LocalSetConfigB
 use crate::circuits::etable_compact::op_configure::op_local_tee::LocalTeeConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_rel::RelConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
+use crate::circuits::etable_compact::op_configure::ConstraintBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
 use crate::circuits::itable::encode_inst_expr;
@@ -513,11 +514,15 @@ impl<F: FieldExt> EventTableConfig<F> {
                 if opcode_set.contains(&($op)) {
                     let (op_lvl1, op_lvl2) = opclass_to_two_level($op);
                     let mut allocator = EventTableCellAllocator::new(&common_config);
+                    let mut constraint_builder = ConstraintBuilder::new(meta);
+
                     let config = $x::configure(
-                        meta,
                         &mut allocator,
-                        |meta| fixed_curr!(meta, common_config.block_first_line_sel) * common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32),
+                        &mut constraint_builder,
                     );
+
+                    constraint_builder.finalize(|meta| fixed_curr!(meta, common_config.block_first_line_sel) * common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32));
+
                     op_bitmaps.insert(config.opcode_class(), (op_lvl1 as i32, op_lvl2 as i32));
                     op_configs.insert(config.opcode_class(), Rc::new(config));
                 }

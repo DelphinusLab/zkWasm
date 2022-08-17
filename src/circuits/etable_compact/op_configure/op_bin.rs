@@ -33,9 +33,8 @@ pub struct BinConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
@@ -48,25 +47,34 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let is_32bits = common.alloc_bit_value();
         let is_64bits = common.alloc_bit_value();
 
-        meta.create_gate("is add", |meta| {
-            vec![(is_add.expr(meta) - constant_from!(1)) * enable(meta)]
-        });
+        constraint_builder.push(
+            "is add",
+            Box::new(move |meta| vec![(is_add.expr(meta) - constant_from!(1))]),
+        );
 
-        meta.create_gate("32 or 64", |meta| {
-            vec![(is_32bits.expr(meta) + is_64bits.expr(meta) - constant_from!(1)) * enable(meta)]
-        });
+        constraint_builder.push(
+            "32 or 64",
+            Box::new(move |meta| {
+                vec![(is_32bits.expr(meta) + is_64bits.expr(meta) - constant_from!(1))]
+            }),
+        );
 
-        meta.create_gate("add constraints", |meta| {
-            let modules = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
-                * is_32bits.expr(meta)
-                + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize))) * is_64bits.expr(meta);
+        constraint_builder.push(
+            "add constraints",
+            Box::new(move |meta| {
+                let modules = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
+                    * is_32bits.expr(meta)
+                    + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize)))
+                        * is_64bits.expr(meta);
 
-            vec![
-                (lhs.expr(meta) + rhs.expr(meta) - res.expr(meta) - overflow.expr(meta) * modules)
-                    * is_add.expr(meta)
-                    * enable(meta),
-            ]
-        });
+                vec![
+                    (lhs.expr(meta) + rhs.expr(meta)
+                        - res.expr(meta)
+                        - overflow.expr(meta) * modules)
+                        * is_add.expr(meta),
+                ]
+            }),
+        );
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();

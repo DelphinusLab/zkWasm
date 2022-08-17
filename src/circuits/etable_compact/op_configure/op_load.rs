@@ -5,7 +5,7 @@ use crate::{
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use specs::{
     etable::EventTableEntry,
@@ -33,9 +33,8 @@ pub struct LoadConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
     fn configure(
-        _meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let load_offset = common.alloc_common_range_value();
         let load_base = common.alloc_u64();
@@ -50,6 +49,17 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_heap_read = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
+
+        constraint_builder.push(
+            "op_load address equation",
+            Box::new(move |meta| {
+                vec![
+                    load_base.clone().expr(meta) + load_offset.clone().expr(meta)
+                        - bytes8_address.expr(meta) * constant_from!(8)
+                        - bytes8_offset.expr(meta),
+                ]
+            }),
+        );
 
         // TODO: add more constraints
 

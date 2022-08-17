@@ -23,9 +23,8 @@ pub struct ConstConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
     fn configure(
-        _meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let vtype = common.alloc_common_range_value();
         let value = common.alloc_u64();

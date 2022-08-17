@@ -1,5 +1,3 @@
-use crate::constant;
-
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
@@ -18,12 +16,13 @@ pub(super) mod op_unsigned_compare;
 
 // TODO: replace repeated code with macro
 
-pub struct Cell {
+#[derive(Copy, Clone)]
+pub struct UnlimitedCell {
     pub col: Column<Advice>,
     pub rot: i32,
 }
 
-impl Cell {
+impl UnlimitedCell {
     pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
         ctx.region.assign_advice(
             || "cell",
@@ -89,6 +88,7 @@ impl JTableLookupCell {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct BitCell {
     pub col: Column<Advice>,
     pub rot: i32,
@@ -111,6 +111,7 @@ impl BitCell {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct CommonRangeCell {
     pub col: Column<Advice>,
     pub rot: i32,
@@ -132,6 +133,7 @@ impl CommonRangeCell {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct U64Cell {
     pub value_col: Column<Advice>,
     pub value_rot: i32,
@@ -213,11 +215,11 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         }
     }
 
-    pub fn alloc_unlimited_value(&mut self) -> Cell {
+    pub fn alloc_unlimited_value(&mut self) -> UnlimitedCell {
         assert!(self.unlimit_index < ETABLE_STEP_SIZE as i32);
         let allocated_index = self.unlimit_index;
         self.unlimit_index += 1;
-        Cell {
+        UnlimitedCell {
             col: self.config.aux,
             rot: allocated_index,
         }
@@ -257,11 +259,46 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
     }
 }
 
+pub(super) struct ConstraintBuilder<'a, F: FieldExt> {
+    meta: &'a mut ConstraintSystem<F>,
+    constraints: Vec<(
+        &'static str,
+        Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
+    )>,
+}
+
+impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
+    pub(super) fn new(meta: &'a mut ConstraintSystem<F>) -> Self {
+        Self {
+            meta,
+            constraints: vec![],
+        }
+    }
+
+    pub(self) fn push(
+        &mut self,
+        name: &'static str,
+        builder: Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
+    ) {
+        self.constraints.push((name, builder));
+    }
+
+    pub(super) fn finalize(self, enable: impl Fn(&mut VirtualCells<F>) -> Expression<F>) {
+        for (name, builder) in self.constraints {
+            self.meta.create_gate(&name, |meta| {
+                builder(meta)
+                    .into_iter()
+                    .map(|constraint| constraint * enable(meta))
+                    .collect::<Vec<_>>()
+            });
+        }
+    }
+}
+
 pub(super) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 

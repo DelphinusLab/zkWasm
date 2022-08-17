@@ -32,9 +32,8 @@ pub struct RelConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
@@ -50,9 +49,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
-        meta.create_gate("opcode select one", |meta| {
-            vec![(is_le.expr(meta) + is_lt.expr(meta) - constant_from!(1)) * enable(meta)]
-        });
+        constraint_builder.push(
+            "opcode select one",
+            Box::new(move |meta| vec![(is_le.expr(meta) + is_lt.expr(meta) - constant_from!(1))]),
+        );
 
         Box::new(RelConfig {
             lhs,

@@ -25,9 +25,8 @@ pub struct LocalSetConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
     fn configure(
-        _meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let offset = common.alloc_common_range_value();
         let vtype = common.alloc_common_range_value();

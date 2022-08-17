@@ -18,9 +18,8 @@ pub struct DropConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
     fn configure(
-        _meta: &mut ConstraintSystem<F>,
         _common: &mut EventTableCellAllocator<F>,
-        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         Box::new(DropConfig {})
     }

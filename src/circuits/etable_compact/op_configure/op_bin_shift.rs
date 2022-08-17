@@ -31,9 +31,8 @@ pub struct BinShiftConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();

@@ -5,7 +5,7 @@ use crate::{
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use specs::itable::OPCODE_ARG1_SHIFT;
 use specs::mtable::VarType;
@@ -17,7 +17,7 @@ use specs::{
 
 pub struct BrIfConfig {
     cond: U64Cell,
-    cond_inv: Cell,
+    cond_inv: UnlimitedCell,
     keep: BitCell,
     keep_value: U64Cell,
     keep_type: CommonRangeCell,
@@ -32,9 +32,8 @@ pub struct BrIfConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
     fn configure(
-        meta: &mut ConstraintSystem<F>,
         common: &mut EventTableCellAllocator<F>,
-        _enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let cond = common.alloc_u64();
         let cond_inv = common.alloc_unlimited_value();
