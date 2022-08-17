@@ -4,15 +4,16 @@ use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 pub(super) mod op_bin;
+pub(super) mod op_bin_shift;
 pub(super) mod op_br_if;
 pub(super) mod op_const;
 pub(super) mod op_drop;
+pub(super) mod op_load;
 pub(super) mod op_local_get;
 pub(super) mod op_local_set;
 pub(super) mod op_local_tee;
-pub(super) mod op_return;
-pub(super) mod op_load;
 pub(super) mod op_rel;
+pub(super) mod op_return;
 
 // TODO: replace repeated code with macro
 

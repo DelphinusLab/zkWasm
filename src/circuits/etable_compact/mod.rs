@@ -2,6 +2,7 @@ use self::op_configure::EventTableOpcodeConfig;
 use super::*;
 use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_bin_shift::BinShiftConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
@@ -481,7 +482,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let mut base = 1u64;
                 for j in 0..16 {
                     acc = acc - nextn!(meta, u4_shared[i], j) * constant_from!(base);
-                    base <<= 8;
+                    base <<= 4;
                 }
 
                 vec![acc * fixed_curr!(meta, block_first_line_sel)]
@@ -530,6 +531,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
         configure!(OpcodeClass::Bin, BinConfigBuilder);
+        configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Rel, RelConfigBuilder);

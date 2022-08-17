@@ -89,6 +89,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClass::LocalSet,
             OpcodeClass::LocalTee,
             OpcodeClass::Bin,
+            OpcodeClass::BinShift,
             OpcodeClass::BrIf,
             OpcodeClass::Load,
             OpcodeClass::Rel,
