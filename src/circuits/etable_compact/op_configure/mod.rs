@@ -14,6 +14,7 @@ pub(super) mod op_local_set;
 pub(super) mod op_local_tee;
 pub(super) mod op_rel;
 pub(super) mod op_return;
+pub(super) mod op_unsigned_compare;
 
 // TODO: replace repeated code with macro
 
