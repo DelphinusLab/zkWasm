@@ -12,6 +12,7 @@ pub(super) mod op_local_set;
 pub(super) mod op_local_tee;
 pub(super) mod op_return;
 pub(super) mod op_load;
+pub(super) mod op_rel;
 
 // TODO: replace repeated code with macro
 
