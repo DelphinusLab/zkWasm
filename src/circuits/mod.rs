@@ -90,6 +90,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClass::LocalTee,
             OpcodeClass::Bin,
             OpcodeClass::BrIf,
+            OpcodeClass::Load,
         ]);
 
         let constants = meta.fixed_column();

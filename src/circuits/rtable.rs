@@ -119,7 +119,7 @@ pub struct RangeTableChip<F: FieldExt> {
     _phantom: PhantomData<F>,
 }
 
-#[derive(Clone, EnumIter)]
+#[derive(Clone, EnumIter, Copy)]
 pub enum BinOp {
     And = 0,
     Or,
