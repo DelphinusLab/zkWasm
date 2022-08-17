@@ -12,7 +12,6 @@ pub(super) mod op_local_set;
 pub(super) mod op_local_tee;
 pub(super) mod op_rel;
 pub(super) mod op_return;
-pub(super) mod op_unsigned_compare;
 
 // TODO: replace repeated code with macro
 
@@ -169,6 +168,10 @@ impl U64Cell {
 
     pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         nextn!(meta, self.value_col, self.value_rot)
+    }
+
+    pub fn u4_expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>, i: i32) -> Expression<F> {
+        nextn!(meta, self.u4_col, i)
     }
 }
 

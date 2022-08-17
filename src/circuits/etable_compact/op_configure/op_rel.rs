@@ -5,7 +5,7 @@ use crate::{
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use specs::itable::{RelOp, OPCODE_ARG1_SHIFT};
 use specs::mtable::VarType;
@@ -16,16 +16,40 @@ use specs::{
 };
 
 pub struct RelConfig {
+    // vtype
+    is_one_byte: BitCell,
+    is_two_bytes: BitCell,
+    is_four_bytes: BitCell,
+    is_eight_bytes: BitCell,
+    is_sign: BitCell,
+
     lhs: U64Cell,
     rhs: U64Cell,
-    res: BitCell,
-    vtype: CommonRangeCell,
-    is_le: BitCell,
-    is_lt: BitCell,
-    is_signed: BitCell,
+    diff: U64Cell,
+
+    diff_inv: UnlimitedCell,
+    res_is_eq: BitCell,
+    res_is_lt: BitCell,
+    res_is_gt: BitCell,
+    res: UnlimitedCell,
+
+    lhs_leading_bit: BitCell,
+    rhs_leading_bit: BitCell,
+    lhs_rem_value: CommonRangeCell,
+    rhs_rem_value: CommonRangeCell,
+
+    op_is_eq: BitCell,
+    op_is_ne: BitCell,
+    op_is_lt: BitCell,
+    op_is_gt: BitCell,
+    op_is_le: BitCell,
+    // bit cell runs out
+    op_is_ge: UnlimitedCell,
+    op_is_sign: UnlimitedCell,
+
     lookup_stack_read_lhs: MTableLookupCell,
     lookup_stack_read_rhs: MTableLookupCell,
-    lookup_stack_write: MTableLookupCell,
+    lookup_stack_write_res: MTableLookupCell,
 }
 
 pub struct RelConfigBuilder {}
@@ -35,52 +59,203 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
+        let diff_inv = common.alloc_unlimited_value();
+        let res_is_eq = common.alloc_bit_value();
+        let res_is_lt = common.alloc_bit_value();
+        let res_is_gt = common.alloc_bit_value();
+        let res = common.alloc_unlimited_value();
+
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
-        let res = common.alloc_bit_value();
+        let diff = common.alloc_u64();
 
-        let is_le = common.alloc_bit_value();
-        let is_lt = common.alloc_bit_value();
-        let is_signed = common.alloc_bit_value();
+        let lhs_leading_bit = common.alloc_bit_value();
+        let rhs_leading_bit = common.alloc_bit_value();
+        let lhs_rem_value = common.alloc_common_range_value();
+        let rhs_rem_value = common.alloc_common_range_value();
 
-        let vtype = common.alloc_common_range_value();
+        let op_is_eq = common.alloc_bit_value();
+        let op_is_ne = common.alloc_bit_value();
+        let op_is_lt = common.alloc_bit_value();
+        let op_is_gt = common.alloc_bit_value();
+        let op_is_le = common.alloc_bit_value();
+        let op_is_ge = common.alloc_unlimited_value();
+        let op_is_sign = common.alloc_unlimited_value();
+
+        constraint_builder.push(
+            "compare supply bit",
+            Box::new(move |meta| {
+                vec![
+                    op_is_ge.expr(meta) * (op_is_ge.expr(meta) - constant_from!(1)),
+                    op_is_sign.expr(meta) * (op_is_sign.expr(meta) - constant_from!(1)),
+                ]
+            }),
+        );
+
+        let is_one_byte = common.alloc_bit_value();
+        let is_two_bytes = common.alloc_bit_value();
+        let is_four_bytes = common.alloc_bit_value();
+        let is_eight_bytes = common.alloc_bit_value();
+        let is_sign = common.alloc_bit_value();
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
-        let lookup_stack_write = common.alloc_mtable_lookup();
+        let lookup_stack_write_res = common.alloc_mtable_lookup();
 
         constraint_builder.push(
-            "opcode select one",
-            Box::new(move |meta| vec![(is_le.expr(meta) + is_lt.expr(meta) - constant_from!(1))]),
+            "compare diff",
+            Box::new(move |meta| {
+                vec![
+                    (lhs.expr(meta) + res_is_lt.expr(meta) * diff.expr(meta)
+                        - res_is_gt.expr(meta) * diff.expr(meta)
+                        - rhs.expr(meta)),
+                    (res_is_gt.expr(meta) + res_is_lt.expr(meta) + res_is_eq.expr(meta)
+                        - constant_from!(1)),
+                    (diff.expr(meta) * res_is_eq.expr(meta)),
+                    (diff.expr(meta) * diff_inv.expr(meta) + res_is_eq.expr(meta)
+                        - constant_from!(1)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "compare op",
+            Box::new(move |meta| {
+                vec![
+                    (op_is_eq.expr(meta)
+                        + op_is_ne.expr(meta)
+                        + op_is_lt.expr(meta)
+                        + op_is_gt.expr(meta)
+                        + op_is_le.expr(meta)
+                        + op_is_ge.expr(meta)
+                        - constant_from!(1)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "compare bytes",
+            Box::new(move |meta| {
+                vec![
+                    is_one_byte.expr(meta)
+                        + is_two_bytes.expr(meta)
+                        + is_four_bytes.expr(meta)
+                        + is_eight_bytes.expr(meta)
+                        - constant_from!(1),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "compare leading bit",
+            Box::new(move |meta| {
+                vec![
+                    lhs_leading_bit.expr(meta) + lhs_rem_value.expr(meta) * constant_from!(2)
+                        - (is_one_byte.expr(meta) * lhs.u4_expr(meta, 1)
+                            + is_two_bytes.expr(meta) * lhs.u4_expr(meta, 3)
+                            + is_four_bytes.expr(meta) * lhs.u4_expr(meta, 7)
+                            + is_eight_bytes.expr(meta) * lhs.u4_expr(meta, 15))
+                            * op_is_sign.expr(meta),
+                    rhs_leading_bit.expr(meta) + rhs_rem_value.expr(meta) * constant_from!(2)
+                        - (is_one_byte.expr(meta) * rhs.u4_expr(meta, 1)
+                            + is_two_bytes.expr(meta) * rhs.u4_expr(meta, 3)
+                            + is_four_bytes.expr(meta) * rhs.u4_expr(meta, 7)
+                            + is_eight_bytes.expr(meta) * rhs.u4_expr(meta, 15))
+                            * op_is_sign.expr(meta),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "compare op res",
+            Box::new(move |meta| {
+                let l_pos_r_pos = (constant_from!(1) - lhs_leading_bit.expr(meta))
+                    * (constant_from!(1) - rhs_leading_bit.expr(meta));
+                let l_pos_r_neg =
+                    (constant_from!(1) - lhs_leading_bit.expr(meta)) * rhs_leading_bit.expr(meta);
+                let l_neg_r_pos =
+                    lhs_leading_bit.expr(meta) * (constant_from!(1) - rhs_leading_bit.expr(meta));
+                let l_neg_r_neg = lhs_leading_bit.expr(meta) * rhs_leading_bit.expr(meta);
+                vec![
+                    op_is_eq.expr(meta) * (res.expr(meta) - res_is_eq.expr(meta)),
+                    op_is_ne.expr(meta)
+                        * (res.expr(meta) - constant_from!(1) + res_is_eq.expr(meta)),
+                    op_is_lt.expr(meta)
+                        * (res.expr(meta)
+                            - l_neg_r_pos.clone()
+                            - l_pos_r_pos.clone() * res_is_lt.expr(meta)
+                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)),
+                    op_is_le.expr(meta)
+                        * (res.expr(meta)
+                            - l_neg_r_pos.clone()
+                            - l_pos_r_pos.clone() * res_is_lt.expr(meta)
+                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)
+                            - res_is_eq.expr(meta)),
+                    op_is_gt.expr(meta)
+                        * (res.expr(meta)
+                            - l_pos_r_neg.clone()
+                            - l_pos_r_pos.clone() * res_is_gt.expr(meta)
+                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)),
+                    op_is_ge.expr(meta)
+                        * (res.expr(meta)
+                            - l_pos_r_neg.clone()
+                            - l_pos_r_pos.clone() * res_is_gt.expr(meta)
+                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)
+                            - res_is_eq.expr(meta)),
+                ]
+            }),
         );
 
         Box::new(RelConfig {
+            diff_inv,
+            res_is_eq,
+            res_is_lt,
+            res_is_gt,
             lhs,
             rhs,
-            res,
-            is_le,
-            is_lt,
-            vtype,
-            is_signed,
+            diff,
             lookup_stack_read_lhs,
             lookup_stack_read_rhs,
-            lookup_stack_write,
+            lookup_stack_write_res,
+            res,
+            op_is_eq,
+            op_is_ne,
+            op_is_lt,
+            op_is_gt,
+            op_is_le,
+            op_is_ge,
+            op_is_sign,
+            is_one_byte,
+            is_two_bytes,
+            is_four_bytes,
+            is_eight_bytes,
+            is_sign,
+            lhs_leading_bit,
+            rhs_leading_bit,
+            lhs_rem_value,
+            rhs_rem_value,
         })
     }
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        let vtype = self.is_two_bytes.expr(meta) * constant_from!(2)
+            + self.is_four_bytes.expr(meta) * constant_from!(4)
+            + self.is_eight_bytes.expr(meta) * constant_from!(6)
+            + self.is_sign.expr(meta)
+            + constant_from!(1);
+
         let subop_lt_u = |meta: &mut VirtualCells<F>| {
-            self.is_lt.expr(meta)
-                * (constant_from!(1) - self.is_signed.expr(meta))
+            self.op_is_lt.expr(meta)
+                * (constant_from!(1) - self.op_is_sign.expr(meta))
                 * constant!(bn_to_field(
                     &(BigUint::from(RelOp::UnsignedLt as u64) << OPCODE_ARG0_SHIFT)
                 ))
         };
         let subop_le_u = |meta: &mut VirtualCells<F>| {
-            self.is_le.expr(meta)
-                * (constant_from!(1) - self.is_signed.expr(meta))
+            self.op_is_le.expr(meta)
+                * (constant_from!(1) - self.op_is_sign.expr(meta))
                 * constant!(bn_to_field(
                     &(BigUint::from(RelOp::UnsignedLe as u64) << OPCODE_ARG0_SHIFT)
                 ))
@@ -91,8 +266,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
         )) + subop(meta)
-            + self.vtype.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+            + vtype * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
     }
 
     fn assign(
@@ -101,7 +275,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
         step_info: &StepStatus,
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
-        let (class, vtype, left, right, value) = match entry.step_info {
+        let (class, vtype, lhs, rhs, value, diff) = match entry.step_info {
             StepInfo::I32Comp {
                 class,
                 left,
@@ -109,19 +283,30 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 value,
             } => {
                 let vtype = VarType::I32;
-                let left = left as u32 as u64;
-                let right = right as u32 as u64;
+                let lhs = left as u32 as u64;
+                let rhs = right as u32 as u64;
+                let diff = if lhs < rhs { rhs - lhs } else { lhs - rhs };
 
-                (class, vtype, left, right, value)
+                (class, vtype, lhs, rhs, value, diff)
             }
 
             _ => unreachable!(),
         };
 
-        self.vtype.assign(ctx, vtype as u16)?;
-        self.lhs.assign(ctx, left)?;
-        self.rhs.assign(ctx, right)?;
-        self.res.assign(ctx, value)?;
+        self.is_four_bytes.assign(ctx, true)?;
+        self.is_sign.assign(ctx, true)?;
+
+        self.lhs.assign(ctx, lhs)?;
+        self.rhs.assign(ctx, rhs)?;
+        self.diff.assign(ctx, diff)?;
+
+        self.diff_inv
+            .assign(ctx, F::from(diff).invert().unwrap_or(F::zero()))?;
+        self.res_is_eq.assign(ctx, lhs == rhs)?;
+        self.res_is_gt.assign(ctx, lhs > rhs)?;
+        self.res_is_lt.assign(ctx, lhs < rhs)?;
+        self.res
+            .assign(ctx, if value { F::one() } else { F::zero() })?;
 
         match class {
             RelOp::Eq => todo!(),
@@ -131,10 +316,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             RelOp::SignedGe => todo!(),
             RelOp::UnsignedGe => todo!(),
             RelOp::UnsignedLt => {
-                self.is_lt.assign(ctx, true)?;
+                self.op_is_lt.assign(ctx, true)?;
             }
             RelOp::UnsignedLe => {
-                self.is_le.assign(ctx, true)?;
+                self.op_is_le.assign(ctx, true)?;
             }
         };
 
@@ -145,7 +330,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 BigUint::from(1 as u64),
                 BigUint::from(step_info.current.sp + 1),
                 BigUint::from(vtype as u16),
-                BigUint::from(right),
+                BigUint::from(rhs),
             ),
         )?;
 
@@ -156,11 +341,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 BigUint::from(2 as u64),
                 BigUint::from(step_info.current.sp + 2),
                 BigUint::from(vtype as u16),
-                BigUint::from(left),
+                BigUint::from(lhs),
             ),
         )?;
 
-        self.lookup_stack_write.assign(
+        self.lookup_stack_write_res.assign(
             ctx,
             &MemoryTableConfig::<F>::encode_stack_write(
                 BigUint::from(step_info.current.eid),
@@ -188,19 +373,25 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
         item: MLookupItem,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
+        let vtype = self.is_two_bytes.expr(meta) * constant_from!(2)
+            + self.is_four_bytes.expr(meta) * constant_from!(4)
+            + self.is_eight_bytes.expr(meta) * constant_from!(6)
+            + self.is_sign.expr(meta)
+            + constant_from!(1);
+
         match item {
             MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
-                self.vtype.expr(meta),
+                vtype.clone(),
                 self.rhs.expr(meta),
             )),
             MLookupItem::Second => Some(MemoryTableConfig::<F>::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(2),
                 common_config.sp(meta) + constant_from!(2),
-                self.vtype.expr(meta),
+                vtype.clone(),
                 self.lhs.expr(meta),
             )),
             MLookupItem::Third => Some(MemoryTableConfig::<F>::encode_stack_write(
