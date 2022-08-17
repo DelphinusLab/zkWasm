@@ -224,6 +224,54 @@ mod tests {
     use crate::test::test_circuit_builder::test_circuit_noexternal;
 
     #[test]
+    fn test_i32_le_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.le_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_u_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.le_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_u_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      (i32.le_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
     fn test_i32_lt_u_1_ok() {
         let textual_repr = r#"
                 (module
@@ -241,6 +289,22 @@ mod tests {
 
     #[test]
     fn test_i32_lt_u_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.lt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_lt_u_3_ok() {
         let textual_repr = r#"
                 (module
                     (func (export "test")
