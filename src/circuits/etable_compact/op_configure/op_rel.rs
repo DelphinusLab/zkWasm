@@ -17,8 +17,8 @@ use specs::{
 
 pub struct RelConfig {
     // vtype
-    is_one_byte: BitCell,
-    is_two_bytes: BitCell,
+
+    // TODO: we can use `1 - is_eight_bytes` to replace `is_four_bytes`
     is_four_bytes: BitCell,
     is_eight_bytes: BitCell,
     is_sign: BitCell,
@@ -43,9 +43,8 @@ pub struct RelConfig {
     op_is_lt: BitCell,
     op_is_gt: BitCell,
     op_is_le: BitCell,
-    // bit cell runs out
-    op_is_ge: UnlimitedCell,
-    op_is_sign: UnlimitedCell,
+    op_is_ge: BitCell,
+    op_is_sign: BitCell,
 
     lookup_stack_read_lhs: MTableLookupCell,
     lookup_stack_read_rhs: MTableLookupCell,
@@ -79,21 +78,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         let op_is_lt = common.alloc_bit_value();
         let op_is_gt = common.alloc_bit_value();
         let op_is_le = common.alloc_bit_value();
-        let op_is_ge = common.alloc_unlimited_value();
-        let op_is_sign = common.alloc_unlimited_value();
+        let op_is_ge = common.alloc_bit_value();
+        let op_is_sign = common.alloc_bit_value();
 
-        constraint_builder.push(
-            "compare supply bit",
-            Box::new(move |meta| {
-                vec![
-                    op_is_ge.expr(meta) * (op_is_ge.expr(meta) - constant_from!(1)),
-                    op_is_sign.expr(meta) * (op_is_sign.expr(meta) - constant_from!(1)),
-                ]
-            }),
-        );
-
-        let is_one_byte = common.alloc_bit_value();
-        let is_two_bytes = common.alloc_bit_value();
         let is_four_bytes = common.alloc_bit_value();
         let is_eight_bytes = common.alloc_bit_value();
         let is_sign = common.alloc_bit_value();
@@ -136,13 +123,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         constraint_builder.push(
             "compare bytes",
             Box::new(move |meta| {
-                vec![
-                    is_one_byte.expr(meta)
-                        + is_two_bytes.expr(meta)
-                        + is_four_bytes.expr(meta)
-                        + is_eight_bytes.expr(meta)
-                        - constant_from!(1),
-                ]
+                vec![is_four_bytes.expr(meta) + is_eight_bytes.expr(meta) - constant_from!(1)]
             }),
         );
 
@@ -150,16 +131,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             "compare leading bit",
             Box::new(move |meta| {
                 vec![
-                    lhs_leading_bit.expr(meta) + lhs_rem_value.expr(meta) * constant_from!(2)
-                        - (is_one_byte.expr(meta) * lhs.u4_expr(meta, 1)
-                            + is_two_bytes.expr(meta) * lhs.u4_expr(meta, 3)
-                            + is_four_bytes.expr(meta) * lhs.u4_expr(meta, 7)
+                    lhs_leading_bit.expr(meta) * constant_from!(8) + lhs_rem_value.expr(meta)
+                        - (is_four_bytes.expr(meta) * lhs.u4_expr(meta, 7)
                             + is_eight_bytes.expr(meta) * lhs.u4_expr(meta, 15))
                             * op_is_sign.expr(meta),
-                    rhs_leading_bit.expr(meta) + rhs_rem_value.expr(meta) * constant_from!(2)
-                        - (is_one_byte.expr(meta) * rhs.u4_expr(meta, 1)
-                            + is_two_bytes.expr(meta) * rhs.u4_expr(meta, 3)
-                            + is_four_bytes.expr(meta) * rhs.u4_expr(meta, 7)
+                    rhs_leading_bit.expr(meta) * constant_from!(8) + rhs_rem_value.expr(meta)
+                        - (is_four_bytes.expr(meta) * rhs.u4_expr(meta, 7)
                             + is_eight_bytes.expr(meta) * rhs.u4_expr(meta, 15))
                             * op_is_sign.expr(meta),
                 ]
@@ -225,8 +202,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             op_is_le,
             op_is_ge,
             op_is_sign,
-            is_one_byte,
-            is_two_bytes,
             is_four_bytes,
             is_eight_bytes,
             is_sign,
@@ -240,8 +215,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        let vtype = self.is_two_bytes.expr(meta) * constant_from!(2)
-            + self.is_four_bytes.expr(meta) * constant_from!(4)
+        let vtype = self.is_four_bytes.expr(meta) * constant_from!(4)
             + self.is_eight_bytes.expr(meta) * constant_from!(6)
             + self.is_sign.expr(meta)
             + constant_from!(1);
@@ -373,8 +347,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
         item: MLookupItem,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        let vtype = self.is_two_bytes.expr(meta) * constant_from!(2)
-            + self.is_four_bytes.expr(meta) * constant_from!(4)
+        let vtype = self.is_four_bytes.expr(meta) * constant_from!(4)
             + self.is_eight_bytes.expr(meta) * constant_from!(6)
             + self.is_sign.expr(meta)
             + constant_from!(1);
