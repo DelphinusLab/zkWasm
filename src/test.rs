@@ -154,4 +154,27 @@ pub mod tests {
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
+
+    #[test]
+    fn test_binary_search_64() {
+        let mut binary = vec![];
+
+        let path = PathBuf::from("wasm/bsearch_64.wasm");
+        let mut f = File::open(path).unwrap();
+        f.read_to_end(&mut binary).unwrap();
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler
+            .compile(&binary, &ImportsBuilder::default())
+            .unwrap();
+        let execution_log = compiler
+            .run(
+                &mut NopExternals,
+                &compiled_module,
+                "bsearch",
+                vec![Value::I64(3)],
+            )
+            .unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
 }
