@@ -1,6 +1,9 @@
 use super::*;
 use crate::{
-    circuits::{utils::{bn_to_field, Context}, mtable_compact::encode::MemoryTableLookupEncode},
+    circuits::{
+        mtable_compact::encode::MemoryTableLookupEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
 use halo2_proofs::{
@@ -264,11 +267,34 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 (class, vtype, lhs, rhs, value, diff)
             }
 
+            StepInfo::I64Comp {
+                class,
+                left,
+                right,
+                value,
+            } => {
+                let vtype = VarType::I64;
+                let lhs = left as u64;
+                let rhs = right as u64;
+                let diff = if lhs < rhs { rhs - lhs } else { lhs - rhs };
+
+                (class, vtype, lhs, rhs, value, diff)
+            }
+
             _ => unreachable!(),
         };
 
-        self.is_four_bytes.assign(ctx, true)?;
-        self.is_sign.assign(ctx, true)?;
+        match vtype {
+            VarType::I32 => {
+                self.is_four_bytes.assign(ctx, true)?;
+                self.is_sign.assign(ctx, true)?;
+            }
+            VarType::I64 => {
+                self.is_eight_bytes.assign(ctx, true)?;
+                self.is_sign.assign(ctx, true)?;
+            }
+            _ => unreachable!(),
+        }
 
         self.lhs.assign(ctx, lhs)?;
         self.rhs.assign(ctx, rhs)?;
@@ -475,6 +501,22 @@ mod tests {
                       (i32.const 0)
                       (i32.const 1)
                       (i32.lt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_le_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 0)
+                      (i64.le_u)
                       (drop)
                     )
                    )

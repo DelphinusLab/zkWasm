@@ -176,4 +176,31 @@ mod tests {
 
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
+
+    #[test]
+    fn test_local_get_64() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test") (param $0 i64)
+                      (local.get $0)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        let wasm = wabt::wat2wasm(textual_repr).unwrap();
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler.compile(&wasm, &ImportsBuilder::default()).unwrap();
+        let execution_log = compiler
+            .run(
+                &mut NopExternals,
+                &compiled_module,
+                "test",
+                vec![Value::I64(0)],
+            )
+            .unwrap();
+
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
 }

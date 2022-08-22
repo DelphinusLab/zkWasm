@@ -74,6 +74,9 @@ pub enum StepInfo {
     I32Const {
         value: i32,
     },
+    I64Const {
+        value: i64,
+    },
 
     I32BinOp {
         class: BinOp,
@@ -98,6 +101,12 @@ pub enum StepInfo {
         class: RelOp,
         left: i32,
         right: i32,
+        value: bool,
+    },
+    I64Comp {
+        class: RelOp,
+        left: i64,
+        right: i64,
         value: bool,
     },
 }
