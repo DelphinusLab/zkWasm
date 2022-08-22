@@ -1,11 +1,14 @@
 use super::*;
 use crate::{
-    circuits::utils::{bn_to_field, Context},
+    circuits::{
+        mtable_compact::encode::MemoryTableLookupEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use specs::itable::{BinOp, OPCODE_ARG1_SHIFT};
 use specs::mtable::VarType;
@@ -152,7 +155,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
 
         self.lookup_stack_read_lhs.assign(
             ctx,
-            &MemoryTableConfig::<F>::encode_stack_read(
+            &MemoryTableLookupEncode::encode_stack_read(
                 BigUint::from(step_info.current.eid),
                 BigUint::from(1 as u64),
                 BigUint::from(step_info.current.sp + 1),
@@ -163,7 +166,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
 
         self.lookup_stack_read_rhs.assign(
             ctx,
-            &MemoryTableConfig::<F>::encode_stack_read(
+            &MemoryTableLookupEncode::encode_stack_read(
                 BigUint::from(step_info.current.eid),
                 BigUint::from(2 as u64),
                 BigUint::from(step_info.current.sp + 2),
@@ -174,7 +177,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
 
         self.lookup_stack_write.assign(
             ctx,
-            &MemoryTableConfig::<F>::encode_stack_write(
+            &MemoryTableLookupEncode::encode_stack_write(
                 BigUint::from(step_info.current.eid),
                 BigUint::from(3 as u64),
                 BigUint::from(step_info.current.sp + 2),
@@ -201,21 +204,21 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         match item {
-            MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_read(
+            MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
                 self.vtype.expr(meta),
                 self.rhs.expr(meta),
             )),
-            MLookupItem::Second => Some(MemoryTableConfig::<F>::encode_stack_read(
+            MLookupItem::Second => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(2),
                 common_config.sp(meta) + constant_from!(2),
                 self.vtype.expr(meta),
                 self.lhs.expr(meta),
             )),
-            MLookupItem::Third => Some(MemoryTableConfig::<F>::encode_stack_write(
+            MLookupItem::Third => Some(MemoryTableLookupEncode::encode_stack_write(
                 common_config.eid(meta),
                 constant_from!(3),
                 common_config.sp(meta) + constant_from!(2),

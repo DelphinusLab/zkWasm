@@ -1,11 +1,14 @@
 use super::*;
 use crate::{
-    circuits::utils::{bn_to_field, Context},
+    circuits::{
+        mtable_compact::encode::MemoryTableLookupEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use specs::{
     etable::EventTableEntry,
@@ -24,7 +27,7 @@ pub struct ConstConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
+        _constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let vtype = common.alloc_common_range_value();
         let value = common.alloc_u64();
@@ -60,7 +63,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
 
                 self.lookup_stack_write.assign(
                     ctx,
-                    &MemoryTableConfig::<F>::encode_stack_write(
+                    &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
                         BigUint::from(step_info.current.sp),
@@ -94,7 +97,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         match item {
-            MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_write(
+            MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_write(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta),

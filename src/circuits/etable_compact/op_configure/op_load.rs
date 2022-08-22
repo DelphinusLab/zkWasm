@@ -1,8 +1,12 @@
 use super::*;
 use crate::{
-    circuits::utils::{bn_to_field, Context},
+    circuits::{
+        mtable_compact::encode::MemoryTableLookupEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
+
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
@@ -118,7 +122,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
 
                 self.lookup_stack_read.assign(
                     ctx,
-                    &MemoryTableConfig::<F>::encode_stack_read(
+                    &MemoryTableLookupEncode::encode_stack_read(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
                         BigUint::from(step_info.current.sp + 1),
@@ -129,7 +133,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
 
                 self.lookup_heap_read.assign(
                     ctx,
-                    &MemoryTableConfig::<F>::encode_memory_load(
+                    &MemoryTableLookupEncode::encode_memory_load(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(2 as u64),
                         BigUint::from(mmid),
@@ -141,7 +145,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
 
                 self.lookup_stack_write.assign(
                     ctx,
-                    &MemoryTableConfig::<F>::encode_stack_write(
+                    &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(3 as u64),
                         BigUint::from(step_info.current.sp + 1),
@@ -172,14 +176,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         match item {
-            MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_read(
+            MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
                 constant_from!(VarType::I32),
                 self.load_base.expr(meta),
             )),
-            MLookupItem::Second => Some(MemoryTableConfig::<F>::encode_memory_load(
+            MLookupItem::Second => Some(MemoryTableLookupEncode::encode_memory_load(
                 common_config.eid(meta),
                 constant_from!(2),
                 self.mmid.expr(meta),
@@ -187,7 +191,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 constant_from!(VarType::U64),
                 self.bytes8_value.expr(meta),
             )),
-            MLookupItem::Third => Some(MemoryTableConfig::<F>::encode_stack_read(
+            MLookupItem::Third => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(3),
                 common_config.sp(meta) + constant_from!(1),

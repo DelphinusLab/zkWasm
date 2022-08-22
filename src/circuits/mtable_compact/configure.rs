@@ -1,7 +1,6 @@
+use super::encode::MemoryTableLookupEncode;
 use super::*;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::Lookup;
-use crate::constant;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
@@ -298,7 +297,7 @@ impl<F: FieldExt> Lookup<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut halo2_proofs::plonk::VirtualCells<'_, F>,
     ) -> halo2_proofs::plonk::Expression<F> {
-        Self::encode_for_lookup(
+        MemoryTableLookupEncode::encode_for_lookup(
             self.eid(meta),
             self.emid(meta),
             self.mmid(meta),

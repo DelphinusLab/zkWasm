@@ -2,13 +2,14 @@ use super::*;
 use crate::circuits::jtable::expression::{
     JtableLookupEntryEncode, EID_SHIFT, FID_SHIFT, LAST_JUMP_EID_SHIFT, MOID_SHIFT,
 };
+use crate::circuits::mtable_compact::encode::MemoryTableLookupEncode;
 use crate::{
     circuits::utils::{bn_to_field, Context},
     constant,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
 use specs::{
@@ -29,7 +30,7 @@ pub struct ReturnConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
+        _constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let drop = common.alloc_common_range_value();
         let keep = common.alloc_bit_value();
@@ -172,7 +173,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         match item {
             MLookupItem::First => Some(
                 self.keep.expr(meta)
-                    * MemoryTableConfig::<F>::encode_stack_read(
+                    * MemoryTableLookupEncode::encode_stack_read(
                         common.eid(meta),
                         constant_from!(1),
                         common.sp(meta) + constant_from!(1),
@@ -182,7 +183,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
             ),
             MLookupItem::Second => Some(
                 self.keep.expr(meta)
-                    * MemoryTableConfig::<F>::encode_stack_write(
+                    * MemoryTableLookupEncode::encode_stack_write(
                         common.eid(meta),
                         constant_from!(2),
                         common.sp(meta) + self.drop.expr(meta) + constant_from!(1),

@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    circuits::utils::{bn_to_field, Context},
+    circuits::{utils::{bn_to_field, Context}, mtable_compact::encode::MemoryTableLookupEncode},
     constant,
 };
 use halo2_proofs::{
@@ -299,7 +299,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
 
         self.lookup_stack_read_lhs.assign(
             ctx,
-            &MemoryTableConfig::<F>::encode_stack_read(
+            &MemoryTableLookupEncode::encode_stack_read(
                 BigUint::from(step_info.current.eid),
                 BigUint::from(1 as u64),
                 BigUint::from(step_info.current.sp + 1),
@@ -310,7 +310,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
 
         self.lookup_stack_read_rhs.assign(
             ctx,
-            &MemoryTableConfig::<F>::encode_stack_read(
+            &MemoryTableLookupEncode::encode_stack_read(
                 BigUint::from(step_info.current.eid),
                 BigUint::from(2 as u64),
                 BigUint::from(step_info.current.sp + 2),
@@ -321,7 +321,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
 
         self.lookup_stack_write_res.assign(
             ctx,
-            &MemoryTableConfig::<F>::encode_stack_write(
+            &MemoryTableLookupEncode::encode_stack_write(
                 BigUint::from(step_info.current.eid),
                 BigUint::from(3 as u64),
                 BigUint::from(step_info.current.sp + 2),
@@ -353,21 +353,21 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             + constant_from!(1);
 
         match item {
-            MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_read(
+            MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
                 vtype.clone(),
                 self.rhs.expr(meta),
             )),
-            MLookupItem::Second => Some(MemoryTableConfig::<F>::encode_stack_read(
+            MLookupItem::Second => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(2),
                 common_config.sp(meta) + constant_from!(2),
                 vtype.clone(),
                 self.lhs.expr(meta),
             )),
-            MLookupItem::Third => Some(MemoryTableConfig::<F>::encode_stack_write(
+            MLookupItem::Third => Some(MemoryTableLookupEncode::encode_stack_write(
                 common_config.eid(meta),
                 constant_from!(3),
                 common_config.sp(meta) + constant_from!(2),

@@ -6,8 +6,6 @@ use specs::mtable::{AccessType, LocationType};
 
 use crate::{circuits::utils::bn_to_field, constant_from, constant_from_bn};
 
-use super::MemoryTableConfig;
-
 lazy_static! {
     static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
     static ref ACCESS_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 77;
@@ -23,7 +21,9 @@ pub(crate) trait FromBn {
     fn from_bn(bn: &BigUint) -> Self;
 }
 
-impl<F: FieldExt> MemoryTableConfig<F> {
+pub(crate) struct MemoryTableLookupEncode {}
+
+impl MemoryTableLookupEncode {
     pub(super) fn encode_for_lookup<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
         eid: T,
         emid: T,
@@ -65,7 +65,7 @@ impl FromBn for BigUint {
     }
 }
 
-impl<F: FieldExt> MemoryTableConfig<F> {
+impl MemoryTableLookupEncode {
     pub(crate) fn encode_stack_read<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
         eid: T,
         emid: T,
@@ -73,7 +73,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         vtype: T,
         value: T,
     ) -> T {
-        MemoryTableConfig::<F>::encode_for_lookup(
+        MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
             T::zero(),
@@ -92,7 +92,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         vtype: T,
         value: T,
     ) -> T {
-        MemoryTableConfig::<F>::encode_for_lookup(
+        MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
             T::zero(),
@@ -112,7 +112,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         vtype: T,
         block_value: T,
     ) -> T {
-        MemoryTableConfig::<F>::encode_for_lookup(
+        MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
             mmid,
@@ -132,7 +132,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         vtype: T,
         block_value: T,
     ) -> T {
-        MemoryTableConfig::<F>::encode_for_lookup(
+        MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
             mmid,

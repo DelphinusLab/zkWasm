@@ -1,6 +1,9 @@
 use super::*;
 use crate::{
-    circuits::utils::{bn_to_field, Context},
+    circuits::{
+        mtable_compact::encode::MemoryTableLookupEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
 use halo2_proofs::{
@@ -33,7 +36,7 @@ pub struct BrIfConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
+        _constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let cond = common.alloc_u64();
         let cond_inv = common.alloc_unlimited_value();
@@ -93,7 +96,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
 
                 self.lookup_stack_read_cond.assign(
                     ctx,
-                    &MemoryTableConfig::<F>::encode_stack_read(
+                    &MemoryTableLookupEncode::encode_stack_read(
                         BigUint::from(entry.eid),
                         BigUint::from(1 as u64),
                         BigUint::from(entry.sp + 1),
@@ -114,7 +117,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                     if *condition != 0 {
                         self.lookup_stack_read_return_value.assign(
                             ctx,
-                            &MemoryTableConfig::<F>::encode_stack_read(
+                            &MemoryTableLookupEncode::encode_stack_read(
                                 BigUint::from(entry.eid),
                                 BigUint::from(2 as u64),
                                 BigUint::from(entry.sp + 2),
@@ -125,7 +128,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
 
                         self.lookup_stack_write_return_value.assign(
                             ctx,
-                            &MemoryTableConfig::<F>::encode_stack_write(
+                            &MemoryTableLookupEncode::encode_stack_write(
                                 BigUint::from(step_info.current.eid),
                                 BigUint::from(3 as u64),
                                 BigUint::from(step_info.current.sp + 2 + drop as u64),
@@ -169,7 +172,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         match item {
-            MLookupItem::First => Some(MemoryTableConfig::<F>::encode_stack_read(
+            MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
@@ -181,7 +184,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                 self.cond.expr(meta)
                     * self.cond_inv.expr(meta)
                     * self.keep.expr(meta)
-                    * MemoryTableConfig::<F>::encode_stack_read(
+                    * MemoryTableLookupEncode::encode_stack_read(
                         common_config.eid(meta),
                         constant_from!(2),
                         common_config.sp(meta) + constant_from!(2),
@@ -194,7 +197,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                 self.cond.expr(meta)
                     * self.cond_inv.expr(meta)
                     * self.keep.expr(meta)
-                    * MemoryTableConfig::<F>::encode_stack_write(
+                    * MemoryTableLookupEncode::encode_stack_write(
                         common_config.eid(meta),
                         constant_from!(3),
                         common_config.sp(meta) + constant_from!(2) + self.drop.expr(meta),

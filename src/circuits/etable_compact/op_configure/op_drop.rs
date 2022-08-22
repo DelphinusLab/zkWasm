@@ -5,7 +5,7 @@ use crate::{
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Error, Expression, VirtualCells},
+    plonk::{Error, Expression, VirtualCells},
 };
 use specs::{
     etable::EventTableEntry,
@@ -19,7 +19,7 @@ pub struct DropConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for DropConfigBuilder {
     fn configure(
         _common: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
+        _constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         Box::new(DropConfig {})
     }
