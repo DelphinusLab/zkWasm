@@ -206,7 +206,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                     ),
             ),
 
-            MLookupItem::Fourth => None,
+            _ => None,
         }
     }
 

@@ -106,7 +106,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
             )),
             MLookupItem::Second => None,
             MLookupItem::Third => None,
-            MLookupItem::Fourth => None,
+            _ => None,
         }
     }
 }

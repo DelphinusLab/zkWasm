@@ -40,6 +40,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
+        todo!();
         let load_offset = common.alloc_common_range_value();
         let load_base = common.alloc_u64();
         let vtype = common.alloc_common_range_value();
@@ -198,7 +199,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.vtype.expr(meta),
                 self.value.expr(meta),
             )),
-            MLookupItem::Fourth => None,
+            _ => None,
         }
     }
 }

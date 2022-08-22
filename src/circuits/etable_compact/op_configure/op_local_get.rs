@@ -135,7 +135,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
                 self.value.expr(meta),
             )),
             MLookupItem::Third => None,
-            MLookupItem::Fourth => None,
+            _ => None,
         }
     }
 }

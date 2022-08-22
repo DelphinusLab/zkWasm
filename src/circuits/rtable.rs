@@ -25,18 +25,21 @@ pub struct RangeTableConfig<F: FieldExt> {
     u4_bop_calc_col: TableColumn,
     // {0, 1, 1 << 12, 1 << 24 ...}
     u4_bop_col: TableColumn,
+    // {1 | 0, 2 | 1, 4 | 2, ...}
+    pow_col: TableColumn,
 
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 10]) -> Self {
+    pub fn configure(cols: [TableColumn; 6]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
             u4_col: cols[2],
             u4_bop_calc_col: cols[3],
             u4_bop_col: cols[4],
+            pow_col: cols[5],
             _mark: PhantomData,
         }
     }
@@ -103,6 +106,15 @@ impl<F: FieldExt> RangeTableConfig<F> {
         });
     }
 
+    pub fn configure_in_pow_set(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| vec![(expr(meta), self.pow_col)]);
+    }
+
     pub fn configure_in_vtype_byte_range(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -146,7 +158,7 @@ impl BinOp {
             BinOp::And => left & right,
             BinOp::Or => left | right,
             BinOp::Xor => left ^ right,
-            BinOp::Not => !left,
+            BinOp::Not => (!left) & 0xf,
             BinOp::Lt => {
                 if left < right {
                     1
@@ -163,6 +175,13 @@ impl BinOp {
             }
         }
     }
+}
+
+pub fn pow_table_encode<F: FieldExt>(
+    modulus: Expression<F>,
+    power: Expression<F>,
+) -> Expression<F> {
+    modulus * constant_from!(1u64 << 16) + power
 }
 
 impl<F: FieldExt> RangeTableChip<F> {
@@ -267,7 +286,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                                 || {
                                     Ok(F::from((l * 256 + r * 16 + res) as u64)
                                         * bn_to_field::<F>(
-                                            &(BigUint::from(1u64) << i.clone() as usize),
+                                            &(BigUint::from(1u64) << (i as usize * 12)),
                                         ))
                                 },
                             )?;
@@ -278,6 +297,33 @@ impl<F: FieldExt> RangeTableChip<F> {
                 Ok(())
             },
         )?;
+
+        layouter.assign_table(
+            || "pow table",
+            |mut table| {
+                table.assign_cell(
+                    || "range table",
+                    self.config.pow_col,
+                    0,
+                    || Ok(F::from(0 as u64)),
+                )?;
+                let mut offset = 1;
+                for i in 0..128usize {
+                    table.assign_cell(
+                        || "range table",
+                        self.config.pow_col,
+                        offset as usize,
+                        || {
+                            Ok(bn_to_field::<F>(&(BigUint::from(1u64) << (i + 16)))
+                                + F::from(i as u64))
+                        },
+                    )?;
+                    offset += 1;
+                }
+                Ok(())
+            },
+        )?;
+
         Ok(())
     }
 }

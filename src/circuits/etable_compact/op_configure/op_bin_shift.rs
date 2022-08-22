@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     circuits::{
         mtable_compact::encode::MemoryTableLookupEncode,
+        rtable::pow_table_encode,
         utils::{bn_to_field, Context},
     },
     constant,
@@ -21,10 +22,21 @@ use specs::{
 pub struct BinShiftConfig {
     lhs: U64Cell,
     rhs: U64Cell,
-    res: U64Cell,
-    vtype: CommonRangeCell,
+    modulus: U64Cell, // modulus = 2 ^ (rhs % REM_OF_SIZE)
+    round: U64OnU8Cell,
+    rem: U64OnU8Cell,  // round * x + rem = y
+    diff: U64OnU8Cell, // to limit the rem range
+    res: UnlimitedCell,
+
+    is_eight_bytes: BitCell,
+    is_sign: BitCell,
+    higher_u4_decompose: [BitCell; 4],
+
     is_shl: BitCell,
     is_shr_u: BitCell,
+
+    lookup_pow: PowTableLookupCell,
+
     lookup_stack_read_lhs: MTableLookupCell,
     lookup_stack_read_rhs: MTableLookupCell,
     lookup_stack_write: MTableLookupCell,
@@ -39,33 +51,115 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
-        let res = common.alloc_u64();
+        let modulus = common.alloc_u64();
+        let round = common.alloc_u64_on_u8();
+        let diff = common.alloc_u64_on_u8();
+        let rem = common.alloc_u64_on_u8();
+        let res = common.alloc_unlimited_value();
 
-        let vtype = common.alloc_common_range_value();
+        let is_eight_bytes = common.alloc_bit_value();
+        let is_sign = common.alloc_bit_value();
+        let higher_u4_decompose = [0; 4].map(|_| common.alloc_bit_value());
 
         let is_shl = common.alloc_bit_value();
         let is_shr_u = common.alloc_bit_value();
+
+        let lookup_pow = common.alloc_pow_table_lookup();
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
+        constraint_builder.push(
+            "bin decompose u4",
+            Box::new(move |meta| {
+                vec![higher_u4_decompose
+                    .iter()
+                    .enumerate()
+                    .fold(rhs.u4_expr(meta, 1), |acc, (pos, cell)| {
+                        acc - cell.expr(meta) * constant_from!(1 << pos)
+                    })]
+            }),
+        );
+
+        constraint_builder.push(
+            "bin pow lookup",
+            Box::new(move |meta| {
+                let power = is_eight_bytes.expr(meta)
+                    * higher_u4_decompose[1].clone().expr(meta)
+                    * constant_from!(1 << 5)
+                    + higher_u4_decompose[0].clone().expr(meta) * constant_from!(1 << 4)
+                    + rhs.u4_expr(meta, 0);
+                vec![lookup_pow.expr(meta) - pow_table_encode(modulus.expr(meta), power)]
+            }),
+        );
+
+        constraint_builder.push(
+            "bin shr_u",
+            Box::new(move |meta| {
+                vec![
+                    is_shr_u.expr(meta) * (rem.expr(meta) + diff.expr(meta) - modulus.expr(meta)),
+                    is_shr_u.expr(meta)
+                        * (rem.expr(meta) + round.expr(meta) * modulus.expr(meta) - lhs.expr(meta)),
+                    is_shr_u.expr(meta) * (res.expr(meta) - round.expr(meta)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "bin shl",
+            Box::new(move |meta| {
+                vec![
+                    // is u64
+                    is_shl.expr(meta)
+                        * is_eight_bytes.expr(meta)
+                        * (lhs.expr(meta) * modulus.expr(meta)
+                            - round.expr(meta)
+                                * constant!(bn_to_field::<F>(&(BigUint::from(1u64) << 64)))
+                            - rem.expr(meta)),
+                    // is u32
+                    is_shl.expr(meta)
+                        * (constant_from!(1) - is_eight_bytes.expr(meta))
+                        * (lhs.expr(meta) * modulus.expr(meta)
+                            - round.expr(meta) * constant_from!(1u64 << 32)
+                            - rem.expr(meta)),
+                    is_shl.expr(meta)
+                        * (constant_from!(1) - is_eight_bytes.expr(meta))
+                        * (rem.expr(meta) + diff.expr(meta) - constant_from!(1u64 << 32)),
+                    // res
+                    is_shl.expr(meta) * (res.expr(meta) - rem.expr(meta)),
+                ]
+            }),
+        );
+
         Box::new(BinShiftConfig {
             lhs,
             rhs,
+            modulus,
+            round,
+            rem,
             res,
-            vtype,
+            diff,
+            is_eight_bytes,
+            is_sign,
+            higher_u4_decompose,
             is_shl,
             is_shr_u,
             lookup_stack_read_lhs,
             lookup_stack_read_rhs,
             lookup_stack_write,
+            lookup_pow,
         })
     }
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        let vtype = constant_from!(4)
+            + self.is_eight_bytes.expr(meta) * constant_from!(2)
+            + self.is_sign.expr(meta)
+            + constant_from!(1);
+
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::BinShift as u64) << OPCODE_CLASS_SHIFT)
         )) + self.is_shl.expr(meta)
@@ -76,8 +170,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 * constant!(bn_to_field(
                     &(BigUint::from(ShiftOp::UnsignedShr as u64) << OPCODE_ARG0_SHIFT)
                 ))
-            + self.vtype.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+            + vtype * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
     }
 
     fn assign(
@@ -86,35 +179,62 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         step_info: &StepStatus,
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
-        let (class, vtype, left, right, value) = match entry.step_info {
-            StepInfo::I32BinShiftOp {
-                class,
-                left,
-                right,
-                value,
-            } => {
-                let vtype = VarType::I32;
-                let left = left as u32 as u64;
-                let right = right as u32 as u64;
-                let value = value as u32 as u64;
+        let (class, vtype, left, right, value, power, is_eight_bytes, is_sign) =
+            match entry.step_info {
+                StepInfo::I32BinShiftOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                } => {
+                    let vtype = VarType::I32;
+                    let left = left as u32 as u64;
+                    let right = right as u32 as u64;
+                    let value = value as u32 as u64;
+                    let power = right as u32 % 32;
+                    let is_eight_bytes = false;
+                    let is_sign = true;
+                    (
+                        class,
+                        vtype,
+                        left,
+                        right,
+                        value,
+                        power,
+                        is_eight_bytes,
+                        is_sign,
+                    )
+                }
 
-                (class, vtype, left, right, value)
-            }
+                _ => unreachable!(),
+            };
 
-            _ => unreachable!(),
-        };
-
-        self.vtype.assign(ctx, vtype as u16)?;
         self.lhs.assign(ctx, left)?;
         self.rhs.assign(ctx, right)?;
-        self.res.assign(ctx, value)?;
+        self.modulus.assign(ctx, 1 << power)?;
+        self.lookup_pow.assign(ctx, power)?;
+        self.is_eight_bytes.assign(ctx, is_eight_bytes)?;
+        self.is_sign.assign(ctx, is_sign)?;
+        self.res.assign(ctx, F::from(value))?;
+
+        for i in 0..4 {
+            self.higher_u4_decompose[i].assign(ctx, (right >> (4 + i)) & 1 == 1)?;
+        }
 
         match class {
             specs::itable::ShiftOp::Shl => {
                 self.is_shl.assign(ctx, true)?;
+                self.round.assign(ctx, left >> (32 - power))?;
+                let rem = (left << power) & ((1u64 << 32) - 1);
+                self.rem.assign(ctx, rem)?;
+                self.diff.assign(ctx, (1u64 << 32) - rem)?;
             }
             specs::itable::ShiftOp::UnsignedShr => {
                 self.is_shr_u.assign(ctx, true)?;
+                self.round.assign(ctx, left >> power)?;
+                let rem = left & ((1 << power) - 1);
+                self.rem.assign(ctx, rem)?;
+                self.diff.assign(ctx, (1u64 << power) - rem)?;
             }
         }
 
@@ -168,29 +288,33 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         item: MLookupItem,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
+        let vtype = constant_from!(4)
+            + self.is_eight_bytes.expr(meta) * constant_from!(2)
+            + self.is_sign.expr(meta)
+            + constant_from!(1);
         match item {
             MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
-                self.vtype.expr(meta),
+                vtype.clone(),
                 self.rhs.expr(meta),
             )),
             MLookupItem::Second => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(2),
                 common_config.sp(meta) + constant_from!(2),
-                self.vtype.expr(meta),
+                vtype.clone(),
                 self.lhs.expr(meta),
             )),
             MLookupItem::Third => Some(MemoryTableLookupEncode::encode_stack_write(
                 common_config.eid(meta),
                 constant_from!(3),
                 common_config.sp(meta) + constant_from!(2),
-                self.vtype.expr(meta),
+                vtype.clone(),
                 self.res.expr(meta),
             )),
-            MLookupItem::Fourth => None,
+            _ => None,
         }
     }
 

@@ -22,7 +22,7 @@ pub struct BinConfig {
     lhs: U64Cell,
     rhs: U64Cell,
     res: U64Cell,
-    overflow: U64Cell,
+    overflow: U64OnU8Cell,
     vtype: CommonRangeCell,
     is_add: BitCell,
     is_32bits: BitCell,
@@ -42,7 +42,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
         let res = common.alloc_u64();
-        let overflow = common.alloc_u64();
+        let overflow = common.alloc_u64_on_u8();
 
         let vtype = common.alloc_common_range_value();
 
@@ -225,7 +225,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.vtype.expr(meta),
                 self.res.expr(meta),
             )),
-            MLookupItem::Fourth => None,
+            _ => None,
         }
     }
 

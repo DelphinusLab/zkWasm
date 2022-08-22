@@ -62,6 +62,32 @@ impl MTableLookupCell {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct PowTableLookupCell {
+    pub col: Column<Advice>,
+    pub rot: i32,
+}
+
+impl PowTableLookupCell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, power: u32) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "pow lookup cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || {
+                Ok(bn_to_field(
+                    &((BigUint::from(1u64) << (power + 16)) + power),
+                ))
+            },
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
+}
+
 pub struct JTableLookupCell {
     pub col: Column<Advice>,
     pub rot: i32,
@@ -175,12 +201,58 @@ impl U64Cell {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct U64OnU8Cell {
+    pub value_col: Column<Advice>,
+    pub value_rot: i32,
+    pub u8_col: Column<Advice>,
+    pub u8_rot: i32,
+}
+
+impl U64OnU8Cell {
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        mut value: u64,
+    ) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "u64 range cell",
+            self.value_col,
+            (ctx.offset as i32 + self.value_rot) as usize,
+            || Ok(F::from(value)),
+        )?;
+
+        for i in 0..8usize {
+            let v = value & 0xff;
+            value >>= 8;
+            ctx.region.assign_advice(
+                || "u8 range cell",
+                self.u8_col,
+                ((ctx.offset + i) as i32 + self.u8_rot) as usize,
+                || Ok(F::from(v)),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.value_col, self.value_rot)
+    }
+
+    pub fn u8_expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>, i: i32) -> Expression<F> {
+        nextn!(meta, self.u8_col, i + self.u8_rot)
+    }
+}
+
 pub(super) struct EventTableCellAllocator<'a, F> {
     pub config: &'a EventTableCommonConfig<F>,
     pub bit_index: i32,
     pub common_range_index: i32,
-    pub unlimit_index: i32,
+    pub unlimited_index: i32,
     pub u64_index: i32,
+    pub u64_on_u8_index: i32,
+    pub pow_table_lookup_index: i32,
     pub mtable_lookup_index: i32,
     pub jtable_lookup_index: i32,
 }
@@ -191,20 +263,22 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             config,
             bit_index: EventTableBitColumnRotation::Max as i32,
             common_range_index: EventTableCommonRangeColumnRotation::Max as i32,
-            unlimit_index: EventTableUnlimitColumnRotation::SharedStart as i32,
+            unlimited_index: 0,
             u64_index: 0,
+            u64_on_u8_index: 0,
+            pow_table_lookup_index: EventTableUnlimitColumnRotation::PowTableLookup as i32,
             mtable_lookup_index: EventTableUnlimitColumnRotation::MTableLookupStart as i32,
             jtable_lookup_index: EventTableUnlimitColumnRotation::JTableLookup as i32,
         }
     }
 
     pub fn alloc_bit_value(&mut self) -> BitCell {
-        assert!(self.bit_index < ETABLE_STEP_SIZE as i32);
+        assert!(self.bit_index < BITS_COLUMNS as i32 * ETABLE_STEP_SIZE as i32);
         let allocated_index = self.bit_index;
         self.bit_index += 1;
         BitCell {
-            col: self.config.shared_bits,
-            rot: allocated_index,
+            col: self.config.shared_bits[allocated_index as usize / ETABLE_STEP_SIZE as usize],
+            rot: allocated_index % ETABLE_STEP_SIZE as i32,
         }
     }
 
@@ -219,11 +293,11 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
     }
 
     pub fn alloc_unlimited_value(&mut self) -> UnlimitedCell {
-        assert!(self.unlimit_index < ETABLE_STEP_SIZE as i32);
-        let allocated_index = self.unlimit_index;
-        self.unlimit_index += 1;
+        assert!(self.unlimited_index < ETABLE_STEP_SIZE as i32);
+        let allocated_index = self.unlimited_index;
+        self.unlimited_index += 1;
         UnlimitedCell {
-            col: self.config.aux,
+            col: self.config.unlimited,
             rot: allocated_index,
         }
     }
@@ -239,11 +313,37 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         }
     }
 
+    pub fn alloc_u64_on_u8(&mut self) -> U64OnU8Cell {
+        assert!(self.u64_on_u8_index < U8_COLUMNS as i32 * 2);
+        let allocated_index = self.u64_on_u8_index;
+        self.u64_on_u8_index += 1;
+        U64OnU8Cell {
+            value_col: self.config.aux,
+            value_rot: allocated_index
+                + EventTableUnlimitColumnRotation::U64Start as i32
+                + U4_COLUMNS as i32,
+            u8_col: self.config.u8_shared[allocated_index as usize / 2],
+            u8_rot: (allocated_index % 2) * 8,
+        }
+    }
+
     pub fn alloc_mtable_lookup(&mut self) -> MTableLookupCell {
         assert!(self.mtable_lookup_index < EventTableUnlimitColumnRotation::U64Start as i32);
         let allocated_index = self.mtable_lookup_index;
         self.mtable_lookup_index += 1;
         MTableLookupCell {
+            col: self.config.aux,
+            rot: allocated_index,
+        }
+    }
+
+    pub fn alloc_pow_table_lookup(&mut self) -> PowTableLookupCell {
+        assert!(
+            self.pow_table_lookup_index < EventTableUnlimitColumnRotation::MTableLookupStart as i32
+        );
+        let allocated_index = self.pow_table_lookup_index;
+        self.pow_table_lookup_index += 1;
+        PowTableLookupCell {
             col: self.config.aux,
             rot: allocated_index,
         }

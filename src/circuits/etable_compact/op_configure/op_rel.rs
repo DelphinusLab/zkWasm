@@ -374,7 +374,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 constant_from!(VarType::I32),
                 self.res.expr(meta),
             )),
-            MLookupItem::Fourth => None,
+            _ => None,
         }
     }
 

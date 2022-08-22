@@ -101,7 +101,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
-        let rtable = RangeTableConfig::configure([0; 10].map(|_| meta.lookup_table_column()));
+        let rtable = RangeTableConfig::configure([0; 6].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
         let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
