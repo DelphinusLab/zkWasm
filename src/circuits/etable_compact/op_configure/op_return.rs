@@ -230,4 +230,17 @@ mod tests {
 
         test_circuit_noexternal(textual_repr).unwrap();
     }
+
+    #[test]
+    fn test_return_with_keep_ok() {
+        let textual_repr = r#"
+            (module
+                (func (export "test") (result i32)
+                    (i32.const 0)
+                )
+               )
+            "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
 }
