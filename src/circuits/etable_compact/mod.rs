@@ -89,7 +89,8 @@ pub(crate) enum EventTableUnlimitColumnRotation {
     ITableLookup = 0,
     JTableLookup = 1,
     PowTableLookup = 2,
-    MTableLookupStart = 3,
+    OffsetLenBitsTableLookup = 3,
+    MTableLookupStart = 4,
     U64Start = 4 + MTABLE_LOOKUPS_SIZE as isize,
 }
 
@@ -172,6 +173,7 @@ pub(super) struct EventTableCommonConfig<F> {
     pub jtable_lookup: Column<Fixed>,
     pub mtable_lookup: Column<Fixed>,
     pub pow_table_lookup: Column<Fixed>,
+    pub offset_len_bits_table_lookup: Column<Fixed>,
 
     // Rotation
     // 0      itable lookup
@@ -218,6 +220,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let jtable_lookup = meta.fixed_column();
         let mtable_lookup = meta.fixed_column();
         let pow_table_lookup = meta.fixed_column();
+        let offset_len_bits_table_lookup = meta.fixed_column();
 
         let u4_shared = [0; U4_COLUMNS].map(|_| cols.next().unwrap());
         let u8_shared = [0; U8_COLUMNS].map(|_| cols.next().unwrap());
@@ -272,6 +275,12 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_pow_set(meta, "etable pow_table lookup", |meta| {
+            curr!(meta, aux)
+                * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
+                * fixed_curr!(meta, pow_table_lookup)
+        });
+
+        rtable.configure_in_offset_len_bits_set(meta, "etable offset len bits lookup", |meta| {
             curr!(meta, aux)
                 * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
                 * fixed_curr!(meta, pow_table_lookup)
@@ -341,6 +350,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             jtable_lookup,
             mtable_lookup,
             pow_table_lookup,
+            offset_len_bits_table_lookup,
             aux,
             u4_shared,
             u8_shared,
@@ -381,7 +391,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Bin, BinConfigBuilder);
         configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
-        //configure!(OpcodeClass::Load, LoadConfigBuilder);
+        configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Rel, RelConfigBuilder);
 
         meta.create_gate("enable seq", |meta| {

@@ -1,4 +1,5 @@
 use super::config::K;
+use super::config::POW_TABLE_LIMIT;
 use super::utils::bn_to_field;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
@@ -27,12 +28,14 @@ pub struct RangeTableConfig<F: FieldExt> {
     u4_bop_col: TableColumn,
     // {1 | 0, 2 | 1, 4 | 2, ...}
     pow_col: TableColumn,
+    // {0 | 1 | 0b1000000000000000, 0 | 2 | 0b110000000000000 ...}
+    offset_len_bits_col: TableColumn,
 
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 6]) -> Self {
+    pub fn configure(cols: [TableColumn; 7]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
@@ -40,6 +43,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
             u4_bop_calc_col: cols[3],
             u4_bop_col: cols[4],
             pow_col: cols[5],
+            offset_len_bits_col: cols[6],
             _mark: PhantomData,
         }
     }
@@ -115,6 +119,15 @@ impl<F: FieldExt> RangeTableConfig<F> {
         meta.lookup(key, |meta| vec![(expr(meta), self.pow_col)]);
     }
 
+    pub fn configure_in_offset_len_bits_set(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| vec![(expr(meta), self.offset_len_bits_col)]);
+    }
+
     pub fn configure_in_vtype_byte_range(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -182,6 +195,25 @@ pub fn pow_table_encode<F: FieldExt>(
     power: Expression<F>,
 ) -> Expression<F> {
     modulus * constant_from!(1u64 << 16) + power
+}
+
+pub fn bits_of_offset_len(offset: u64, len: u64) -> u64 {
+    let bits = (1 << len) - 1;
+    bits << offset
+}
+
+pub fn offset_len_bits_encode(offset: u64, len: u64) -> u64 {
+    assert!(offset < 16);
+    assert!(len == 1 || len == 2 || len == 4 || len == 8);
+    (offset << 20) + (len << 16) + bits_of_offset_len(offset, len)
+}
+
+pub fn offset_len_bits_encode_expr<F: FieldExt>(
+    offset: Expression<F>,
+    len: Expression<F>,
+    bits: Expression<F>,
+) -> Expression<F> {
+    offset * constant_from!(1u64 << 20) + len * constant_from!(1u64 << 16) + bits
 }
 
 impl<F: FieldExt> RangeTableChip<F> {
@@ -308,7 +340,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                     || Ok(F::from(0 as u64)),
                 )?;
                 let mut offset = 1;
-                for i in 0..128usize {
+                for i in 0..POW_TABLE_LIMIT {
                     table.assign_cell(
                         || "range table",
                         self.config.pow_col,
@@ -318,6 +350,31 @@ impl<F: FieldExt> RangeTableChip<F> {
                                 + F::from(i as u64))
                         },
                     )?;
+                    offset += 1;
+                }
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "offset len bits table",
+            |mut table| {
+                table.assign_cell(
+                    || "range table",
+                    self.config.offset_len_bits_col,
+                    0,
+                    || Ok(F::from(0 as u64)),
+                )?;
+                let mut offset = 1;
+                for i in 0..8 {
+                    for j in vec![1, 2, 4, 8] {
+                        table.assign_cell(
+                            || "range table",
+                            self.config.offset_len_bits_col,
+                            offset as usize,
+                            || Ok(F::from(offset_len_bits_encode(i, j))),
+                        )?;
+                    }
                     offset += 1;
                 }
                 Ok(())

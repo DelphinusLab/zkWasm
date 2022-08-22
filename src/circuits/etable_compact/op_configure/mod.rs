@@ -1,3 +1,5 @@
+use crate::circuits::{rtable::offset_len_bits_encode, config::POW_TABLE_LIMIT};
+
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
@@ -63,13 +65,41 @@ impl MTableLookupCell {
 }
 
 #[derive(Copy, Clone)]
+pub struct OffsetLenBitsTableLookupCell {
+    pub col: Column<Advice>,
+    pub rot: i32,
+}
+
+impl OffsetLenBitsTableLookupCell {
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        offset: u64,
+        len: u64,
+    ) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "offset len bits lookup cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(F::from(offset_len_bits_encode(offset, len))),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
+}
+
+#[derive(Copy, Clone)]
 pub struct PowTableLookupCell {
     pub col: Column<Advice>,
     pub rot: i32,
 }
 
 impl PowTableLookupCell {
-    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, power: u32) -> Result<(), Error> {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, power: u64) -> Result<(), Error> {
+        assert!(power < POW_TABLE_LIMIT);
         ctx.region.assign_advice(
             || "pow lookup cell",
             self.col,
@@ -252,9 +282,10 @@ pub(super) struct EventTableCellAllocator<'a, F> {
     pub unlimited_index: i32,
     pub u64_index: i32,
     pub u64_on_u8_index: i32,
-    pub pow_table_lookup_index: i32,
     pub mtable_lookup_index: i32,
     pub jtable_lookup_index: i32,
+    pub pow_table_lookup_index: i32,
+    pub offset_len_bits_lookup_index: i32,
 }
 
 impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
@@ -269,6 +300,8 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             pow_table_lookup_index: EventTableUnlimitColumnRotation::PowTableLookup as i32,
             mtable_lookup_index: EventTableUnlimitColumnRotation::MTableLookupStart as i32,
             jtable_lookup_index: EventTableUnlimitColumnRotation::JTableLookup as i32,
+            offset_len_bits_lookup_index: EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup
+                as i32,
         }
     }
 
@@ -339,11 +372,25 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
 
     pub fn alloc_pow_table_lookup(&mut self) -> PowTableLookupCell {
         assert!(
-            self.pow_table_lookup_index < EventTableUnlimitColumnRotation::MTableLookupStart as i32
+            self.pow_table_lookup_index
+                < EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup as i32
         );
         let allocated_index = self.pow_table_lookup_index;
         self.pow_table_lookup_index += 1;
         PowTableLookupCell {
+            col: self.config.aux,
+            rot: allocated_index,
+        }
+    }
+
+    pub fn alloc_offset_len_bits_table_lookup(&mut self) -> OffsetLenBitsTableLookupCell {
+        assert!(
+            self.offset_len_bits_lookup_index
+                < EventTableUnlimitColumnRotation::MTableLookupStart as i32
+        );
+        let allocated_index = self.offset_len_bits_lookup_index;
+        self.offset_len_bits_lookup_index += 1;
+        OffsetLenBitsTableLookupCell {
             col: self.config.aux,
             rot: allocated_index,
         }

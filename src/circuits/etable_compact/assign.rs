@@ -50,6 +50,17 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
+            if i % ETABLE_STEP_SIZE
+                == EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup as usize
+            {
+                ctx.region.assign_fixed(
+                    || "pow table lookup",
+                    self.offset_len_bits_table_lookup,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
+
             if i % ETABLE_STEP_SIZE >= EventTableUnlimitColumnRotation::MTableLookupStart as usize
                 && i % ETABLE_STEP_SIZE < EventTableUnlimitColumnRotation::U64Start as usize
             {

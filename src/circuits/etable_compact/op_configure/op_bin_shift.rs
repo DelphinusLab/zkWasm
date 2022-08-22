@@ -191,7 +191,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                     let left = left as u32 as u64;
                     let right = right as u32 as u64;
                     let value = value as u32 as u64;
-                    let power = right as u32 % 32;
+                    let power = right % 32;
                     let is_eight_bytes = false;
                     let is_sign = true;
                     (

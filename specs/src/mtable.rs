@@ -63,6 +63,13 @@ impl VarType {
             VarType::I64 => 8,
         }
     }
+
+    pub fn is_sign(&self) -> bool {
+        match self {
+            VarType::U8 | VarType::U16 | VarType::U32 | VarType::U64 => false,
+            _ => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
