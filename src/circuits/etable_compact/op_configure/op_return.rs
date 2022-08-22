@@ -12,6 +12,7 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
+use specs::mtable::VarType;
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
@@ -23,6 +24,8 @@ pub struct ReturnConfig {
     vtype: CommonRangeCell,
     value: U64Cell,
     return_lookup: JTableLookupCell,
+    mtable_lookup_stack_read: MTableLookupCell,
+    mtable_lookup_stack_write: MTableLookupCell,
 }
 
 pub struct ReturnConfigBuilder {}
@@ -37,6 +40,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         let vtype = common.alloc_common_range_value();
         let value = common.alloc_u64();
         let return_lookup = common.alloc_jtable_lookup();
+        let mtable_lookup_stack_read = common.alloc_mtable_lookup();
+        let mtable_lookup_stack_write = common.alloc_mtable_lookup();
 
         Box::new(ReturnConfig {
             keep,
@@ -44,6 +49,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             vtype,
             value,
             return_lookup,
+            mtable_lookup_stack_read,
+            mtable_lookup_stack_write,
         })
     }
 }
@@ -81,9 +88,30 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
                 if keep_values.len() == 0 {
                     self.keep.assign(ctx, false)?;
                 } else {
+                    let vtype = VarType::from(keep[0]);
                     self.keep.assign(ctx, true)?;
-                    self.vtype.assign(ctx, keep[0] as u16)?;
+                    self.vtype.assign(ctx, vtype as u16)?;
                     self.value.assign(ctx, keep_values[0])?;
+                    self.mtable_lookup_stack_read.assign(
+                        ctx,
+                        &MemoryTableLookupEncode::encode_stack_read(
+                            BigUint::from(entry.eid),
+                            BigUint::from(1 as u64),
+                            BigUint::from(entry.sp + 1),
+                            BigUint::from(vtype as u16),
+                            BigUint::from(keep_values[0]),
+                        ),
+                    )?;
+                    self.mtable_lookup_stack_write.assign(
+                        ctx,
+                        &MemoryTableLookupEncode::encode_stack_write(
+                            BigUint::from(entry.eid),
+                            BigUint::from(2 as u64),
+                            BigUint::from(entry.sp + *drop as u64 + 1),
+                            BigUint::from(vtype as u16),
+                            BigUint::from(keep_values[0]),
+                        ),
+                    )?;
                 }
 
                 {
