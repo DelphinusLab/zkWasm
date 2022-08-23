@@ -29,7 +29,7 @@ use std::{
 };
 
 use self::{
-    config::VAR_COLUMNS,
+    config::{IMTABLE_COLOMNS, VAR_COLUMNS},
     etable_compact::{EventTableChip, EventTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
@@ -103,7 +103,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rtable = RangeTableConfig::configure([0; 7].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
-        let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
+        let imtable = InitMemoryTableConfig::configure(
+            [0; IMTABLE_COLOMNS].map(|_| meta.lookup_table_column()),
+        );
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
         let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
         let etable = EventTableConfig::configure(

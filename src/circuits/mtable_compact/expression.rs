@@ -32,6 +32,7 @@ pub(crate) const ROTATION_VTYPE_GE_TWO_BYTES: i32 = 1;
 pub(crate) const ROTATION_VTYPE_GE_FOUR_BYTES: i32 = 2;
 pub(crate) const ROTATION_VTYPE_GE_EIGHT_BYTES: i32 = 3;
 pub(crate) const ROTATION_VTYPE_SIGN: i32 = 4;
+pub(crate) const ROTATION_IMTABLE_COLUMN_SELECTOR: i32 = 5;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -212,5 +213,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     pub(super) fn prev_sign(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.bit, ROTATION_VTYPE_SIGN)
+    }
+
+    pub(super) fn imtable_selector(&self, meta: &mut VirtualCells<F>, i: u32) -> Expression<F> {
+        assert!((i as u32 + ROTATION_IMTABLE_COLUMN_SELECTOR as u32) < STEP_SIZE as u32);
+        nextn!(meta, self.bit, ROTATION_IMTABLE_COLUMN_SELECTOR + i as i32)
     }
 }

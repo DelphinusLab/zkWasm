@@ -1,4 +1,4 @@
-use super::{utils::bn_to_field, Encode};
+use super::{config::IMTABLE_COLOMNS, utils::bn_to_field, Encode};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -23,12 +23,12 @@ impl Encode for InitMemoryTableEntry {
 
 #[derive(Clone)]
 pub struct InitMemoryTableConfig<F: FieldExt> {
-    col: TableColumn,
+    col: [TableColumn; IMTABLE_COLOMNS],
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> InitMemoryTableConfig<F> {
-    pub fn configure(col: TableColumn) -> Self {
+    pub fn configure(col: [TableColumn; IMTABLE_COLOMNS]) -> Self {
         Self {
             col,
             _mark: PhantomData,
@@ -51,8 +51,9 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        index: usize,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.col)]);
+        meta.lookup(key, |meta| vec![(expr(meta), self.col[index])]);
     }
 }
 
@@ -73,12 +74,15 @@ impl<F: FieldExt> MInitTableChip<F> {
         layouter.assign_table(
             || "minit",
             |mut table| {
-                table.assign_cell(|| "minit table", self.config.col, 0, || Ok(F::zero()))?;
+                for i in 0..IMTABLE_COLOMNS {
+                    table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
+                }
+
                 for (i, v) in minit.iter().enumerate() {
                     table.assign_cell(
                         || "minit table",
-                        self.config.col,
-                        i + 1,
+                        self.config.col[v.offset as usize % IMTABLE_COLOMNS],
+                        v.offset as usize / IMTABLE_COLOMNS + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),
                     )?;
                 }

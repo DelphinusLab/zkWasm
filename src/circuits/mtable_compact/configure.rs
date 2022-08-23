@@ -1,5 +1,6 @@
 use super::encode::MemoryTableLookupEncode;
 use super::*;
+use crate::circuits::config::IMTABLE_COLOMNS;
 use crate::circuits::Lookup;
 use crate::constant_from;
 use crate::curr;
@@ -283,12 +284,33 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         _rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
     ) {
-        imtable.configure_in_table(meta, "mtable configure_heap_init_in_imtable", |meta| {
-            self.same_offset(meta)
-                * self.is_heap(meta)
-                * imtable.encode(self.mmid(meta), self.offset(meta), self.value(meta))
-                * self.is_enabled_block(meta)
-        })
+        meta.create_gate("mtable imtable selector sum", |meta| {
+            let mut acc = constant_from!(1);
+            for i in 0..IMTABLE_COLOMNS {
+                acc = acc - self.imtable_selector(meta, i as u32);
+            }
+            vec![
+                (constant_from!(1) - self.same_offset(meta))
+                    * self.is_heap(meta)
+                    * acc
+                    * self.is_enabled_block(meta),
+            ]
+        });
+
+        for i in 0..IMTABLE_COLOMNS {
+            imtable.configure_in_table(
+                meta,
+                "mtable configure_heap_init_in_imtable",
+                |meta| {
+                    (constant_from!(1) - self.same_offset(meta))
+                        * self.is_heap(meta)
+                        * imtable.encode(self.mmid(meta), self.offset(meta), self.value(meta))
+                        * self.is_enabled_block(meta)
+                        * self.imtable_selector(meta, i as u32)
+                },
+                i,
+            );
+        }
     }
 }
 

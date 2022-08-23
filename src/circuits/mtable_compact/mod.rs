@@ -7,10 +7,12 @@ use super::utils::Context;
 use crate::circuits::mtable_compact::configure::STEP_SIZE;
 use crate::circuits::mtable_compact::expression::RotationAux;
 use crate::circuits::mtable_compact::expression::RotationIndex;
+use crate::circuits::mtable_compact::expression::ROTATION_IMTABLE_COLUMN_SELECTOR;
 use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_EIGHT_BYTES;
 use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_FOUR_BYTES;
 use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_TWO_BYTES;
 use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_SIGN;
+use crate::circuits::IMTABLE_COLOMNS;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Advice;
@@ -19,6 +21,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use specs::mtable::AccessType;
+use specs::mtable::LocationType;
 use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::marker::PhantomData;
@@ -41,6 +44,7 @@ pub struct MemoryTableConfig<F: FieldExt> {
     // 2: vtype ge 4 bytes
     // 3: vtype ge 8 bytes
     // 4: sign mask
+    // 5..: imtable selector
     pub(crate) bit: Column<Advice>,
 
     // Rotation
@@ -201,6 +205,15 @@ impl<F: FieldExt> MemoryTableChip<F> {
                         F::one()
                     }
                 );
+                if entry.ltype == LocationType::Heap && entry.atype == AccessType::Init {
+                    assign_advice!(
+                        "vtype imtable selector",
+                        ROTATION_IMTABLE_COLUMN_SELECTOR
+                            + entry.offset as i32 % (IMTABLE_COLOMNS as i32),
+                        bit,
+                        F::one()
+                    );
+                }
             }
 
             // index column
