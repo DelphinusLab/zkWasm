@@ -73,10 +73,10 @@ impl<F: FieldExt> MInitTableChip<F> {
         layouter.assign_table(
             || "minit",
             |mut table| {
-                table.assign_cell(|| "minit talbe", self.config.col, 0, || Ok(F::zero()))?;
+                table.assign_cell(|| "minit table", self.config.col, 0, || Ok(F::zero()))?;
                 for (i, v) in minit.iter().enumerate() {
                     table.assign_cell(
-                        || "minit talbe",
+                        || "minit table",
                         self.config.col,
                         i + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),

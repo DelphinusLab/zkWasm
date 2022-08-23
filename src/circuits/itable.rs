@@ -103,10 +103,10 @@ impl<F: FieldExt> InstructionTableChip<F> {
         layouter.assign_table(
             || "itable",
             |mut table| {
-                table.assign_cell(|| "inst_init talbe", self.config.col, 0, || Ok(F::zero()))?;
+                table.assign_cell(|| "inst_init table", self.config.col, 0, || Ok(F::zero()))?;
                 for (i, v) in instructions.iter().enumerate() {
                     table.assign_cell(
-                        || "inst_init talbe",
+                        || "inst_init table",
                         self.config.col,
                         i + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),
