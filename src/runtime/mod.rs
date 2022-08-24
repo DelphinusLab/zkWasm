@@ -105,6 +105,77 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 
             ops
         }
+        StepInfo::BrIfEqz {
+            condition,
+            drop,
+            keep,
+            keep_values,
+            ..
+        } => {
+            assert_eq!(keep.len(), keep_values.len());
+            assert!(keep.len() <= 1);
+
+            let mut sp = sp_before_execution + 1;
+
+            let mut ops = vec![MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: VarType::I32,
+                value: *condition as u32 as u64,
+            }];
+
+            sp = sp + 1;
+            *emid = (*emid).checked_add(1).unwrap();
+
+            if *condition != 0 {
+                return ops;
+            }
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: keep[i].into(),
+                        value: keep_values[i],
+                    });
+
+                    sp = sp + 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            sp = sp + ((*drop) as u64);
+            sp -= 1;
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Write,
+                        vtype: keep[i].into(),
+                        value: keep_values[i],
+                    });
+
+                    sp = sp - 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            ops
+        }
         StepInfo::BrIfNez {
             condition,
             drop,
@@ -350,6 +421,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 
         StepInfo::Load {
             vtype,
+            load_size,
             offset: _offset,
             raw_address,
             effective_address,
@@ -357,6 +429,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             block_value,
             mmid,
         } => {
+            // TODO: adapt load_size
+
             let load_address_from_stack = MemoryTableEntry {
                 eid,
                 emid: *emid,
@@ -399,6 +473,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         }
         StepInfo::Store {
             vtype,
+            store_size,
             raw_address,
             effective_address,
             value,
@@ -407,6 +482,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             updated_block_value,
             ..
         } => {
+            // TODO: adapt store size
+
             let load_value_from_stack = MemoryTableEntry {
                 eid,
                 emid: *emid,
@@ -493,6 +570,15 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             &[*right as u32 as u64, *left as u32 as u64],
             &[*value as u32 as u64],
         ),
+        StepInfo::I32Eqz { value, result } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            VarType::I32,
+            VarType::I32,
+            &[*value as u32 as u64],
+            &[*result as u32 as u64],
+        ),
         StepInfo::I32Comp {
             left, right, value, ..
         } => mem_op_from_stack_only_step(
@@ -503,6 +589,24 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             VarType::I32,
             &[*right as u32 as u64, *left as u32 as u64],
             &[*value as u32 as u64],
+        ),
+
+        StepInfo::I64BinOp {
+            left, right, value, ..
+        }
+        | StepInfo::I64BinShiftOp {
+            left, right, value, ..
+        }
+        | StepInfo::I64BinBitOp {
+            left, right, value, ..
+        } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            VarType::I64,
+            VarType::I64,
+            &[*right as u64, *left as u64],
+            &[*value as u64],
         ),
 
         StepInfo::I64Const { value } => mem_op_from_stack_only_step(
@@ -524,6 +628,25 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             VarType::I32,
             &[*right as u64, *left as u64],
             &[*value as u32 as u64],
+        ),
+
+        StepInfo::I32WrapI64 { value, result } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            VarType::I64,
+            VarType::I32,
+            &[*value as u64],
+            &[*result as u32 as u64],
+        ),
+        StepInfo::I64ExtendUI32 { value, result } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            VarType::I32,
+            VarType::I64,
+            &[*value as u32 as u64],
+            &[*result as u64],
         ),
     }
 }

@@ -78,7 +78,7 @@ impl<F: FieldExt> MInitTableChip<F> {
                     table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
                 }
 
-                for (i, v) in minit.iter().enumerate() {
+                for v in minit.iter() {
                     table.assign_cell(
                         || "minit table",
                         self.config.col[v.offset as usize % IMTABLE_COLOMNS],

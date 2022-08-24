@@ -1,6 +1,6 @@
 use crate::{
     itable::{BinOp, BitOp, RelOp, ShiftOp},
-    mtable::VarType,
+    mtable::{MemoryReadSize, MemoryStoreSize, VarType},
     types::ValueType,
 };
 use serde::Serialize;
@@ -8,6 +8,13 @@ use serde::Serialize;
 #[derive(Debug, Clone, Serialize)]
 pub enum StepInfo {
     Br {
+        dst_pc: u32,
+        drop: u32,
+        keep: Vec<ValueType>,
+        keep_values: Vec<u64>,
+    },
+    BrIfEqz {
+        condition: i32,
         dst_pc: u32,
         drop: u32,
         keep: Vec<ValueType>,
@@ -53,6 +60,7 @@ pub enum StepInfo {
 
     Load {
         vtype: VarType,
+        load_size: MemoryReadSize,
         offset: u32,
         raw_address: u32,
         effective_address: u32,
@@ -62,6 +70,7 @@ pub enum StepInfo {
     },
     Store {
         vtype: VarType,
+        store_size: MemoryStoreSize,
         offset: u32,
         raw_address: u32,
         effective_address: u32,
@@ -97,6 +106,29 @@ pub enum StepInfo {
         value: i32,
     },
 
+    I64BinOp {
+        class: BinOp,
+        left: i64,
+        right: i64,
+        value: i64,
+    },
+    I64BinShiftOp {
+        class: ShiftOp,
+        left: i64,
+        right: i64,
+        value: i64,
+    },
+    I64BinBitOp {
+        class: BitOp,
+        left: i64,
+        right: i64,
+        value: i64,
+    },
+
+    I32Eqz {
+        value: i32,
+        result: i32,
+    },
     I32Comp {
         class: RelOp,
         left: i32,
@@ -108,5 +140,14 @@ pub enum StepInfo {
         left: i64,
         right: i64,
         value: bool,
+    },
+
+    I32WrapI64 {
+        value: i64,
+        result: i32,
+    },
+    I64ExtendUI32 {
+        value: i32,
+        result: i64,
     },
 }

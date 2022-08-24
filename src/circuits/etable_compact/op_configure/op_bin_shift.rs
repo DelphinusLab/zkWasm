@@ -222,20 +222,21 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         }
 
         match class {
-            specs::itable::ShiftOp::Shl => {
+            ShiftOp::Shl => {
                 self.is_shl.assign(ctx, true)?;
                 self.round.assign(ctx, left >> (32 - power))?;
                 let rem = (left << power) & ((1u64 << 32) - 1);
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, (1u64 << 32) - rem)?;
             }
-            specs::itable::ShiftOp::UnsignedShr => {
+            ShiftOp::UnsignedShr => {
                 self.is_shr_u.assign(ctx, true)?;
                 self.round.assign(ctx, left >> power)?;
                 let rem = left & ((1 << power) - 1);
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, (1u64 << power) - rem)?;
             }
+            ShiftOp::Rotl => todo!(),
         }
 
         self.lookup_stack_read_lhs.assign(

@@ -195,7 +195,7 @@ pub mod tests {
                 &mut NopExternals,
                 &compiled_module,
                 "Hash_Calculate",
-                vec![Value::I32(64)],
+                vec![Value::I32(1024)],
             )
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()

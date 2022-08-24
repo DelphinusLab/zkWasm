@@ -257,6 +257,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
         match entry.step_info {
             StepInfo::Load {
                 vtype,
+                load_size,
                 offset,
                 raw_address,
                 effective_address,
@@ -264,6 +265,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 block_value,
                 mmid,
             } => {
+                // adapt load_size
+                todo!();
+
                 self.opcode_load_offset
                     .assign(ctx, offset.try_into().unwrap())?;
 

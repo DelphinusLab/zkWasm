@@ -145,6 +145,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.is_add.assign(ctx, true)?;
                 self.overflow.assign(ctx, (left + right) >> shift)?;
             }
+            specs::itable::BinOp::Sub => {
+                todo!()
+            }
         };
 
         match vtype {

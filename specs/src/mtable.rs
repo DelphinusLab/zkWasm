@@ -30,6 +30,25 @@ pub enum VarType {
     I64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
+pub enum MemoryReadSize {
+    U8,
+    S8,
+    U16,
+    S16,
+    U32,
+    S32,
+    I64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
+pub enum MemoryStoreSize {
+    Byte8,
+    Byte16,
+    Byte32,
+    Byte64,
+}
+
 impl From<parity_wasm::elements::ValueType> for VarType {
     fn from(v: parity_wasm::elements::ValueType) -> Self {
         match v {
