@@ -177,4 +177,27 @@ pub mod tests {
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
     }
+
+    #[test]
+    fn test_sha256() {
+        let mut binary = vec![];
+
+        let path = PathBuf::from("wasm/sha256.wasm");
+        let mut f = File::open(path).unwrap();
+        f.read_to_end(&mut binary).unwrap();
+
+        let compiler = WasmInterpreter::new();
+        let compiled_module = compiler
+            .compile(&binary, &ImportsBuilder::default())
+            .unwrap();
+        let execution_log = compiler
+            .run(
+                &mut NopExternals,
+                &compiled_module,
+                "Hash_Calculate",
+                vec![Value::I32(64)],
+            )
+            .unwrap();
+        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+    }
 }
