@@ -30,8 +30,7 @@ pub enum OpcodeClass {
     CallHostTime,
     Load,
     Store,
-    I32WrapI64,
-    I64ExtendUI32,
+    Conversion,
 }
 
 impl OpcodeClass {
@@ -57,8 +56,7 @@ impl OpcodeClass {
             OpcodeClass::CallHostTime => 1,
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
-            OpcodeClass::I32WrapI64 => todo!(),
-            OpcodeClass::I64ExtendUI32 => todo!(),
+            OpcodeClass::Conversion => 2,
         }
     }
 
@@ -125,6 +123,12 @@ pub enum RelOp {
 #[derive(Copy, Clone, Debug, Serialize, EnumIter)]
 pub enum TestOp {
     Eqz,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, EnumIter)]
+pub enum ConversionOp {
+    I32WrapI64,
+    I64ExtendUI32,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -201,8 +205,9 @@ pub enum Opcode {
         vtype: VarType,
         size: MemoryStoreSize,
     },
-    I32WrapI64,
-    I64ExtendUI32,
+    Conversion {
+        class: ConversionOp,
+    },
 }
 
 impl Opcode {
@@ -337,11 +342,9 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(size as u64) << OPCODE_ARG1_SHIFT)
                     + offset
             }
-            Opcode::I32WrapI64 => {
-                BigUint::from(OpcodeClass::I32WrapI64 as u64) << OPCODE_CLASS_SHIFT
-            }
-            Opcode::I64ExtendUI32 => {
-                BigUint::from(OpcodeClass::I64ExtendUI32 as u64) << OPCODE_CLASS_SHIFT
+            Opcode::Conversion { class } => {
+                (BigUint::from(OpcodeClass::Conversion as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
             }
         };
         assert!(bn < BigUint::from(1u64) << 128usize);
@@ -372,8 +375,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::CallHostTime => OpcodeClass::CallHostTime,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
-            Opcode::I32WrapI64 => OpcodeClass::I32WrapI64,
-            Opcode::I64ExtendUI32 => OpcodeClass::I64ExtendUI32,
+            Opcode::Conversion { .. } => OpcodeClass::Conversion,
         }
     }
 }

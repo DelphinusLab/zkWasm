@@ -5,6 +5,7 @@ use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_bin_shift::BinShiftConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_load::LoadConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_local_get::LocalGetConfigBuilder;
@@ -395,6 +396,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Rel, RelConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
+        configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
 
         meta.create_gate("enable seq", |meta| {
             vec![

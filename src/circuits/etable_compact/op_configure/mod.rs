@@ -7,6 +7,7 @@ pub(super) mod op_bin;
 pub(super) mod op_bin_shift;
 pub(super) mod op_br_if;
 pub(super) mod op_const;
+pub(super) mod op_conversion;
 pub(super) mod op_drop;
 pub(super) mod op_load;
 pub(super) mod op_local_get;
