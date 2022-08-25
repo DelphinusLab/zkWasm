@@ -25,6 +25,7 @@ pub struct BinConfig {
     overflow: U64OnU8Cell,
     vtype: CommonRangeCell,
     is_add: BitCell,
+    is_sub: BitCell,
     is_32bits: BitCell,
     is_64bits: BitCell,
     lookup_stack_read_lhs: MTableLookupCell,
@@ -47,23 +48,24 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let vtype = common.alloc_common_range_value();
 
         let is_add = common.alloc_bit_value();
+        let is_sub = common.alloc_bit_value();
         let is_32bits = common.alloc_bit_value();
         let is_64bits = common.alloc_bit_value();
 
         constraint_builder.push(
-            "is add",
-            Box::new(move |meta| vec![(is_add.expr(meta) - constant_from!(1))]),
+            "binop: is add or sub",
+            Box::new(move |meta| vec![(is_add.expr(meta) + is_sub.expr(meta) - constant_from!(1))]),
         );
 
         constraint_builder.push(
-            "32 or 64",
+            "binop: 32 or 64",
             Box::new(move |meta| {
                 vec![(is_32bits.expr(meta) + is_64bits.expr(meta) - constant_from!(1))]
             }),
         );
 
         constraint_builder.push(
-            "add constraints",
+            "binop constraints",
             Box::new(move |meta| {
                 let modules = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
                     * is_32bits.expr(meta)
@@ -73,8 +75,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                 vec![
                     (lhs.expr(meta) + rhs.expr(meta)
                         - res.expr(meta)
-                        - overflow.expr(meta) * modules)
+                        - overflow.expr(meta) * modules.clone())
                         * is_add.expr(meta),
+                    (rhs.expr(meta) + res.expr(meta)
+                        - lhs.expr(meta)
+                        - overflow.expr(meta) * modules)
+                        * is_sub.expr(meta),
                 ]
             }),
         );
@@ -90,6 +96,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             overflow,
             vtype,
             is_add,
+            is_sub,
             is_32bits,
             is_64bits,
             lookup_stack_read_lhs,
@@ -107,6 +114,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
             * constant!(bn_to_field(
                 &(BigUint::from(BinOp::Add as u64) << OPCODE_ARG0_SHIFT)
             ))
+            + self.is_sub.expr(meta)
+                * constant!(bn_to_field(
+                    &(BigUint::from(BinOp::Sub as u64) << OPCODE_ARG0_SHIFT)
+                ))
             + self.vtype.expr(meta)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
     }
@@ -146,7 +157,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.overflow.assign(ctx, (left + right) >> shift)?;
             }
             specs::itable::BinOp::Sub => {
-                todo!()
+                self.is_sub.assign(ctx, true)?;
+                self.overflow.assign(ctx, (right + value) >> shift)?;
             }
         };
 
@@ -249,6 +261,38 @@ mod tests {
                       (i32.const 1)
                       (i32.const 1)
                       i32.add
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_sub() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      i32.sub
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_sub_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      i32.sub
                       drop
                     )
                    )
