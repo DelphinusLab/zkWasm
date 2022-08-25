@@ -570,15 +570,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             &[*right as u32 as u64, *left as u32 as u64],
             &[*value as u32 as u64],
         ),
-        StepInfo::I32Eqz { value, result } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            emid,
-            VarType::I32,
-            VarType::I32,
-            &[*value as u32 as u64],
-            &[*result as u32 as u64],
-        ),
         StepInfo::I32Comp {
             left, right, value, ..
         } => mem_op_from_stack_only_step(
@@ -628,6 +619,20 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             VarType::I32,
             &[*right as u64, *left as u64],
             &[*value as u32 as u64],
+        ),
+
+        StepInfo::Test {
+            vtype,
+            value,
+            result,
+        } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            *vtype,
+            VarType::I32,
+            &[*value],
+            &[*result as u32 as u64],
         ),
 
         StepInfo::I32WrapI64 { value, result } => mem_op_from_stack_only_step(

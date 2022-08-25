@@ -1,4 +1,4 @@
-use crate::circuits::{rtable::offset_len_bits_encode, config::POW_TABLE_LIMIT};
+use crate::circuits::{config::POW_TABLE_LIMIT, rtable::offset_len_bits_encode};
 
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
@@ -14,6 +14,7 @@ pub(super) mod op_local_set;
 pub(super) mod op_local_tee;
 pub(super) mod op_rel;
 pub(super) mod op_return;
+pub(super) mod op_test;
 
 // TODO: replace repeated code with macro
 

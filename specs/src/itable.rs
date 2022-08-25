@@ -47,7 +47,7 @@ impl OpcodeClass {
             OpcodeClass::Bin => 3,
             OpcodeClass::BinShift => 3,
             OpcodeClass::BinBit => 3,
-            OpcodeClass::Test => todo!(),
+            OpcodeClass::Test => 2,
             OpcodeClass::Rel => 3,
             OpcodeClass::Br => 0,
             OpcodeClass::BrIf => 1,

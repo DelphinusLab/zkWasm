@@ -125,8 +125,9 @@ pub enum StepInfo {
         value: i64,
     },
 
-    I32Eqz {
-        value: i32,
+    Test {
+        vtype: VarType,
+        value: u64,
         result: i32,
     },
     I32Comp {
