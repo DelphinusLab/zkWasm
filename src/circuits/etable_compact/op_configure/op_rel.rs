@@ -309,7 +309,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             .assign(ctx, if value { F::one() } else { F::zero() })?;
 
         match class {
-            RelOp::Eq => todo!(),
+            RelOp::Eq => {
+                self.op_is_eq.assign(ctx, true)?;
+            }
             RelOp::Ne => todo!(),
             RelOp::SignedGt => todo!(),
             RelOp::UnsignedGt => todo!(),
@@ -517,6 +519,38 @@ mod tests {
                       (i64.const 1)
                       (i64.const 0)
                       (i64.le_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_eq_1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.eq)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_eq_2() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 0)
+                      (i32.eq)
                       (drop)
                     )
                    )
