@@ -235,6 +235,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                     &(BigUint::from(RelOp::Ne as u64) << OPCODE_ARG0_SHIFT)
                 ))
         };
+        let subop_gt_u = |meta: &mut VirtualCells<F>| {
+            self.op_is_gt.expr(meta)
+                * (constant_from!(1) - self.op_is_sign.expr(meta))
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::UnsignedGt as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_ge_u = |meta: &mut VirtualCells<F>| {
+            self.op_is_ge.expr(meta)
+                * (constant_from!(1) - self.op_is_sign.expr(meta))
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::UnsignedGe as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
         let subop_lt_u = |meta: &mut VirtualCells<F>| {
             self.op_is_lt.expr(meta)
                 * (constant_from!(1) - self.op_is_sign.expr(meta))
@@ -251,7 +265,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
         };
 
         let subop = |meta: &mut VirtualCells<F>| {
-            subop_eq(meta) + subop_ne(meta) + subop_le_u(meta) + subop_lt_u(meta)
+            subop_eq(meta)
+                + subop_ne(meta)
+                + subop_ge_u(meta)
+                + subop_gt_u(meta)
+                + subop_le_u(meta)
+                + subop_lt_u(meta)
         };
 
         constant!(bn_to_field(
@@ -330,9 +349,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 self.op_is_ne.assign(ctx, true)?;
             }
             RelOp::SignedGt => todo!(),
-            RelOp::UnsignedGt => todo!(),
+            RelOp::UnsignedGt => {
+                self.op_is_gt.assign(ctx, true)?;
+            }
             RelOp::SignedGe => todo!(),
-            RelOp::UnsignedGe => todo!(),
+            RelOp::UnsignedGe => {
+                self.op_is_ge.assign(ctx, true)?;
+            }
             RelOp::UnsignedLt => {
                 self.op_is_lt.assign(ctx, true)?;
             }
@@ -430,6 +453,102 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
 #[cfg(test)]
 mod tests {
     use crate::test::test_circuit_builder::test_circuit_noexternal;
+
+    #[test]
+    fn test_i32_gt_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.gt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt_u_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.gt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt_u_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      (i32.gt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_u_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_u_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 1)
+                      (i32.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
 
     #[test]
     fn test_i32_le_u_1_ok() {
