@@ -22,7 +22,7 @@ pub struct BinConfig {
     lhs: U64Cell,
     rhs: U64Cell,
     res: U64Cell,
-    overflow: U64OnU8Cell,
+    overflow: UnlimitedCell,
     vtype: CommonRangeCell,
     is_add: BitCell,
     is_sub: BitCell,
@@ -43,7 +43,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
         let res = common.alloc_u64();
-        let overflow = common.alloc_u64_on_u8();
+        let overflow = common.alloc_unlimited_value();
 
         let vtype = common.alloc_common_range_value();
 
@@ -143,6 +143,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 (class, vtype, 32, left, right, value)
             }
 
+            StepInfo::I64BinOp {
+                class,
+                left,
+                right,
+                value,
+            } => {
+                let vtype = VarType::I64;
+                let left = *left as u64;
+                let right = *right as u64;
+                let value = *value as u64;
+
+                (class, vtype, 64, left, right, value)
+            }
+
             _ => unreachable!(),
         };
 
@@ -154,11 +168,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
         match class {
             specs::itable::BinOp::Add => {
                 self.is_add.assign(ctx, true)?;
-                self.overflow.assign(ctx, (left + right) >> shift)?;
+                self.overflow.assign(
+                    ctx,
+                    bn_to_field(&((BigUint::from(left) + BigUint::from(right)) >> shift)),
+                )?;
             }
             specs::itable::BinOp::Sub => {
                 self.is_sub.assign(ctx, true)?;
-                self.overflow.assign(ctx, (right + value) >> shift)?;
+                self.overflow.assign(
+                    ctx,
+                    bn_to_field(&((BigUint::from(right) + BigUint::from(value)) >> shift)),
+                )?;
             }
         };
 
@@ -270,6 +290,54 @@ mod tests {
     }
 
     #[test]
+    fn test_i32_add_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 4294967295)
+                      i32.add
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_add() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 1)
+                      i64.add
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_add_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 18446744073709551615)
+                      i64.add
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
     fn test_i32_sub() {
         let textual_repr = r#"
                 (module
@@ -293,6 +361,38 @@ mod tests {
                       (i32.const 0)
                       (i32.const 1)
                       i32.sub
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_sub() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 1)
+                      i64.sub
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_sub_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 0)
+                      (i64.const 1)
+                      i64.sub
                       drop
                     )
                    )
