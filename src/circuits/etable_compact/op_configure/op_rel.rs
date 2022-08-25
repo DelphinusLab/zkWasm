@@ -223,6 +223,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             + self.is_sign.expr(meta)
             + constant_from!(1);
 
+        let subop_eq = |meta: &mut VirtualCells<F>| {
+            self.op_is_eq.expr(meta)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::Eq as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_ne = |meta: &mut VirtualCells<F>| {
+            self.op_is_ne.expr(meta)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::Ne as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
         let subop_lt_u = |meta: &mut VirtualCells<F>| {
             self.op_is_lt.expr(meta)
                 * (constant_from!(1) - self.op_is_sign.expr(meta))
@@ -238,7 +250,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 ))
         };
 
-        let subop = |meta: &mut VirtualCells<F>| subop_le_u(meta) + subop_lt_u(meta);
+        let subop = |meta: &mut VirtualCells<F>| {
+            subop_eq(meta) + subop_ne(meta) + subop_le_u(meta) + subop_lt_u(meta)
+        };
 
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
@@ -312,7 +326,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             RelOp::Eq => {
                 self.op_is_eq.assign(ctx, true)?;
             }
-            RelOp::Ne => todo!(),
+            RelOp::Ne => {
+                self.op_is_ne.assign(ctx, true)?;
+            }
             RelOp::SignedGt => todo!(),
             RelOp::UnsignedGt => todo!(),
             RelOp::SignedGe => todo!(),
@@ -551,6 +567,38 @@ mod tests {
                       (i32.const 0)
                       (i32.const 0)
                       (i32.eq)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ne_1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.ne)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ne_2() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 0)
+                      (i32.ne)
                       (drop)
                     )
                    )
