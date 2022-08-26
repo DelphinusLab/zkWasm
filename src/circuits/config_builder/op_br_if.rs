@@ -223,7 +223,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::test_circuit_builder::test_circuit_noexternal;
+    use crate::test::test_circuit_noexternal;
 
     #[test]
     fn test_br_if_trivial_nojump_ok() {

@@ -35,10 +35,18 @@ pub enum StepInfo {
     },
 
     Drop,
+    Select {
+        first: u64,
+        second: u64,
+        cond: u64,
+        result: u64,
+    },
+
     Call {
         index: u16,
     },
-    CallHostTime {
+    CallHost {
+        host_function_idx: usize,
         ret_val: Option<u64>,
     },
 

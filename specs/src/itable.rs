@@ -41,7 +41,7 @@ impl OpcodeClass {
             OpcodeClass::LocalTee => 2,
             OpcodeClass::Const => 1,
             OpcodeClass::Drop => 0,
-            OpcodeClass::Select => todo!(),
+            OpcodeClass::Select => 4,
             OpcodeClass::Return => 0,
             OpcodeClass::Bin => 3,
             OpcodeClass::BinShift => 3,
@@ -194,7 +194,7 @@ pub enum Opcode {
     Call {
         index: u16,
     },
-    CallHostTime,
+    CallHost(usize),
     Load {
         offset: u32,
         vtype: VarType,
@@ -319,7 +319,7 @@ impl Into<BigUint> for Opcode {
                 (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
             }
-            Opcode::CallHostTime => {
+            Opcode::CallHost(..) => {
                 BigUint::from(OpcodeClass::CallHostTime as u64) << OPCODE_CLASS_SHIFT
             }
             Opcode::Load {
@@ -372,7 +372,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::BrIfEqz { .. } => OpcodeClass::BrIfEqz,
             Opcode::Unreachable => OpcodeClass::Unreachable,
             Opcode::Call { .. } => OpcodeClass::Call,
-            Opcode::CallHostTime => OpcodeClass::CallHostTime,
+            Opcode::CallHost { .. } => OpcodeClass::CallHostTime,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
             Opcode::Conversion { .. } => OpcodeClass::Conversion,

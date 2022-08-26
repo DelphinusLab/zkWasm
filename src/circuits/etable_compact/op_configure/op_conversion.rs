@@ -50,7 +50,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
-        todo!();
+        constraint_builder.push(
+            "op_conversion pick one",
+            Box::new(move |meta| {
+                vec![
+                    is_i32_wrap_i64.expr(meta) + is_i64_extend_i32_u.expr(meta) - constant_from!(1),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "i32_wrap_i64",
+            Box::new(move |meta| vec![is_i32_wrap_i64.expr(meta) * res.expr(meta)]),
+        );
 
         Box::new(ConversionConfig {
             value,
@@ -175,7 +187,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::test_circuit_builder::test_circuit_noexternal;
+    use crate::test::test_circuit_noexternal;
 
     #[test]
     fn test_i32_wrap_i64_ok() {

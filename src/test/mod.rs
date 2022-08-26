@@ -6,6 +6,11 @@ use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, plonk::Error};
 use specs::{write_json, CompileTable, ExecutionTable};
 use wasmi::{ImportsBuilder, NopExternals};
 
+mod test_binary_search;
+mod test_binary_search_64;
+mod test_fibonacci;
+mod test_sha256;
+
 pub fn test_circuit_noexternal(textual_repr: &str) -> Result<(), Error> {
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 

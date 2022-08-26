@@ -302,10 +302,25 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             ops
         }
         StepInfo::Drop { .. } => vec![],
+        StepInfo::Select {
+            first,
+            second,
+            cond,
+            result,
+        } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            VarType::I64, // FIXME: real type
+            VarType::I64,
+            &[*first, *second, *cond],
+            &[*result],
+        ),
         StepInfo::Call { index: _ } => {
             vec![]
         }
-        StepInfo::CallHostTime { ret_val } => {
+        // TODO: complete me
+        StepInfo::CallHost { ret_val, .. } => {
             let entry = MemoryTableEntry {
                 eid,
                 emid: *emid,

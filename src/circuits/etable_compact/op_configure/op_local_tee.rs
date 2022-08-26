@@ -140,7 +140,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
 mod tests {
     use crate::{
         runtime::{WasmInterpreter, WasmRuntime},
-        test::test_circuit_builder::run_test_circuit,
+        test::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;

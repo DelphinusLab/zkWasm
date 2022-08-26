@@ -227,7 +227,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::test_circuit_builder::test_circuit_noexternal;
+    use crate::test::test_circuit_noexternal;
 
     #[test]
     fn test_trivial_return() {

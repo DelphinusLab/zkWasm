@@ -1,6 +1,9 @@
 use super::*;
 use crate::{
-    circuits::{utils::{bn_to_field, Context}, mtable_compact::encode::MemoryTableLookupEncode},
+    circuits::{
+        mtable_compact::encode::MemoryTableLookupEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
 use halo2_proofs::{
@@ -141,7 +144,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalSetConfig {
 mod tests {
     use crate::{
         runtime::{WasmInterpreter, WasmRuntime},
-        test::test_circuit_builder::run_test_circuit,
+        test::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
