@@ -525,4 +525,11 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> Option<Expression<F>> {
         None
     }
+    fn intable_lookup(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        None
+    }
 }

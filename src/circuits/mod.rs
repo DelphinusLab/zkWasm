@@ -1,3 +1,10 @@
+use self::{
+    config::{IMTABLE_COLOMNS, VAR_COLUMNS},
+    etable_compact::{EventTableChip, EventTableConfig},
+    intable::{InputTableChip, InputTableConfig},
+    jtable::{JumpTableChip, JumpTableConfig},
+    mtable_compact::{MemoryTableChip, MemoryTableConfig},
+};
 use crate::circuits::{
     config::K,
     imtable::{InitMemoryTableConfig, MInitTableChip},
@@ -28,16 +35,10 @@ use std::{
     path::PathBuf,
 };
 
-use self::{
-    config::{IMTABLE_COLOMNS, VAR_COLUMNS},
-    etable_compact::{EventTableChip, EventTableConfig},
-    jtable::{JumpTableChip, JumpTableConfig},
-    mtable_compact::{MemoryTableChip, MemoryTableConfig},
-};
-
 pub mod config;
 pub mod etable_compact;
 pub mod imtable;
+pub mod intable;
 pub mod itable;
 pub mod jtable;
 pub mod mtable_compact;
@@ -49,6 +50,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     itable: InstructionTableConfig<F>,
     imtable: InitMemoryTableConfig<F>,
+    intable: InputTableConfig<F>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -105,6 +107,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rtable = RangeTableConfig::configure([0; 7].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
+        let intable = InputTableConfig::configure(meta);
         let imtable = InitMemoryTableConfig::configure(
             [0; IMTABLE_COLOMNS].map(|_| meta.lookup_table_column()),
         );
@@ -117,6 +120,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &itable,
             &mtable,
             &jtable,
+            &intable,
             &opcode_set,
         );
 
@@ -124,6 +128,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             rtable,
             itable,
             imtable,
+            intable,
             mtable,
             jtable,
             etable,
@@ -138,12 +143,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
         let imchip = MInitTableChip::new(config.imtable);
+        let inchip = InputTableChip::new(config.intable);
         let mchip = MemoryTableChip::new(config.mtable);
         let jchip = JumpTableChip::new(config.jtable);
         let echip = EventTableChip::new(config.etable);
 
         rchip.init(&mut layouter)?;
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
+        inchip.assign(&mut layouter)?;
         if self.compile_tables.imtable.0.len() > 0 {
             imchip.assign(&mut layouter, &self.compile_tables.imtable.0)?;
         }
@@ -279,7 +286,7 @@ impl ZkWasmCircuitBuilder {
             let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
             let timer = start_timer!(|| "create proof");
-            create_proof(params, pk, circuits, &[&[]], OsRng, &mut transcript)
+            create_proof(params, pk, circuits, &[&[&[]]], OsRng, &mut transcript)
                 .expect("proof generation should not fail");
             end_timer!(timer);
 
@@ -306,7 +313,7 @@ impl ZkWasmCircuitBuilder {
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
 
         let timer = start_timer!(|| "verify proof");
-        verify_proof(&params_verifier, vk, strategy, &[&[]], &mut transcript).unwrap();
+        verify_proof(&params_verifier, vk, strategy, &[&[&[]]], &mut transcript).unwrap();
         end_timer!(timer);
     }
 

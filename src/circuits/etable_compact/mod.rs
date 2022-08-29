@@ -1,4 +1,5 @@
 use self::op_configure::EventTableOpcodeConfig;
+use super::intable::InputTableConfig;
 use super::*;
 use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
@@ -49,7 +50,7 @@ pub mod op_configure;
 // 1. add constraints for termination
 // 2. add input output for circuits
 
-const ETABLE_STEP_SIZE: usize = 16usize;
+const ETABLE_STEP_SIZE: usize = 20usize;
 const U4_COLUMNS: usize = 3usize;
 const U8_COLUMNS: usize = 2usize;
 const BITS_COLUMNS: usize = 2usize;
@@ -77,6 +78,7 @@ pub(crate) enum EventTableBitColumnRotation {
 pub(crate) enum EventTableCommonRangeColumnRotation {
     RestMOps = 0,
     RestJOps,
+    InputIndex,
     EID,
     MOID,
     FID,
@@ -89,11 +91,12 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
 
 pub(crate) enum EventTableUnlimitColumnRotation {
     ITableLookup = 0,
-    JTableLookup = 1,
-    PowTableLookup = 2,
-    OffsetLenBitsTableLookup = 3,
-    MTableLookupStart = 4,
-    U64Start = 4 + MTABLE_LOOKUPS_SIZE as isize,
+    InTableLookup = 1,
+    JTableLookup = 2,
+    PowTableLookup = 3,
+    OffsetLenBitsTableLookup = 4,
+    MTableLookupStart = 5,
+    U64Start = 6 + MTABLE_LOOKUPS_SIZE as isize,
 }
 
 pub(self) enum MLookupItem {
@@ -152,21 +155,9 @@ pub(super) struct EventTableCommonConfig<F> {
     pub sel: Column<Fixed>,
     pub block_first_line_sel: Column<Fixed>,
 
-    // Rotation:
-    // 0 enable
     pub shared_bits: [Column<Advice>; BITS_COLUMNS],
     pub opcode_bits: Column<Advice>,
 
-    // Rotation:
-    // 0 rest_mops
-    // 1 rest_jops
-    // 2 eid
-    // 3 moid
-    // 4 fid
-    // 5 iid
-    // 6 mmid
-    // 7 sp
-    // 8 last_jump_eid
     pub state: Column<Advice>,
 
     pub unlimited: Column<Advice>,
@@ -177,12 +168,6 @@ pub(super) struct EventTableCommonConfig<F> {
     pub pow_table_lookup: Column<Fixed>,
     pub offset_len_bits_table_lookup: Column<Fixed>,
 
-    // Rotation
-    // 0      itable lookup
-    // 1      jtable lookup
-    // 2..5   mtable lookup
-    // 6..9  u4 sum
-    // 10..15 shared
     pub aux: Column<Advice>,
 
     pub u4_bop: Column<Advice>,
@@ -207,6 +192,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
+        intable: &InputTableConfig<F>,
         opcode_set: &BTreeSet<OpcodeClass>,
     ) -> Self {
         let sel = meta.fixed_column();
@@ -411,6 +397,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.next_rest_mops(meta) - common_config.rest_mops(meta);
             let mut rest_jops_acc =
                 common_config.next_rest_jops(meta) - common_config.rest_jops(meta);
+            let mut input_index_acc =
+                common_config.input_index(meta) - common_config.next_input_index(meta);
             let mut moid_acc = common_config.next_moid(meta) - common_config.moid(meta);
             let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
             let mut iid_acc = common_config.next_iid(meta) - common_config.iid(meta);
@@ -424,6 +412,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
 
             let mut itable_lookup = common_config.itable_lookup(meta);
+            let mut intable_lookup = common_config.intable_lookup(meta);
             let mut jtable_lookup = common_config.jtable_lookup(meta);
             let mut mtable_lookup = vec![];
 
@@ -507,6 +496,15 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
+                match config.intable_lookup(meta, &common_config) {
+                    Some(e) => {
+                        intable_lookup =
+                            intable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2);
+                        input_index_acc = input_index_acc - constant_from!(1);
+                    }
+                    _ => {}
+                }
+
                 for i in 0..MTABLE_LOOKUPS_SIZE {
                     match config.mtable_lookup(meta, i.try_into().unwrap(), &common_config) {
                         Some(e) => {
@@ -533,6 +531,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                     last_jump_eid_acc,
                     itable_lookup,
                     jtable_lookup,
+                    intable_lookup,
+                    input_index_acc,
                 ],
                 mtable_lookup,
             ]

@@ -85,9 +85,16 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             };
         }
 
+        macro_rules! assign_constant {
+            ($c:expr, $o:expr, $k:expr, $v:expr) => {
+                ctx.region
+                    .assign_advice_from_constant(|| $k, $c, ctx.offset + $o as usize, F::from($v))?
+            };
+        }
+
         // Step 2: fill Status for each eentry
 
-        for entry in etable.entries().iter() {
+        for (i, entry) in etable.entries().iter().enumerate() {
             let opcode: OpcodeClass = entry.inst.opcode.clone().into();
 
             assign_advice!(
@@ -122,6 +129,23 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             );
             if rest_jops_cell.is_none() {
                 rest_jops_cell = Some(cell.cell());
+            }
+
+            if i == 0 {
+                assign_constant!(
+                    self.state,
+                    EventTableCommonRangeColumnRotation::InputIndex,
+                    "input index",
+                    F::zero()
+                );
+            } else {
+                // TODO: assign real value
+                assign_advice!(
+                    self.state,
+                    EventTableCommonRangeColumnRotation::InputIndex,
+                    "input index",
+                    F::zero()
+                );
             }
 
             assign_advice!(
