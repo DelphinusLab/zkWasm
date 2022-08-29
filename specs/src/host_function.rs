@@ -8,4 +8,10 @@ pub struct Signature {
     pub return_type: Option<ValueType>,
 }
 
-pub const TIME_FUNC_INDEX: usize = 0;
+pub enum Error {
+    DuplicateRegister,
+}
+
+pub enum HostFunction {
+    WasmInput = 0,
+}

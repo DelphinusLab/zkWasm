@@ -11,6 +11,7 @@ use wasmi::{Externals, ImportResolver};
 
 use self::wasmi_interpreter::WasmiRuntime;
 
+pub(crate) mod host;
 pub mod wasmi_interpreter;
 
 pub struct CompileOutcome<M, I, T> {
@@ -320,21 +321,48 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             vec![]
         }
         // TODO: complete me
-        StepInfo::CallHost { ret_val, .. } => {
-            let entry = MemoryTableEntry {
-                eid,
-                emid: *emid,
-                mmid: 0,
-                offset: sp_before_execution,
-                ltype: LocationType::Stack,
-                atype: AccessType::Write,
-                vtype: VarType::U64,
-                value: ret_val.unwrap(),
-            };
+        StepInfo::CallHost {
+            args,
+            ret_val,
+            signature,
+            ..
+        } => {
+            let mut mops = vec![];
+            let mut sp = sp_before_execution;
 
-            *emid = (*emid).checked_add(1).unwrap();
+            for (ty, val) in signature.params.iter().zip(args.iter()) {
+                mops.push(MemoryTableEntry {
+                    eid,
+                    emid: *emid,
+                    mmid: 0,
+                    offset: sp + 1,
+                    ltype: LocationType::Stack,
+                    atype: AccessType::Read,
+                    vtype: (*ty).into(),
+                    value: *val,
+                });
 
-            vec![entry]
+                *emid = (*emid).checked_add(1).unwrap();
+                sp = sp + 1;
+            }
+
+            if let Some(ty) = signature.return_type {
+                mops.push(MemoryTableEntry {
+                    eid,
+                    emid: *emid,
+                    mmid: 0,
+                    offset: sp,
+                    ltype: LocationType::Stack,
+                    atype: AccessType::Write,
+                    vtype: ty.into(),
+                    value: ret_val.unwrap(),
+                });
+
+                *emid = (*emid).checked_add(1).unwrap();
+                sp = sp - 1;
+            }
+
+            mops
         }
 
         StepInfo::GetLocal {

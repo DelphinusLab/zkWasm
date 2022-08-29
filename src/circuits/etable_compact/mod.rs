@@ -5,6 +5,7 @@ use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_bin_shift::BinShiftConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_call_host_input::CallHostWasmInputConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
@@ -383,6 +384,10 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Rel, RelConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
+        configure!(
+            OpcodeClass::CallHostWasmInput,
+            CallHostWasmInputConfigBuilder
+        );
 
         meta.create_gate("enable seq", |meta| {
             vec![
@@ -498,9 +503,12 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 match config.intable_lookup(meta, &common_config) {
                     Some(e) => {
+                        assert!(config.is_host_input());
+
                         intable_lookup =
                             intable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2);
-                        input_index_acc = input_index_acc - constant_from!(1);
+                        input_index_acc =
+                            input_index_acc + common_config.op_enabled(meta, *lvl1, *lvl2);
                     }
                     _ => {}
                 }
@@ -532,7 +540,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     itable_lookup,
                     jtable_lookup,
                     intable_lookup,
-                    input_index_acc,
+                    input_index_acc * common_config.next_enable(meta),
                 ],
                 mtable_lookup,
             ]

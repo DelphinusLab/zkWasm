@@ -1,12 +1,26 @@
-use super::{config::MAX_INTABLE_ROWS, utils::bn_to_field};
-use crate::{constant_from_bn, fixed_curr, instance_curr};
+use super::{config::MAX_INTABLE_ROWS, FromBn};
+use crate::{fixed_curr, instance_curr};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Column, ConstraintSystem, Error, Expression, Fixed, Instance, VirtualCells},
 };
 use num_bigint::BigUint;
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    ops::{Add, Mul},
+};
+
+pub struct InputTableEncode {}
+
+impl InputTableEncode {
+    pub(super) fn encode_for_lookup<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
+        index: T,
+        input: T,
+    ) -> T {
+        index * T::from_bn(&(BigUint::from(1u64) << 64)) + input
+    }
+}
 
 #[derive(Clone)]
 pub struct InputTableConfig<F: FieldExt> {
@@ -34,8 +48,10 @@ impl<F: FieldExt> InputTableConfig<F> {
 
     pub fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         fixed_curr!(meta, self.enable)
-            * (fixed_curr!(meta, self.index) * constant_from_bn!(&(BigUint::from(1u64) << 64))
-                + instance_curr!(meta, self.input))
+            * InputTableEncode::encode_for_lookup(
+                fixed_curr!(meta, self.index),
+                instance_curr!(meta, self.input),
+            )
     }
 
     pub fn configure_in_table(
@@ -79,6 +95,10 @@ impl<F: FieldExt> InputTableChip<F> {
                 Ok(())
             },
         )?;
+        Ok(())
+    }
+
+    pub fn assign_public_input() -> Result<(), Error> {
         Ok(())
     }
 }

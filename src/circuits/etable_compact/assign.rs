@@ -77,6 +77,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         let mut rest_jops_cell: Option<Cell> = None;
         let mut rest_mops = etable.rest_mops();
         let mut rest_jops = etable.rest_jops();
+        let mut host_inputs = 0u64;
 
         macro_rules! assign_advice {
             ($c:expr, $o:expr, $k:expr, $v:expr) => {
@@ -87,14 +88,18 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
         macro_rules! assign_constant {
             ($c:expr, $o:expr, $k:expr, $v:expr) => {
-                ctx.region
-                    .assign_advice_from_constant(|| $k, $c, ctx.offset + $o as usize, F::from($v))?
+                ctx.region.assign_advice_from_constant(
+                    || $k,
+                    $c,
+                    ctx.offset + $o as usize,
+                    F::from($v),
+                )?
             };
         }
 
         // Step 2: fill Status for each eentry
 
-        for (i, entry) in etable.entries().iter().enumerate() {
+        for entry in etable.entries().iter() {
             let opcode: OpcodeClass = entry.inst.opcode.clone().into();
 
             assign_advice!(
@@ -129,23 +134,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             );
             if rest_jops_cell.is_none() {
                 rest_jops_cell = Some(cell.cell());
-            }
-
-            if i == 0 {
-                assign_constant!(
-                    self.state,
-                    EventTableCommonRangeColumnRotation::InputIndex,
-                    "input index",
-                    F::zero()
-                );
-            } else {
-                // TODO: assign real value
-                assign_advice!(
-                    self.state,
-                    EventTableCommonRangeColumnRotation::InputIndex,
-                    "input index",
-                    F::zero()
-                );
             }
 
             assign_advice!(
@@ -255,6 +243,17 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             let config = op_configs.get(&opcode).unwrap();
 
             config.assign(ctx, &step_status, entry)?;
+
+            assign_constant!(
+                self.state,
+                EventTableCommonRangeColumnRotation::InputIndex,
+                "input index",
+                bn_to_field::<F>(&BigUint::from(host_inputs))
+            );
+
+            if config.is_host_input() {
+                host_inputs += 1;
+            }
 
             for _ in 0..ETABLE_STEP_SIZE {
                 ctx.next();

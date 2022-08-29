@@ -27,7 +27,7 @@ pub enum OpcodeClass {
     BrIfEqz,
     Unreachable,
     Call,
-    CallHostTime,
+    CallHostWasmInput,
     Load,
     Store,
     Conversion,
@@ -53,7 +53,7 @@ impl OpcodeClass {
             OpcodeClass::BrIfEqz => todo!(),
             OpcodeClass::Unreachable => todo!(),
             OpcodeClass::Call => 0,
-            OpcodeClass::CallHostTime => 1,
+            OpcodeClass::CallHostWasmInput => 2,
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
             OpcodeClass::Conversion => 2,
@@ -320,7 +320,7 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
             }
             Opcode::CallHost(..) => {
-                BigUint::from(OpcodeClass::CallHostTime as u64) << OPCODE_CLASS_SHIFT
+                BigUint::from(OpcodeClass::CallHostWasmInput as u64) << OPCODE_CLASS_SHIFT
             }
             Opcode::Load {
                 offset,
@@ -372,7 +372,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::BrIfEqz { .. } => OpcodeClass::BrIfEqz,
             Opcode::Unreachable => OpcodeClass::Unreachable,
             Opcode::Call { .. } => OpcodeClass::Call,
-            Opcode::CallHost { .. } => OpcodeClass::CallHostTime,
+            Opcode::CallHost { .. } => OpcodeClass::CallHostWasmInput,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
             Opcode::Conversion { .. } => OpcodeClass::Conversion,

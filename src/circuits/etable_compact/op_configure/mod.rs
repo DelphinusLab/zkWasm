@@ -6,6 +6,7 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 pub(super) mod op_bin;
 pub(super) mod op_bin_shift;
 pub(super) mod op_br_if;
+pub(super) mod op_call_host_input;
 pub(super) mod op_const;
 pub(super) mod op_conversion;
 pub(super) mod op_drop;
@@ -284,6 +285,7 @@ pub(super) struct EventTableCellAllocator<'a, F> {
     pub unlimited_index: i32,
     pub u64_index: i32,
     pub u64_on_u8_index: i32,
+    pub host_input_index: i32,
     pub mtable_lookup_index: i32,
     pub jtable_lookup_index: i32,
     pub pow_table_lookup_index: i32,
@@ -299,6 +301,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             unlimited_index: 0,
             u64_index: 0,
             u64_on_u8_index: 0,
+            host_input_index: EventTableCommonRangeColumnRotation::InputIndex as i32,
             pow_table_lookup_index: EventTableUnlimitColumnRotation::PowTableLookup as i32,
             mtable_lookup_index: EventTableUnlimitColumnRotation::MTableLookupStart as i32,
             jtable_lookup_index: EventTableUnlimitColumnRotation::JTableLookup as i32,
@@ -531,5 +534,8 @@ pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
         _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
+    }
+    fn is_host_input(&self) -> bool {
+        false
     }
 }

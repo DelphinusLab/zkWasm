@@ -1,4 +1,5 @@
 use crate::{
+    host_function::Signature,
     itable::{BinOp, BitOp, RelOp, ShiftOp},
     mtable::{MemoryReadSize, MemoryStoreSize, VarType},
     types::ValueType,
@@ -47,6 +48,8 @@ pub enum StepInfo {
     },
     CallHost {
         host_function_idx: usize,
+        signature: Signature,
+        args: Vec<u64>,
         ret_val: Option<u64>,
     },
 

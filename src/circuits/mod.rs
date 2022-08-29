@@ -45,6 +45,11 @@ pub mod mtable_compact;
 pub mod rtable;
 pub mod utils;
 
+pub(crate) trait FromBn {
+    fn zero() -> Self;
+    fn from_bn(bn: &BigUint) -> Self;
+}
+
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
@@ -97,6 +102,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClass::Rel,
             OpcodeClass::Test,
             OpcodeClass::Conversion,
+            OpcodeClass::CallHostWasmInput,
         ]);
 
         let constants = meta.fixed_column();

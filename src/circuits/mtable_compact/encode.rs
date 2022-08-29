@@ -4,7 +4,10 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 use num_bigint::BigUint;
 use specs::mtable::{AccessType, LocationType};
 
-use crate::{circuits::utils::bn_to_field, constant_from, constant_from_bn};
+use crate::{
+    circuits::{utils::bn_to_field, FromBn},
+    constant_from, constant_from_bn,
+};
 
 lazy_static! {
     static ref VAR_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 64;
@@ -15,12 +18,6 @@ lazy_static! {
     static ref EMID_SHIFT: BigUint = BigUint::from(1u64) << 112;
     static ref EID_SHIFT: BigUint = BigUint::from(1u64) << 128;
 }
-
-pub(crate) trait FromBn {
-    fn zero() -> Self;
-    fn from_bn(bn: &BigUint) -> Self;
-}
-
 pub(crate) struct MemoryTableLookupEncode {}
 
 impl MemoryTableLookupEncode {
