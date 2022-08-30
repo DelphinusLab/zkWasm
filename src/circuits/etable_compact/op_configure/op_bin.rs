@@ -6,6 +6,7 @@ use crate::{
     },
     constant,
 };
+use ark_std::One;
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
@@ -22,12 +23,13 @@ pub struct BinConfig {
     lhs: U64Cell,
     rhs: U64Cell,
     res: U64Cell,
-    overflow: UnlimitedCell,
+    overflow: BitCell,
     vtype: CommonRangeCell,
     is_add: BitCell,
     is_sub: BitCell,
     is_32bits: BitCell,
     is_64bits: BitCell,
+    //TODO: add constraints between vtype and is_32bits, is_64bits
     lookup_stack_read_lhs: MTableLookupCell,
     lookup_stack_read_rhs: MTableLookupCell,
     lookup_stack_write: MTableLookupCell,
@@ -43,7 +45,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
         let res = common.alloc_u64();
-        let overflow = common.alloc_unlimited_value();
+        let overflow = common.alloc_bit_value();
 
         let vtype = common.alloc_common_range_value();
 
@@ -170,14 +172,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.is_add.assign(ctx, true)?;
                 self.overflow.assign(
                     ctx,
-                    bn_to_field(&((BigUint::from(left) + BigUint::from(right)) >> shift)),
+                    (BigUint::from(left) + BigUint::from(right)) >> shift == BigUint::one(),
                 )?;
             }
             specs::itable::BinOp::Sub => {
                 self.is_sub.assign(ctx, true)?;
                 self.overflow.assign(
                     ctx,
-                    bn_to_field(&((BigUint::from(right) + BigUint::from(value)) >> shift)),
+                    (BigUint::from(right) + BigUint::from(value)) >> shift == BigUint::one(),
                 )?;
             }
         };
