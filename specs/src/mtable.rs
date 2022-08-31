@@ -30,9 +30,24 @@ pub enum VarType {
     I64,
 }
 
+impl VarType {
+    pub fn byte_size(&self) -> u64 {
+        match self {
+            VarType::U8 => 1,
+            VarType::I8 => 1,
+            VarType::U16 => 2,
+            VarType::I16 => 2,
+            VarType::U32 => 4,
+            VarType::I32 => 4,
+            VarType::U64 => 8,
+            VarType::I64 => 8,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
 pub enum MemoryReadSize {
-    U8,
+    U8 = 1,
     S8,
     U16,
     S16,
@@ -43,7 +58,7 @@ pub enum MemoryReadSize {
 
 #[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
 pub enum MemoryStoreSize {
-    Byte8,
+    Byte8 = 1,
     Byte16,
     Byte32,
     Byte64,
@@ -69,23 +84,25 @@ impl From<crate::types::ValueType> for VarType {
     }
 }
 
-impl VarType {
+impl MemoryReadSize {
     pub fn byte_size(&self) -> u64 {
         match self {
-            VarType::U8 => 1,
-            VarType::I8 => 1,
-            VarType::U16 => 2,
-            VarType::I16 => 2,
-            VarType::U32 => 4,
-            VarType::I32 => 4,
-            VarType::U64 => 8,
-            VarType::I64 => 8,
+            MemoryReadSize::U8 => 1,
+            MemoryReadSize::S8 => 1,
+            MemoryReadSize::U16 => 2,
+            MemoryReadSize::S16 => 2,
+            MemoryReadSize::U32 => 4,
+            MemoryReadSize::S32 => 4,
+            MemoryReadSize::I64 => 8,
         }
     }
 
     pub fn is_sign(&self) -> bool {
         match self {
-            VarType::U8 | VarType::U16 | VarType::U32 | VarType::U64 => false,
+            MemoryReadSize::U8
+            | MemoryReadSize::U16
+            | MemoryReadSize::U32
+            | MemoryReadSize::I64 => false,
             _ => true,
         }
     }

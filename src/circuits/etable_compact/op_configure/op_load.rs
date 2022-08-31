@@ -14,7 +14,7 @@ use halo2_proofs::{
 };
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
+    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
 };
 use specs::{mtable::VarType, step::StepInfo};
 
@@ -37,6 +37,7 @@ pub struct LoadConfig {
     res: U64Cell,
     load_base: U64Cell,
 
+    vtype: CommonRangeCell,
     is_one_byte: BitCell,
     is_two_bytes: BitCell,
     is_four_bytes: BitCell,
@@ -81,6 +82,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_four_bytes = common.alloc_bit_value();
         let is_eight_bytes = common.alloc_bit_value();
         let is_sign = common.alloc_bit_value();
+        let vtype = common.alloc_common_range_value();
 
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_heap_read1 = common.alloc_mtable_lookup();
@@ -224,6 +226,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_four_bytes,
             is_eight_bytes,
             is_sign,
+            vtype,
             lookup_stack_read,
             lookup_heap_read1,
             lookup_heap_read2,
@@ -236,7 +239,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        let vtype = self.is_eight_bytes.expr(meta) * constant_from!(6)
+        let load_size = self.is_eight_bytes.expr(meta) * constant_from!(6)
             + self.is_four_bytes.expr(meta) * constant_from!(4)
             + self.is_two_bytes.expr(meta) * constant_from!(2)
             + self.is_sign.expr(meta)
@@ -244,7 +247,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
 
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Load as u64) << OPCODE_CLASS_SHIFT)
-        )) + vtype * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
+        )) + self.vtype.expr(meta)
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
+            + load_size * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
             + self.opcode_load_offset.expr(meta)
     }
 
@@ -265,13 +270,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 block_value,
                 mmid,
             } => {
-                // adapt load_size
-                todo!();
-
                 self.opcode_load_offset
                     .assign(ctx, offset.try_into().unwrap())?;
 
-                let len = vtype.byte_size();
+                let len = load_size.byte_size();
+                println!("len: {}", len);
                 let start_byte_index = effective_address as u64;
                 let end_byte_index = start_byte_index + len - 1;
 
@@ -306,7 +309,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_two_bytes.assign(ctx, len == 2)?;
                 self.is_four_bytes.assign(ctx, len == 4)?;
                 self.is_eight_bytes.assign(ctx, len == 8)?;
-                self.is_sign.assign(ctx, vtype.is_sign())?;
+                self.is_sign.assign(ctx, load_size.is_sign())?;
+                println!("is_sign: {}", load_size.is_sign());
+                self.vtype.assign(ctx, vtype as u16)?;
 
                 self.lookup_stack_read.assign(
                     ctx,
@@ -372,12 +377,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
         item: MLookupItem,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        let vtype = self.is_eight_bytes.expr(meta) * constant_from!(6)
-            + self.is_four_bytes.expr(meta) * constant_from!(4)
-            + self.is_two_bytes.expr(meta) * constant_from!(2)
-            + self.is_sign.expr(meta)
-            + constant_from!(1);
-
         let cross_load =
             self.load_end_block_index.expr(meta) - self.load_start_block_index.expr(meta);
 
@@ -411,7 +410,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 common_config.eid(meta),
                 constant_from!(3) + cross_load,
                 common_config.sp(meta) + constant_from!(1),
-                vtype,
+                self.vtype.expr(meta),
                 self.res.expr(meta),
             )),
             _ => None,
