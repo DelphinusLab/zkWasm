@@ -28,11 +28,8 @@ pub(super) enum RotationAux {
     RestMops,
 }
 
-pub(crate) const ROTATION_VTYPE_GE_TWO_BYTES: i32 = 1;
-pub(crate) const ROTATION_VTYPE_GE_FOUR_BYTES: i32 = 2;
-pub(crate) const ROTATION_VTYPE_GE_EIGHT_BYTES: i32 = 3;
-pub(crate) const ROTATION_VTYPE_SIGN: i32 = 4;
-pub(crate) const ROTATION_IMTABLE_COLUMN_SELECTOR: i32 = 5;
+pub(crate) const ROTATION_VTYPE_IS_64BIT: i32 = 1;
+pub(crate) const ROTATION_IMTABLE_COLUMN_SELECTOR: i32 = 2;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -121,34 +118,16 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.aux, RotationAux::Atype as i32 - STEP_SIZE)
     }
 
-    fn vtype_composer(
-        &self,
-        ge_two_bytes: Expression<F>,
-        ge_four_bytes: Expression<F>,
-        ge_eight_bytes: Expression<F>,
-        signed: Expression<F>,
-    ) -> Expression<F> {
-        (ge_two_bytes + ge_four_bytes + ge_eight_bytes) * constant_from!(2)
-            + signed
-            + constant_from!(1)
+    fn vtype_composer(&self, is_i64: Expression<F>) -> Expression<F> {
+        is_i64 + constant_from!(1)
     }
 
     pub(super) fn vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        self.vtype_composer(
-            self.ge_two_bytes(meta),
-            self.ge_four_bytes(meta),
-            self.ge_eight_bytes(meta),
-            self.sign(meta),
-        )
+        self.vtype_composer(self.is_i64(meta))
     }
 
     pub(super) fn prev_vtype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        self.vtype_composer(
-            self.prev_ge_two_bytes(meta),
-            self.prev_ge_four_bytes(meta),
-            self.prev_ge_eight_bytes(meta),
-            self.sign(meta),
-        )
+        self.vtype_composer(self.prev_is_i64(meta))
     }
 
     pub(super) fn value(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -183,36 +162,12 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.bytes, index)
     }
 
-    pub(super) fn ge_two_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_GE_TWO_BYTES)
+    pub(super) fn is_i64(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_IS_64BIT)
     }
 
-    pub(super) fn ge_four_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_GE_FOUR_BYTES)
-    }
-
-    pub(super) fn ge_eight_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_GE_EIGHT_BYTES)
-    }
-
-    pub(super) fn sign(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_SIGN)
-    }
-
-    pub(super) fn prev_ge_two_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_GE_TWO_BYTES)
-    }
-
-    pub(super) fn prev_ge_four_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_GE_FOUR_BYTES)
-    }
-
-    pub(super) fn prev_ge_eight_bytes(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_GE_EIGHT_BYTES)
-    }
-
-    pub(super) fn prev_sign(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, ROTATION_VTYPE_SIGN)
+    pub(super) fn prev_is_i64(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, ROTATION_VTYPE_IS_64BIT)
     }
 
     pub(super) fn imtable_selector(&self, meta: &mut VirtualCells<F>, i: u32) -> Expression<F> {

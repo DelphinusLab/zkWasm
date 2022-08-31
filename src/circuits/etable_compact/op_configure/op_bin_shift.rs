@@ -29,7 +29,6 @@ pub struct BinShiftConfig {
     res: UnlimitedCell,
 
     is_eight_bytes: BitCell,
-    is_sign: BitCell,
     higher_u4_decompose: [BitCell; 4],
 
     is_shl: BitCell,
@@ -58,7 +57,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let res = common.alloc_unlimited_value();
 
         let is_eight_bytes = common.alloc_bit_value();
-        let is_sign = common.alloc_bit_value();
         let higher_u4_decompose = [0; 4].map(|_| common.alloc_bit_value());
 
         let is_shl = common.alloc_bit_value();
@@ -141,7 +139,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             res,
             diff,
             is_eight_bytes,
-            is_sign,
             higher_u4_decompose,
             is_shl,
             is_shr_u,
@@ -155,10 +152,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        let vtype = constant_from!(4)
-            + self.is_eight_bytes.expr(meta) * constant_from!(2)
-            + self.is_sign.expr(meta)
-            + constant_from!(1);
+        let vtype = self.is_eight_bytes.expr(meta) + constant_from!(1);
 
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::BinShift as u64) << OPCODE_CLASS_SHIFT)
@@ -214,7 +208,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         self.modulus.assign(ctx, 1 << power)?;
         self.lookup_pow.assign(ctx, power)?;
         self.is_eight_bytes.assign(ctx, is_eight_bytes)?;
-        self.is_sign.assign(ctx, is_sign)?;
         self.res.assign(ctx, F::from(value))?;
 
         for i in 0..4 {
@@ -289,10 +282,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         item: MLookupItem,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        let vtype = constant_from!(4)
-            + self.is_eight_bytes.expr(meta) * constant_from!(2)
-            + self.is_sign.expr(meta)
-            + constant_from!(1);
+        let vtype = self.is_eight_bytes.expr(meta) + constant_from!(1);
         match item {
             MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),

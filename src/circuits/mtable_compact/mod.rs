@@ -8,10 +8,7 @@ use crate::circuits::mtable_compact::configure::STEP_SIZE;
 use crate::circuits::mtable_compact::expression::RotationAux;
 use crate::circuits::mtable_compact::expression::RotationIndex;
 use crate::circuits::mtable_compact::expression::ROTATION_IMTABLE_COLUMN_SELECTOR;
-use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_EIGHT_BYTES;
-use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_FOUR_BYTES;
-use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_GE_TWO_BYTES;
-use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_SIGN;
+use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_IS_64BIT;
 use crate::circuits::IMTABLE_COLOMNS;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
@@ -24,6 +21,7 @@ use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
+use specs::mtable::VarType;
 use std::marker::PhantomData;
 
 const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / STEP_SIZE as usize * STEP_SIZE as usize;
@@ -166,45 +164,16 @@ impl<F: FieldExt> MemoryTableChip<F> {
             {
                 assign_advice!("enable", 0, bit, F::one());
                 assign_advice!(
-                    "vtype ge two bytes",
-                    ROTATION_VTYPE_GE_TWO_BYTES,
+                    "vtype is i64",
+                    ROTATION_VTYPE_IS_64BIT,
                     bit,
-                    if entry.vtype.byte_size() >= 2 {
+                    if entry.vtype == VarType::I64 {
                         F::one()
                     } else {
                         F::zero()
                     }
                 );
-                assign_advice!(
-                    "vtype ge four bytes",
-                    ROTATION_VTYPE_GE_FOUR_BYTES,
-                    bit,
-                    if entry.vtype.byte_size() >= 4 {
-                        F::one()
-                    } else {
-                        F::zero()
-                    }
-                );
-                assign_advice!(
-                    "vtype ge eight bytes",
-                    ROTATION_VTYPE_GE_EIGHT_BYTES,
-                    bit,
-                    if entry.vtype.byte_size() >= 8 {
-                        F::one()
-                    } else {
-                        F::zero()
-                    }
-                );
-                assign_advice!(
-                    "vtype sign",
-                    ROTATION_VTYPE_SIGN,
-                    bit,
-                    if entry.vtype as usize & 1 == 1 {
-                        F::zero()
-                    } else {
-                        F::one()
-                    }
-                );
+
                 if entry.ltype == LocationType::Heap && entry.atype == AccessType::Init {
                     assign_advice!(
                         "vtype imtable selector",

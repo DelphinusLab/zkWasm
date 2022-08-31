@@ -6,8 +6,6 @@ use crate::mtable::VarType;
 pub enum ValueType {
     I32,
     I64,
-    U32,
-    U64,
 }
 
 impl From<parity_wasm::elements::ValueType> for ValueType {
@@ -25,8 +23,6 @@ impl From<parity_wasm::elements::ValueType> for ValueType {
 pub enum Value {
     I32(i32),
     I64(i64),
-    U32(u32),
-    U64(u64),
 }
 
 impl Into<VarType> for Value {
@@ -34,8 +30,6 @@ impl Into<VarType> for Value {
         match self {
             Value::I32(_) => VarType::I32,
             Value::I64(_) => VarType::I64,
-            Value::U32(_) => VarType::U32,
-            Value::U64(_) => VarType::U64,
         }
     }
 }
@@ -45,8 +39,6 @@ impl Value {
         match self {
             Value::I32(v) => (*v) as u64,
             Value::I64(v) => (*v) as u64,
-            Value::U32(v) => (*v) as u64,
-            Value::U64(v) => (*v) as u64,
         }
     }
 }

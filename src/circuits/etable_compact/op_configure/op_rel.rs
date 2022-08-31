@@ -20,11 +20,7 @@ use specs::{
 
 pub struct RelConfig {
     // vtype
-
-    // TODO: we can use `1 - is_eight_bytes` to replace `is_four_bytes`
-    is_four_bytes: BitCell,
     is_eight_bytes: BitCell,
-    is_sign: BitCell,
 
     lhs: U64Cell,
     rhs: U64Cell,
@@ -84,9 +80,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         let op_is_ge = common.alloc_bit_value();
         let op_is_sign = common.alloc_bit_value();
 
-        let is_four_bytes = common.alloc_bit_value();
         let is_eight_bytes = common.alloc_bit_value();
-        let is_sign = common.alloc_bit_value();
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
@@ -124,22 +118,17 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         );
 
         constraint_builder.push(
-            "compare bytes",
-            Box::new(move |meta| {
-                vec![is_four_bytes.expr(meta) + is_eight_bytes.expr(meta) - constant_from!(1)]
-            }),
-        );
-
-        constraint_builder.push(
             "compare leading bit",
             Box::new(move |meta| {
+                let is_four_bytes = constant_from!(1) - is_eight_bytes.expr(meta);
+
                 vec![
                     lhs_leading_bit.expr(meta) * constant_from!(8) + lhs_rem_value.expr(meta)
-                        - (is_four_bytes.expr(meta) * lhs.u4_expr(meta, 7)
+                        - (is_four_bytes.clone() * lhs.u4_expr(meta, 7)
                             + is_eight_bytes.expr(meta) * lhs.u4_expr(meta, 15))
                             * op_is_sign.expr(meta),
                     rhs_leading_bit.expr(meta) * constant_from!(8) + rhs_rem_value.expr(meta)
-                        - (is_four_bytes.expr(meta) * rhs.u4_expr(meta, 7)
+                        - (is_four_bytes * rhs.u4_expr(meta, 7)
                             + is_eight_bytes.expr(meta) * rhs.u4_expr(meta, 15))
                             * op_is_sign.expr(meta),
                 ]
@@ -205,9 +194,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             op_is_le,
             op_is_ge,
             op_is_sign,
-            is_four_bytes,
             is_eight_bytes,
-            is_sign,
             lhs_leading_bit,
             rhs_leading_bit,
             lhs_rem_value,
@@ -218,10 +205,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        let vtype = self.is_four_bytes.expr(meta) * constant_from!(4)
-            + self.is_eight_bytes.expr(meta) * constant_from!(6)
-            + self.is_sign.expr(meta)
-            + constant_from!(1);
+        let vtype = self.is_eight_bytes.expr(meta) + constant_from!(1);
 
         let subop_eq = |meta: &mut VirtualCells<F>| {
             self.op_is_eq.expr(meta)
@@ -317,16 +301,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             _ => unreachable!(),
         };
 
-        match vtype {
-            VarType::I32 => {
-                self.is_four_bytes.assign(ctx, true)?;
-                self.is_sign.assign(ctx, true)?;
-            }
-            VarType::I64 => {
-                self.is_eight_bytes.assign(ctx, true)?;
-                self.is_sign.assign(ctx, true)?;
-            }
-            _ => unreachable!(),
+        if vtype == VarType::I64 {
+            self.is_eight_bytes.assign(ctx, true)?;
         }
 
         self.lhs.assign(ctx, lhs)?;
@@ -414,10 +390,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
         item: MLookupItem,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        let vtype = self.is_four_bytes.expr(meta) * constant_from!(4)
-            + self.is_eight_bytes.expr(meta) * constant_from!(6)
-            + self.is_sign.expr(meta)
-            + constant_from!(1);
+        let vtype = self.is_eight_bytes.expr(meta) + constant_from!(1);
 
         match item {
             MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(

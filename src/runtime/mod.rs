@@ -494,7 +494,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
                 // Load u64 from address which align with 8
-                vtype: VarType::U64,
+                vtype: VarType::I64,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *block_value,
             };
@@ -559,7 +559,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
                 // Load u64 from address which align with 8
-                vtype: VarType::U64,
+                vtype: VarType::I64,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *pre_block_value,
             };
@@ -573,7 +573,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Heap,
                 atype: AccessType::Write,
                 // Load u64 from address which align with 8
-                vtype: VarType::U64,
+                vtype: VarType::I64,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *updated_block_value,
             };

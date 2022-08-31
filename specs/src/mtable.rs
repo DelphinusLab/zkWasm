@@ -20,26 +20,14 @@ pub enum AccessType {
 
 #[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
 pub enum VarType {
-    U8 = 1,
-    I8,
-    U16,
-    I16,
-    U32,
-    I32,
-    U64,
+    I32 = 1,
     I64,
 }
 
 impl VarType {
     pub fn byte_size(&self) -> u64 {
         match self {
-            VarType::U8 => 1,
-            VarType::I8 => 1,
-            VarType::U16 => 2,
-            VarType::I16 => 2,
-            VarType::U32 => 4,
             VarType::I32 => 4,
-            VarType::U64 => 8,
             VarType::I64 => 8,
         }
     }
@@ -182,7 +170,7 @@ impl MTable {
                     offset: entry.offset,
                     ltype: entry.ltype,
                     atype: AccessType::Init,
-                    vtype: VarType::U64,
+                    vtype: VarType::I64,
                     value,
                 });
             }

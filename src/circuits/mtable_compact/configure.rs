@@ -261,16 +261,11 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
 
         meta.create_gate("mtable byte mask consistent", |meta| {
             vec![
-                (self.ge_two_bytes(meta) - constant_from!(1)) * self.byte(meta, 1),
-                (self.ge_four_bytes(meta) - constant_from!(1))
-                    * (self.byte(meta, 2) + self.byte(meta, 3)),
-                (self.ge_eight_bytes(meta) - constant_from!(1))
+                (self.is_i64(meta) - constant_from!(1))
                     * (self.byte(meta, 4)
                         + self.byte(meta, 5)
                         + self.byte(meta, 6)
                         + self.byte(meta, 7)),
-                self.ge_eight_bytes(meta) * (self.ge_four_bytes(meta) - constant_from!(1)),
-                self.ge_four_bytes(meta) * (self.ge_two_bytes(meta) - constant_from!(1)),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
