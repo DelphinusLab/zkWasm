@@ -206,8 +206,6 @@ pub struct ZkWasmCircuitBuilder {
 }
 
 const PARAMS: &str = "param.data";
-const VK: &str = "vk.data";
-const PROOF: &str = "proof.data";
 
 impl ZkWasmCircuitBuilder {
     fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
@@ -241,24 +239,11 @@ impl ZkWasmCircuitBuilder {
         circuit: &TestCircuit<Fr>,
         params: &Params<G1Affine>,
     ) -> VerifyingKey<G1Affine> {
-        let path = PathBuf::from(VK);
+        let timer = start_timer!(|| "build vk");
+        let vk = keygen_vk(params, circuit).expect("keygen_vk should not fail");
+        end_timer!(timer);
 
-        if path.exists() {
-            let mut fd = File::open(path.as_path()).unwrap();
-            let mut buf = vec![];
-
-            fd.read_to_end(&mut buf).unwrap();
-            VerifyingKey::read::<_, TestCircuit<Fr>>(&mut Cursor::new(buf), params).unwrap()
-        } else {
-            let timer = start_timer!(|| "build vk");
-            let vk = keygen_vk(params, circuit).expect("keygen_vk should not fail");
-            end_timer!(timer);
-
-            let mut fd = File::create(path.as_path()).unwrap();
-            vk.write(&mut fd).unwrap();
-
-            vk
-        }
+        vk
     }
 
     fn prepare_pk(
@@ -280,29 +265,16 @@ impl ZkWasmCircuitBuilder {
         params: &Params<G1Affine>,
         pk: &ProvingKey<G1Affine>,
     ) -> Vec<u8> {
-        let path = PathBuf::from(PROOF);
+        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
-        if path.exists() {
-            let mut fd = File::open(path.as_path()).unwrap();
-            let mut buf = vec![];
+        let timer = start_timer!(|| "create proof");
+        create_proof(params, pk, circuits, &[&[&[]]], OsRng, &mut transcript)
+            .expect("proof generation should not fail");
+        end_timer!(timer);
 
-            fd.read_to_end(&mut buf).unwrap();
-            buf
-        } else {
-            let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        let proof = transcript.finalize();
 
-            let timer = start_timer!(|| "create proof");
-            create_proof(params, pk, circuits, &[&[&[]]], OsRng, &mut transcript)
-                .expect("proof generation should not fail");
-            end_timer!(timer);
-
-            let proof = transcript.finalize();
-
-            let mut fd = File::create(path.as_path()).unwrap();
-            fd.write(&proof).unwrap();
-
-            proof
-        }
+        proof
     }
 
     fn verify_check(
