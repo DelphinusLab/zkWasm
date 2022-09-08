@@ -182,6 +182,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                     (BigUint::from(right) + BigUint::from(value)) >> shift == BigUint::one(),
                 )?;
             }
+            specs::itable::BinOp::Mul => {
+                unimplemented!()
+            }
         };
 
         match vtype {
