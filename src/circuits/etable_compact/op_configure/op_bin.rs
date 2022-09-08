@@ -11,6 +11,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
+use num_traits::ToPrimitive;
 use specs::itable::{BinOp, OPCODE_ARG1_SHIFT};
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -23,10 +24,12 @@ pub struct BinConfig {
     lhs: U64Cell,
     rhs: U64Cell,
     res: U64Cell,
-    overflow: BitCell,
+    overflow: U64OnU8Cell,
+    remainder: U64OnU8Cell,
     vtype: CommonRangeCell,
     is_add: BitCell,
-    is_sub: BitCell,
+    is_mul: BitCell,
+    mode: BitCell,
     is_32bits: BitCell,
     is_64bits: BitCell,
     //TODO: add constraints between vtype and is_32bits, is_64bits
@@ -37,6 +40,8 @@ pub struct BinConfig {
 
 pub struct BinConfigBuilder {}
 
+/* Common binary operation that isomorphic to unsigned binary arith */
+
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
@@ -45,47 +50,98 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
         let res = common.alloc_u64();
-        let overflow = common.alloc_bit_value();
+        let overflow = common.alloc_u64_on_u8();
+        let remainder = common.alloc_u64_on_u8();
 
         let vtype = common.alloc_common_range_value();
 
-        let is_add = common.alloc_bit_value();
-        let is_sub = common.alloc_bit_value();
+        let is_add = common.alloc_bit_value(); // lhs +|- rhs = res
+        let is_mul= common.alloc_bit_value();  // lhs *|/ rhs = res
+
+        /* 1 for lhs op rhs = res
+         * 0 for lhs = res op rhs + remainder
+         */
+        let mode = common.alloc_bit_value();
+
         let is_32bits = common.alloc_bit_value();
         let is_64bits = common.alloc_bit_value();
 
         constraint_builder.push(
-            "binop: is add or sub",
-            Box::new(move |meta| vec![(is_add.expr(meta) + is_sub.expr(meta) - constant_from!(1))]),
+            "is add",
+            Box::new(move |meta| vec![is_add.expr(meta) * (is_add.expr(meta) - constant_from!(1))]),
         );
 
         constraint_builder.push(
-            "binop: 32 or 64",
+            "is mul",
+            Box::new(move |meta| vec![is_mul.expr(meta) * (is_mul.expr(meta) - constant_from!(1))]),
+        );
+
+        constraint_builder.push(
+            "mod",
+            Box::new(move |meta| vec![mode.expr(meta) * (mode.expr(meta) - constant_from!(1))]),
+        );
+
+        constraint_builder.push(
+            "zero remainder if add",
+            Box::new(move |meta| vec![(is_add.expr(meta) * remainder.expr(meta))]),
+        );
+
+        // range check if multi
+
+        constraint_builder.push(
+            "32 or 64",
             Box::new(move |meta| {
                 vec![(is_32bits.expr(meta) + is_64bits.expr(meta) - constant_from!(1))]
             }),
         );
 
+
         constraint_builder.push(
             "binop constraints",
             Box::new(move |meta| {
+                // either 1 or -1
+                let add_sign = mode.expr(meta) * constant_from!(2) - constant_from!(1);
                 let modules = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
                     * is_32bits.expr(meta)
                     + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize)))
                         * is_64bits.expr(meta);
 
                 vec![
-                    (lhs.expr(meta) + rhs.expr(meta)
-                        - res.expr(meta)
-                        - overflow.expr(meta) * modules.clone())
-                        * is_add.expr(meta),
-                    (rhs.expr(meta) + res.expr(meta)
-                        - lhs.expr(meta)
+                    (add_sign.clone() * lhs.expr(meta) + rhs.expr(meta)
+                        - add_sign * res.expr(meta)
                         - overflow.expr(meta) * modules)
-                        * is_sub.expr(meta),
+                        * is_add.expr(meta),
+
                 ]
             }),
         );
+
+        constraint_builder.push(
+            "mul constraints",
+            Box::new(move |meta| {
+                /* 1 for lhs op rhs = res
+                 * 0 for lhs = res op rhs + remainder
+                 */
+                let op_mul = mode.expr(meta);
+                let op_div = constant_from!(1) - mode.expr(meta);
+                let modules = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
+                    * is_32bits.expr(meta)
+                    + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize)))
+                        * is_64bits.expr(meta);
+
+                vec![
+                    (lhs.expr(meta) * (op_mul.clone() * rhs.expr(meta) + op_div.clone())
+                        - (op_mul.clone() + op_div.clone() * rhs.expr(meta)) * res.expr(meta)
+                        - overflow.expr(meta) * modules
+                        - remainder.expr(meta) * op_div.clone())
+                        * is_mul.expr(meta),
+                    (remainder.expr(meta) + overflow.expr(meta) - lhs.expr(meta))
+                        * is_mul.expr(meta)
+                        * op_div
+                ]
+            }),
+        );
+
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
@@ -98,7 +154,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             overflow,
             vtype,
             is_add,
-            is_sub,
+            is_mul,
+            mode,
+            remainder,
             is_32bits,
             is_64bits,
             lookup_stack_read_lhs,
@@ -112,14 +170,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Bin as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_add.expr(meta)
-            * constant!(bn_to_field(
-                &(BigUint::from(BinOp::Add as u64) << OPCODE_ARG0_SHIFT)
-            ))
-            + self.is_sub.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BinOp::Sub as u64) << OPCODE_ARG0_SHIFT)
-                ))
+        )) + (self.is_mul.expr(meta) * constant_from!(2) + constant_from!(1) - self.mode.expr(meta))
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + self.vtype.expr(meta)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
     }
@@ -170,18 +222,39 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
         match class {
             specs::itable::BinOp::Add => {
                 self.is_add.assign(ctx, true)?;
-                self.overflow.assign(
-                    ctx,
-                    (BigUint::from(left) + BigUint::from(right)) >> shift == BigUint::one(),
+                self.is_mul.assign(ctx, false)?;
+                self.mode.assign(ctx, true)?;
+                self.overflow.assign(ctx,
+                    ((BigUint::from(left) + BigUint::from(right)) >> shift as u64).to_u64().unwrap()
                 )?;
-            }
-            specs::itable::BinOp::Sub => {
-                self.is_sub.assign(ctx, true)?;
-                self.overflow.assign(
-                    ctx,
-                    (BigUint::from(right) + BigUint::from(value)) >> shift == BigUint::one(),
+                self.remainder.assign(ctx, 0)?;
+            },
+            specs::itable::BinOp::Sub=> {
+                self.is_add.assign(ctx, true)?;
+                self.is_mul.assign(ctx, false)?;
+                self.mode.assign(ctx, false)?;
+                self.remainder.assign(ctx, 0)?;
+                self.overflow.assign(ctx,
+                    ((BigUint::from(value) + BigUint::from(right)) >> shift as u64).to_u64().unwrap()
                 )?;
-            }
+            },
+            specs::itable::BinOp::Mul => {
+                self.is_add.assign(ctx, false)?;
+                self.is_mul.assign(ctx, true)?;
+                self.mode.assign(ctx, true)?;
+                self.overflow.assign(ctx,
+                    ((BigUint::from(left) * BigUint::from(right)) >> shift as u64).to_u64().unwrap()
+                )?;
+                self.remainder.assign(ctx, 0)?;
+            },
+            specs::itable::BinOp::Div => {
+                self.is_add.assign(ctx, false)?;
+                self.is_mul.assign(ctx, true)?;
+                self.mode.assign(ctx, false)?;
+                self.overflow.assign(ctx, 0)?;
+                self.remainder.assign(ctx, left - value * right)?;
+            },
+
         };
 
         match vtype {
@@ -395,6 +468,38 @@ mod tests {
                       (i64.const 0)
                       (i64.const 1)
                       i64.sub
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_mult() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4)
+                      (i32.const 3)
+                      i32.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_mult_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4294967295)
+                      (i32.const 4294967295)
+                      i32.mul
                       drop
                     )
                    )

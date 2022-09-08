@@ -73,6 +73,8 @@ impl OpcodeClass {
 pub enum BinOp {
     Add,
     Sub,
+    Mul,
+    Div,
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
