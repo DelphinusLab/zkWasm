@@ -67,21 +67,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let is_64bits = common.alloc_bit_value();
 
         constraint_builder.push(
-            "is add",
-            Box::new(move |meta| vec![is_add.expr(meta) * (is_add.expr(meta) - constant_from!(1))]),
-        );
-
-        constraint_builder.push(
-            "is mul",
-            Box::new(move |meta| vec![is_mul.expr(meta) * (is_mul.expr(meta) - constant_from!(1))]),
-        );
-
-        constraint_builder.push(
-            "mod",
-            Box::new(move |meta| vec![mode.expr(meta) * (mode.expr(meta) - constant_from!(1))]),
-        );
-
-        constraint_builder.push(
             "zero remainder if add",
             Box::new(move |meta| vec![(is_add.expr(meta) * remainder.expr(meta))]),
         );
@@ -101,7 +86,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             Box::new(move |meta| {
                 // either 1 or -1
                 let add_sign = mode.expr(meta) * constant_from!(2) - constant_from!(1);
-                let modules = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
+                let modulus = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
                     * is_32bits.expr(meta)
                     + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize)))
                         * is_64bits.expr(meta);
@@ -109,7 +94,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                 vec![
                     (add_sign.clone() * lhs.expr(meta) + rhs.expr(meta)
                         - add_sign * res.expr(meta)
-                        - overflow.expr(meta) * modules)
+                        - overflow.expr(meta) * modulus)
                         * is_add.expr(meta),
 
                 ]
@@ -124,23 +109,45 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                  */
                 let op_mul = mode.expr(meta);
                 let op_div = constant_from!(1) - mode.expr(meta);
-                let modules = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
+                let modulus = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
                     * is_32bits.expr(meta)
                     + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize)))
                         * is_64bits.expr(meta);
 
                 vec![
-                    (lhs.expr(meta) * (op_mul.clone() * rhs.expr(meta) + op_div.clone())
-                        - (op_mul.clone() + op_div.clone() * rhs.expr(meta)) * res.expr(meta)
-                        - overflow.expr(meta) * modules
+                    (lhs.expr(meta) * rhs.expr(meta)
+                        - res.expr(meta)
+                        - overflow.expr(meta) * modulus)
+                        * is_mul.expr(meta) * op_mul.clone(),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "div_u constraints",
+            Box::new(move |meta| {
+                /* 1 for lhs op rhs = res
+                 * 0 for lhs = res op rhs + remainder
+                 */
+                let op_div = constant_from!(1) - mode.expr(meta);
+                vec![
+                    (lhs.expr(meta)
+                        - rhs.expr(meta) * res.expr(meta)
                         - remainder.expr(meta) * op_div.clone())
-                        * is_mul.expr(meta),
-                    (remainder.expr(meta) + overflow.expr(meta) - lhs.expr(meta))
+                        * is_mul.expr(meta) * op_div.clone(),
+                    (remainder.expr(meta) + overflow.expr(meta) - rhs.expr(meta))
                         * is_mul.expr(meta)
                         * op_div
                 ]
             }),
         );
+
+        /* div_s(lhs)/div_s(rhs)
+         * lhs / rhs
+         * u64 - (u64 - lhs) / rhs
+         * u64 - lhs / u64 - rhs
+         * u64 - (lhs / u64 - rhs)
+         * */
 
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
@@ -251,7 +258,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.is_add.assign(ctx, false)?;
                 self.is_mul.assign(ctx, true)?;
                 self.mode.assign(ctx, false)?;
-                self.overflow.assign(ctx, 0)?;
+                self.overflow.assign(ctx, (value + 1) * right - left)?;
                 self.remainder.assign(ctx, left - value * right)?;
             },
 
@@ -500,6 +507,39 @@ mod tests {
                       (i32.const 4294967295)
                       (i32.const 4294967295)
                       i32.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_divu_normal() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4)
+                      (i32.const 3)
+                      i32.div_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+
+    #[test]
+    fn test_i32_divu_zero() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4)
+                      (i32.const 4)
+                      i32.div_u
                       drop
                     )
                    )
