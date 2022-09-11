@@ -80,6 +80,7 @@ pub enum BinOp {
 pub enum ShiftOp {
     Shl,
     UnsignedShr,
+    SignedShr,
     Rotl,
 }
 
