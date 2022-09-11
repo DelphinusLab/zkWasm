@@ -85,7 +85,9 @@ pub enum BinOp {
 pub enum ShiftOp {
     Shl,
     UnsignedShr,
+    SignedShr,
     Rotl,
+    Rotr,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, EnumIter)]

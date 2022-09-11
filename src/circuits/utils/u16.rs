@@ -21,7 +21,9 @@ impl<F: FieldExt> U16Config<F> {
     ) -> Self {
         let value = cols.next().unwrap();
 
-        rtable.configure_in_u16_range(meta, "u16", |meta| curr!(meta, value.clone()) * enable(meta));
+        rtable.configure_in_u16_range(meta, "u16", |meta| {
+            curr!(meta, value.clone()) * enable(meta)
+        });
         Self {
             value,
             _mark: PhantomData,

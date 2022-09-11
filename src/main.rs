@@ -1,7 +1,7 @@
+pub mod bench;
 pub mod circuits;
 pub mod runtime;
 pub mod test;
-pub mod bench;
 pub mod traits;
 pub mod foreign;
 
