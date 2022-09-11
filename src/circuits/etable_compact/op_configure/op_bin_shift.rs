@@ -259,7 +259,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
 
             ShiftOp::SignedShr =>{
                 self.is_shr_s.assign(ctx, true)?;
-                match 0u64{
+                match left>>31  {
                     0u64=>{
                         self.is_neg.assign(ctx, false)?;
                         self.round.assign(ctx, left >> power)?;
@@ -271,9 +271,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                     1u64=>{
                         self.is_neg.assign(ctx, true)?;
                         self.round.assign(ctx, left >> power)?;
-                        self.pad.assign_with_annotation(ctx, "padding",(1<<power -1)<<(31-power))?;
+                        self.pad.assign(ctx, (1<<power -1)<<(31-power))?;
                         let rem = left & ((1 << power) - 1);
-                        self.rem.assign_with_annotation(ctx, "reminder",rem)?;
+                        self.rem.assign(ctx, rem)?;
                         self.diff.assign(ctx, (1u64 << power) - rem)?;
                     }
                     _=>unreachable!()

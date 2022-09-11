@@ -269,32 +269,6 @@ impl U64OnU8Cell {
         Ok(())
     }
 
-    pub fn assign_with_annotation<F: FieldExt>(
-        &self,
-        ctx: &mut Context<'_, F>,
-        anno: &str,
-        mut value: u64,
-    ) -> Result<(), Error> {
-        ctx.region.assign_advice(
-            || anno,
-            self.value_col,
-            (ctx.offset as i32 + self.value_rot) as usize,
-            || Ok(F::from(value)),
-        )?;
-
-        for i in 0..8usize {
-            let v = value & 0xff;
-            value >>= 8;
-            ctx.region.assign_advice(
-                || anno,
-                self.u8_col,
-                ((ctx.offset + i) as i32 + self.u8_rot) as usize,
-                || Ok(F::from(v)),
-            )?;
-        }
-
-        Ok(())
-    }
 
     pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         nextn!(meta, self.value_col, self.value_rot)
