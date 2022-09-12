@@ -113,10 +113,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                 vec![
                     is_shr_s.expr(meta)
                         * (rem.expr(meta) + round.expr(meta) * modulus.expr(meta) - lhs.expr(meta)),
-                    is_shr_u.expr(meta)
+                    is_shr_s.expr(meta)
                         * (rem.expr(meta) + round.expr(meta) * modulus.expr(meta) - lhs.expr(meta)),
                     is_shr_s.expr(meta) * (res.expr(meta) - round.expr(meta))
-                        *(constant_from!(1) - is_neg.expr(meta))
+                        *(constant_from!(1) - is_neg.expr(meta)),
+                    is_shr_s.expr(meta) 
                         * (res.expr(meta) - round.expr(meta)- pad.expr(meta))
                         *(is_neg.expr(meta)),
                 ]
@@ -269,12 +270,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                         
                     }
                     1u64=>{
+                       
                         self.is_neg.assign(ctx, true)?;
                         self.round.assign(ctx, left >> power)?;
-                        self.pad.assign(ctx, (1<<power -1)<<(31-power))?;
+                        self.pad.assign(ctx, ((1<<power)-1)<<(32-power))?;
                         let rem = left & ((1 << power) - 1);
                         self.rem.assign(ctx, rem)?;
-                        self.diff.assign(ctx, (1u64 << power) - rem)?;
+                        self.diff.assign(ctx, (1u64 << power) -1 - rem)?;
                     }
                     _=>unreachable!()
                 }
@@ -486,6 +488,36 @@ mod tests {
                 (module
                     (func (export "test")
                       (i32.const -23)
+                      (i32.const 5)
+                      (i32.shr_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+    #[test]
+    fn test_i32_shr_s_zero(){
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 5)
+                      (i32.shr_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+    #[test]
+    fn test_i32_shr_s_overflow(){
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const -1)
                       (i32.const 5)
                       (i32.shr_s)
                       (drop)
