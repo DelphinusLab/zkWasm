@@ -4,6 +4,7 @@ use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 pub(super) mod op_bin;
+pub(super) mod op_bin_signed;
 pub(super) mod op_bin_shift;
 pub(super) mod op_br_if;
 pub(super) mod op_call_host_input;
@@ -167,6 +168,7 @@ impl BitCell {
     pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         nextn!(meta, self.col, self.rot)
     }
+
 }
 
 #[derive(Clone, Copy)]

@@ -18,6 +18,7 @@ pub enum OpcodeClass {
     Select,
     Return,
     Bin,
+    BinSigned,
     BinShift,
     BinBit,
     Test,
@@ -44,6 +45,7 @@ impl OpcodeClass {
             OpcodeClass::Select => 4,
             OpcodeClass::Return => 0,
             OpcodeClass::Bin => 3,
+            OpcodeClass::BinSigned => 3,
             OpcodeClass::BinShift => 3,
             OpcodeClass::BinBit => 3,
             OpcodeClass::Test => 2,
@@ -75,6 +77,13 @@ pub enum BinOp {
     Sub,
     Mul,
     Div,
+}
+
+
+#[derive(Copy, Clone, Debug, Serialize)]
+pub enum BinSignedOp {
+    DivS,
+    RemS,
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
@@ -161,6 +170,12 @@ pub enum Opcode {
         class: BinOp,
         vtype: VarType,
     },
+
+    BinSigned {
+        class: BinSignedOp,
+        vtype: VarType,
+    },
+
     BinShift {
         class: ShiftOp,
         vtype: VarType,
@@ -227,6 +242,7 @@ impl Opcode {
         match self {
             Opcode::Const { vtype, .. } => Some(*vtype),
             Opcode::Bin { vtype, .. } => Some(*vtype),
+            Opcode::BinSigned { vtype, .. } => Some(*vtype),
             Opcode::BinBit { vtype, .. } => Some(*vtype),
             _ => None,
         }
@@ -270,6 +286,11 @@ impl Into<BigUint> for Opcode {
             }
             Opcode::Bin { class, vtype } => {
                 (BigUint::from(OpcodeClass::Bin as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+            }
+            Opcode::BinSigned { class, vtype } => {
+                (BigUint::from(OpcodeClass::BinSigned as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
@@ -365,6 +386,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Select { .. } => OpcodeClass::Select,
             Opcode::Return { .. } => OpcodeClass::Return,
             Opcode::Bin { .. } => OpcodeClass::Bin,
+            Opcode::BinSigned { .. } => OpcodeClass::BinSigned,
             Opcode::BinShift { .. } => OpcodeClass::BinShift,
             Opcode::BinBit { .. } => OpcodeClass::BinBit,
             Opcode::Test { .. } => OpcodeClass::Test,

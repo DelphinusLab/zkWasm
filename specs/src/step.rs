@@ -1,6 +1,6 @@
 use crate::{
     host_function::Signature,
-    itable::{BinOp, BitOp, RelOp, ShiftOp},
+    itable::{BinOp, BinSignedOp, BitOp, RelOp, ShiftOp},
     mtable::{MemoryReadSize, MemoryStoreSize, VarType},
     types::ValueType,
 };
@@ -104,12 +104,21 @@ pub enum StepInfo {
         right: i32,
         value: i32,
     },
+
+    I32BinSignedOp {
+        class: BinSignedOp,
+        left: i32,
+        right: i32,
+        value: i32,
+    },
+
     I32BinShiftOp {
         class: ShiftOp,
         left: i32,
         right: i32,
         value: i32,
     },
+
     I32BinBitOp {
         class: BitOp,
         left: i32,
@@ -123,12 +132,22 @@ pub enum StepInfo {
         right: i64,
         value: i64,
     },
+
+    I64BinSignedOp {
+        class: BinSignedOp,
+        left: i64,
+        right: i64,
+        value: i64,
+    },
+
+
     I64BinShiftOp {
         class: ShiftOp,
         left: i64,
         right: i64,
         value: i64,
     },
+
     I64BinBitOp {
         class: BitOp,
         left: i64,

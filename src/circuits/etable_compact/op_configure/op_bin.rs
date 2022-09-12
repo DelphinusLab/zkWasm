@@ -25,7 +25,7 @@ pub struct BinConfig {
     rhs: U64Cell,
     res: U64Cell,
     overflow: U64OnU8Cell,
-    remainder: U64OnU8Cell,
+    r: U64OnU8Cell, // remainder for div_u and quotient for rem_u
     vtype: CommonRangeCell,
     is_add: BitCell,
     is_mul: BitCell,
@@ -51,7 +51,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let rhs = common.alloc_u64();
         let res = common.alloc_u64();
         let overflow = common.alloc_u64_on_u8();
-        let remainder = common.alloc_u64_on_u8();
+        let r = common.alloc_u64_on_u8();
 
         let vtype = common.alloc_common_range_value();
 
@@ -65,13 +65,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
 
         let is_32bits = common.alloc_bit_value();
         let is_64bits = common.alloc_bit_value();
-
-        constraint_builder.push(
-            "zero remainder if add",
-            Box::new(move |meta| vec![(is_add.expr(meta) * remainder.expr(meta))]),
-        );
-
-        // range check if multi
 
         constraint_builder.push(
             "32 or 64",
@@ -133,22 +126,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                 vec![
                     (lhs.expr(meta)
                         - rhs.expr(meta) * res.expr(meta)
-                        - remainder.expr(meta) * op_div.clone())
+                        - r.expr(meta) * op_div.clone())
                         * is_mul.expr(meta) * op_div.clone(),
-                    (remainder.expr(meta) + overflow.expr(meta) - rhs.expr(meta))
+                    (r.expr(meta) + overflow.expr(meta) - rhs.expr(meta))
                         * is_mul.expr(meta)
                         * op_div
                 ]
             }),
         );
-
-        /* div_s(lhs)/div_s(rhs)
-         * lhs / rhs
-         * u64 - (u64 - lhs) / rhs
-         * u64 - lhs / u64 - rhs
-         * u64 - (lhs / u64 - rhs)
-         * */
-
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
@@ -163,7 +148,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             is_add,
             is_mul,
             mode,
-            remainder,
+            r,
             is_32bits,
             is_64bits,
             lookup_stack_read_lhs,
@@ -234,13 +219,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.overflow.assign(ctx,
                     ((BigUint::from(left) + BigUint::from(right)) >> shift as u64).to_u64().unwrap()
                 )?;
-                self.remainder.assign(ctx, 0)?;
+                self.r.assign(ctx, 0)?;
             },
             specs::itable::BinOp::Sub=> {
                 self.is_add.assign(ctx, true)?;
                 self.is_mul.assign(ctx, false)?;
                 self.mode.assign(ctx, false)?;
-                self.remainder.assign(ctx, 0)?;
+                self.r.assign(ctx, 0)?;
                 self.overflow.assign(ctx,
                     ((BigUint::from(value) + BigUint::from(right)) >> shift as u64).to_u64().unwrap()
                 )?;
@@ -252,14 +237,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.overflow.assign(ctx,
                     ((BigUint::from(left) * BigUint::from(right)) >> shift as u64).to_u64().unwrap()
                 )?;
-                self.remainder.assign(ctx, 0)?;
+                self.r.assign(ctx, 0)?;
             },
             specs::itable::BinOp::Div => {
                 self.is_add.assign(ctx, false)?;
                 self.is_mul.assign(ctx, true)?;
                 self.mode.assign(ctx, false)?;
                 self.overflow.assign(ctx, (value + 1) * right - left)?;
-                self.remainder.assign(ctx, left - value * right)?;
+                self.r.assign(ctx, left - value * right)?;
             },
 
         };
