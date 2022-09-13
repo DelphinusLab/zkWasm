@@ -82,6 +82,7 @@ pub enum ShiftOp {
     UnsignedShr,
     SignedShr,
     Rotl,
+    Rotr,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, EnumIter)]

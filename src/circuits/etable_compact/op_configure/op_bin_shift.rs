@@ -36,6 +36,7 @@ pub struct BinShiftConfig {
     is_shr_u: BitCell,
     is_shr_s:BitCell,
     is_rotl:BitCell,
+    is_rotr:BitCell,
     is_neg: BitCell,
     lookup_pow: PowTableLookupCell,
 
@@ -66,6 +67,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let is_shr_u = common.alloc_bit_value();
         let is_shr_s = common.alloc_bit_value();
         let is_rotl = common.alloc_bit_value();
+        let is_rotr = common.alloc_bit_value();
         let is_neg:BitCell= common.alloc_bit_value();
         let pad = common.alloc_u64_on_u8();
         let lookup_pow = common.alloc_pow_table_lookup();
@@ -181,7 +183,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                 ]
             }),
         );
-    
+        constraint_builder.push(
+            "bin rotr",
+            Box::new(move |meta| {
+                vec![
+                    is_rotr.expr(meta) * (rem.expr(meta) + diff.expr(meta) - modulus.expr(meta)),
+                    is_rotr.expr(meta)
+                        * (rem.expr(meta) + round.expr(meta) * modulus.expr(meta) - lhs.expr(meta)),
+                    is_rotr.expr(meta) * (res.expr(meta)*modulus.expr(meta) - round.expr(meta)*modulus.expr(meta)
+                     -rem.expr(meta)*constant_from!(1u64 <<32)),
+                ]
+            }),
+        );
      
 
         Box::new(BinShiftConfig {
@@ -198,6 +211,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             is_shr_u,
             is_shr_s,
             is_rotl,
+            is_rotr,
             is_neg,
             pad,
             lookup_stack_read_lhs,
@@ -222,14 +236,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 * constant!(bn_to_field(
                     &(BigUint::from(ShiftOp::UnsignedShr as u64) << OPCODE_ARG0_SHIFT)
                 ))
-         + self.is_shr_s.expr(meta)
+        + self.is_shr_s.expr(meta)
                       * constant!(bn_to_field(
                     &(BigUint::from(ShiftOp::UnsignedShr as u64) << OPCODE_ARG0_SHIFT)
                 ))
-                + self.is_rotl.expr(meta)
-                * constant!(bn_to_field(
-              &(BigUint::from(ShiftOp::Rotl as u64) << OPCODE_ARG0_SHIFT)
+        + self.is_rotl.expr(meta)
+                * constant!(bn_to_field(&(BigUint::from(ShiftOp::Rotl as u64) << OPCODE_ARG0_SHIFT)
+        
           ))
+        + self.is_rotr.expr(meta)
+             * constant!(bn_to_field( &(BigUint::from(ShiftOp::Rotr as u64) << OPCODE_ARG0_SHIFT)
+    ))
+          
         + vtype * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
     }
 
@@ -320,11 +338,21 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 }
             }
             ShiftOp::Rotl => {
+                  // same as shl
                 self.is_rotl.assign(ctx, true)?;
                 self.round.assign(ctx, left >> (32 - power))?;
                 let rem = (left << power) & ((1u64 << 32) - 1);
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, (1u64 << 32) - rem)?;
+            },
+
+            ShiftOp::Rotr => {
+                // same as shr_u
+                self.is_rotr.assign(ctx, true)?;
+                self.round.assign(ctx, left >> power)?;
+                let rem = left & ((1 << power) - 1);
+                self.rem.assign(ctx, rem)?;
+                self.diff.assign(ctx, (1u64 << power) - rem)?;
             },
         }
 
@@ -622,7 +650,7 @@ mod tests {
         let textual_repr = r#"
                 (module
                     (func (export "test")
-                      (i32.const 4294967295)
+                      (i32.const 2863311530)
                       (i32.const 5)
                       (i32.rotl)
                       (drop)
@@ -632,4 +660,21 @@ mod tests {
 
         test_circuit_noexternal(textual_repr).unwrap()
     }
+
+    #[test]
+    fn test_i32_rotr(){
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 23)
+                      (i32.const 5)
+                      (i32.rotr)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+   
 }
