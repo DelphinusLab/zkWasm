@@ -119,8 +119,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                         *(constant_from!(1) - is_neg.expr(meta)),
                     is_shr_s.expr(meta) 
                         * (res.expr(meta) - round.expr(meta)- pad.expr(meta))
-                        *((pad.expr(meta)*modulus.expr(meta)+modulus.expr(meta)-constant_from!(1u64<<32)))
                         *(is_neg.expr(meta)),
+                    is_shr_s.expr(meta) *(pad.expr(meta)*modulus.expr(meta)+constant_from!(1u64<<32)-
+                    constant_from!(1u64<<32)*modulus.expr(meta))
+                    *(is_neg.expr(meta)),
+                    
                 ]
             }),
         );
