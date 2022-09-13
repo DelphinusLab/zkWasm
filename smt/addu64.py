@@ -33,8 +33,10 @@ print('--------------Soundness---------------')
 if check_res.r == Z3_L_TRUE:
     print('Verify: Fail')
     print(s.model())
-else:
+elif check_res.r == Z3_L_FALSE:
     print('Verify: Pass')
+else:
+    print('Verify: Fail')
 s.pop()
 
 
@@ -47,6 +49,8 @@ print('-------------Completeness----------------')
 if check_res.r == Z3_L_TRUE:
     print('Verify: Fail')
     print(s.model())
-else:
+elif check_res.r == Z3_L_FALSE:
     print('Verify: Pass')
+else:
+    print('Verify: Fail')
 s.pop()
