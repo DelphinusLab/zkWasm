@@ -133,9 +133,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
                         - (is_four_bytes * rhs.u4_expr(meta, 7)
                             + is_eight_bytes.expr(meta) * rhs.u4_expr(meta, 15))
                             * op_is_sign.expr(meta),
-                    (rhs_rem_diff.expr(meta) + rhs_rem_value.expr(meta) - constant_from!(8))
+                    (rhs_rem_diff.expr(meta) + rhs_rem_value.expr(meta) - constant_from!(7))
                         * op_is_sign.expr(meta),
-                    (lhs_rem_diff.expr(meta) + lhs_rem_value.expr(meta) - constant_from!(8))
+                    (lhs_rem_diff.expr(meta) + lhs_rem_value.expr(meta) - constant_from!(7))
                         * op_is_sign.expr(meta),
                 ]
             }),
