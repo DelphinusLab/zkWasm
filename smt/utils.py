@@ -23,8 +23,8 @@ def init_z3_solver():
     s.add(ForAll([lhs, rhs], fr_mul(lhs, rhs) == (lhs * rhs) % Fr))
     s.add(ForAll([lhs, rhs], fr_add(lhs, rhs) == (lhs + rhs) % Fr))
     s.add(ForAll([lhs], is_bit(lhs) == And(lhs >= 0, lhs <= 1)))
-    s.add(ForAll([lhs], is_u32(lhs) == And(lhs >= 0, lhs < U64_MODULUS)))
-    s.add(ForAll([lhs], is_u64(lhs) == And(lhs >= 0, lhs < U32_MODULUS)))
+    s.add(ForAll([lhs], is_u32(lhs) == And(lhs >= 0, lhs < U32_MODULUS)))
+    s.add(ForAll([lhs], is_u64(lhs) == And(lhs >= 0, lhs < U64_MODULUS)))
     s.add(ForAll([lhs], is_field(lhs) == And(lhs >= 0, lhs < Fr)))
     s.add(ForAll([lhs], is_common_range(lhs) == And(lhs >= 0, lhs <= MAX_COMMON_RANGE)))
 
