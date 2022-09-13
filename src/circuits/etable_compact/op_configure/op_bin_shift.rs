@@ -617,4 +617,19 @@ mod tests {
 
         test_circuit_noexternal(textual_repr).unwrap()
     }
+    #[test]
+    fn test_i32_rotl2(){
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4294967295)
+                      (i32.const 5)
+                      (i32.rotl)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
 }
