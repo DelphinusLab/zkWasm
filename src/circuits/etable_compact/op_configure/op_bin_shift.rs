@@ -177,7 +177,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                         * (constant_from!(1) - is_eight_bytes.expr(meta))
                         * (rem.expr(meta) + diff.expr(meta) - constant_from!(1u64 << 32)),
                     // res
-                    is_shl.expr(meta) * (res.expr(meta) - rem.expr(meta)-round.expr(meta)),
+                    is_rotl.expr(meta) * (res.expr(meta) - rem.expr(meta)-round.expr(meta)),
                 ]
             }),
         );
