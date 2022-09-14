@@ -274,7 +274,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                     .assign(ctx, offset.try_into().unwrap())?;
 
                 let len = load_size.byte_size();
-                println!("len: {}", len);
+                //println!("len: {}", len);
                 let start_byte_index = effective_address as u64;
                 let end_byte_index = start_byte_index + len - 1;
 
@@ -310,7 +310,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_four_bytes.assign(ctx, len == 4)?;
                 self.is_eight_bytes.assign(ctx, len == 8)?;
                 self.is_sign.assign(ctx, load_size.is_sign())?;
-                println!("is_sign: {}", load_size.is_sign());
+                //println!("is_sign: {}", load_size.is_sign());
                 self.vtype.assign(ctx, vtype as u16)?;
 
                 self.lookup_stack_read.assign(
