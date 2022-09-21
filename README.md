@@ -1,5 +1,12 @@
-# Overview：
+<p align="center">
+  <img src="zkwasm-bk.png" height="100">
+</p>
 
+<p align="center">
+  <a href="https://github.com/DelphinusLab/zkWasm/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache 2-blue.svg"></a>
+</p>
+
+# Overview：
 ## Setup input:
 wasm code
 
