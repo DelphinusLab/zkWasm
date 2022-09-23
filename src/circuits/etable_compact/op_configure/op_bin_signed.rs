@@ -67,6 +67,27 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinSignedConfigBuilder {
         let rhs_sig_bit = common.alloc_bit_value();
 
         constraint_builder.push(
+            "sainty constraints",
+            Box::new(move |meta| {
+                let bound = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
+                    * (constant_from!(1) - bit_mode.expr(meta))
+                    + constant!(bn_to_field(&(BigUint::from(1u64) << 64usize)))
+                        * bit_mode.expr(meta);
+                vec![
+                    (lhs.expr(meta) - (
+                        lhs_abs.expr(meta) * (constant_from!(1)-lhs_sig_bit.expr(meta)) +
+                        (bound.clone() - lhs_abs.expr(meta))*lhs_sig_bit.expr(meta)
+                    )),
+                    (rhs.expr(meta) - (
+                        rhs_abs.expr(meta) * (constant_from!(1)-rhs_sig_bit.expr(meta))
+                        + (bound - rhs_abs.expr(meta))*rhs_sig_bit.expr(meta)
+                    )),
+
+                ]
+            }),
+        );
+
+        constraint_builder.push(
             "div_s constraints",
             Box::new(move |meta| {
                 let bound = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
@@ -233,7 +254,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinSignedConfig {
                 self.pad.assign(ctx, pad)?;
                 self.r.assign(ctx, r)?;
                 self.rem_is_zero.assign(ctx, rhs_abs * res_abs == lhs_abs)?;
-                println!("lhs_abs: {}[{}], rhs_abs: {}[{}], res[{}]: {}, pad: {}, r: {}", lhs_abs, lhs_sig_bit, rhs_abs, rhs_sig_bit, res_abs, value, pad, r);
+                println!("lhs_abs: {}[{},{}], rhs_abs: {}[{}], res[{}]: {}, pad: {}, r: {}", lhs_abs, lhs_sig_bit, left, rhs_abs, rhs_sig_bit, res_abs, value, pad, r);
             },
             specs::itable::BinSignedOp::RemS => {
                 let pad = (res_abs + 1) * rhs_abs - lhs_abs;
