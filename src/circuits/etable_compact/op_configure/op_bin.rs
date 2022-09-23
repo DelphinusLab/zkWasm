@@ -532,4 +532,70 @@ mod tests {
 
         test_circuit_noexternal(textual_repr).unwrap()
     }
+
+    #[test]
+    fn test_i64_mult() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 3)
+                      i32.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_mult_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 18446744073709551615)
+                      (i64.const 18446744073709551615)
+                      i64.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_divu_normal() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 3)
+                      i32.div_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+
+    #[test]
+    fn test_i64_divu_zero() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 4)
+                      i64.div_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
 }
