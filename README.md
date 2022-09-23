@@ -119,15 +119,6 @@ Execution table represents the execution sequence and it needs to match the sema
 
 # Operations Spec [WIP]
 We uses z3 (https://github.com/Z3Prover/z3) to check that all operation are compiled to zkp circuits correctly.
-## arithment operation [op_bin]
-## bit operation [op_bin_bit]
-With a, b in `u4`, we have $2^4\cdot 2^4=256$ for each op in `and, or, xor`.
-| a | b | a ^ b| op |
-|---|---|------|----|
-| 0 | 0 | 0 |   xor |
-| 0 | 1 | 1 |   xor |
-| 1 | 0 | 1 |   xor|
-| 1 | 1 | 0 |   xor|
-| ...|...|...| ....|
-| 15 | 15| 0 |  xor|
+
+[This is a WIP project, only sample code are provided here. Please contact xgao@zoyoe.com for state circuit customization and application integration. 
 
