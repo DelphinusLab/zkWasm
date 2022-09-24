@@ -201,12 +201,15 @@ pub struct U4BopCell {
 
 impl U4BopCell {
     pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
-        ctx.region.assign_advice(
-            || "u4 bop cell",
-            self.col,
-            (ctx.offset as i32 + self.rot) as usize,
-            || Ok(value),
-        )?;
+        for i in 0..16usize {
+            ctx.region.assign_advice(
+                || "u4 bop cell",
+                self.col,
+                ctx.offset + i,
+                || Ok(F::from(value)),
+            )?;
+        }
+
         Ok(())
     }
 

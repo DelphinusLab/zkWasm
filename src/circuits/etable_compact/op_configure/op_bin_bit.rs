@@ -54,7 +54,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let lookup_stack_write = common.alloc_mtable_lookup();
 
         let _ = constraint_builder;
-        /*
+        /* check op and op_class
         constraint_builder.push(
             "binbit op class",
             Box::new(move |meta| {
@@ -118,9 +118,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
                     value,
                 } => {
                     let vtype = VarType::I64;
-                    let left = left as u32 as u64;
-                    let right = right as u32 as u64;
-                    let value = value as u32 as u64;
+                    let left = left as u64;
+                    let right = right as u64;
+                    let value = value as u64;
                     (class, vtype, left, right, value)
                 },
                 _ => unreachable!(),
