@@ -233,6 +233,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                 .collect::<Vec<_>>()
         });
 
+        rtable.configure_in_u4_bop_set(meta, "etable u4 bop", |meta| {
+            curr!(meta, u4_bop) * fixed_curr!(meta, sel)
+        });
+
         rtable.configure_in_common_range(meta, "etable aux in common", |meta| {
             curr!(meta, state) * fixed_curr!(meta, sel)
         });

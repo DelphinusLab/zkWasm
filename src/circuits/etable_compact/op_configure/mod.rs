@@ -192,6 +192,38 @@ impl CommonRangeCell {
     }
 }
 
+
+#[derive(Clone, Copy)]
+pub struct U4BopCell {
+    pub col: Column<Advice>,
+    pub rot: i32,
+}
+
+impl U4BopCell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "u4 bop cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(value),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
+
+}
+
+
+#[derive(Clone, Copy)]
+pub struct U64BitCell {
+    pub value_col: Column<Advice>,
+    pub value_rot: i32,
+    pub u4_col: Column<Advice>,
+}
+
 #[derive(Clone, Copy)]
 pub struct U64Cell {
     pub value_col: Column<Advice>,
@@ -284,6 +316,7 @@ pub(super) struct EventTableCellAllocator<'a, F> {
     pub bit_index: i32,
     pub common_range_index: i32,
     pub unlimited_index: i32,
+    pub u4_bop_index: i32,
     pub u64_index: i32,
     pub u64_on_u8_index: i32,
     pub host_input_index: i32,
@@ -300,6 +333,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             bit_index: EventTableBitColumnRotation::Max as i32,
             common_range_index: EventTableCommonRangeColumnRotation::Max as i32,
             unlimited_index: 0,
+            u4_bop_index: 0,
             u64_index: 0,
             u64_on_u8_index: 0,
             host_input_index: EventTableCommonRangeColumnRotation::InputIndex as i32,
@@ -337,6 +371,16 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         self.unlimited_index += 1;
         UnlimitedCell {
             col: self.config.unlimited,
+            rot: allocated_index,
+        }
+    }
+
+    pub fn alloc_u4_bop(&mut self) -> U4BopCell {
+        assert!(self.u4_bop_index < ETABLE_STEP_SIZE as i32);
+        let allocated_index = self.u4_bop_index;
+        self.u4_bop_index += 1;
+        U4BopCell {
+            col: self.config.u4_bop,
             rot: allocated_index,
         }
     }

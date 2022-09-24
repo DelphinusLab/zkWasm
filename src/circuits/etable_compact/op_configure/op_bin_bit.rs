@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     circuits::{
         mtable_compact::encode::MemoryTableLookupEncode,
+        rtable::BinOp,
         utils::{bn_to_field, Context},
     },
     constant,
@@ -23,13 +24,9 @@ pub struct BinBitConfig {
     lhs: U64Cell,
     rhs: U64Cell,
     res: U64Cell,
+    op: U4BopCell,
+    op_class: UnlimitedCell,
     vtype: CommonRangeCell,
-
-    is_and: BitCell,
-    is_or: BitCell,
-    is_xor: BitCell,
-    is_not: BitCell,
-
 
     lookup_stack_read_lhs: MTableLookupCell,
     lookup_stack_read_rhs: MTableLookupCell,
@@ -48,27 +45,30 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let lhs = common.alloc_u64();
         let rhs = common.alloc_u64();
         let res = common.alloc_u64();
+        let op = common.alloc_u4_bop();
+        let op_class = common.alloc_unlimited_value();
         let vtype = common.alloc_common_range_value();
-
-        let is_and = common.alloc_bit_value();
-        let is_or = common.alloc_bit_value();
-        let is_xor = common.alloc_bit_value();
-        let is_not = common.alloc_bit_value();
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
+        let _ = constraint_builder;
+        /*
+        constraint_builder.push(
+            "binbit op class",
+            Box::new(move |meta| {
+                vec![]
+            })
+        ); */
+
         Box::new(BinBitConfig {
             lhs,
             rhs,
             res,
+            op,
+            op_class,
             vtype,
-
-            is_and,
-            is_or,
-            is_xor,
-            is_not,
 
             lookup_stack_read_lhs,
             lookup_stack_read_rhs,
@@ -83,22 +83,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::BinBit as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_and.expr(meta)
+        )) + self.op_class.expr(meta)
             * constant!(bn_to_field(
-                &(BigUint::from(BitOp::And as u64) << OPCODE_ARG0_SHIFT)
+                &(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)
             ))
-            + self.is_or.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BitOp::Or as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_xor.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BitOp::Xor as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_not.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BitOp::Not as u64) << OPCODE_ARG0_SHIFT)
-                ))
             + self.vtype.expr(meta)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
     }
@@ -152,7 +140,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
                 unimplemented!()
             },
             specs::itable::BitOp::Xor => {
-                self.is_xor.assign(ctx, true)?;
+                self.op_class.assign(ctx, bn_to_field(&BigUint::from(BinOp::Xor as u64)))?;
+                self.op.assign(ctx, bn_to_field(&(BigUint::from(1u64) << (BinOp::Xor as usize * 12))))?;
             },
             specs::itable::BitOp::Not => {
                 unimplemented!()
