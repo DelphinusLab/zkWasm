@@ -5,6 +5,7 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 pub(super) mod op_bin;
 pub(super) mod op_bin_shift;
+pub(super) mod op_bin_bit;
 pub(super) mod op_br_if;
 pub(super) mod op_call_host_input;
 pub(super) mod op_const;
@@ -143,6 +144,41 @@ impl JTableLookupCell {
 
     pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         nextn!(meta, self.col, self.rot)
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct BopCell {
+    pub col: Column<Advice>,
+}
+
+impl BopCell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: u64) -> Result<(), Error> {
+        for i in 0..15 {
+          ctx.region.assign_advice(
+              || "bit cell",
+              self.col,
+              i as usize,
+              || Ok(F::from(value as u64)),
+          )?;
+        }
+
+        Ok(())
+    }
+
+    // Only return the first one and will constraint the rest are same
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, 0)
+    }
+
+    pub fn eq_constraint<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        let mut sum = nextn!(meta, self.col, 0);
+        let mut copy_nb = 1;
+        for i in 1..15 {
+            copy_nb += 1u64<<(i*4);
+            sum = sum + constant_from!(1u64<<i*4) * nextn!(meta, self.col, i);
+        }
+        sum - nextn!(meta, self.col, 0) * constant_from!(copy_nb)
     }
 }
 
@@ -309,6 +345,13 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
                 as i32,
         }
     }
+
+    pub fn alloc_bop_value(&mut self) -> BopCell {
+        BopCell {
+            col: self.config.u4_bop
+        }
+    }
+
 
     pub fn alloc_bit_value(&mut self) -> BitCell {
         assert!(self.bit_index < BITS_COLUMNS as i32 * ETABLE_STEP_SIZE as i32);

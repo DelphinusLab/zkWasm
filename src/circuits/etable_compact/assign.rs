@@ -240,6 +240,8 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 next: &status_entries[index + 1],
             };
 
+            println!("opcode {:?}", opcode);
+
             let config = op_configs.get(&opcode).unwrap();
 
             config.assign(ctx, &step_status, entry)?;

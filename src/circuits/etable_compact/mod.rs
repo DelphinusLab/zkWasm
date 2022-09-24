@@ -248,6 +248,15 @@ impl<F: FieldExt> EventTableConfig<F> {
             });
         }
 
+        rtable.configure_in_u4_bop_set(meta, "bop in range", |meta| {
+            curr!(meta, u4_bop)
+        });
+
+        rtable.configure_in_u4_bop_calc_set(meta, "etable bop u8*u8*u8", |meta| {
+            (curr!(meta, u4_shared[0]), curr!(meta, u4_shared[1]), curr!(meta, u4_shared[2]), curr!(meta, u4_bop))
+        });
+
+
         itable.configure_in_table(meta, "etable itable lookup", |meta| {
             curr!(meta, aux) * fixed_curr!(meta, itable_lookup)
         });
