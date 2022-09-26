@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     circuits::{
         mtable_compact::encode::MemoryTableLookupEncode,
-        rtable::BinOp,
+        rtable::{BinOp, pow_table_encode},
         utils::{bn_to_field, Context},
     },
     constant,
@@ -26,6 +26,7 @@ pub struct BinBitConfig {
     res: U64Cell,
     op: U4BopCell,
     op_class: UnlimitedCell,
+    op_lookup: PowTableLookupCell,
     vtype: CommonRangeCell,
 
     lookup_stack_read_lhs: MTableLookupCell,
@@ -47,6 +48,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let res = common.alloc_u64();
         let op = common.alloc_u4_bop();
         let op_class = common.alloc_unlimited_value();
+        let op_lookup = common.alloc_pow_table_lookup();
         let vtype = common.alloc_common_range_value();
 
         let lookup_stack_read_lhs = common.alloc_mtable_lookup();
@@ -54,13 +56,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let lookup_stack_write = common.alloc_mtable_lookup();
 
         let _ = constraint_builder;
-        /* check op and op_class
         constraint_builder.push(
             "binbit op class",
             Box::new(move |meta| {
-                vec![]
+                vec![op_lookup.expr(meta) - pow_table_encode(op.expr(meta), constant_from!(12) * op_class.expr(meta))]
             })
-        ); */
+        ); 
 
         Box::new(BinBitConfig {
             lhs,
@@ -68,6 +69,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             res,
             op,
             op_class,
+            op_lookup,
             vtype,
 
             lookup_stack_read_lhs,
@@ -142,6 +144,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
             specs::itable::BitOp::Xor => {
                 self.op_class.assign(ctx, bn_to_field(&BigUint::from(BinOp::Xor as u64)))?;
                 self.op.assign(ctx, bn_to_field(&(BigUint::from(1u64) << (BinOp::Xor as usize * 12))))?;
+                self.op_lookup.assign(ctx, (BinOp::Xor as u64) * 12)?;
             },
             specs::itable::BitOp::Not => {
                 unimplemented!()
