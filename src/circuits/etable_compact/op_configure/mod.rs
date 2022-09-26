@@ -196,7 +196,6 @@ impl CommonRangeCell {
 #[derive(Clone, Copy)]
 pub struct U4BopCell {
     pub col: Column<Advice>,
-    pub rot: i32,
 }
 
 impl U4BopCell {
@@ -214,7 +213,7 @@ impl U4BopCell {
     }
 
     pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot)
+        nextn!(meta, self.col, 0)
     }
 
 }
@@ -379,12 +378,11 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
     }
 
     pub fn alloc_u4_bop(&mut self) -> U4BopCell {
-        assert!(self.u4_bop_index < ETABLE_STEP_SIZE as i32);
+        assert!(self.u4_bop_index < 1 as i32);
         let allocated_index = self.u4_bop_index;
         self.u4_bop_index += 1;
         U4BopCell {
             col: self.config.u4_bop,
-            rot: allocated_index,
         }
     }
 

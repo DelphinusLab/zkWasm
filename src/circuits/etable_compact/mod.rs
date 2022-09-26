@@ -238,9 +238,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_u4_bop_calc_set(meta, "etable u4 bop calc", |meta| {
-            (curr!(meta, u4_shared[0]) * fixed_curr!(meta, sel), 
-             curr!(meta, u4_shared[1]) * fixed_curr!(meta, sel),
-             curr!(meta, u4_shared[2]) * fixed_curr!(meta, sel), 
+            (curr!(meta, u4_shared[0]) ,
+             curr!(meta, u4_shared[1]) ,
+             curr!(meta, u4_shared[2]) ,
              curr!(meta, u4_bop) * fixed_curr!(meta, sel))
         }); 
 
