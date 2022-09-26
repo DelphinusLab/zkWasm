@@ -388,7 +388,6 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
 
     pub fn alloc_u4_bop(&mut self) -> U4BopCell {
         assert!(self.u4_bop_index < 1 as i32);
-        let allocated_index = self.u4_bop_index;
         self.u4_bop_index += 1;
         U4BopCell {
             col: self.config.u4_bop,
