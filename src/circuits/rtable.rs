@@ -104,7 +104,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         meta.lookup(key, |meta| {
             let (l, r, res, op) = expr(meta);
             vec![(
-                (l * constant_from!(1u64 << 8) + r * constant_from!(1u64 << 4) + res) * op,
+               (l * constant_from!(1u64 << 8) + r * constant_from!(1u64 << 4) + res) * op,
                 self.u4_bop_calc_col,
             )]
         });
@@ -316,15 +316,15 @@ impl<F: FieldExt> RangeTableChip<F> {
                                 self.config.u4_bop_calc_col,
                                 offset as usize,
                                 || {
-                                    Ok(F::from((l * 256 + r * 16 + res) as u64)
+                                    Ok(F::from((l * 256 + r * 16 + res) as u64) 
                                         * bn_to_field::<F>(
                                             &(BigUint::from(1u64) << (i as usize * 12)),
-                                        ))
+                                    ))
                                 },
                             )?;
+                            offset += 1;
                         }
                     }
-                    offset += 1;
                 }
                 Ok(())
             },

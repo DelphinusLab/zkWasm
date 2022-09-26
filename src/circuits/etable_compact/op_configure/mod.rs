@@ -4,6 +4,7 @@ use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 pub(super) mod op_bin;
+pub(super) mod op_bin_bit;
 pub(super) mod op_bin_shift;
 pub(super) mod op_br_if;
 pub(super) mod op_call_host_input;
@@ -191,6 +192,48 @@ impl CommonRangeCell {
     }
 }
 
+
+#[derive(Clone, Copy)]
+pub struct U4BopCell {
+    pub col: Column<Advice>,
+}
+
+impl U4BopCell {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
+        for i in 0..16usize {
+            ctx.region.assign_advice(
+                || "u4 bop cell",
+                self.col,
+                ctx.offset + i,
+                || Ok(F::from(value)),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, 0)
+    }
+
+    pub fn eq_constraint<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        let mut sum = constant_from!(0);
+        for i in 1..16 {
+            sum = sum + nextn!(meta, self.col, i);
+        }
+        sum - constant_from!(15) * nextn!(meta, self.col, 0)
+    }
+
+}
+
+
+#[derive(Clone, Copy)]
+pub struct U64BitCell {
+    pub value_col: Column<Advice>,
+    pub value_rot: i32,
+    pub u4_col: Column<Advice>,
+}
+
 #[derive(Clone, Copy)]
 pub struct U64Cell {
     pub value_col: Column<Advice>,
@@ -283,6 +326,7 @@ pub(super) struct EventTableCellAllocator<'a, F> {
     pub bit_index: i32,
     pub common_range_index: i32,
     pub unlimited_index: i32,
+    pub u4_bop_index: i32,
     pub u64_index: i32,
     pub u64_on_u8_index: i32,
     pub host_input_index: i32,
@@ -299,6 +343,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             bit_index: EventTableBitColumnRotation::Max as i32,
             common_range_index: EventTableCommonRangeColumnRotation::Max as i32,
             unlimited_index: 0,
+            u4_bop_index: 0,
             u64_index: 0,
             u64_on_u8_index: 0,
             host_input_index: EventTableCommonRangeColumnRotation::InputIndex as i32,
@@ -337,6 +382,14 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         UnlimitedCell {
             col: self.config.unlimited,
             rot: allocated_index,
+        }
+    }
+
+    pub fn alloc_u4_bop(&mut self) -> U4BopCell {
+        assert!(self.u4_bop_index < 1 as i32);
+        self.u4_bop_index += 1;
+        U4BopCell {
+            col: self.config.u4_bop,
         }
     }
 
