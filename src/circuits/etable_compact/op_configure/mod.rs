@@ -216,6 +216,15 @@ impl U4BopCell {
         nextn!(meta, self.col, 0)
     }
 
+    pub fn eq_constraint<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        let mut sum = constant_from!(0);
+        for i in 1..15 {
+            let diff = nextn!(meta, self.col, 0) - nextn!(meta, self.col, i);
+            sum = sum + diff.clone() * diff;
+        }
+        sum
+    }
+
 }
 
 

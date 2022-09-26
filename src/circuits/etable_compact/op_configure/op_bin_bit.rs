@@ -55,13 +55,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let lookup_stack_read_rhs = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
-        let _ = constraint_builder;
         constraint_builder.push(
             "binbit op class",
             Box::new(move |meta| {
                 vec![op_lookup.expr(meta) - pow_table_encode(op.expr(meta), constant_from!(12) * op_class.expr(meta))]
             })
         ); 
+
+        constraint_builder.push(
+            "binbit eq constraints",
+            Box::new(move |meta| {
+                vec![
+                    op.eq_constraint(meta)
+                ]
+            }),
+        );
 
         Box::new(BinBitConfig {
             lhs,
@@ -243,6 +251,22 @@ mod tests {
                     (func (export "test")
                       (i32.const 1)
                       (i32.const 1)
+                      i32.xor
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_xor1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 21)
+                      (i32.const 31)
                       i32.xor
                       drop
                     )
