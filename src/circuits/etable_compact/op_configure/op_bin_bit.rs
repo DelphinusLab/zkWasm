@@ -25,7 +25,7 @@ pub struct BinBitConfig {
     rhs: U64Cell,
     res: U64Cell,
     op: U4BopCell,
-    op_class: UnlimitedCell,
+    op_class: U64OnU8Cell,
     op_lookup: PowTableLookupCell,
     vtype: CommonRangeCell,
 
@@ -47,7 +47,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let rhs = common.alloc_u64();
         let res = common.alloc_u64();
         let op = common.alloc_u4_bop();
-        let op_class = common.alloc_unlimited_value();
+        let op_class = common.alloc_u64_on_u8();
         let op_lookup = common.alloc_pow_table_lookup();
         let vtype = common.alloc_common_range_value();
 
@@ -150,7 +150,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
                 unimplemented!()
             },
             specs::itable::BitOp::Xor => {
-                self.op_class.assign(ctx, bn_to_field(&BigUint::from(BinOp::Xor as u64)))?;
+                self.op_class.assign(ctx, BinOp::Xor as u64)?;
                 self.op.assign(ctx, bn_to_field(&(BigUint::from(1u64) << (BinOp::Xor as usize * 12))))?;
                 self.op_lookup.assign(ctx, (BinOp::Xor as u64) * 12)?;
             },
