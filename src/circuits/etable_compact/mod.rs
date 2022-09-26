@@ -265,14 +265,12 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         rtable.configure_in_pow_set(meta, "etable pow_table lookup", |meta| {
             curr!(meta, aux)
-                * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
                 * fixed_curr!(meta, pow_table_lookup)
         });
 
         rtable.configure_in_offset_len_bits_set(meta, "etable offset len bits lookup", |meta| {
             curr!(meta, aux)
-                * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
-                * fixed_curr!(meta, pow_table_lookup)
+                * fixed_curr!(meta, offset_len_bits_table_lookup)
         });
 
         for i in 0..U4_COLUMNS {
