@@ -71,6 +71,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             }),
         );
 
+        // limit the power to be u16 size
+        constraint_builder.push(
+            "binbit op_class range",
+            Box::new(move |meta| {
+                vec![
+                    op_class.u8_expr(meta, 2)   
+                    + op_class.u8_expr(meta, 3)   
+                    + op_class.u8_expr(meta, 4)   
+                    + op_class.u8_expr(meta, 5)   
+                    + op_class.u8_expr(meta, 6)   
+                    + op_class.u8_expr(meta, 7)   
+                ]
+            }),
+        );
+
         Box::new(BinBitConfig {
             lhs,
             rhs,
