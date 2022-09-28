@@ -26,10 +26,13 @@ mod tests {
 
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
-    use std::{fs::File, path::PathBuf, io::Read};
+    use std::{fs::File, io::Read, path::PathBuf};
     use wasmi::{ImportsBuilder, NopExternals};
 
-    use crate::{runtime::{WasmInterpreter, WasmRuntime}, test::run_test_circuit};
+    use crate::{
+        runtime::{WasmInterpreter, WasmRuntime},
+        test::run_test_circuit,
+    };
 
     #[test]
     fn test_binary_search() {

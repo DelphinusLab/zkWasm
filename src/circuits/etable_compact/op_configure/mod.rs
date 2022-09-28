@@ -269,7 +269,6 @@ impl U64OnU8Cell {
         Ok(())
     }
 
-
     pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         nextn!(meta, self.value_col, self.value_rot)
     }

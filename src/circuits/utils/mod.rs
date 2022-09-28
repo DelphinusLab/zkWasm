@@ -101,7 +101,6 @@ macro_rules! instance_curr {
     };
 }
 
-
 #[macro_export]
 macro_rules! fixed_prev {
     ($meta: expr, $x: expr) => {

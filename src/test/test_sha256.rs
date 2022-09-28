@@ -113,7 +113,7 @@ mod tests {
                 &mut env,
                 &compiled_module,
                 "Hash_Calculate",
-                vec![Value::I32(1024),Value::I32(256)],
+                vec![Value::I32(1024), Value::I32(256)],
             )
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
