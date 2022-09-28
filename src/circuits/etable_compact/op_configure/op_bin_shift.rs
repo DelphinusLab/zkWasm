@@ -68,7 +68,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let is_shr_s = common.alloc_bit_value();
         let is_rotl = common.alloc_bit_value();
         let is_rotr = common.alloc_bit_value();
-        let is_neg:BitCell= common.alloc_bit_value();
+        let is_neg = common.alloc_bit_value();
         let pad = common.alloc_u64_on_u8();
         let lookup_pow = common.alloc_pow_table_lookup();
 
@@ -127,7 +127,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                         *(is_neg.expr(meta)),
                     is_shr_s.expr(meta) *(pad.expr(meta)*modulus.expr(meta)+constant_from!(1u64<<32)-
                     constant_from!(1u64<<32)*modulus.expr(meta))
-                    *(is_neg.expr(meta)),   
+                        *(is_neg.expr(meta)),   
+                    is_shr_s.expr(meta) 
+                        *(is_neg.expr(meta))*(pad.expr(meta)*modulus.expr(meta)+constant_from!(1u64<<32)
+                        -constant_from!(1u64<<32) * is_neg.expr(meta)*modulus.expr(meta)),
+                    is_shr_s.expr(meta)
+                        *(is_neg.expr(meta)-constant_from!(1u64))*(pad.expr(meta))
                 ]
             }),
         );
@@ -162,6 +167,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             "bin rotl",
             Box::new(move |meta| {
                 vec![
+                    is_rotl.expr(meta)
+                    * (lhs.expr(meta) * modulus.expr(meta) - round.expr(meta) 
+                    * (constant_from!(1u64 << 32) - is_eight_bytes.expr(meta) * constant_from!((1u64<<64 - 1u64 << 32)))
+                     - rem.expr(meta)),
                     // is u64
                     is_rotl.expr(meta)
                         * is_eight_bytes.expr(meta)
@@ -177,7 +186,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                             - rem.expr(meta)),
                     is_rotl.expr(meta)
                         * (constant_from!(1) - is_eight_bytes.expr(meta))
-                        * (rem.expr(meta) + diff.expr(meta) - constant_from!(1u64 << 32)),
+                        * (rem.expr(meta) + diff.expr(meta) - constant_from!((1u64 << 32)-1)),
                     // res
                     is_rotl.expr(meta) * (res.expr(meta) - rem.expr(meta)-round.expr(meta)),
                 ]
@@ -187,6 +196,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             "bin rotr",
             Box::new(move |meta| {
                 vec![
+                    //todo add expr and algo for i64
                     is_rotr.expr(meta) * (rem.expr(meta) + diff.expr(meta) - modulus.expr(meta)),
                     is_rotr.expr(meta)
                         * (rem.expr(meta) + round.expr(meta) * modulus.expr(meta) - lhs.expr(meta)),
@@ -238,12 +248,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 ))
         + self.is_shr_s.expr(meta)
                       * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::UnsignedShr as u64) << OPCODE_ARG0_SHIFT)
+                    &(BigUint::from(ShiftOp::SignedShr as u64) << OPCODE_ARG0_SHIFT)
                 ))
         + self.is_rotl.expr(meta)
                 * constant!(bn_to_field(&(BigUint::from(ShiftOp::Rotl as u64) << OPCODE_ARG0_SHIFT)
         
           ))
+          + self.is_rotr.expr(meta)
+          * constant!(bn_to_field(&(BigUint::from(ShiftOp::Rotl as u64) << OPCODE_ARG0_SHIFT)
+  
+    ))
         + self.is_rotr.expr(meta)
              * constant!(bn_to_field( &(BigUint::from(ShiftOp::Rotr as u64) << OPCODE_ARG0_SHIFT)
     ))
@@ -322,8 +336,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                         self.round.assign(ctx, left >> power)?;
                         let rem = left & ((1 << power) - 1);
                         self.rem.assign(ctx, rem)?;
-                        self.diff.assign(ctx, (1u64 << power) - rem)?;
-                        
+                        self.diff.assign(ctx, (1u64 << power) - rem)?;   
                     }
                     1u64=>{
                        
