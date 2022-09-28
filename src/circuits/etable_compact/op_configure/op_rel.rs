@@ -70,7 +70,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         let lhs_leading_bit = common.alloc_bit_value();
         let rhs_leading_bit = common.alloc_bit_value();
         let lhs_rem_value = common.alloc_common_range_value();
+        let lhs_rem_diff = common.alloc_common_range_value();
         let rhs_rem_value = common.alloc_common_range_value();
+        let rhs_rem_diff = common.alloc_common_range_value();
 
         let op_is_eq = common.alloc_bit_value();
         let op_is_ne = common.alloc_bit_value();
@@ -131,6 +133,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
                         - (is_four_bytes * rhs.u4_expr(meta, 7)
                             + is_eight_bytes.expr(meta) * rhs.u4_expr(meta, 15))
                             * op_is_sign.expr(meta),
+                    (rhs_rem_diff.expr(meta) + rhs_rem_value.expr(meta) - constant_from!(7))
+                        * op_is_sign.expr(meta),
+                    (lhs_rem_diff.expr(meta) + lhs_rem_value.expr(meta) - constant_from!(7))
+                        * op_is_sign.expr(meta),
                 ]
             }),
         );

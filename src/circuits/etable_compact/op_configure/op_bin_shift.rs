@@ -104,7 +104,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             "bin shr_u",
             Box::new(move |meta| {
                 vec![
-                    is_shr_u.expr(meta) * (rem.expr(meta) + diff.expr(meta) - modulus.expr(meta)),
+                    is_shr_u.expr(meta)
+                        * (rem.expr(meta) + diff.expr(meta) + constant_from!(1)
+                            - modulus.expr(meta)),
                     is_shr_u.expr(meta)
                         * (rem.expr(meta) + round.expr(meta) * modulus.expr(meta) - lhs.expr(meta)),
                     is_shr_u.expr(meta) * (res.expr(meta) - round.expr(meta)),
@@ -156,7 +158,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                             - rem.expr(meta)),
                     is_shl.expr(meta)
                         * (constant_from!(1) - is_eight_bytes.expr(meta))
-                        * (rem.expr(meta) + diff.expr(meta) - constant_from!(1u64 << 32)),
+                        * (rem.expr(meta) + diff.expr(meta) - constant_from!((1u64 << 32) - 1)),
                     // res
                     is_shl.expr(meta) * (res.expr(meta) - rem.expr(meta)),
                 ]
@@ -271,7 +273,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         step_info: &StepStatus,
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
-        let (class, vtype, left, right, value, power, is_eight_bytes, is_sign) =
+        let (class, vtype, left, right, value, power, is_eight_bytes, _is_sign) =
             match entry.step_info {
                 StepInfo::I32BinShiftOp {
                     class,
@@ -318,14 +320,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 self.round.assign(ctx, left >> (32 - power))?;
                 let rem = (left << power) & ((1u64 << 32) - 1);
                 self.rem.assign(ctx, rem)?;
-                self.diff.assign(ctx, (1u64 << 32) - rem)?;
+                self.diff.assign(ctx, (1u64 << 32) - rem - 1)?;
             }
             ShiftOp::UnsignedShr => {
                 self.is_shr_u.assign(ctx, true)?;
                 self.round.assign(ctx, left >> power)?;
                 let rem = left & ((1 << power) - 1);
                 self.rem.assign(ctx, rem)?;
-                self.diff.assign(ctx, (1u64 << power) - rem)?;
+                self.diff.assign(ctx, (1u64 << power) - rem - 1)?;
             }
 
             ShiftOp::SignedShr =>{
