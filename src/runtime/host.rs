@@ -43,13 +43,13 @@ mod wasm_input {
     }
 }
 
-pub(crate) struct HostEnv {
+pub struct HostEnv {
     functions: HashMap<String, Function>,
     names: Vec<String>,
 }
 
 impl HostEnv {
-    pub(crate) fn new() -> HostEnv {
+    pub fn new() -> HostEnv {
         let mut env = HostEnv {
             functions: HashMap::default(),
             names: vec![],
@@ -83,7 +83,7 @@ impl HostEnv {
         self.functions.get(name).unwrap()
     }
 
-    fn register_function(
+    pub fn register_function(
         &mut self,
         name: &str,
         signature: specs::host_function::Signature,

@@ -50,7 +50,7 @@ impl OpcodeClass {
             OpcodeClass::Rel => 3,
             OpcodeClass::Br => 0,
             OpcodeClass::BrIf => 1,
-            OpcodeClass::BrIfEqz => todo!(),
+            OpcodeClass::BrIfEqz => 1,
             OpcodeClass::Unreachable => todo!(),
             OpcodeClass::Call => 0,
             OpcodeClass::CallHostWasmInput => 2,

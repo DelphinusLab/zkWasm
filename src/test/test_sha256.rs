@@ -1,86 +1,102 @@
-use wasmi::{
-    Error, Externals, FuncInstance, ModuleImportResolver, RuntimeArgs, RuntimeValue, Signature,
-    Trap, ValueType,
-};
+use specs::types::ValueType;
+use wasmi::{RuntimeArgs, RuntimeValue};
 
-struct TestHost {}
+use crate::runtime::host::HostEnv;
 
-impl TestHost {
-    fn new() -> TestHost {
-        TestHost {}
-    }
+fn Sigma1(args: RuntimeArgs) -> Option<RuntimeValue> {
+    // FIXME: implement sigma1
+    Some(RuntimeValue::I32(0))
 }
 
-impl Externals for TestHost {
-    fn invoke_index(
-        &mut self,
-        index: usize,
-        _args: RuntimeArgs,
-    ) -> Result<Option<RuntimeValue>, Trap> {
-        match index {
-            0 => Ok(Some(RuntimeValue::I32(0))),
-            1 => Ok(Some(RuntimeValue::I32(0))),
-            2 => Ok(Some(RuntimeValue::I32(0))),
-            3 => Ok(Some(RuntimeValue::I32(0))),
-            4 => Ok(Some(RuntimeValue::I32(0))),
-            5 => Ok(Some(RuntimeValue::I32(0))),
-            _ => panic!("env doesn't provide function at index {}", index),
-        }
-    }
+fn Sigma0(args: RuntimeArgs) -> Option<RuntimeValue> {
+    // FIXME: implement sigma1
+    Some(RuntimeValue::I32(0))
 }
 
-impl TestHost {
-    fn check_signature(&self, index: usize, signature: &Signature) -> bool {
-        let (params, ret_ty): (&[ValueType], Option<ValueType>) = match index {
-            0 => (&[ValueType::I32], Some(ValueType::I32)),
-            1 => (
-                &[ValueType::I32, ValueType::I32, ValueType::I32],
-                Some(ValueType::I32),
-            ),
-            2 => (&[ValueType::I32], Some(ValueType::I32)),
-            3 => (
-                &[ValueType::I32, ValueType::I32, ValueType::I32],
-                Some(ValueType::I32),
-            ),
-            4 => (&[ValueType::I32], Some(ValueType::I32)),
-            5 => (&[ValueType::I32], Some(ValueType::I32)),
-            _ => return false,
-        };
-
-        signature.params() == params && signature.return_type() == ret_ty
-    }
+fn sigma1(args: RuntimeArgs) -> Option<RuntimeValue> {
+    // FIXME: implement sigma1
+    Some(RuntimeValue::I32(0))
 }
 
-impl ModuleImportResolver for TestHost {
-    fn resolve_func(
-        &self,
-        field_name: &str,
-        signature: &wasmi::Signature,
-    ) -> Result<wasmi::FuncRef, wasmi::Error> {
-        let index = match field_name {
-            "Sigma1" => 0,
-            "Ch" => 1,
-            "Sigma0" => 2,
-            "Maj" => 3,
-            "sigma1" => 4,
-            "sigma0" => 5,
-            _ => {
-                return Err(Error::Instantiation(format!(
-                    "Export {} not found",
-                    field_name
-                )));
-            }
-        };
+fn sigma0(args: RuntimeArgs) -> Option<RuntimeValue> {
+    // FIXME: implement sigma1
+    Some(RuntimeValue::I32(0))
+}
 
-        if !self.check_signature(index, signature) {
-            return Err(Error::Instantiation(format!(
-                "Export `{}` doesnt match expected type {:?}",
-                field_name, signature
-            )));
-        }
+fn Ch(args: RuntimeArgs) -> Option<RuntimeValue> {
+    // FIXME: implement sigma1
+    Some(RuntimeValue::I32(0))
+}
 
-        Ok(FuncInstance::alloc_host(signature.clone(), index))
-    }
+fn Maj(args: RuntimeArgs) -> Option<RuntimeValue> {
+    // FIXME: implement sigma1
+    Some(RuntimeValue::I32(0))
+}
+
+fn sha256_env() -> HostEnv {
+    let mut env = HostEnv::new();
+
+    env.register_function(
+        "Sigma1",
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        Sigma1,
+    )
+    .unwrap();
+
+    env.register_function(
+        "Ch",
+        specs::host_function::Signature {
+            params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        Ch,
+    )
+    .unwrap();
+
+    env.register_function(
+        "Sigma0",
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        Sigma0,
+    )
+    .unwrap();
+
+    env.register_function(
+        "Maj",
+        specs::host_function::Signature {
+            params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        Maj,
+    )
+    .unwrap();
+
+    env.register_function(
+        "sigma0",
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        sigma0,
+    )
+    .unwrap();
+
+    env.register_function(
+        "sigma1",
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        sigma1,
+    )
+    .unwrap();
+
+    env
 }
 
 #[cfg(test)]
@@ -105,7 +121,8 @@ mod tests {
         f.read_to_end(&mut wasm).unwrap();
 
         let compiler = WasmInterpreter::new();
-        let mut env = TestHost::new();
+        let mut env = sha256_env();
+
         let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler.compile(&wasm, &imports).unwrap();
         let execution_log = compiler
@@ -113,7 +130,7 @@ mod tests {
                 &mut env,
                 &compiled_module,
                 "Hash_Calculate",
-                vec![Value::I32(1024),Value::I32(256)],
+                vec![Value::I32(128), Value::I32(256)], // hash 512bit msg using sha256
             )
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()

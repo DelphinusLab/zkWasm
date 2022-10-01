@@ -8,6 +8,7 @@ pub struct Signature {
     pub return_type: Option<ValueType>,
 }
 
+#[derive(Debug)]
 pub enum Error {
     DuplicateRegister,
 }
