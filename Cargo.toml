@@ -18,5 +18,4 @@ rand = "0.8.4"
 specs = { path = "./specs" }
 strum = "0.24.1"
 strum_macros = "0.24.1"
-
-[dev-dependencies]
+wast = "47.0.0"

@@ -31,6 +31,11 @@ pub trait WasmRuntime {
     type Instance;
 
     fn new() -> Self;
+    fn compile_from_wast<I: ImportResolver>(
+        &self,
+        module: wast::core::Module,
+        imports: &I,
+    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
     fn compile<I: ImportResolver>(
         &self,
         textual_repr: &Vec<u8>,
