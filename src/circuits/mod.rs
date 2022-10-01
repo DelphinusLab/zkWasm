@@ -44,6 +44,7 @@ pub mod jtable;
 pub mod mtable_compact;
 pub mod rtable;
 pub mod utils;
+pub mod foreign;
 
 pub(crate) trait FromBn {
     fn zero() -> Self;
