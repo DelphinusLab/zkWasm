@@ -31,6 +31,15 @@ impl WasmRuntime for WasmiRuntime {
         WasmiRuntime {}
     }
 
+    fn compile_from_wast<I: ImportResolver>(
+        &self,
+        mut module: wast::core::Module,
+        imports: &I,
+    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError> {
+        let wasm = module.encode().unwrap();
+        self.compile(&wasm, imports)
+    }
+
     fn compile<I: ImportResolver>(
         &self,
         wasm: &Vec<u8>,
