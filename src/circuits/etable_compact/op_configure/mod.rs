@@ -527,7 +527,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         for (id, lookups) in self.lookups {
             let config = foreign_tables.get(&id).unwrap();
             for (key, expr) in lookups {
-                config.configure_in_table(self.meta, key, expr.as_ref());
+                config.configure_in_table(self.meta, key, &|meta| expr(meta) * enable(meta));
             }
         }
     }

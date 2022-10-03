@@ -66,9 +66,10 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     fn new(meta: &mut ConstraintSystem<F>, rtable: &impl BitRangeTable<F>) -> Self {
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
-        let op = rtable.u8_column(meta, "sha256 helper op");
-        let op_bit = rtable.bit_column(meta, "sha256 helper op_bit");
-        let args = [0; OP_ARGS_NUM].map(|_| rtable.u4_column(meta, "sha256 helper args"));
+        let op = rtable.u8_column(meta, "sha256 helper op", |meta| fixed_curr!(meta, sel));
+        let op_bit = rtable.bit_column(meta, "sha256 helper op_bit", |meta| fixed_curr!(meta, sel));
+        let args = [0; OP_ARGS_NUM]
+            .map(|_| rtable.u4_column(meta, "sha256 helper args", |meta| fixed_curr!(meta, sel)));
         let aux = rtable.u8_partial_column(meta, "sha256 aux", |meta| {
             fixed_curr!(meta, sel) * (constant_from!(1) - fixed_curr!(meta, block_first_line_sel))
         });

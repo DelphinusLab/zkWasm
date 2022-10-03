@@ -7,6 +7,7 @@ use halo2_proofs::plonk::VirtualCells;
 
 use crate::constant_from;
 use crate::curr;
+use crate::fixed_curr;
 
 #[derive(Clone)]
 pub struct U4Column(pub Column<Advice>);
@@ -71,20 +72,35 @@ pub trait BitRangeTable<F: FieldExt> {
         });
         BitPartialColumn(col)
     }
-    fn u4_column(&self, meta: &mut ConstraintSystem<F>, key: &'static str) -> U4Column {
+    fn u4_column(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        sel: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) -> U4Column {
         let col = meta.advice_column();
-        self.configure_in_u4_range(meta, key, |meta| curr!(meta, col));
+        self.configure_in_u4_range(meta, key, |meta| sel(meta) * curr!(meta, col));
         U4Column(col)
     }
-    fn u8_column(&self, meta: &mut ConstraintSystem<F>, key: &'static str) -> U8Column {
+    fn u8_column(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        sel: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) -> U8Column {
         let col = meta.advice_column();
-        self.configure_in_u8_range(meta, key, |meta| curr!(meta, col));
+        self.configure_in_u8_range(meta, key, |meta| sel(meta) * curr!(meta, col));
         U8Column(col)
     }
-    fn bit_column(&self, meta: &mut ConstraintSystem<F>, key: &'static str) -> BitColumn {
+    fn bit_column(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        sel: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) -> BitColumn {
         let col = meta.advice_column();
         meta.create_gate(key, |meta| {
-            vec![curr!(meta, col) * (constant_from!(1) - curr!(meta, col))]
+            vec![sel(meta) * curr!(meta, col) * (constant_from!(1) - curr!(meta, col))]
         });
         BitColumn(col)
     }
