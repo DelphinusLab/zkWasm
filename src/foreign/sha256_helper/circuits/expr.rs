@@ -1,4 +1,5 @@
-use super::{Sha256HelperOp, Sha2HelperConfig, BLOCK_LINES};
+use super::{Sha2HelperConfig, BLOCK_LINES};
+use crate::foreign::sha256_helper::Sha256HelperOp;
 use crate::{constant_from, curr, fixed_curr, fixed_next, nextn};
 use halo2_proofs::{
     arithmetic::FieldExt,

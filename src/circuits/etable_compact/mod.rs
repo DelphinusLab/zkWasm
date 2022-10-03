@@ -102,7 +102,7 @@ pub(crate) enum EventTableUnlimitColumnRotation {
     U64Start = 5 + MTABLE_LOOKUPS_SIZE as isize,
 }
 
-pub(self) enum MLookupItem {
+pub enum MLookupItem {
     First = 0,
     Second,
     Third,
@@ -126,19 +126,19 @@ impl From<usize> for MLookupItem {
 }
 
 #[derive(Clone)]
-struct Status {
-    eid: u64,
-    moid: u16,
-    fid: u16,
-    iid: u16,
-    mmid: u16,
-    sp: u64,
-    last_jump_eid: u64,
+pub struct Status {
+    pub eid: u64,
+    pub moid: u16,
+    pub fid: u16,
+    pub iid: u16,
+    pub mmid: u16,
+    pub sp: u64,
+    pub last_jump_eid: u64,
 }
 
-pub(self) struct StepStatus<'a> {
-    current: &'a Status,
-    next: &'a Status,
+pub struct StepStatus<'a> {
+    pub current: &'a Status,
+    pub next: &'a Status,
 }
 
 impl TryFrom<u32> for MLookupItem {
@@ -156,7 +156,7 @@ impl TryFrom<u32> for MLookupItem {
 }
 
 #[derive(Clone)]
-pub(super) struct EventTableCommonConfig<F> {
+pub struct EventTableCommonConfig<F> {
     pub sel: Column<Fixed>,
     pub block_first_line_sel: Column<Fixed>,
 
@@ -378,8 +378,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                     constraint_builder.finalize(|meta| fixed_curr!(meta, common_config.block_first_line_sel) * common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32));
 
-                    op_bitmaps.insert(config.opcode_class(), (op_lvl1 as i32, op_lvl2 as i32));
-                    op_configs.insert(config.opcode_class(), Rc::new(config));
+                    op_bitmaps.insert($op, (op_lvl1 as i32, op_lvl2 as i32));
+                    op_configs.insert($op, Rc::new(config));
                 }
             )
         ];

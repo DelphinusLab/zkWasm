@@ -1,3 +1,4 @@
+use super::Sha256HelperOp;
 use crate::{
     constant_from, fixed_curr,
     traits::circuits::bit_range_table::{
@@ -9,7 +10,6 @@ use halo2_proofs::{
     plonk::{Column, ConstraintSystem, Expression, Fixed, TableColumn, VirtualCells},
 };
 use std::marker::PhantomData;
-use strum_macros::EnumIter;
 
 pub mod assign;
 pub mod config;
@@ -58,16 +58,6 @@ pub struct Sha2HelperConfig<F: FieldExt> {
 
     op_valid_set: TableColumn,
     mark: PhantomData<F>,
-}
-
-#[derive(Clone, Copy, EnumIter, PartialEq)]
-pub enum Sha256HelperOp {
-    Ch = 1,
-    Maj = 2,
-    LSigma0 = 3,
-    LSigma1 = 4,
-    SSigma0 = 5,
-    SSigma1 = 6,
 }
 
 impl<F: FieldExt> Sha2HelperConfig<F> {

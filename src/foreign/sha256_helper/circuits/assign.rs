@@ -1,4 +1,5 @@
-use super::{Sha256HelperOp, Sha2HelperConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES};
+use super::{Sha2HelperConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES};
+use crate::foreign::sha256_helper::Sha256HelperOp;
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
 use std::marker::PhantomData;
 

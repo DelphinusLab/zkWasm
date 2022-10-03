@@ -1,4 +1,5 @@
-use super::{Sha256HelperOp, Sha2HelperConfig, OP_ARGS_NUM};
+use super::{Sha2HelperConfig, OP_ARGS_NUM};
+use crate::foreign::sha256_helper::Sha256HelperOp;
 use crate::{constant_from, curr, fixed_curr, next, nextn};
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 use strum::IntoEnumIterator;

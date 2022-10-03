@@ -323,7 +323,7 @@ impl U64OnU8Cell {
     }
 }
 
-pub(super) struct EventTableCellAllocator<'a, F> {
+pub struct EventTableCellAllocator<'a, F> {
     pub config: &'a EventTableCommonConfig<F>,
     pub bit_index: i32,
     pub common_range_index: i32,
@@ -467,7 +467,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
     }
 }
 
-pub(super) struct ConstraintBuilder<'a, F: FieldExt> {
+pub struct ConstraintBuilder<'a, F: FieldExt> {
     meta: &'a mut ConstraintSystem<F>,
     constraints: Vec<(
         &'static str,
@@ -483,7 +483,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         }
     }
 
-    pub(self) fn push(
+    pub fn push(
         &mut self,
         name: &'static str,
         builder: Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
@@ -503,14 +503,21 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
     }
 }
 
-pub(super) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
+pub trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 
-pub(super) trait EventTableOpcodeConfig<F: FieldExt> {
+pub trait EventTableForeignOpcodeConfigBuilder<F: FieldExt> {
+    fn configure(
+        common: &mut EventTableCellAllocator<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
+    ) -> Box<dyn EventTableOpcodeConfig<F>>;
+}
+
+pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn opcode_class(&self) -> OpcodeClass;
 
