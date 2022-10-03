@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::{itable::HostPlugin, mtable::VarType};
+use crate::{host_function::HostPlugin, mtable::VarType};
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 pub enum ValueType {
@@ -49,6 +49,7 @@ pub enum FunctionType {
     HostFunction {
         plugin: HostPlugin,
         function_index: usize,
+        function_name: String,
     },
 }
 

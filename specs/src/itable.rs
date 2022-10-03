@@ -1,5 +1,6 @@
 use super::mtable::VarType;
 use crate::{
+    host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
     types::ValueType,
 };
@@ -134,12 +135,6 @@ pub enum ConversionOp {
     I64ExtendUI32,
 }
 
-#[derive(Clone, Debug, Serialize, Copy, PartialEq)]
-pub enum HostPlugin {
-    HostInput,
-    Sha256,
-}
-
 #[derive(Clone, Debug, Serialize)]
 pub enum Opcode {
     LocalGet {
@@ -206,6 +201,7 @@ pub enum Opcode {
     CallHost {
         plugin: HostPlugin,
         function_index: usize,
+        function_name: String,
     },
     Load {
         offset: u32,
@@ -334,6 +330,7 @@ impl Into<BigUint> for Opcode {
             Opcode::CallHost {
                 plugin,
                 function_index,
+                ..
             } => match plugin {
                 HostPlugin::HostInput => {
                     BigUint::from(OpcodeClass::CallHostWasmInput as u64) << OPCODE_CLASS_SHIFT

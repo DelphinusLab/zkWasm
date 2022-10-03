@@ -14,8 +14,8 @@ use halo2_proofs::{
 };
 use specs::{
     etable::EventTableEntry,
-    host_function::HostFunction,
-    itable::{HostPlugin, OpcodeClass, OPCODE_CLASS_SHIFT},
+    host_function::HostPlugin,
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
 };
 use specs::{mtable::VarType, step::StepInfo};
 
@@ -78,9 +78,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostWasmInputConfig {
                 args,
                 ret_val,
                 signature,
+                ..
             } => {
                 assert_eq!(*plugin, HostPlugin::HostInput);
-                assert_eq!(HostFunction::WasmInput as usize, *host_function_idx);
                 assert_eq!(args.len(), 1);
 
                 self.public.assign(ctx, (*args.get(0).unwrap()) == 1)?;

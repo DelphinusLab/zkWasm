@@ -13,6 +13,14 @@ pub enum Error {
     DuplicateRegister,
 }
 
-pub enum HostFunction {
-    WasmInput = 0,
+#[derive(Debug, Clone)]
+pub struct HostFunctionDesc {
+    pub name: String,
+    pub plugin: HostPlugin,
+}
+
+#[derive(Clone, Debug, Serialize, Copy, PartialEq)]
+pub enum HostPlugin {
+    HostInput,
+    Sha256,
 }

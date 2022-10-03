@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::step::StepInfo;
+use crate::{host_function::HostPlugin, step::StepInfo};
 
 use super::itable::InstructionTableEntry;
 
@@ -109,5 +109,16 @@ impl EventTable {
         v.reverse();
 
         RestJops { rest_jops: v }
+    }
+
+    pub fn filter_foreign_entries(&self, foreign: HostPlugin) -> Vec<EventTableEntry> {
+        self.0
+            .clone()
+            .into_iter()
+            .filter(|entry| match entry.step_info {
+                StepInfo::CallHost { plugin, .. } => plugin == foreign,
+                _ => false,
+            })
+            .collect::<Vec<_>>()
     }
 }

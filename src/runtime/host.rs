@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use specs::itable::HostPlugin;
+use specs::host_function::{HostFunctionDesc, HostPlugin};
 use wasmi::{
     Error, Externals, FuncInstance, ModuleImportResolver, RuntimeArgs, RuntimeValue, Signature,
     Trap,
@@ -22,8 +22,8 @@ pub(self) trait BuiltInHostFunction {
 
 mod wasm_input {
     use super::BuiltInHostFunction;
+    use specs::host_function::HostPlugin;
     use specs::host_function::Signature;
-    use specs::itable::HostPlugin;
     use specs::types::ValueType;
 
     pub(super) struct Function;
@@ -47,7 +47,7 @@ mod wasm_input {
 
 pub struct HostEnv {
     functions: HashMap<String, Function>,
-    pub function_plugin_lookup: HashMap<usize, HostPlugin>,
+    pub function_plugin_lookup: HashMap<usize, HostFunctionDesc>,
     names: Vec<String>,
 }
 
@@ -106,7 +106,13 @@ impl HostEnv {
 
         self.functions.insert(name.to_string(), f);
         self.names.push(name.to_string());
-        self.function_plugin_lookup.insert(index, plugin);
+        self.function_plugin_lookup.insert(
+            index,
+            HostFunctionDesc {
+                name: name.to_string(),
+                plugin,
+            },
+        );
 
         Ok(index)
     }

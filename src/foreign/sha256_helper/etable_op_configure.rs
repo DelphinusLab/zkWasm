@@ -19,12 +19,12 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
 };
+use specs::{host_function::HostPlugin, mtable::VarType};
 
 pub struct ETableSha256HelperTableConfig {
     foreign_call_id: u64,
@@ -203,11 +203,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::CallHost {
+                plugin,
+                function_name,
                 host_function_idx,
                 args,
                 ret_val,
                 ..
             } => {
+                assert_eq!(*plugin, HostPlugin::Sha256);
+
                 for (arg, v) in vec![&self.a, &self.b, &self.c].into_iter().zip(args.iter()) {
                     arg.assign(ctx, *v)?;
                 }

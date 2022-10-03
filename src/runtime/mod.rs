@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use specs::{
     etable::EventTableEntry,
-    itable::HostPlugin,
+    host_function::{HostFunctionDesc, HostPlugin},
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
     step::StepInfo,
     types::{CompileError, ExecutionError, Value},
@@ -36,13 +36,13 @@ pub trait WasmRuntime {
         &self,
         module: wast::core::Module,
         imports: &I,
-        host_plugin_lookup: HashMap<usize, HostPlugin>,
+        host_plugin_lookup: HashMap<usize, HostFunctionDesc>,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
     fn compile<I: ImportResolver>(
         &self,
         textual_repr: &Vec<u8>,
         imports: &I,
-        host_plugin_lookup: HashMap<usize, HostPlugin>,
+        host_plugin_lookup: HashMap<usize, HostFunctionDesc>,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
     fn run<E: Externals>(
         &self,

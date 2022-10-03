@@ -2,6 +2,8 @@ use strum_macros::EnumIter;
 
 pub mod circuits;
 pub mod etable_op_configure;
+pub mod runtime;
+pub mod test;
 
 pub const SHA256_FOREIGN_TABLE_KEY: &'static str = "sha256-helper-table";
 
