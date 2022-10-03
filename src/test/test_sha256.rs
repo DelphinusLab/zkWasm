@@ -1,4 +1,4 @@
-use specs::types::ValueType;
+use specs::{itable::HostPlugin, types::ValueType};
 use wasmi::{RuntimeArgs, RuntimeValue};
 
 use crate::runtime::host::HostEnv;
@@ -43,6 +43,7 @@ fn sha256_env() -> HostEnv {
             return_type: Some(specs::types::ValueType::I32),
         },
         Sigma1,
+        HostPlugin::Sha256,
     )
     .unwrap();
 
@@ -53,6 +54,7 @@ fn sha256_env() -> HostEnv {
             return_type: Some(specs::types::ValueType::I32),
         },
         Ch,
+        HostPlugin::Sha256,
     )
     .unwrap();
 
@@ -63,6 +65,7 @@ fn sha256_env() -> HostEnv {
             return_type: Some(specs::types::ValueType::I32),
         },
         Sigma0,
+        HostPlugin::Sha256,
     )
     .unwrap();
 
@@ -73,6 +76,7 @@ fn sha256_env() -> HostEnv {
             return_type: Some(specs::types::ValueType::I32),
         },
         Maj,
+        HostPlugin::Sha256,
     )
     .unwrap();
 
@@ -83,6 +87,7 @@ fn sha256_env() -> HostEnv {
             return_type: Some(specs::types::ValueType::I32),
         },
         sigma0,
+        HostPlugin::Sha256,
     )
     .unwrap();
 
@@ -93,6 +98,7 @@ fn sha256_env() -> HostEnv {
             return_type: Some(specs::types::ValueType::I32),
         },
         sigma1,
+        HostPlugin::Sha256,
     )
     .unwrap();
 
@@ -109,7 +115,7 @@ mod tests {
 
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
-    use std::{fs::File, io::Read, path::PathBuf};
+    use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
     use wasmi::ImportsBuilder;
 
     #[test]
@@ -124,7 +130,9 @@ mod tests {
         let mut env = sha256_env();
 
         let imports = ImportsBuilder::new().with_resolver("env", &env);
-        let compiled_module = compiler.compile(&wasm, &imports).unwrap();
+        let compiled_module = compiler
+            .compile(&wasm, &imports, HashMap::default())
+            .unwrap();
         let execution_log = compiler
             .run(
                 &mut env,

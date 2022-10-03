@@ -1,6 +1,6 @@
 use crate::runtime::{WasmInterpreter, WasmRuntime};
 use specs::types::Value;
-use std::fs;
+use std::{collections::HashMap, fs};
 use wasmi::{ImportsBuilder, NopExternals};
 use wast::{lexer::Lexer, parser::ParseBuffer, Error, Wast, WastArg};
 
@@ -24,7 +24,9 @@ fn run_spec_test(file_name: &str) -> Result<(), Error> {
             wast::WastDirective::Wat(wat) => match wat {
                 wast::QuoteWat::Wat(wat) => match wat {
                     wast::Wat::Module(module) => {
-                        let compiled = compiler.compile_from_wast(module, &imports).unwrap();
+                        let compiled = compiler
+                            .compile_from_wast(module, &imports, HashMap::default())
+                            .unwrap();
                         compile_outcome = Some(compiled);
                     }
                     wast::Wat::Component(_) => todo!(),

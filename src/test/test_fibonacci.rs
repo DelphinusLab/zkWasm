@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
     use wasmi::{ImportsBuilder, NopExternals};
@@ -50,7 +52,9 @@ mod tests {
         let compiler = WasmInterpreter::new();
         let wasm = wabt::wat2wasm(textual_repr).unwrap();
 
-        let compiled_module = compiler.compile(&wasm, &ImportsBuilder::default()).unwrap();
+        let compiled_module = compiler
+            .compile(&wasm, &ImportsBuilder::default(), HashMap::default())
+            .unwrap();
         let execution_log = compiler
             .run(
                 &mut NopExternals,

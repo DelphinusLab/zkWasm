@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::circuits::config::K;
 use crate::circuits::TestCircuit;
 use crate::runtime::{WasmInterpreter, WasmRuntime};
@@ -6,17 +8,19 @@ use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, plonk::Error};
 use specs::{write_json, CompileTable, ExecutionTable};
 use wasmi::{ImportsBuilder, NopExternals};
 
+mod spec;
 mod test_binary_search;
 mod test_binary_search_64;
 mod test_fibonacci;
 mod test_sha256;
-mod spec;
 
 pub fn test_circuit_noexternal(textual_repr: &str) -> Result<(), Error> {
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
     let compiler = WasmInterpreter::new();
-    let compiled_module = compiler.compile(&wasm, &ImportsBuilder::default()).unwrap();
+    let compiled_module = compiler
+        .compile(&wasm, &ImportsBuilder::default(), HashMap::default())
+        .unwrap();
     let execution_log = compiler
         .run(&mut NopExternals, &compiled_module, "test", vec![])
         .unwrap();

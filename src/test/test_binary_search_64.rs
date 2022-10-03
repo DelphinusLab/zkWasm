@@ -2,7 +2,7 @@
 mod tests {
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
-    use std::{fs::File, io::Read, path::PathBuf};
+    use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
     use wasmi::{ImportsBuilder, NopExternals};
 
     use crate::{
@@ -20,7 +20,7 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default())
+            .compile(&binary, &ImportsBuilder::default(), HashMap::default())
             .unwrap();
         let execution_log = compiler
             .run(

@@ -31,6 +31,7 @@ pub enum OpcodeClass {
     Load,
     Store,
     Conversion,
+    Sha256,
 }
 
 impl OpcodeClass {
@@ -57,6 +58,7 @@ impl OpcodeClass {
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
             OpcodeClass::Conversion => 2,
+            OpcodeClass::Sha256 => todo!(),
         }
     }
 
@@ -132,6 +134,12 @@ pub enum ConversionOp {
     I64ExtendUI32,
 }
 
+#[derive(Clone, Debug, Serialize, Copy, PartialEq)]
+pub enum HostPlugin {
+    HostInput,
+    Sha256,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub enum Opcode {
     LocalGet {
@@ -195,7 +203,10 @@ pub enum Opcode {
     Call {
         index: u16,
     },
-    CallHost(usize),
+    CallHost {
+        plugin: HostPlugin,
+        function_index: usize,
+    },
     Load {
         offset: u32,
         vtype: VarType,
@@ -320,9 +331,19 @@ impl Into<BigUint> for Opcode {
                 (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
             }
-            Opcode::CallHost(..) => {
-                BigUint::from(OpcodeClass::CallHostWasmInput as u64) << OPCODE_CLASS_SHIFT
-            }
+            Opcode::CallHost {
+                plugin,
+                function_index,
+            } => match plugin {
+                HostPlugin::HostInput => {
+                    BigUint::from(OpcodeClass::CallHostWasmInput as u64) << OPCODE_CLASS_SHIFT
+                }
+                HostPlugin::Sha256 => {
+                    (BigUint::from(OpcodeClass::Sha256 as u64) << OPCODE_CLASS_SHIFT)
+                        + (BigUint::from(function_index as u64) << OPCODE_ARG0_SHIFT)
+                }
+            },
+
             Opcode::Load {
                 offset,
                 vtype,
@@ -373,7 +394,10 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::BrIfEqz { .. } => OpcodeClass::BrIfEqz,
             Opcode::Unreachable => OpcodeClass::Unreachable,
             Opcode::Call { .. } => OpcodeClass::Call,
-            Opcode::CallHost { .. } => OpcodeClass::CallHostWasmInput,
+            Opcode::CallHost { plugin, .. } => match plugin {
+                HostPlugin::HostInput => OpcodeClass::CallHostWasmInput,
+                HostPlugin::Sha256 => OpcodeClass::Sha256,
+            },
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
             Opcode::Conversion { .. } => OpcodeClass::Conversion,

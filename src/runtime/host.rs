@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use specs::itable::HostPlugin;
 use wasmi::{
     Error, Externals, FuncInstance, ModuleImportResolver, RuntimeArgs, RuntimeValue, Signature,
     Trap,
@@ -13,7 +14,7 @@ struct Function {
 
 pub(self) trait BuiltInHostFunction {
     const NAME: &'static str;
-    const INDEX: usize;
+    const PLUGIN: HostPlugin;
 
     fn signature() -> specs::host_function::Signature;
     fn handler(args: RuntimeArgs) -> Option<RuntimeValue>;
@@ -22,13 +23,14 @@ pub(self) trait BuiltInHostFunction {
 mod wasm_input {
     use super::BuiltInHostFunction;
     use specs::host_function::Signature;
+    use specs::itable::HostPlugin;
     use specs::types::ValueType;
 
     pub(super) struct Function;
 
     impl BuiltInHostFunction for Function {
         const NAME: &'static str = "wasm_input";
-        const INDEX: usize = 0;
+        const PLUGIN: HostPlugin = HostPlugin::HostInput;
 
         fn signature() -> Signature {
             Signature {
@@ -45,6 +47,7 @@ mod wasm_input {
 
 pub struct HostEnv {
     functions: HashMap<String, Function>,
+    pub function_plugin_lookup: HashMap<usize, HostPlugin>,
     names: Vec<String>,
 }
 
@@ -53,19 +56,18 @@ impl HostEnv {
         let mut env = HostEnv {
             functions: HashMap::default(),
             names: vec![],
+            function_plugin_lookup: HashMap::default(),
         };
 
         macro_rules! register_builtin {
             ($n:ident) => {
-                env.functions.insert(
-                    $n::Function::NAME.to_owned(),
-                    Function {
-                        index: $n::Function::INDEX,
-                        handler: $n::Function::handler,
-                        signature: $n::Function::signature(),
-                    },
-                );
-                env.names.push($n::Function::NAME.to_owned());
+                env.register_function(
+                    $n::Function::NAME,
+                    $n::Function::signature(),
+                    $n::Function::handler,
+                    $n::Function::PLUGIN,
+                )
+                .unwrap();
             };
         }
 
@@ -88,6 +90,7 @@ impl HostEnv {
         name: &str,
         signature: specs::host_function::Signature,
         handler: fn(RuntimeArgs) -> Option<RuntimeValue>,
+        plugin: HostPlugin,
     ) -> Result<usize, specs::host_function::Error> {
         if self.functions.get(name).is_some() {
             return Err(specs::host_function::Error::DuplicateRegister);
@@ -103,6 +106,7 @@ impl HostEnv {
 
         self.functions.insert(name.to_string(), f);
         self.names.push(name.to_string());
+        self.function_plugin_lookup.insert(index, plugin);
 
         Ok(index)
     }

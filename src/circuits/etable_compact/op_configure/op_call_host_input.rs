@@ -15,7 +15,7 @@ use halo2_proofs::{
 use specs::{
     etable::EventTableEntry,
     host_function::HostFunction,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+    itable::{HostPlugin, OpcodeClass, OPCODE_CLASS_SHIFT},
 };
 use specs::{mtable::VarType, step::StepInfo};
 
@@ -73,11 +73,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostWasmInputConfig {
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::CallHost {
+                plugin,
                 host_function_idx,
                 args,
                 ret_val,
                 signature,
             } => {
+                assert_eq!(*plugin, HostPlugin::HostInput);
                 assert_eq!(HostFunction::WasmInput as usize, *host_function_idx);
                 assert_eq!(args.len(), 1);
 
@@ -201,7 +203,9 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let imports = ImportsBuilder::new().with_resolver("env", &env);
-        let compiled_module = compiler.compile(&wasm, &imports).unwrap();
+        let compiled_module = compiler
+            .compile(&wasm, &imports, env.function_plugin_lookup)
+            .unwrap();
         let execution_log = compiler
             .run(&mut env, &compiled_module, "main", vec![])
             .unwrap();

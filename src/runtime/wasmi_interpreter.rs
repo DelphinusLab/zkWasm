@@ -1,8 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use specs::{
     etable::EventTable,
     imtable::InitMemoryTable,
+    itable::HostPlugin,
     mtable::MTable,
     types::{CompileError, ExecutionError, Value},
     CompileTable, ExecutionTable,
@@ -35,18 +36,20 @@ impl WasmRuntime for WasmiRuntime {
         &self,
         mut module: wast::core::Module,
         imports: &I,
+        host_plugin_lookup: HashMap<usize, HostPlugin>,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError> {
         let wasm = module.encode().unwrap();
-        self.compile(&wasm, imports)
+        self.compile(&wasm, imports, host_plugin_lookup)
     }
 
     fn compile<I: ImportResolver>(
         &self,
         wasm: &Vec<u8>,
         imports: &I,
+        host_plugin_lookup: HashMap<usize, HostPlugin>,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError> {
         let module = wasmi::Module::from_buffer(wasm).expect("failed to load wasm");
-        let tracer = wasmi::tracer::Tracer::default();
+        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup);
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))

@@ -138,6 +138,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::{
         runtime::{WasmInterpreter, WasmRuntime},
         test::run_test_circuit,
@@ -161,7 +163,9 @@ mod tests {
         let wasm = wabt::wat2wasm(textual_repr).unwrap();
 
         let compiler = WasmInterpreter::new();
-        let compiled_module = compiler.compile(&wasm, &ImportsBuilder::default()).unwrap();
+        let compiled_module = compiler
+            .compile(&wasm, &ImportsBuilder::default(), HashMap::default())
+            .unwrap();
         let execution_log = compiler
             .run(
                 &mut NopExternals,
