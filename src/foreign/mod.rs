@@ -1,4 +1,7 @@
-use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    plonk::{ConstraintSystem, Expression, VirtualCells},
+};
 
 use crate::circuits::etable_compact::op_configure::{
     ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfig,
@@ -16,4 +19,13 @@ pub trait EventTableForeignCallConfigBuilder<F: FieldExt> {
         constraint_builder: &mut ConstraintBuilder<F>,
         info: &impl ForeignCallInfo,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
+}
+
+pub trait ForeignTableConfig<F: FieldExt> {
+    fn configure_in_table(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: &dyn Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    );
 }

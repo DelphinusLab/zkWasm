@@ -1,10 +1,10 @@
-use super::{Sha2HelperConfig, OP_ARGS_NUM};
+use super::{Sha256HelperTableConfig, OP_ARGS_NUM};
 use crate::foreign::sha256_helper::Sha256HelperOp;
 use crate::{constant_from, curr, fixed_curr, next, nextn};
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 use strum::IntoEnumIterator;
 
-impl<F: FieldExt> Sha2HelperConfig<F> {
+impl<F: FieldExt> Sha256HelperTableConfig<F> {
     pub fn _configure(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("sha256 helper op_bits sum equals to 1", |meta| {
             let sum = Sha256HelperOp::iter()
@@ -12,7 +12,7 @@ impl<F: FieldExt> Sha2HelperConfig<F> {
                 .reduce(|acc, expr| acc + expr)
                 .unwrap();
 
-            vec![fixed_curr!(meta, self.block_first_line_sel) * (constant_from!(1) - sum)]
+            vec![fixed_curr!(meta, self.block_first_line_sel) * (constant_from!(1) - sum) * self.is_block_enabled_expr(meta)]
         });
 
         meta.create_gate("sha256 op eq inside a block", |meta| {

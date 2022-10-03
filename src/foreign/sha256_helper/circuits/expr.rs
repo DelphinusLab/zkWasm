@@ -1,4 +1,4 @@
-use super::{Sha2HelperConfig, BLOCK_LINES};
+use super::{Sha256HelperTableConfig, BLOCK_LINES};
 use crate::foreign::sha256_helper::Sha256HelperOp;
 use crate::{constant_from, curr, fixed_curr, fixed_next, nextn};
 use halo2_proofs::{
@@ -6,7 +6,7 @@ use halo2_proofs::{
     plonk::{Expression, VirtualCells},
 };
 
-impl<F: FieldExt> Sha2HelperConfig<F> {
+impl<F: FieldExt> Sha256HelperTableConfig<F> {
     pub(super) fn arg_to_u32_expr(
         &self,
         meta: &mut VirtualCells<'_, F>,
@@ -23,6 +23,11 @@ impl<F: FieldExt> Sha2HelperConfig<F> {
         }
 
         acc
+    }
+
+    pub(super) fn is_block_enabled_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        // The first line of op_bit column inside a block is enable bit.
+        curr!(meta, self.op_bit.0)
     }
 
     pub(super) fn opcode_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {

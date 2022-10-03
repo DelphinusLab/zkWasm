@@ -28,6 +28,7 @@ use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
+use crate::foreign::ForeignTableConfig;
 use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
@@ -197,7 +198,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
-        intable: &InputTableConfig<F>,
+        foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
         opcode_set: &BTreeSet<OpcodeClass>,
     ) -> Self {
         let sel = meta.fixed_column();
@@ -376,7 +377,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                         &mut constraint_builder,
                     );
 
-                    constraint_builder.finalize(|meta| fixed_curr!(meta, common_config.block_first_line_sel) * common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32));
+                    constraint_builder.finalize(foreign_tables, |meta|
+                        fixed_curr!(meta, common_config.block_first_line_sel) *
+                            common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32)
+                    );
 
                     op_bitmaps.insert($op, (op_lvl1 as i32, op_lvl2 as i32));
                     op_configs.insert($op, Rc::new(config));

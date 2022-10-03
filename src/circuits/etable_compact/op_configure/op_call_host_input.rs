@@ -19,6 +19,8 @@ use specs::{
 };
 use specs::{mtable::VarType, step::StepInfo};
 
+
+
 pub struct CallHostWasmInputConfig {
     public: BitCell,
     value: U64Cell,
@@ -32,7 +34,7 @@ pub struct CallHostWasmInputConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallHostWasmInputConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        _constraint_builder: &mut ConstraintBuilder<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let public = common.alloc_bit_value();
         let value = common.alloc_u64();

@@ -1,4 +1,4 @@
-use super::super::{Sha256HelperOp, Sha2HelperConfig};
+use super::super::{Sha256HelperOp, Sha256HelperTableConfig};
 use crate::{
     constant_from, curr, foreign::sha256_helper::circuits::Sha2HelperEncode,
 };
@@ -6,7 +6,7 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 const OP: Sha256HelperOp = Sha256HelperOp::Ch;
 
-impl<F: FieldExt> Sha2HelperConfig<F> {
+impl<F: FieldExt> Sha256HelperTableConfig<F> {
     pub(crate) fn configure_ch(&self, meta: &mut ConstraintSystem<F>) {
         // (e & f) ^ (!e & g)
         meta.create_gate("sha256 ch", |meta| {
@@ -23,7 +23,7 @@ impl<F: FieldExt> Sha2HelperConfig<F> {
                     * (self.opcode_expr(meta)
                         - Sha2HelperEncode::encode_opcocde_expr(
                             curr!(meta, self.op.0),
-                            vec![&e, &f, &g, &res],
+                            vec![&res, &e, &f, &g],
                         )),
             ]
         });

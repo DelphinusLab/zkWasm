@@ -2,6 +2,7 @@ use super::config::K;
 use super::config::POW_TABLE_LIMIT;
 use super::utils::bn_to_field;
 use crate::constant_from;
+use crate::traits::circuits::bit_range_table::BitRangeTable;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::ConstraintSystem;
@@ -382,5 +383,25 @@ impl<F: FieldExt> RangeTableChip<F> {
         )?;
 
         Ok(())
+    }
+}
+
+impl<F: FieldExt> BitRangeTable<F> for RangeTableConfig<F> {
+    fn configure_in_u4_range(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        self.configure_in_u4_range(meta, key, expr);
+    }
+
+    fn configure_in_u8_range(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        self.configure_in_u8_range(meta, key, expr);
     }
 }

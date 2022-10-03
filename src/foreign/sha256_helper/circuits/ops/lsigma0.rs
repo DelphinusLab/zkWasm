@@ -1,4 +1,4 @@
-use super::super::{Sha256HelperOp, Sha2HelperConfig};
+use super::super::{Sha256HelperOp, Sha256HelperTableConfig};
 use crate::{
     constant_from, curr, foreign::sha256_helper::circuits::Sha2HelperEncode, nextn,
 };
@@ -6,7 +6,7 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
 const OP: Sha256HelperOp = Sha256HelperOp::LSigma0;
 
-impl<F: FieldExt> Sha2HelperConfig<F> {
+impl<F: FieldExt> Sha256HelperTableConfig<F> {
     pub(crate) fn configure_lsigma0(&self, meta: &mut ConstraintSystem<F>) {
         // (x >> 2) ^ (x >> 13) ^ (x >> 22)
         meta.create_gate("sha256 lsigma0", |meta| {
@@ -41,7 +41,7 @@ impl<F: FieldExt> Sha2HelperConfig<F> {
                     * (self.opcode_expr(meta)
                         - Sha2HelperEncode::encode_opcocde_expr(
                             curr!(meta, self.op.0),
-                            vec![&x, &res],
+                            vec![&res, &x],
                         )),
             ]
         });

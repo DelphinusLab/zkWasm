@@ -1,6 +1,7 @@
 use super::Sha256HelperOp;
 use crate::{
     constant_from, fixed_curr,
+    foreign::ForeignTableConfig,
     traits::circuits::bit_range_table::{
         BitColumn, BitRangeTable, U4Column, U8Column, U8PartialColumn,
     },
@@ -47,7 +48,8 @@ impl Sha2HelperEncode {
     }
 }
 
-pub struct Sha2HelperConfig<F: FieldExt> {
+#[derive(Clone)]
+pub struct Sha256HelperTableConfig<F: FieldExt> {
     sel: Column<Fixed>,
     block_first_line_sel: Column<Fixed>,
 
@@ -60,7 +62,7 @@ pub struct Sha2HelperConfig<F: FieldExt> {
     mark: PhantomData<F>,
 }
 
-impl<F: FieldExt> Sha2HelperConfig<F> {
+impl<F: FieldExt> Sha256HelperTableConfig<F> {
     fn new(meta: &mut ConstraintSystem<F>, rtable: &impl BitRangeTable<F>) -> Self {
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
@@ -89,16 +91,21 @@ impl<F: FieldExt> Sha2HelperConfig<F> {
         config._configure(meta);
         config
     }
+}
 
-    pub fn configure_in_table(
+impl<F: FieldExt> ForeignTableConfig<F> for Sha256HelperTableConfig<F> {
+    fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        key: &'static str,
+        expr: &dyn Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup_any("in sha helper", |meta| {
+        meta.lookup_any(key, |meta| {
             vec![(
                 expr(meta),
-                fixed_curr!(meta, self.block_first_line_sel) * self.opcode_expr(meta),
+                fixed_curr!(meta, self.block_first_line_sel)
+                    * self.is_block_enabled_expr(meta)
+                    * self.opcode_expr(meta),
             )]
         });
     }

@@ -194,7 +194,6 @@ impl CommonRangeCell {
     }
 }
 
-
 #[derive(Clone, Copy)]
 pub struct U4BopCell {
     pub col: Column<Advice>,
@@ -225,9 +224,7 @@ impl U4BopCell {
         }
         sum - constant_from!(15) * nextn!(meta, self.col, 0)
     }
-
 }
-
 
 #[derive(Clone, Copy)]
 pub struct U64BitCell {
@@ -473,6 +470,13 @@ pub struct ConstraintBuilder<'a, F: FieldExt> {
         &'static str,
         Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
     )>,
+    lookups: BTreeMap<
+        &'static str,
+        Vec<(
+            &'static str,
+            Box<dyn Fn(&mut VirtualCells<F>) -> Expression<F>>,
+        )>,
+    >,
 }
 
 impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
@@ -480,6 +484,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         Self {
             meta,
             constraints: vec![],
+            lookups: BTreeMap::new(),
         }
     }
 
@@ -491,7 +496,25 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         self.constraints.push((name, builder));
     }
 
-    pub(super) fn finalize(self, enable: impl Fn(&mut VirtualCells<F>) -> Expression<F>) {
+    pub fn lookup(
+        &mut self,
+        foreign_table_id: &'static str,
+        name: &'static str,
+        builder: Box<dyn Fn(&mut VirtualCells<F>) -> Expression<F>>,
+    ) {
+        match self.lookups.get_mut(&foreign_table_id) {
+            Some(lookups) => lookups.push((name, builder)),
+            None => {
+                self.lookups.insert(foreign_table_id, vec![(name, builder)]);
+            }
+        }
+    }
+
+    pub(super) fn finalize(
+        self,
+        foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
+        enable: impl Fn(&mut VirtualCells<F>) -> Expression<F>,
+    ) {
         for (name, builder) in self.constraints {
             self.meta.create_gate(&name, |meta| {
                 builder(meta)
@@ -499,6 +522,13 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
                     .map(|constraint| constraint * enable(meta))
                     .collect::<Vec<_>>()
             });
+        }
+
+        for (id, lookups) in self.lookups {
+            let config = foreign_tables.get(&id).unwrap();
+            for (key, expr) in lookups {
+                config.configure_in_table(self.meta, key, expr.as_ref());
+            }
         }
     }
 }

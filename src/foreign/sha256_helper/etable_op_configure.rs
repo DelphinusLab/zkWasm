@@ -1,4 +1,4 @@
-use super::Sha256HelperOp;
+use super::{circuits::Sha2HelperEncode, Sha256HelperOp, SHA256_FOREIGN_TABLE_KEY};
 use crate::{
     circuits::{
         etable_compact::{
@@ -26,7 +26,7 @@ use specs::{
     itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
 };
 
-pub struct ETableSha256HelperConfig {
+pub struct ETableSha256HelperTableConfig {
     foreign_call_id: u64,
 
     a: U64OnU8Cell,
@@ -46,9 +46,9 @@ pub struct ETableSha256HelperConfig {
     lookup_stack_write: MTableLookupCell,
 }
 
-pub struct ETableSha256HelperConfigBuilder {}
+pub struct ETableSha256HelperTableConfigBuilder {}
 
-impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperConfigBuilder {
+impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperTableConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
@@ -86,9 +86,24 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperCo
             }),
         );
 
-        //TODO: add foreign table lookup
+        constraint_builder.lookup(
+            SHA256_FOREIGN_TABLE_KEY,
+            "sha256 helper table lookup",
+            Box::new(move |meta| {
+                let op = is_ssignma0.expr(meta) * constant_from!(Sha256HelperOp::SSigma0)
+                    + is_ssignma1.expr(meta) * constant_from!(Sha256HelperOp::SSigma1)
+                    + is_lsignma0.expr(meta) * constant_from!(Sha256HelperOp::LSigma0)
+                    + is_lsignma1.expr(meta) * constant_from!(Sha256HelperOp::LSigma1)
+                    + is_ch.expr(meta) * constant_from!(Sha256HelperOp::Ch)
+                    + is_maj.expr(meta) * constant_from!(Sha256HelperOp::Maj);
+                Sha2HelperEncode::encode_opcocde_expr(
+                    op,
+                    vec![&res.expr(meta), &a.expr(meta), &b.expr(meta), &c.expr(meta)],
+                )
+            }),
+        );
 
-        Box::new(ETableSha256HelperConfig {
+        Box::new(ETableSha256HelperTableConfig {
             foreign_call_id: info.call_id(),
             a,
             b,
@@ -108,7 +123,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperCo
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperConfig {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         let pick_one = self.is_ssignma0.expr(meta) * constant_from!(Sha256HelperOp::SSigma0)
             + self.is_ssignma1.expr(meta) * constant_from!(Sha256HelperOp::SSigma1)

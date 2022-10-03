@@ -1,15 +1,16 @@
-use super::{Sha2HelperConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES};
+use super::{Sha256HelperTableConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES};
 use crate::foreign::sha256_helper::Sha256HelperOp;
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
-use std::marker::PhantomData;
 
-pub struct Sha2HelperChip<F: FieldExt> {
-    config: Sha2HelperConfig<F>,
-    mark: PhantomData<F>,
+pub struct Sha256HelperTableChip<F: FieldExt> {
+    config: Sha256HelperTableConfig<F>,
 }
 
 //TODO
-impl<F: FieldExt> Sha2HelperChip<F> {
+impl<F: FieldExt> Sha256HelperTableChip<F> {
+    pub fn new(config: Sha256HelperTableConfig<F>) -> Self {
+        Self { config }
+    }
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,

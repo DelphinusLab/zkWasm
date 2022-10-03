@@ -8,11 +8,22 @@ use halo2_proofs::plonk::VirtualCells;
 use crate::constant_from;
 use crate::curr;
 
+#[derive(Clone)]
 pub struct U4Column(pub Column<Advice>);
+
+#[derive(Clone)]
 pub struct U8Column(pub Column<Advice>);
+
+#[derive(Clone)]
 pub struct BitColumn(pub Column<Advice>);
+
+#[derive(Clone)]
 pub struct U4PartialColumn(pub Column<Advice>);
+
+#[derive(Clone)]
 pub struct U8PartialColumn(pub Column<Advice>);
+
+#[derive(Clone)]
 pub struct BitPartialColumn(pub Column<Advice>);
 
 pub trait BitRangeTable<F: FieldExt> {

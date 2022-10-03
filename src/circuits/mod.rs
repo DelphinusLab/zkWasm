@@ -1,16 +1,25 @@
 use self::{
     config::{IMTABLE_COLOMNS, VAR_COLUMNS},
     etable_compact::{EventTableChip, EventTableConfig},
-    intable::{InputTableChip, InputTableConfig},
+    intable::{InputTableChip, InputTableConfig, INPUT_TABLE_KEY},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
 };
-use crate::circuits::{
-    config::K,
-    imtable::{InitMemoryTableConfig, MInitTableChip},
-    itable::{InstructionTableChip, InstructionTableConfig},
-    rtable::{RangeTableChip, RangeTableConfig},
-    utils::Context,
+use crate::{
+    circuits::{
+        config::K,
+        imtable::{InitMemoryTableConfig, MInitTableChip},
+        itable::{InstructionTableChip, InstructionTableConfig},
+        rtable::{RangeTableChip, RangeTableConfig},
+        utils::Context,
+    },
+    foreign::{
+        sha256_helper::{
+            circuits::{assign::Sha256HelperTableChip, Sha256HelperTableConfig},
+            SHA256_FOREIGN_TABLE_KEY,
+        },
+        ForeignTableConfig,
+    },
 };
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::{
@@ -28,9 +37,9 @@ use num_bigint::BigUint;
 use rand::rngs::OsRng;
 use specs::{itable::OpcodeClass, CompileTable, ExecutionTable};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs::File,
-    io::{Cursor, Read, Write},
+    io::{Cursor, Read},
     marker::PhantomData,
     path::PathBuf,
 };
@@ -55,10 +64,11 @@ pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     itable: InstructionTableConfig<F>,
     imtable: InitMemoryTableConfig<F>,
-    intable: InputTableConfig<F>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
+    intable: InputTableConfig<F>,
+    sha256_helper_table: Sha256HelperTableConfig<F>,
 }
 
 #[derive(Default)]
@@ -116,12 +126,22 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rtable = RangeTableConfig::configure([0; 7].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
-        let intable = InputTableConfig::configure(meta);
         let imtable = InitMemoryTableConfig::configure(
             [0; IMTABLE_COLOMNS].map(|_| meta.lookup_table_column()),
         );
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
         let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
+
+        let intable = InputTableConfig::configure(meta);
+        let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);
+
+        let mut foreign_tables = BTreeMap::<&'static str, Box<dyn ForeignTableConfig<_>>>::new();
+        foreign_tables.insert(INPUT_TABLE_KEY, Box::new(intable.clone()));
+        foreign_tables.insert(
+            SHA256_FOREIGN_TABLE_KEY,
+            Box::new(sha256_helper_table.clone()),
+        );
+
         let etable = EventTableConfig::configure(
             meta,
             &mut cols,
@@ -129,7 +149,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &itable,
             &mtable,
             &jtable,
-            &intable,
+            &foreign_tables,
             &opcode_set,
         );
 
@@ -137,10 +157,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             rtable,
             itable,
             imtable,
-            intable,
             mtable,
             jtable,
             etable,
+            intable,
+            sha256_helper_table,
         }
     }
 
@@ -156,8 +177,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mchip = MemoryTableChip::new(config.mtable);
         let jchip = JumpTableChip::new(config.jtable);
         let echip = EventTableChip::new(config.etable);
+        let sha256chip = Sha256HelperTableChip::new(config.sha256_helper_table);
 
         rchip.init(&mut layouter)?;
+        //TODO: call assign for sha256chip
+        sha256chip.init(&mut layouter)?;
+
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
         inchip.assign(&mut layouter)?;
         if self.compile_tables.imtable.0.len() > 0 {

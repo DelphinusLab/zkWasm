@@ -1,5 +1,5 @@
 use super::{config::MAX_INTABLE_ROWS, FromBn};
-use crate::{fixed_curr, instance_curr};
+use crate::{fixed_curr, foreign::ForeignTableConfig, instance_curr};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -10,6 +10,8 @@ use std::{
     marker::PhantomData,
     ops::{Add, Mul},
 };
+
+pub const INPUT_TABLE_KEY: &'static str = "input-table";
 
 pub struct InputTableEncode {}
 
@@ -53,12 +55,14 @@ impl<F: FieldExt> InputTableConfig<F> {
                 instance_curr!(meta, self.input),
             )
     }
+}
 
-    pub fn configure_in_table(
+impl<F: FieldExt> ForeignTableConfig<F> for InputTableConfig<F> {
+    fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: &dyn Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup_any(key, |meta| vec![(expr(meta), self.encode(meta))]);
     }
