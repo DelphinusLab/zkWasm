@@ -1,6 +1,6 @@
 use super::super::{Sha256HelperOp, Sha2HelperConfig};
 use crate::{
-    constant_from, curr, foreign::sha256_helper::circuits::sha256_helper::Sha2HelperEncode, nextn,
+    constant_from, curr, foreign::sha256_helper::circuits::Sha2HelperEncode, nextn,
 };
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 
