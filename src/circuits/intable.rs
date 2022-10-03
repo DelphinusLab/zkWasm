@@ -20,7 +20,9 @@ impl InputTableEncode {
         index: T,
         input: T,
     ) -> T {
-        index * T::from_bn(&(BigUint::from(1u64) << 64)) + input
+        T::from_bn(&(BigUint::from(1u64) << 128))
+            + index * T::from_bn(&(BigUint::from(1u64) << 64))
+            + input
     }
 }
 
@@ -28,6 +30,7 @@ impl InputTableEncode {
 pub struct InputTableConfig<F: FieldExt> {
     enable: Column<Fixed>,
     index: Column<Fixed>,
+    // TODO: constrain input to u64
     input: Column<Instance>,
     _mark: PhantomData<F>,
 }

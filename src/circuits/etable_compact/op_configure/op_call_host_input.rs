@@ -19,8 +19,6 @@ use specs::{
 };
 use specs::{mtable::VarType, step::StepInfo};
 
-
-
 pub struct CallHostWasmInputConfig {
     public: BitCell,
     value: U64Cell,
@@ -41,6 +39,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallHostWasmInputConfigBu
 
         let lookup_read_stack = common.alloc_mtable_lookup();
         let lookup_write_stack = common.alloc_mtable_lookup();
+
+        constraint_builder.lookup(
+            INPUT_TABLE_KEY,
+            "lookup input table",
+            Box::new(move |meta| {
+                // TODO: fix me
+                InputTableEncode::encode_for_lookup(constant_from!(0), value.expr(meta))
+            }),
+        );
 
         Box::new(CallHostWasmInputConfig {
             public,
