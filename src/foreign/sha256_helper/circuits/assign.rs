@@ -1,12 +1,11 @@
-use super::{Sha256HelperTableConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES};
+use super::{Sha256HelperTableConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES, OP_ARGS_NUM};
 use crate::foreign::sha256_helper::Sha256HelperOp;
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
 
 pub struct Sha256HelperTableChip<F: FieldExt> {
-    config: Sha256HelperTableConfig<F>,
+    pub(crate) config: Sha256HelperTableConfig<F>,
 }
 
-//TODO
 impl<F: FieldExt> Sha256HelperTableChip<F> {
     pub fn new(config: Sha256HelperTableConfig<F>) -> Self {
         Self { config }
@@ -14,7 +13,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        _entry: Vec<(Sha256HelperOp, Vec<u32>)>,
+        entry: Vec<(u32, Vec<u32>, u32)>,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "sha256 helper assign",
@@ -39,6 +38,68 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                             })
                         },
                     )?;
+                }
+
+                for (block_i, (op, args, ret)) in entry.iter().enumerate() {
+                    let offset = block_i * BLOCK_LINES;
+                    for i in 0..BLOCK_LINES {
+                        region.assign_advice(
+                            || "sha256 helper table",
+                            self.config.op.0,
+                            offset + i,
+                            || Ok(F::from(*op as u64)),
+                        )?;
+                    }
+
+                    region.assign_advice(
+                        || "sha256 helper enable",
+                        self.config.op_bit.0,
+                        offset,
+                        || Ok(F::from(1u64)),
+                    )?;
+
+                    region.assign_advice(
+                        || "sha256 helper op bit",
+                        self.config.op_bit.0,
+                        offset + *op as usize,
+                        || Ok(F::from(1u64)),
+                    )?;
+
+                    for (arg_i, arg) in args.iter().enumerate() {
+                        for i in 0..BLOCK_LINES {
+                            region.assign_advice(
+                                || "sha256 helper args",
+                                self.config.args[arg_i].0,
+                                offset + i,
+                                || Ok(F::from((arg >> (i * 4)) as u64 & 0xfu64)),
+                            )?;
+                        }
+                    }
+
+                    for i in 0..BLOCK_LINES {
+                        region.assign_advice(
+                            || "sha256 helper ret",
+                            self.config.args[OP_ARGS_NUM - 1].0,
+                            offset + i,
+                            || Ok(F::from((ret >> (i * 4)) as u64 & 0xfu64)),
+                        )?;
+                    }
+
+                    if *op == Sha256HelperOp::LSigma0 as u32 {
+                        self.assign_lsigma0(&mut region, offset, args)?;
+                    }
+
+                    if *op == Sha256HelperOp::LSigma1 as u32 {
+                        self.assign_lsigma1(&mut region, offset, args)?;
+                    }
+
+                    if *op == Sha256HelperOp::SSigma0 as u32 {
+                        self.assign_ssigma0(&mut region, offset, args)?;
+                    }
+
+                    if *op == Sha256HelperOp::SSigma1 as u32 {
+                        self.assign_ssigma1(&mut region, offset, args)?;
+                    }
                 }
 
                 Ok(())

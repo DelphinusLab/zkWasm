@@ -1,8 +1,8 @@
 use super::super::{Sha256HelperOp, Sha256HelperTableConfig};
 use crate::{
-    constant_from, curr, foreign::sha256_helper::circuits::Sha2HelperEncode, nextn,
+    constant_from, curr, foreign::sha256_helper::circuits::{Sha2HelperEncode, assign::Sha256HelperTableChip}, nextn,
 };
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use halo2_proofs::{arithmetic::FieldExt, plonk::{ConstraintSystem, Error}, circuit::Region};
 
 const OP: Sha256HelperOp = Sha256HelperOp::SSigma0;
 
@@ -45,5 +45,20 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
                         )),
             ]
         });
+    }
+}
+
+impl<F: FieldExt> Sha256HelperTableChip<F> {
+    pub(crate) fn assign_ssigma0(
+        &self,
+        region: &mut Region<F>,
+        offset: usize,
+        args: &Vec<u32>,
+    ) -> Result<(), Error> {
+        self.assign_rotate_aux(region, offset, args, 7, 1)?;
+        self.assign_rotate_aux(region, offset, args, 18, 3)?;
+        self.assign_rotate_aux(region, offset, args, 3, 5)?;
+
+        Ok(())
     }
 }
