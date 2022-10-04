@@ -102,6 +102,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClass::Load,
             OpcodeClass::Store,
             OpcodeClass::Rel,
+            OpcodeClass::Select,
             OpcodeClass::Test,
             OpcodeClass::Conversion,
             OpcodeClass::CallHostWasmInput,

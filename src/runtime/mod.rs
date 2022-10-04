@@ -309,19 +309,69 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         }
         StepInfo::Drop { .. } => vec![],
         StepInfo::Select {
-            first,
-            second,
+            val1,
+            val2,
             cond,
             result,
-        } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            emid,
-            VarType::I64, // FIXME: real type
-            VarType::I64,
-            &[*first, *second, *cond],
-            &[*result],
-        ),
+            vtype,
+        } => {
+            let mut sp = sp_before_execution + 1;
+            let mut ops = vec![];
+
+            ops.push(MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: VarType::I32,
+                value: *cond,
+            });
+            sp = sp + 1;
+            *emid = (*emid).checked_add(1).unwrap();
+
+            ops.push(MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: *vtype,
+                value: *val2,
+            });
+            sp = sp + 1;
+            *emid = (*emid).checked_add(1).unwrap();
+
+            ops.push(MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: *vtype,
+                value: *val1,
+            });
+
+            *emid = (*emid).checked_add(1).unwrap();
+
+            ops.push(MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Write,
+                vtype: *vtype,
+                value: *result,
+            });
+            sp = sp - 1;
+            *emid = (*emid).checked_add(1).unwrap();
+
+            ops
+        }
         StepInfo::Call { index: _ } => {
             vec![]
         }
