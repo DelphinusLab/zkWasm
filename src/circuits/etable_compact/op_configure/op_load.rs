@@ -274,7 +274,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                     .assign(ctx, offset.try_into().unwrap())?;
 
                 let len = load_size.byte_size();
-                println!("len: {}", len);
                 let start_byte_index = effective_address as u64;
                 let end_byte_index = start_byte_index + len - 1;
 
@@ -310,7 +309,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_four_bytes.assign(ctx, len == 4)?;
                 self.is_eight_bytes.assign(ctx, len == 8)?;
                 self.is_sign.assign(ctx, load_size.is_sign())?;
-                println!("is_sign: {}", load_size.is_sign());
                 self.vtype.assign(ctx, vtype as u16)?;
 
                 self.lookup_stack_read.assign(
@@ -451,6 +449,41 @@ mod tests {
                     (func (export "test")
                       (i32.const 0)
                       (i64.load offset=0)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    // TODO: support load sign
+    #[test]
+    fn test_load_32_8s() {
+        let textual_repr = r#"
+                (module
+                    (memory $0 1)
+                    (data (i32.const 0) "\ff\00\00\00\fe\00\00\00")
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.load8_s offset=0)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_load_64_8u() {
+        let textual_repr = r#"
+                (module
+                    (memory $0 1)
+                    (data (i32.const 0) "\ff\00\00\00\fe\00\00\00")
+                    (func (export "test")
+                      (i32.const 0)
+                      (i64.load8_u offset=0)
                       (drop)
                     )
                    )
