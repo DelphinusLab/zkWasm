@@ -52,6 +52,18 @@ pub enum MemoryStoreSize {
     Byte64,
 }
 
+
+impl MemoryStoreSize {
+    pub fn byte_size(&self) -> u64 {
+        match self {
+            MemoryStoreSize::Byte8 => 1,
+            MemoryStoreSize::Byte16 => 2,
+            MemoryStoreSize::Byte32 => 4,
+            MemoryStoreSize::Byte64 => 8,
+        }
+    }
+}
+
 impl From<parity_wasm::elements::ValueType> for VarType {
     fn from(v: parity_wasm::elements::ValueType) -> Self {
         match v {

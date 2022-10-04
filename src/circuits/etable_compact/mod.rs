@@ -16,6 +16,7 @@ use crate::circuits::etable_compact::op_configure::op_local_set::LocalSetConfigB
 use crate::circuits::etable_compact::op_configure::op_local_tee::LocalTeeConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_rel::RelConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_store::StoreConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_test::TestConfigBuilder;
 use crate::circuits::etable_compact::op_configure::ConstraintBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
@@ -56,7 +57,7 @@ const ETABLE_STEP_SIZE: usize = 20usize;
 const U4_COLUMNS: usize = 3usize;
 const U8_COLUMNS: usize = 2usize;
 const BITS_COLUMNS: usize = 2usize;
-const MTABLE_LOOKUPS_SIZE: usize = 5usize;
+const MTABLE_LOOKUPS_SIZE: usize = 6usize;
 const MAX_OP_LVL1: i32 = 8;
 const MAX_OP_LVL2: i32 = ETABLE_STEP_SIZE as i32;
 
@@ -93,12 +94,11 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
 
 pub(crate) enum EventTableUnlimitColumnRotation {
     ITableLookup = 0,
-    InTableLookup = 1,
-    JTableLookup = 2,
-    PowTableLookup = 3,
-    OffsetLenBitsTableLookup = 4,
-    MTableLookupStart = 5,
-    U64Start = 6 + MTABLE_LOOKUPS_SIZE as isize,
+    JTableLookup = 1,
+    PowTableLookup = 2,
+    OffsetLenBitsTableLookup = 3,
+    MTableLookupStart = 4,
+    U64Start = 5 + MTABLE_LOOKUPS_SIZE as isize,
 }
 
 pub(self) enum MLookupItem {
@@ -107,6 +107,7 @@ pub(self) enum MLookupItem {
     Third,
     Fourth,
     Fifth,
+    Six,
 }
 
 impl From<usize> for MLookupItem {
@@ -117,6 +118,7 @@ impl From<usize> for MLookupItem {
             2 => Self::Third,
             3 => Self::Fourth,
             4 => Self::Fifth,
+            5 => Self::Six,
             _ => unreachable!(),
         }
     }
@@ -238,11 +240,13 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_u4_bop_calc_set(meta, "etable u4 bop calc", |meta| {
-            (curr!(meta, u4_shared[0]) ,
-             curr!(meta, u4_shared[1]) ,
-             curr!(meta, u4_shared[2]) ,
-             curr!(meta, u4_bop) * fixed_curr!(meta, sel))
-        }); 
+            (
+                curr!(meta, u4_shared[0]),
+                curr!(meta, u4_shared[1]),
+                curr!(meta, u4_shared[2]),
+                curr!(meta, u4_bop) * fixed_curr!(meta, sel),
+            )
+        });
 
         rtable.configure_in_common_range(meta, "etable aux in common", |meta| {
             curr!(meta, state) * fixed_curr!(meta, sel)
@@ -276,13 +280,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_pow_set(meta, "etable pow_table lookup", |meta| {
-            curr!(meta, aux)
-                * fixed_curr!(meta, pow_table_lookup)
+            curr!(meta, aux) * fixed_curr!(meta, pow_table_lookup)
         });
 
         rtable.configure_in_offset_len_bits_set(meta, "etable offset len bits lookup", |meta| {
-            curr!(meta, aux)
-                * fixed_curr!(meta, offset_len_bits_table_lookup)
+            curr!(meta, aux) * fixed_curr!(meta, offset_len_bits_table_lookup)
         });
 
         for i in 0..U4_COLUMNS {
@@ -392,6 +394,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
         configure!(OpcodeClass::Load, LoadConfigBuilder);
+        configure!(OpcodeClass::Store, StoreConfigBuilder);
         configure!(OpcodeClass::Rel, RelConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
@@ -428,7 +431,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
 
             let mut itable_lookup = common_config.itable_lookup(meta);
-            let mut intable_lookup = common_config.intable_lookup(meta);
             let mut jtable_lookup = common_config.jtable_lookup(meta);
             let mut mtable_lookup = vec![];
 
@@ -513,11 +515,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 }
 
                 match config.intable_lookup(meta, &common_config) {
-                    Some(e) => {
+                    Some(_) => {
                         assert!(config.is_host_input());
-
-                        intable_lookup =
-                            intable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2);
                         input_index_acc =
                             input_index_acc + common_config.op_enabled(meta, *lvl1, *lvl2);
                     }
@@ -550,7 +549,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                     last_jump_eid_acc,
                     itable_lookup,
                     jtable_lookup,
-                    intable_lookup,
                     input_index_acc * common_config.next_enable(meta),
                 ],
                 mtable_lookup,
