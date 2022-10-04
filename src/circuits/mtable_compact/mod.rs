@@ -5,10 +5,6 @@ use super::rtable::RangeTableConfig;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::Context;
 use crate::circuits::mtable_compact::configure::STEP_SIZE;
-use crate::circuits::mtable_compact::expression::RotationAux;
-use crate::circuits::mtable_compact::expression::RotationIndex;
-use crate::circuits::mtable_compact::expression::ROTATION_IMTABLE_COLUMN_SELECTOR;
-use crate::circuits::mtable_compact::expression::ROTATION_VTYPE_IS_64BIT;
 use crate::circuits::IMTABLE_COLOMNS;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
@@ -30,37 +26,46 @@ pub mod configure;
 pub(crate) mod encode;
 pub mod expression;
 
+enum RotationOfIndexColumn {
+    LTYPE = 0,
+    MMID,
+    OFFSET,
+    EID,
+    EMID,
+    MAX,
+}
+
+pub enum RotationOfAuxColumn {
+    ConstantOne = 0,
+    SameLtype,
+    SameMmid,
+    SameOffset,
+    SameEid,
+    Atype,
+    RestMops,
+}
+
+pub enum RotationOfBitColumn {
+    Enable = 0,
+    Is64Bit = 1,
+    // To support multiple imtable columns,
+    // the seletors is a bit filter for an imtable lookup.
+    IMTableSelectorStart = 2,
+}
+
 #[derive(Clone)]
 pub struct MemoryTableConfig<F: FieldExt> {
     pub(crate) sel: Column<Fixed>,
     pub(crate) following_block_sel: Column<Fixed>,
     pub(crate) block_first_line_sel: Column<Fixed>,
 
-    // Rotation
-    // 0: enable
-    // 1: vtype ge 2 bytes
-    // 2: vtype ge 4 bytes
-    // 3: vtype ge 8 bytes
-    // 4: sign mask
-    // 5..: imtable selector
+    // See enum RotationOfBitColumn
     pub(crate) bit: Column<Advice>,
 
-    // Rotation
-    // 0: ltype  (Stack, Heap)
-    // 1: mmid   (0 for Stack,  1 .. for Heap)
-    // 2: offset (sp for Stack, address for Heap)
-    // 3: eid
-    // 4: emid
+    // See enum RotationOfIndexColumn
     pub(crate) index: RowDiffConfig<F>,
 
-    // Rotation:
-    // 0: constant 1
-    // 1: same ltype
-    // 2: same mmid
-    // 3: same offset
-    // 4: same eid
-    // 5: atype
-    // 6: rest mops
+    // See enum RotationOfBitColumn
     pub(crate) aux: Column<Advice>,
 
     // Rotation:
@@ -165,7 +170,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 assign_advice!("enable", 0, bit, F::one());
                 assign_advice!(
                     "vtype is i64",
-                    ROTATION_VTYPE_IS_64BIT,
+                    RotationOfBitColumn::Is64Bit,
                     bit,
                     if entry.vtype == VarType::I64 {
                         F::one()
@@ -177,7 +182,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 if entry.ltype == LocationType::Heap && entry.atype == AccessType::Init {
                     assign_advice!(
                         "vtype imtable selector",
-                        ROTATION_IMTABLE_COLUMN_SELECTOR
+                        RotationOfBitColumn::IMTableSelectorStart as i32
                             + entry.offset as i32 % (IMTABLE_COLOMNS as i32),
                         bit,
                         F::one()
@@ -187,13 +192,13 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             // index column
             {
-                assign_row_diff!(RotationIndex::LTYPE, ltype);
-                assign_row_diff!(RotationIndex::MMID, mmid);
-                assign_row_diff!(RotationIndex::OFFSET, offset);
-                assign_row_diff!(RotationIndex::EID, eid);
-                assign_row_diff!(RotationIndex::EMID, emid);
+                assign_row_diff!(RotationOfIndexColumn::LTYPE, ltype);
+                assign_row_diff!(RotationOfIndexColumn::MMID, mmid);
+                assign_row_diff!(RotationOfIndexColumn::OFFSET, offset);
+                assign_row_diff!(RotationOfIndexColumn::EID, eid);
+                assign_row_diff!(RotationOfIndexColumn::EMID, emid);
 
-                for i in (RotationIndex::MAX as i32)..STEP_SIZE {
+                for i in (RotationOfIndexColumn::MAX as i32)..STEP_SIZE {
                     self.config.index.assign(
                         ctx,
                         Some(index * STEP_SIZE as usize + i as usize),
@@ -217,38 +222,48 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     same_eid = last_entry.eid == entry.eid && same_offset;
                 }
 
-                assign_advice!("constant 1", RotationAux::ConstantOne, aux, F::one());
+                assign_advice!(
+                    "constant 1",
+                    RotationOfAuxColumn::ConstantOne,
+                    aux,
+                    F::one()
+                );
                 assign_advice!(
                     "same ltype",
-                    RotationAux::SameLtype,
+                    RotationOfAuxColumn::SameLtype,
                     aux,
                     F::from(same_ltype as u64)
                 );
                 assign_advice!(
                     "same mmid",
-                    RotationAux::SameMmid,
+                    RotationOfAuxColumn::SameMmid,
                     aux,
                     F::from(same_mmid as u64)
                 );
                 assign_advice!(
                     "same offset",
-                    RotationAux::SameOffset,
+                    RotationOfAuxColumn::SameOffset,
                     aux,
                     F::from(same_offset as u64)
                 );
                 assign_advice!(
                     "same eid",
-                    RotationAux::SameEid,
+                    RotationOfAuxColumn::SameEid,
                     aux,
                     F::from(same_eid as u64)
                 );
                 assign_advice!(
                     "atype",
-                    RotationAux::Atype,
+                    RotationOfAuxColumn::Atype,
                     aux,
                     F::from(entry.atype as u64)
                 );
-                let cell = assign_advice!("rest mops", RotationAux::RestMops, aux, F::from(mops));
+                let cell = assign_advice!(
+                    "rest mops",
+                    RotationOfAuxColumn::RestMops,
+                    aux,
+                    F::from(mops)
+                );
                 if index == 0 && etable_rest_mops_cell.is_some() {
                     ctx.region
                         .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
