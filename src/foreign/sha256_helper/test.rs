@@ -25,7 +25,7 @@ mod tests {
 
         let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler
-            .compile(&wasm, &imports, HashMap::default())
+            .compile(&wasm, &imports, &HashMap::default())
             .unwrap();
         let execution_log = compiler
             .run(

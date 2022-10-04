@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Read, path::PathBuf};
+    use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
 
     use specs::types::Value;
     use wasmi::{ImportsBuilder, NopExternals};
@@ -20,7 +20,7 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default())
+            .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
             .unwrap();
         let execution_log = compiler
             .run(
@@ -49,7 +49,7 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default())
+            .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
             .unwrap();
         let execution_log = compiler
             .run(

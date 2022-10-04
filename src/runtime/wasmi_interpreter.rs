@@ -36,7 +36,7 @@ impl WasmRuntime for WasmiRuntime {
         &self,
         mut module: wast::core::Module,
         imports: &I,
-        host_plugin_lookup: HashMap<usize, HostFunctionDesc>,
+        host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError> {
         let wasm = module.encode().unwrap();
         self.compile(&wasm, imports, host_plugin_lookup)
@@ -46,10 +46,10 @@ impl WasmRuntime for WasmiRuntime {
         &self,
         wasm: &Vec<u8>,
         imports: &I,
-        host_plugin_lookup: HashMap<usize, HostFunctionDesc>,
+        host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
     ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError> {
         let module = wasmi::Module::from_buffer(wasm).expect("failed to load wasm");
-        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup);
+        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone());
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))

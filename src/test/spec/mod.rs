@@ -25,7 +25,7 @@ fn run_spec_test(file_name: &str) -> Result<(), Error> {
                 wast::QuoteWat::Wat(wat) => match wat {
                     wast::Wat::Module(module) => {
                         let compiled = compiler
-                            .compile_from_wast(module, &imports, HashMap::default())
+                            .compile_from_wast(module, &imports, &HashMap::default())
                             .unwrap();
                         compile_outcome = Some(compiled);
                     }

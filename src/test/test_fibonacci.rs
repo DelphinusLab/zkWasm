@@ -53,7 +53,7 @@ mod tests {
         let wasm = wabt::wat2wasm(textual_repr).unwrap();
 
         let compiled_module = compiler
-            .compile(&wasm, &ImportsBuilder::default(), HashMap::default())
+            .compile(&wasm, &ImportsBuilder::default(), &HashMap::default())
             .unwrap();
         let execution_log = compiler
             .run(

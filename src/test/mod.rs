@@ -18,7 +18,7 @@ pub fn test_circuit_noexternal(textual_repr: &str) -> Result<(), Error> {
 
     let compiler = WasmInterpreter::new();
     let compiled_module = compiler
-        .compile(&wasm, &ImportsBuilder::default(), HashMap::default())
+        .compile(&wasm, &ImportsBuilder::default(), &HashMap::default())
         .unwrap();
     let execution_log = compiler
         .run(&mut NopExternals, &compiled_module, "test", vec![])

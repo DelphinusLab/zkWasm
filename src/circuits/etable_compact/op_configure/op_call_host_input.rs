@@ -204,7 +204,7 @@ mod tests {
         let compiler = WasmInterpreter::new();
         let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler
-            .compile(&wasm, &imports, env.function_plugin_lookup)
+            .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
         let execution_log = compiler
             .run(&mut env, &compiled_module, "main", vec![])

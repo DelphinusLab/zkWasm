@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use wasmi::{ImportsBuilder, NopExternals};
 
     use crate::{
@@ -21,7 +23,7 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default())
+            .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
             .unwrap();
         let execution_log = compiler
             .run(&mut NopExternals, &compiled_module, "test", vec![])

@@ -44,7 +44,7 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default(), HashMap::default())
+            .compile(&binary, &ImportsBuilder::default(), &HashMap::default())
             .unwrap();
         let execution_log = compiler
             .run(

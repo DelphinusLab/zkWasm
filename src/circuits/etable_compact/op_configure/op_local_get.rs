@@ -167,7 +167,7 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler
-            .compile(&wasm, &ImportsBuilder::default(), HashMap::default())
+            .compile(&wasm, &ImportsBuilder::default(), &HashMap::default())
             .unwrap();
         let execution_log = compiler
             .run(
@@ -196,7 +196,7 @@ mod tests {
 
         let compiler = WasmInterpreter::new();
         let compiled_module = compiler
-            .compile(&wasm, &ImportsBuilder::default(), HashMap::default())
+            .compile(&wasm, &ImportsBuilder::default(), &HashMap::default())
             .unwrap();
         let execution_log = compiler
             .run(
