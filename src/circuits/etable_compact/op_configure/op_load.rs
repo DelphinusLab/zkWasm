@@ -98,10 +98,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                 vec![
                     load_start_block_inner_offset.expr(meta)
                         + load_start_block_inner_offset_helper.expr(meta)
-                        - constant_from!(8),
+                        - constant_from!(7),
                     load_end_block_inner_offset.expr(meta)
                         + load_end_block_inner_offset_helper.expr(meta)
-                        - constant_from!(8),
+                        - constant_from!(7),
                 ]
             }),
         );
@@ -283,14 +283,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.load_start_block_inner_offset
                     .assign(ctx, (start_byte_index % 8).try_into().unwrap())?;
                 self.load_start_block_inner_offset_helper
-                    .assign(ctx, (8 - start_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, (7 - start_byte_index % 8).try_into().unwrap())?;
 
                 self.load_end_block_index
                     .assign(ctx, (end_byte_index / 8).try_into().unwrap())?;
                 self.load_end_block_inner_offset
                     .assign(ctx, (end_byte_index % 8).try_into().unwrap())?;
                 self.load_end_block_inner_offset_helper
-                    .assign(ctx, (8 - end_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, (7 - end_byte_index % 8).try_into().unwrap())?;
 
                 self.load_value1.assign(ctx, block_value)?;
                 // TODO replace 0 if cross load

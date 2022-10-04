@@ -374,8 +374,8 @@ impl<F: FieldExt> RangeTableChip<F> {
                             offset as usize,
                             || Ok(F::from(offset_len_bits_encode(i, j))),
                         )?;
+                        offset += 1;
                     }
-                    offset += 1;
                 }
                 Ok(())
             },
