@@ -18,6 +18,7 @@ pub(super) mod op_local_tee;
 pub(super) mod op_rel;
 pub(super) mod op_return;
 pub(super) mod op_test;
+pub(super) mod op_store;
 
 // TODO: replace repeated code with macro
 
@@ -329,7 +330,6 @@ pub(super) struct EventTableCellAllocator<'a, F> {
     pub u4_bop_index: i32,
     pub u64_index: i32,
     pub u64_on_u8_index: i32,
-    pub host_input_index: i32,
     pub mtable_lookup_index: i32,
     pub jtable_lookup_index: i32,
     pub pow_table_lookup_index: i32,
@@ -346,7 +346,6 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             u4_bop_index: 0,
             u64_index: 0,
             u64_on_u8_index: 0,
-            host_input_index: EventTableCommonRangeColumnRotation::InputIndex as i32,
             pow_table_lookup_index: EventTableUnlimitColumnRotation::PowTableLookup as i32,
             mtable_lookup_index: EventTableUnlimitColumnRotation::MTableLookupStart as i32,
             jtable_lookup_index: EventTableUnlimitColumnRotation::JTableLookup as i32,

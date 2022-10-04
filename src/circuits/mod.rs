@@ -100,6 +100,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClass::BinShift,
             OpcodeClass::BrIf,
             OpcodeClass::Load,
+            OpcodeClass::Store,
             OpcodeClass::Rel,
             OpcodeClass::Test,
             OpcodeClass::Conversion,
