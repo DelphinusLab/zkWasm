@@ -92,7 +92,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     }
 
     fn configure_enable_seq(&self, meta: &mut ConstraintSystem<F>, _rtable: &RangeTableConfig<F>) {
-        meta.create_gate("mtable configure_enable_seq", |meta| {
+        meta.create_gate("mtable enable seq must be seq of 1s followed by seq of 0s", |meta| {
             vec![
                 nextn!(meta, self.bit, STEP_SIZE)
                     * (curr!(meta, self.bit) - constant_from!(1))
@@ -207,7 +207,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         _rtable: &RangeTableConfig<F>,
     ) {
-        meta.create_gate("mtable configure_heap_first_init", |meta| {
+        meta.create_gate("mtable heap first line must be init", |meta| {
             vec![
                 (self.ltype(meta) - constant_from!(LocationType::Stack))
                     * (constant_from!(1) - self.same_offset(meta))
@@ -224,11 +224,12 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         _rtable: &RangeTableConfig<F>,
     ) {
-        meta.create_gate("mtable configure_stack_first_write", |meta| {
+        meta.create_gate("mtable stack first line must be write", |meta| {
             vec![
                 (self.ltype(meta) - constant_from!(LocationType::Heap))
                     * (constant_from!(1) - self.same_offset(meta))
                     * (self.atype(meta) - constant_from!(AccessType::Write))
+                    // TODO: remove this once we implement call
                     * (self.atype(meta) - constant_from!(AccessType::Init)),
             ]
             .into_iter()
@@ -242,7 +243,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         _rtable: &RangeTableConfig<F>,
     ) {
-        meta.create_gate("mtable configure_init_on_first", |meta| {
+        meta.create_gate("mtable non-first line must be write or read", |meta| {
             vec![
                 self.same_offset(meta)
                     * (self.atype(meta) - constant_from!(AccessType::Write))
