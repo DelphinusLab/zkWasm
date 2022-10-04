@@ -93,7 +93,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let lookup_pow = common.alloc_pow_table_lookup();
 
         constraint_builder.push(
-            "op_load start end offset range",
+            "op_load start end offset <= 7",
             Box::new(move |meta| {
                 vec![
                     load_start_block_inner_offset.expr(meta)
@@ -107,7 +107,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_load start end equation",
+            "op_load start end equation, start_index * 8 + start_offset + len = stop_index * 8 + stop_offset + 1",
             Box::new(move |meta| {
                 let len = constant_from!(1)
                     + is_two_bytes.expr(meta) * constant_from!(1)
@@ -340,7 +340,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                     ctx,
                     &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
-                        //TODO: may be 4
+                        //TODO: assign 4 for cross load
                         BigUint::from(3 as u64),
                         BigUint::from(step_info.current.sp + 1),
                         BigUint::from(vtype as u16),
@@ -449,6 +449,9 @@ mod tests {
                     (func (export "test")
                       (i32.const 0)
                       (i64.load offset=0)
+                      (drop)
+                      (i32.const 4)
+                      (i64.load offset=4)
                       (drop)
                     )
                    )
