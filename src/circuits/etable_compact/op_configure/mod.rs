@@ -6,6 +6,7 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
 pub(super) mod op_bin;
 pub(super) mod op_bin_bit;
 pub(super) mod op_bin_shift;
+pub(super) mod op_br;
 pub(super) mod op_br_if;
 pub(super) mod op_br_if_eqz;
 pub(super) mod op_call;
