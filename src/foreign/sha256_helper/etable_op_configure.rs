@@ -228,7 +228,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                     &self.is_lsignma1,
                     &self.is_ch,
                     &self.is_maj,
-                ][*host_function_idx]
+                ][*host_function_idx - 1]
                     .assign(ctx, true)?;
 
                 for (i, (lookup, v)) in vec![
