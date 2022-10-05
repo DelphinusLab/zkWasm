@@ -384,13 +384,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 let rem = (left << power) & size_mask;
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, size_mask - rem)?;
-
-                println!("left {}", left);
-                println!("right {}", right);
-                println!("is_eight {}", is_eight_bytes);
-                println!("round {}", left >> (size - power as u16));
-                println!("rem {}", rem);
-                println!("diff {}", size_mask - rem);
             }
             ShiftOp::UnsignedShr => {
                 self.is_shr_u.assign(ctx, true)?;
