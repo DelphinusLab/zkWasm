@@ -16,6 +16,7 @@ use crate::circuits::etable_compact::op_configure::op_local_set::LocalSetConfigB
 use crate::circuits::etable_compact::op_configure::op_local_tee::LocalTeeConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_rel::RelConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_select::SelectConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_store::StoreConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_test::TestConfigBuilder;
 use crate::circuits::etable_compact::op_configure::ConstraintBuilder;
@@ -396,6 +397,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Store, StoreConfigBuilder);
         configure!(OpcodeClass::Rel, RelConfigBuilder);
+        configure!(OpcodeClass::Select, SelectConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
         configure!(
