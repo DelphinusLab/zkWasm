@@ -46,6 +46,12 @@ pub struct ETableSha256HelperTableConfig {
     lookup_stack_write: MTableLookupCell,
 }
 
+pub struct Sha256ForeignCallInfo {}
+impl ForeignCallInfo for Sha256ForeignCallInfo {
+    fn call_id(&self) -> usize {
+        OpcodeClass::ForeignPluginStart as usize + HostPlugin::Sha256 as usize
+    }
+}
 pub struct ETableSha256HelperTableConfigBuilder {}
 
 impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperTableConfigBuilder {
@@ -104,7 +110,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperTa
         );
 
         Box::new(ETableSha256HelperTableConfig {
-            foreign_call_id: info.call_id(),
+            foreign_call_id: info.call_id() as u64,
             a,
             b,
             c,

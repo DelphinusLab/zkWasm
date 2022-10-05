@@ -21,6 +21,6 @@ pub struct HostFunctionDesc {
 
 #[derive(Clone, Debug, Serialize, Copy, PartialEq)]
 pub enum HostPlugin {
-    HostInput,
+    HostInput = 0,
     Sha256,
 }

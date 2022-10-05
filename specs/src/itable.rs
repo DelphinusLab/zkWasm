@@ -29,11 +29,10 @@ pub enum OpcodeClass {
     BrIfEqz,
     Unreachable,
     Call,
-    CallHostWasmInput,
     Load,
     Store,
     Conversion,
-    Sha256,
+    ForeignPluginStart,
 }
 
 impl OpcodeClass {
@@ -56,11 +55,10 @@ impl OpcodeClass {
             OpcodeClass::BrIfEqz => 1,
             OpcodeClass::Unreachable => todo!(),
             OpcodeClass::Call => 0,
-            OpcodeClass::CallHostWasmInput => 2,
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
             OpcodeClass::Conversion => 2,
-            OpcodeClass::Sha256 => 0, // dynamic
+            OpcodeClass::ForeignPluginStart => 0,
         }
     }
 
@@ -72,6 +70,9 @@ impl OpcodeClass {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct OpcodeClassPlain(pub usize);
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub enum BinOp {
@@ -323,19 +324,12 @@ impl Into<BigUint> for Opcode {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }
             Opcode::Call { index } => encode_call(BigUint::from(index as u64)),
-            Opcode::CallHost {
-                plugin,
-                function_index,
-                ..
-            } => match plugin {
-                HostPlugin::HostInput => {
-                    BigUint::from(OpcodeClass::CallHostWasmInput as u64) << OPCODE_CLASS_SHIFT
-                }
-                HostPlugin::Sha256 => {
-                    (BigUint::from(OpcodeClass::Sha256 as u64) << OPCODE_CLASS_SHIFT)
-                        + (BigUint::from(function_index as u64) << OPCODE_ARG0_SHIFT)
-                }
-            },
+            Opcode::CallHost { function_index, .. } => {
+                let opcode_class_plain: OpcodeClassPlain = self.into();
+
+                (BigUint::from(opcode_class_plain.0) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(function_index as u64) << OPCODE_ARG0_SHIFT)
+            }
 
             Opcode::Load {
                 offset,
@@ -387,13 +381,22 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::BrIfEqz { .. } => OpcodeClass::BrIfEqz,
             Opcode::Unreachable => OpcodeClass::Unreachable,
             Opcode::Call { .. } => OpcodeClass::Call,
-            Opcode::CallHost { plugin, .. } => match plugin {
-                HostPlugin::HostInput => OpcodeClass::CallHostWasmInput,
-                HostPlugin::Sha256 => OpcodeClass::Sha256,
-            },
+            Opcode::CallHost { .. } => OpcodeClass::ForeignPluginStart,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
             Opcode::Conversion { .. } => OpcodeClass::Conversion,
+        }
+    }
+}
+
+impl Into<OpcodeClassPlain> for Opcode {
+    fn into(self) -> OpcodeClassPlain {
+        let class: OpcodeClass = self.clone().into();
+
+        if let Opcode::CallHost { plugin, .. } = self {
+            OpcodeClassPlain(class as usize + plugin as usize)
+        } else {
+            OpcodeClassPlain(class as usize)
         }
     }
 }
@@ -423,8 +426,8 @@ impl InstructionTableEntry {
     }
 }
 
-pub fn collect_opcodeclass(ientries: &Vec<InstructionTableEntry>) -> HashSet<OpcodeClass> {
-    let mut opcodeclass: HashSet<OpcodeClass> = HashSet::new();
+pub fn collect_opcodeclass(ientries: &Vec<InstructionTableEntry>) -> HashSet<OpcodeClassPlain> {
+    let mut opcodeclass: HashSet<OpcodeClassPlain> = HashSet::new();
     ientries.iter().for_each(|entry| {
         opcodeclass.insert(entry.opcode.clone().into());
     });

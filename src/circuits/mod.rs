@@ -35,7 +35,11 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::{itable::OpcodeClass, CompileTable, ExecutionTable};
+use specs::{
+    host_function::HostPlugin,
+    itable::{OpcodeClass, OpcodeClassPlain},
+    CompileTable, ExecutionTable,
+};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
@@ -99,25 +103,30 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let opcode_set = BTreeSet::from([
-            OpcodeClass::BrIfEqz,
-            OpcodeClass::Return,
-            OpcodeClass::Drop,
-            OpcodeClass::Call,
-            OpcodeClass::Const,
-            OpcodeClass::LocalGet,
-            OpcodeClass::LocalSet,
-            OpcodeClass::LocalTee,
-            OpcodeClass::Bin,
-            OpcodeClass::BinBit,
-            OpcodeClass::BinShift,
-            OpcodeClass::BrIf,
-            OpcodeClass::Load,
-            OpcodeClass::Store,
-            OpcodeClass::Rel,
-            OpcodeClass::Select,
-            OpcodeClass::Test,
-            OpcodeClass::Conversion,
-            OpcodeClass::CallHostWasmInput,
+            OpcodeClassPlain(OpcodeClass::BrIfEqz as usize),
+            OpcodeClassPlain(OpcodeClass::Return as usize),
+            OpcodeClassPlain(OpcodeClass::Drop as usize),
+            OpcodeClassPlain(OpcodeClass::Call as usize),
+            OpcodeClassPlain(OpcodeClass::Const as usize),
+            OpcodeClassPlain(OpcodeClass::LocalGet as usize),
+            OpcodeClassPlain(OpcodeClass::LocalSet as usize),
+            OpcodeClassPlain(OpcodeClass::LocalTee as usize),
+            OpcodeClassPlain(OpcodeClass::Bin as usize),
+            OpcodeClassPlain(OpcodeClass::BinBit as usize),
+            OpcodeClassPlain(OpcodeClass::BinShift as usize),
+            OpcodeClassPlain(OpcodeClass::BrIf as usize),
+            OpcodeClassPlain(OpcodeClass::Load as usize),
+            OpcodeClassPlain(OpcodeClass::Store as usize),
+            OpcodeClassPlain(OpcodeClass::Rel as usize),
+            OpcodeClassPlain(OpcodeClass::Select as usize),
+            OpcodeClassPlain(OpcodeClass::Test as usize),
+            OpcodeClassPlain(OpcodeClass::Conversion as usize),
+            OpcodeClassPlain(
+                OpcodeClass::ForeignPluginStart as usize + HostPlugin::HostInput as usize,
+            ),
+            OpcodeClassPlain(
+                OpcodeClass::ForeignPluginStart as usize + HostPlugin::Sha256 as usize,
+            ),
         ]);
 
         let constants = meta.fixed_column();

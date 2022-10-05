@@ -10,7 +10,7 @@ use crate::circuits::etable_compact::op_configure::{
 pub mod sha256_helper;
 
 pub trait ForeignCallInfo {
-    fn call_id(&self) -> u64;
+    fn call_id(&self) -> usize;
 }
 
 pub trait EventTableForeignCallConfigBuilder<F: FieldExt> {

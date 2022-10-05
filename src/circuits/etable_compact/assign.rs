@@ -4,7 +4,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
     pub(super) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        op_configs: &BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         etable: &EventTable,
     ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         let mut status_entries = Vec::with_capacity(etable.entries().len() + 1);
@@ -100,7 +100,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         // Step 2: fill Status for each eentry
 
         for entry in etable.entries().iter() {
-            let opcode: OpcodeClass = entry.inst.opcode.clone().into();
+            let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
 
             assign_advice!(
                 self.shared_bits[0],
@@ -233,13 +233,14 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         ctx.reset();
 
         for (index, entry) in etable.entries().iter().enumerate() {
-            let opcode: OpcodeClass = entry.inst.opcode.clone().into();
+            let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
 
             let step_status = StepStatus {
                 current: &status_entries[index],
                 next: &status_entries[index + 1],
             };
 
+            println!("{:?}", opcode);
             let config = op_configs.get(&opcode).unwrap();
 
             config.assign(ctx, &step_status, entry)?;

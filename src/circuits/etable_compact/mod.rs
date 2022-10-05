@@ -30,6 +30,9 @@ use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
+use crate::foreign::sha256_helper::etable_op_configure::ETableSha256HelperTableConfigBuilder;
+use crate::foreign::sha256_helper::etable_op_configure::Sha256ForeignCallInfo;
+use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::ForeignTableConfig;
 use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
@@ -65,8 +68,8 @@ const MTABLE_LOOKUPS_SIZE: usize = 6usize;
 const MAX_OP_LVL1: i32 = 8;
 const MAX_OP_LVL2: i32 = ETABLE_STEP_SIZE as i32;
 
-fn opclass_to_two_level(class: OpcodeClass) -> (usize, usize) {
-    let mut id = class as i32;
+fn opclass_to_two_level(class: OpcodeClassPlain) -> (usize, usize) {
+    let mut id = class.0 as i32;
     assert!(id <= MAX_OP_LVL1 * (MAX_OP_LVL2 - MAX_OP_LVL1));
 
     id -= 1;
@@ -188,7 +191,7 @@ pub struct EventTableCommonConfig<F> {
 #[derive(Clone)]
 pub struct EventTableConfig<F: FieldExt> {
     common_config: EventTableCommonConfig<F>,
-    op_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+    op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
     _mark: PhantomData<F>,
 }
 
@@ -201,7 +204,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
         foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
-        opcode_set: &BTreeSet<OpcodeClass>,
+        opcode_set: &BTreeSet<OpcodeClassPlain>,
     ) -> Self {
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
@@ -364,14 +367,15 @@ impl<F: FieldExt> EventTableConfig<F> {
             _mark: PhantomData,
         };
 
-        let mut op_bitmaps: BTreeMap<OpcodeClass, (i32, i32)> = BTreeMap::new();
-        let mut op_configs: BTreeMap<OpcodeClass, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
+        let mut op_bitmaps: BTreeMap<OpcodeClassPlain, (i32, i32)> = BTreeMap::new();
+        let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
         macro_rules! configure [
-            ($op:expr, $x:ident) => (
-                if opcode_set.contains(&($op)) {
-                    let (op_lvl1, op_lvl2) = opclass_to_two_level($op);
+            ($op:expr, $x:ident) => ({
+                let op = OpcodeClassPlain($op as usize);
+                if opcode_set.contains(&op) {
+                    let (op_lvl1, op_lvl2) = opclass_to_two_level(op);
                     let mut allocator = EventTableCellAllocator::new(&common_config);
                     let mut constraint_builder = ConstraintBuilder::new(meta);
 
@@ -385,10 +389,36 @@ impl<F: FieldExt> EventTableConfig<F> {
                             common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32)
                     );
 
-                    op_bitmaps.insert($op, (op_lvl1 as i32, op_lvl2 as i32));
-                    op_configs.insert($op, Rc::new(config));
+                    op_bitmaps.insert(op, (op_lvl1 as i32, op_lvl2 as i32));
+                    op_configs.insert(op, Rc::new(config));
                 }
-            )
+    })
+        ];
+
+        macro_rules! configure_foreign [
+            ($op:expr, $x:ident, $call_info:ident) => ({
+                let op = OpcodeClassPlain(OpcodeClass::ForeignPluginStart as usize + $op as usize);
+
+                if opcode_set.contains(&op) {
+                    let (op_lvl1, op_lvl2) = opclass_to_two_level(op);
+                    let mut allocator = EventTableCellAllocator::new(&common_config);
+                    let mut constraint_builder = ConstraintBuilder::new(meta);
+
+                    let config = $x::configure(
+                        &mut allocator,
+                        &mut constraint_builder,
+                        &$call_info{},
+                    );
+
+                    constraint_builder.finalize(foreign_tables, |meta|
+                        fixed_curr!(meta, common_config.block_first_line_sel) *
+                            common_config.op_enabled(meta, op_lvl1 as i32, op_lvl2 as i32)
+                    );
+
+                    op_bitmaps.insert(op, (op_lvl1 as i32, op_lvl2 as i32));
+                    op_configs.insert(op, Rc::new(config));
+                }
+    })
         ];
 
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
@@ -409,9 +439,12 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Select, SelectConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
-        configure!(
-            OpcodeClass::CallHostWasmInput,
-            CallHostWasmInputConfigBuilder
+        // TODO: dynamically register plugins
+        // configure_foreign!(HostPlugin::HostInput, CallHostWasmInputConfigBuilder);
+        configure_foreign!(
+            HostPlugin::Sha256,
+            ETableSha256HelperTableConfigBuilder,
+            Sha256ForeignCallInfo
         );
 
         meta.create_gate("enable seq", |meta| {

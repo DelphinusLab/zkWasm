@@ -61,7 +61,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallHostWasmInputConfigBu
 impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostWasmInputConfig {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::CallHostWasmInput as u64) << OPCODE_CLASS_SHIFT)
+            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + HostPlugin::Sha256 as u64)
+                << OPCODE_CLASS_SHIFT)
         ))
     }
 
@@ -119,7 +120,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostWasmInputConfig {
     }
 
     fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::CallHostWasmInput
+        unreachable!()
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
