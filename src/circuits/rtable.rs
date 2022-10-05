@@ -11,9 +11,9 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::itable::BitOp;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
@@ -105,7 +105,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         meta.lookup(key, |meta| {
             let (l, r, res, op) = expr(meta);
             vec![(
-               (l * constant_from!(1u64 << 8) + r * constant_from!(1u64 << 4) + res) * op,
+                (l * constant_from!(1u64 << 8) + r * constant_from!(1u64 << 4) + res) * op,
                 self.u4_bop_calc_col,
             )]
         });
@@ -128,67 +128,11 @@ impl<F: FieldExt> RangeTableConfig<F> {
     ) {
         meta.lookup(key, |meta| vec![(expr(meta), self.offset_len_bits_col)]);
     }
-
-    pub fn configure_in_vtype_byte_range(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>, Expression<F>),
-        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-    ) {
-        todo!()
-    }
 }
 
 pub struct RangeTableChip<F: FieldExt> {
     config: RangeTableConfig<F>,
     _phantom: PhantomData<F>,
-}
-
-#[derive(Clone, EnumIter, Copy)]
-pub enum BinOp {
-    And = 0,
-    Or,
-    Xor,
-    Not,
-    Lt,
-    Gt,
-}
-
-impl BinOp {
-    fn left_range(&self) -> usize {
-        1 << 4
-    }
-
-    fn right_range(&self) -> usize {
-        match self {
-            BinOp::Not => 1,
-            _ => 1 << 4,
-        }
-    }
-
-    fn calc(&self, left: usize, right: usize) -> usize {
-        match self {
-            BinOp::And => left & right,
-            BinOp::Or => left | right,
-            BinOp::Xor => left ^ right,
-            BinOp::Not => (!left) & 0xf,
-            BinOp::Lt => {
-                if left < right {
-                    1
-                } else {
-                    0
-                }
-            }
-            BinOp::Gt => {
-                if left > right {
-                    1
-                } else {
-                    0
-                }
-            }
-        }
-    }
 }
 
 pub fn pow_table_encode<F: FieldExt>(
@@ -281,7 +225,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                     || Ok(F::from(0 as u64)),
                 )?;
                 let mut offset = 1;
-                for i in BinOp::iter() {
+                for i in BitOp::iter() {
                     table.assign_cell(
                         || "range table",
                         self.config.u4_bop_col,
@@ -308,19 +252,19 @@ impl<F: FieldExt> RangeTableChip<F> {
                     || Ok(F::from(0 as u64)),
                 )?;
                 let mut offset = 1;
-                for i in BinOp::iter() {
-                    for l in 0..i.left_range() {
-                        for r in 0..i.right_range() {
-                            let res = i.calc(l, r);
+                for i in BitOp::iter() {
+                    for l in 0..1 << 4 {
+                        for r in 0..1 << 4 {
+                            let res = i.eval(l, r);
                             table.assign_cell(
                                 || "range table",
                                 self.config.u4_bop_calc_col,
                                 offset as usize,
                                 || {
-                                    Ok(F::from((l * 256 + r * 16 + res) as u64) 
+                                    Ok(F::from((l * 256 + r * 16 + res) as u64)
                                         * bn_to_field::<F>(
                                             &(BigUint::from(1u64) << (i as usize * 12)),
-                                    ))
+                                        ))
                                 },
                             )?;
                             offset += 1;

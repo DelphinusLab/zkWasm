@@ -95,7 +95,6 @@ pub enum BitOp {
     And = 0,
     Or = 1,
     Xor = 2,
-    Not = 3,
 }
 
 impl BitOp {
@@ -104,14 +103,6 @@ impl BitOp {
             BitOp::And => left & right,
             BitOp::Or => left | right,
             BitOp::Xor => left ^ right,
-            BitOp::Not => !left,
-        }
-    }
-
-    pub fn is_binop(&self) -> bool {
-        match self {
-            BitOp::Not => false,
-            _ => true,
         }
     }
 }
