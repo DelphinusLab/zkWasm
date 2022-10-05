@@ -159,7 +159,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
 
         match class {
             specs::itable::BitOp::And => {
-                unimplemented!()
+                // TODO
             },
             specs::itable::BitOp::Or => {
                 unimplemented!()
