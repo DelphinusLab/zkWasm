@@ -162,7 +162,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
                 // TODO
             },
             specs::itable::BitOp::Or => {
-                unimplemented!()
+                // TODO
             },
             specs::itable::BitOp::Xor => {
                 self.op_class.assign(ctx, BinOp::Xor as u64)?;
