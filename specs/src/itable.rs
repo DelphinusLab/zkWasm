@@ -59,7 +59,7 @@ impl OpcodeClass {
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
             OpcodeClass::Conversion => 2,
-            OpcodeClass::Sha256 => todo!(),
+            OpcodeClass::Sha256 => 0, // dynamic
         }
     }
 

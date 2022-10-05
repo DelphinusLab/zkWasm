@@ -8,7 +8,7 @@ mod tests {
 
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::types::Value;
-    use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
+    use std::{fs::File, io::Read, path::PathBuf};
     use wasmi::ImportsBuilder;
 
     #[test]
@@ -25,7 +25,7 @@ mod tests {
 
         let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler
-            .compile(&wasm, &imports, &HashMap::default())
+            .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
         let execution_log = compiler
             .run(
