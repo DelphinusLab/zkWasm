@@ -49,6 +49,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         let lookup_stack_read_return_value = common.alloc_mtable_lookup();
         let lookup_stack_write_return_value = common.alloc_mtable_lookup();
 
+        // TODO: add constraints
+
         Box::new(BrIfConfig {
             cond,
             cond_inv,

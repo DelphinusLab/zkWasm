@@ -99,6 +99,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let opcode_set = BTreeSet::from([
+            OpcodeClass::BrIfEqz,
             OpcodeClass::Return,
             OpcodeClass::Drop,
             OpcodeClass::Call,

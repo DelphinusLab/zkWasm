@@ -1,6 +1,6 @@
 use super::mtable::VarType;
 use crate::{
-    encode::opcode::encode_call,
+    encode::opcode::{encode_br_if_eqz, encode_call},
     host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
     types::ValueType,
@@ -314,13 +314,11 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
                     + dst_pc
             }
-            Opcode::BrIfEqz { drop, keep, dst_pc } => {
-                // TODO: should encode type of keep values?
-                (BigUint::from(OpcodeClass::BrIfEqz as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
-                    + dst_pc
-            }
+            Opcode::BrIfEqz { drop, keep, dst_pc } => encode_br_if_eqz(
+                BigUint::from(drop as u64),
+                BigUint::from(keep.len() as u64),
+                BigUint::from(dst_pc),
+            ),
             Opcode::Unreachable => {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }

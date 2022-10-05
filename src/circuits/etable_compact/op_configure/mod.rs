@@ -7,6 +7,7 @@ pub(super) mod op_bin;
 pub(super) mod op_bin_bit;
 pub(super) mod op_bin_shift;
 pub(super) mod op_br_if;
+pub(super) mod op_br_if_eqz;
 pub(super) mod op_call;
 pub(super) mod op_call_host_input;
 pub(super) mod op_const;
