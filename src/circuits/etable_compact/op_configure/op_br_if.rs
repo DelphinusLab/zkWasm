@@ -21,6 +21,7 @@ use specs::{
 pub struct BrIfConfig {
     cond: U64Cell,
     cond_inv: UnlimitedCell,
+    cond_is_zero: BitCell,
     keep: BitCell,
     keep_value: U64Cell,
     keep_type: CommonRangeCell,
@@ -36,10 +37,11 @@ pub struct BrIfConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        _constraint_builder: &mut ConstraintBuilder<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let cond = common.alloc_u64();
         let cond_inv = common.alloc_unlimited_value();
+        let cond_is_zero = common.alloc_bit_value();
         let keep = common.alloc_bit_value();
         let keep_value = common.alloc_u64();
         let keep_type = common.alloc_common_range_value();
@@ -49,7 +51,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         let lookup_stack_read_return_value = common.alloc_mtable_lookup();
         let lookup_stack_write_return_value = common.alloc_mtable_lookup();
 
-        // TODO: add constraints
+        constraint_builder.push(
+            "op_br_if cond bit",
+            Box::new(move |meta| {
+                vec![
+                    cond_is_zero.expr(meta) * cond.expr(meta),
+                    cond_is_zero.expr(meta) + cond.expr(meta) * cond_inv.expr(meta)
+                        - constant_from!(1),
+                ]
+            }),
+        );
 
         Box::new(BrIfConfig {
             cond,
@@ -62,6 +73,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
             lookup_stack_read_cond,
             lookup_stack_read_return_value,
             lookup_stack_write_return_value,
+            cond_is_zero,
         })
     }
 }
@@ -144,6 +156,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                 self.cond.assign(ctx, cond)?;
                 self.cond_inv
                     .assign(ctx, F::from(cond).invert().unwrap_or(F::zero()))?;
+                self.cond_is_zero.assign(ctx, cond == 0)?;
 
                 self.dst_pc.assign(ctx, (*dst_pc).try_into().unwrap())?;
             }
@@ -161,8 +174,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
         Some(
             constant_from!(1)
                 + constant_from!(2)
-                    * self.cond.expr(meta)
-                    * self.cond_inv.expr(meta)
+                    * (constant_from!(1) - cond_is_zero.expr(meta))
                     * self.keep.expr(meta),
         )
     }
@@ -183,8 +195,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
             )),
 
             MLookupItem::Second => Some(
-                self.cond.expr(meta)
-                    * self.cond_inv.expr(meta)
+                (constant_from!(1) - self.cond_is_zero.expr(meta))
                     * self.keep.expr(meta)
                     * MemoryTableLookupEncode::encode_stack_read(
                         common_config.eid(meta),
@@ -196,8 +207,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
             ),
 
             MLookupItem::Third => Some(
-                self.cond.expr(meta)
-                    * self.cond_inv.expr(meta)
+                (constant_from!(1) - self.cond_is_zero.expr(meta))
                     * self.keep.expr(meta)
                     * MemoryTableLookupEncode::encode_stack_write(
                         common_config.eid(meta),
@@ -215,7 +225,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(
             constant_from!(1)
-                + self.cond.expr(meta) * self.cond_inv.expr(meta) * self.drop.expr(meta),
+                + (constant_from!(1) - self.cond_is_zero.expr(meta)) * self.drop.expr(meta),
         )
     }
 
@@ -225,9 +235,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         Some(
-            self.cond.expr(meta) * self.cond_inv.expr(meta) * self.dst_pc.expr(meta)
-                + (constant_from!(1) - self.cond.expr(meta) * self.cond_inv.expr(meta))
-                    * (common_config.iid(meta) + constant_from!(1)),
+            (constant_from!(1) - self.cond_is_zero.expr(meta)) * self.dst_pc.expr(meta)
+                + self.cond_is_zero.expr(meta) * (common_config.iid(meta) + constant_from!(1)),
         )
     }
 }
