@@ -101,6 +101,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let opcode_set = BTreeSet::from([
             OpcodeClass::Return,
             OpcodeClass::Drop,
+            OpcodeClass::Call,
             OpcodeClass::Const,
             OpcodeClass::LocalGet,
             OpcodeClass::LocalSet,

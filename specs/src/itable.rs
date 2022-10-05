@@ -1,5 +1,6 @@
 use super::mtable::VarType;
 use crate::{
+    encode::opcode::encode_call,
     host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
     types::ValueType,
@@ -323,10 +324,7 @@ impl Into<BigUint> for Opcode {
             Opcode::Unreachable => {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }
-            Opcode::Call { index } => {
-                (BigUint::from(OpcodeClass::Call as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(index as u64) << OPCODE_ARG0_SHIFT)
-            }
+            Opcode::Call { index } => encode_call(BigUint::from(index as u64)),
             Opcode::CallHost {
                 plugin,
                 function_index,
