@@ -174,7 +174,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
         Some(
             constant_from!(1)
                 + constant_from!(2)
-                    * (constant_from!(1) - cond_is_zero.expr(meta))
+                    * (constant_from!(1) - self.cond_is_zero.expr(meta))
                     * self.keep.expr(meta),
         )
     }

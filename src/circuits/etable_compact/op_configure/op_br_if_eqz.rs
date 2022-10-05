@@ -37,7 +37,7 @@ pub struct BrIfEqzConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        _constraint_builder: &mut ConstraintBuilder<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let cond = common.alloc_u64();
         let cond_inv = common.alloc_unlimited_value();
