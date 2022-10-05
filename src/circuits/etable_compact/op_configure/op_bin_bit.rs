@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     circuits::{
         mtable_compact::encode::MemoryTableLookupEncode,
-        rtable::{BinOp, pow_table_encode},
+        rtable::pow_table_encode,
         utils::{bn_to_field, Context},
     },
     constant,
@@ -19,7 +19,6 @@ use specs::{
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
 };
 
-
 pub struct BinBitConfig {
     lhs: U64Cell,
     rhs: U64Cell,
@@ -34,9 +33,7 @@ pub struct BinBitConfig {
     lookup_stack_write: MTableLookupCell,
 }
 
-
 pub struct BinBitConfigBuilder {}
-
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
     fn configure(
@@ -58,17 +55,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         constraint_builder.push(
             "binbit op class",
             Box::new(move |meta| {
-                vec![op_lookup.expr(meta) - pow_table_encode(op.expr(meta), constant_from!(12) * op_class.expr(meta))]
-            })
-        ); 
+                vec![
+                    op_lookup.expr(meta)
+                        - pow_table_encode(op.expr(meta), constant_from!(12) * op_class.expr(meta)),
+                ]
+            }),
+        );
 
         constraint_builder.push(
             "binbit eq constraints",
-            Box::new(move |meta| {
-                vec![
-                    op.eq_constraint(meta)
-                ]
-            }),
+            Box::new(move |meta| vec![op.eq_constraint(meta)]),
         );
 
         // limit the power to be u16 size
@@ -76,12 +72,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             "binbit op_class range",
             Box::new(move |meta| {
                 vec![
-                    op_class.u8_expr(meta, 2)   
-                    + op_class.u8_expr(meta, 3)   
-                    + op_class.u8_expr(meta, 4)   
-                    + op_class.u8_expr(meta, 5)   
-                    + op_class.u8_expr(meta, 6)   
-                    + op_class.u8_expr(meta, 7)   
+                    op_class.u8_expr(meta, 2)
+                        + op_class.u8_expr(meta, 3)
+                        + op_class.u8_expr(meta, 4)
+                        + op_class.u8_expr(meta, 5)
+                        + op_class.u8_expr(meta, 6)
+                        + op_class.u8_expr(meta, 7),
                 ]
             }),
         );
@@ -99,19 +95,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             lookup_stack_read_rhs,
             lookup_stack_write,
         })
-
     }
 }
-
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::BinBit as u64) << OPCODE_CLASS_SHIFT)
         )) + self.op_class.expr(meta)
-            * constant!(bn_to_field(
-                &(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)
-            ))
+            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + self.vtype.expr(meta)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
     }
@@ -122,56 +114,64 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
         step_info: &StepStatus,
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
-        let (class, vtype, left, right, value ) =
-            match entry.step_info {
-                StepInfo::I32BinBitOp {
-                    class,
-                    left,
-                    right,
-                    value,
-                } => {
-                    let vtype = VarType::I32;
-                    let left = left as u32 as u64;
-                    let right = right as u32 as u64;
-                    let value = value as u32 as u64;
-                    (class, vtype, left, right, value)
-                },
-                StepInfo::I64BinBitOp {
-                    class,
-                    left,
-                    right,
-                    value,
-                } => {
-                    let vtype = VarType::I64;
-                    let left = left as u64;
-                    let right = right as u64;
-                    let value = value as u64;
-                    (class, vtype, left, right, value)
-                },
-                _ => unreachable!(),
-            };
+        let (class, vtype, left, right, value) = match entry.step_info {
+            StepInfo::I32BinBitOp {
+                class,
+                left,
+                right,
+                value,
+            } => {
+                let vtype = VarType::I32;
+                let left = left as u32 as u64;
+                let right = right as u32 as u64;
+                let value = value as u32 as u64;
+                (class, vtype, left, right, value)
+            }
+            StepInfo::I64BinBitOp {
+                class,
+                left,
+                right,
+                value,
+            } => {
+                let vtype = VarType::I64;
+                let left = left as u64;
+                let right = right as u64;
+                let value = value as u64;
+                (class, vtype, left, right, value)
+            }
+            _ => unreachable!(),
+        };
 
         self.vtype.assign(ctx, vtype as u16)?;
         self.lhs.assign(ctx, left)?;
         self.rhs.assign(ctx, right)?;
         self.res.assign(ctx, value)?;
 
-
         match class {
             specs::itable::BitOp::And => {
-                // TODO
-            },
+                self.op_class.assign(ctx, BitOp::And as u64)?;
+                self.op.assign(
+                    ctx,
+                    bn_to_field(&(BigUint::from(1u64) << (BitOp::And as usize * 12))),
+                )?;
+                self.op_lookup.assign(ctx, (BitOp::And as u64) * 12)?;
+            }
             specs::itable::BitOp::Or => {
-                // TODO
-            },
+                self.op_class.assign(ctx, BitOp::Or as u64)?;
+                self.op.assign(
+                    ctx,
+                    bn_to_field(&(BigUint::from(1u64) << (BitOp::Or as usize * 12))),
+                )?;
+                self.op_lookup.assign(ctx, (BitOp::Or as u64) * 12)?;
+            }
             specs::itable::BitOp::Xor => {
-                self.op_class.assign(ctx, BinOp::Xor as u64)?;
-                self.op.assign(ctx, bn_to_field(&(BigUint::from(1u64) << (BinOp::Xor as usize * 12))))?;
-                self.op_lookup.assign(ctx, (BinOp::Xor as u64) * 12)?;
-            },
-            specs::itable::BitOp::Not => {
-                unimplemented!()
-            },
+                self.op_class.assign(ctx, BitOp::Xor as u64)?;
+                self.op.assign(
+                    ctx,
+                    bn_to_field(&(BigUint::from(1u64) << (BitOp::Xor as usize * 12))),
+                )?;
+                self.op_lookup.assign(ctx, (BitOp::Xor as u64) * 12)?;
+            }
         };
 
         self.lookup_stack_read_lhs.assign(
@@ -268,18 +268,6 @@ mod tests {
                       (i32.const 1)
                       i32.xor
                       drop
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_xor1() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i32.const 21)
                       (i32.const 31)
                       i32.xor
@@ -291,5 +279,87 @@ mod tests {
         test_circuit_noexternal(textual_repr).unwrap()
     }
 
-}
+    #[test]
+    fn test_i32_and1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 21)
+                      (i32.const 31)
+                      i32.and
+                      drop
+                    )
+                   )
+                "#;
 
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_or1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 21)
+                      (i32.const 31)
+                      i32.or
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_xor() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 1)
+                      i64.xor
+                      drop
+                      (i64.const 21)
+                      (i64.const 31)
+                      i64.xor
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_and1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 21)
+                      (i64.const 31)
+                      i64.and
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_or1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 21)
+                      (i64.const 31)
+                      i64.or
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+}
