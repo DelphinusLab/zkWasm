@@ -202,7 +202,35 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                     )
                 }
 
-                _ => unreachable!(),
+                StepInfo::I64BinShiftOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                } => {
+                    // FIXME: check
+                    let vtype = VarType::I64;
+                    let left = left as u64;
+                    let right = right as u64;
+                    let value = value as u64;
+                    let power = right % 64;
+                    let is_eight_bytes = true;
+                    let is_sign = true;
+                    (
+                        class,
+                        vtype,
+                        left,
+                        right,
+                        value,
+                        power,
+                        is_eight_bytes,
+                        is_sign,
+                    )
+                }
+
+                _ => {
+                    unreachable!();
+                }
             };
 
         self.lhs.assign(ctx, left)?;
