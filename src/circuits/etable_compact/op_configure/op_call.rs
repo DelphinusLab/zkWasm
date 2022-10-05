@@ -12,12 +12,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::{
-    encode::opcode::encode_call,
-    etable::EventTableEntry,
-    host_function::HostPlugin,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
-};
+use specs::{encode::opcode::encode_call, etable::EventTableEntry, itable::OpcodeClass};
 use specs::{mtable::VarType, step::StepInfo};
 
 pub struct CallConfig {
@@ -31,7 +26,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        // TODO
         let index = common.alloc_common_range_value();
 
         Box::new(CallConfig { index })
@@ -46,12 +40,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step_info: &StepStatus,
+        _step_info: &StepStatus,
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::Call { index } => {
-                // TODO
+                self.index.assign(ctx, *index)?;
 
                 Ok(())
             }
@@ -68,15 +62,32 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig {
         Some(constant_from!(0))
     }
 
-    fn mtable_lookup(
+    fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(1))
+    }
+
+    fn next_last_jump_eid(
         &self,
         meta: &mut VirtualCells<'_, F>,
-        item: MLookupItem,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        match item {
-            _ => None,
-        }
+        Some(common_config.next_last_jump_eid(meta))
+    }
+
+    fn next_fid(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(self.index.expr(meta))
+    }
+
+    fn next_iid(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(constant_from!(0))
     }
 }
 

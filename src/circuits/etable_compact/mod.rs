@@ -494,8 +494,9 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 match config.jops(meta) {
                     Some(e) => {
-                        rest_jops_acc =
-                            rest_jops_acc + e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                        rest_jops_acc = rest_jops_acc
+                            + e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                                * common_config.next_enable(meta) // The last return is not accounting into.
                     }
                     _ => {}
                 }

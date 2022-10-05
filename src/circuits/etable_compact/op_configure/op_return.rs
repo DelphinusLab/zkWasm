@@ -146,6 +146,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         Some(constant_from!(2) * self.keep.expr(meta))
     }
 
+    fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(1))
+    }
+
     fn next_last_jump_eid(
         &self,
         meta: &mut VirtualCells<'_, F>,
