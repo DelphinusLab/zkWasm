@@ -464,7 +464,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.input_index(meta) - common_config.next_input_index(meta);
             let mut moid_acc = common_config.next_moid(meta) - common_config.moid(meta);
             let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
-            let mut iid_acc = common_config.next_iid(meta) - common_config.iid(meta);
+            let mut iid_acc =
+                common_config.next_iid(meta) - common_config.iid(meta) - constant_from!(1);
             let mut sp_acc = common_config.next_sp(meta) - common_config.sp(meta);
             let mut last_jump_eid_acc =
                 common_config.next_last_jump_eid(meta) - common_config.last_jump_eid(meta);
@@ -531,7 +532,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 match config.next_iid(meta, &common_config) {
                     Some(e) => {
                         iid_acc = iid_acc
-                            - (e - common_config.iid(meta))
+                            + (constant_from!(1) + common_config.iid(meta) - e)
                                 * common_config.op_enabled(meta, *lvl1, *lvl2)
                     }
                     _ => {}
