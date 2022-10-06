@@ -13,6 +13,7 @@ use halo2_proofs::{
 };
 use num_bigint::ToBigUint;
 use specs::mtable::VarType;
+use specs::step::StepInfo;
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
@@ -73,7 +74,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
         match &entry.step_info {
-            specs::step::StepInfo::Return {
+            StepInfo::Return {
                 drop,
                 keep,
                 keep_values,
@@ -144,6 +145,29 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(2) * self.keep.expr(meta))
+    }
+
+    fn assigned_extra_mops(
+        &self,
+        _ctx: &mut Context<'_, F>,
+        _step: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> u64 {
+        match &entry.step_info {
+            StepInfo::Return {
+                keep,
+                ..
+            } => {
+                if keep.len() > 0
+                {
+                    assert!(keep.len() == 1);
+                    2
+                } else {
+                    0
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 
     fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

@@ -369,6 +369,29 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
         )
     }
 
+    fn assigned_extra_mops(
+        &self,
+        _ctx: &mut Context<'_, F>,
+        _step: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> u64 {
+        match &entry.step_info {
+            StepInfo::Load {
+                load_size,
+                effective_address,
+                ..
+            } => {
+                if (*effective_address + load_size.byte_size() as u32 - 1) / 8 != *effective_address / 8
+                {
+                    1
+                } else {
+                    0
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
     fn mtable_lookup(
         &self,
         meta: &mut VirtualCells<'_, F>,

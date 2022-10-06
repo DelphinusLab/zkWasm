@@ -8,6 +8,7 @@ use crate::circuits::etable_compact::op_configure::op_br::BrConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if_eqz::BrIfEqzConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_call::CallConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_call_host_input::CallHostWasmInputConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
@@ -23,6 +24,7 @@ use crate::circuits::etable_compact::op_configure::op_test::TestConfigBuilder;
 use crate::circuits::etable_compact::op_configure::ConstraintBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
+use crate::circuits::intable::InputForeignCallInfo;
 use crate::circuits::itable::encode_inst_expr;
 use crate::circuits::itable::Encode;
 use crate::circuits::utils::bn_to_field;
@@ -64,7 +66,7 @@ const U4_COLUMNS: usize = 3usize;
 const U8_COLUMNS: usize = 2usize;
 const BITS_COLUMNS: usize = 2usize;
 const MTABLE_LOOKUPS_SIZE: usize = 6usize;
-const MAX_OP_LVL1: i32 = 8;
+const MAX_OP_LVL1: i32 = (ETABLE_STEP_SIZE >> 1) as i32;
 const MAX_OP_LVL2: i32 = ETABLE_STEP_SIZE as i32;
 
 fn opclass_to_two_level(class: OpcodeClassPlain) -> (usize, usize) {
@@ -75,7 +77,7 @@ fn opclass_to_two_level(class: OpcodeClassPlain) -> (usize, usize) {
 
     (
         (id / MAX_OP_LVL1) as usize,
-        ((id % MAX_OP_LVL1) + 8) as usize,
+        ((id % MAX_OP_LVL1) + MAX_OP_LVL1) as usize,
     )
 }
 
@@ -417,7 +419,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     op_bitmaps.insert(op, (op_lvl1 as i32, op_lvl2 as i32));
                     op_configs.insert(op, Rc::new(config));
                 }
-    })
+            })
         ];
 
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
@@ -440,7 +442,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
         // TODO: dynamically register plugins
-        // configure_foreign!(HostPlugin::HostInput, CallHostWasmInputConfigBuilder);
+        configure_foreign!(
+            HostPlugin::HostInput,
+            CallHostWasmInputConfigBuilder,
+            InputForeignCallInfo
+        );
         configure_foreign!(
             HostPlugin::Sha256,
             ETableSha256HelperTableConfigBuilder,
@@ -560,11 +566,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.intable_lookup(meta, &common_config) {
-                    Some(_) => {
-                        assert!(config.is_host_input());
+                match config.input_index_increase(meta, &common_config) {
+                    Some(e) => {
                         input_index_acc =
-                            input_index_acc + common_config.op_enabled(meta, *lvl1, *lvl2);
+                            input_index_acc + common_config.op_enabled(meta, *lvl1, *lvl2) * e
                     }
                     _ => {}
                 }

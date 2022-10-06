@@ -6,6 +6,7 @@ use crate::{
         utils::{bn_to_field, Context},
     },
     constant,
+    foreign::ForeignCallInfo,
 };
 
 use halo2_proofs::{
@@ -29,10 +30,11 @@ pub struct CallHostWasmInputConfig {
 
 pub struct CallHostWasmInputConfigBuilder {}
 
-impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallHostWasmInputConfigBuilder {
+impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for CallHostWasmInputConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
+        _info: &impl ForeignCallInfo,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let public = common.alloc_bit_value();
         let value = common.alloc_u64();
@@ -40,12 +42,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallHostWasmInputConfigBu
         let lookup_read_stack = common.alloc_mtable_lookup();
         let lookup_write_stack = common.alloc_mtable_lookup();
 
+        let input_index = common.input_index_cell();
+
         constraint_builder.lookup(
             INPUT_TABLE_KEY,
             "lookup input table",
             Box::new(move |meta| {
-                // TODO: fix me
-                InputTableEncode::encode_for_lookup(constant_from!(0), value.expr(meta))
+                InputTableEncode::encode_for_lookup(input_index.expr(meta), value.expr(meta))
             }),
         );
 
@@ -61,7 +64,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallHostWasmInputConfigBu
 impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostWasmInputConfig {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + HostPlugin::Sha256 as u64)
+            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + HostPlugin::HostInput as u64)
                 << OPCODE_CLASS_SHIFT)
         ))
     }
@@ -127,6 +130,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostWasmInputConfig {
         Some(constant_from!(2))
     }
 
+    fn assigned_extra_mops(
+        &self,
+        _ctx: &mut Context<'_, F>,
+        _step: &StepStatus,
+        _entry: &EventTableEntry,
+    ) -> u64 {
+        2
+    }
+
     fn mtable_lookup(
         &self,
         meta: &mut VirtualCells<'_, F>,
@@ -152,22 +164,28 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallHostWasmInputConfig {
         }
     }
 
-    fn intable_lookup(
+    fn input_index_increase(
         &self,
         meta: &mut VirtualCells<'_, F>,
-        common_config: &EventTableCommonConfig<F>,
+        _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        Some(
-            self.public.expr(meta)
-                * InputTableEncode::encode_for_lookup(
-                    common_config.input_index(meta),
-                    self.value.expr(meta),
-                ),
-        )
+        Some(self.public.expr(meta))
     }
 
-    fn is_host_input(&self) -> bool {
-        true
+    fn is_host_public_input(&self, _step: &StepStatus, entry: &EventTableEntry) -> bool {
+        match &entry.step_info {
+            StepInfo::CallHost {
+                plugin,
+                args,
+                ..
+            } => {
+                assert_eq!(*plugin, HostPlugin::HostInput);
+                assert_eq!(args.len(), 1);
+
+                args[0] == 1
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
