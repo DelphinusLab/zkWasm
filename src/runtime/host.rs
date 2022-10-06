@@ -20,31 +20,6 @@ pub(self) trait BuiltInHostFunction {
     fn handler(args: RuntimeArgs) -> Option<RuntimeValue>;
 }
 
-mod wasm_input {
-    use super::BuiltInHostFunction;
-    use specs::host_function::HostPlugin;
-    use specs::host_function::Signature;
-    use specs::types::ValueType;
-
-    pub(super) struct Function;
-
-    impl BuiltInHostFunction for Function {
-        const NAME: &'static str = "wasm_input";
-        const PLUGIN: HostPlugin = HostPlugin::HostInput;
-
-        fn signature() -> Signature {
-            Signature {
-                params: vec![ValueType::I32],
-                return_type: Some(ValueType::I64),
-            }
-        }
-
-        fn handler(_args: wasmi::RuntimeArgs) -> Option<wasmi::RuntimeValue> {
-            Some(wasmi::RuntimeValue::I64(0))
-        }
-    }
-}
-
 pub struct HostEnv {
     functions: HashMap<String, Function>,
     pub function_plugin_lookup: HashMap<usize, HostFunctionDesc>,
@@ -53,27 +28,11 @@ pub struct HostEnv {
 
 impl HostEnv {
     pub fn new() -> HostEnv {
-        let mut env = HostEnv {
+        HostEnv {
             functions: HashMap::default(),
             names: vec![],
             function_plugin_lookup: HashMap::default(),
-        };
-
-        macro_rules! register_builtin {
-            ($n:ident) => {
-                env.register_function(
-                    $n::Function::NAME,
-                    $n::Function::signature(),
-                    $n::Function::handler,
-                    $n::Function::PLUGIN,
-                )
-                .unwrap();
-            };
         }
-
-        register_builtin!(wasm_input);
-
-        env
     }
 
     fn get_function_by_index(&self, index: usize) -> &Function {

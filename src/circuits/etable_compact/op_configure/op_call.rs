@@ -1,7 +1,6 @@
 use super::*;
 use crate::{
     circuits::{
-        intable::InputTableEncode,
         mtable_compact::encode::MemoryTableLookupEncode,
         utils::{bn_to_field, Context},
     },

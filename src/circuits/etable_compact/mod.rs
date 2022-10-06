@@ -31,6 +31,8 @@ use crate::curr;
 use crate::fixed_curr;
 use crate::foreign::sha256_helper::etable_op_configure::ETableSha256HelperTableConfigBuilder;
 use crate::foreign::sha256_helper::etable_op_configure::Sha256ForeignCallInfo;
+use crate::foreign::wasm_input_helper::etable_op_configure::ETableWasmInputHelperTableConfigBuilder;
+use crate::foreign::wasm_input_helper::etable_op_configure::WasmInputForeignCallInfo;
 use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::ForeignTableConfig;
 use crate::nextn;
@@ -440,7 +442,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
         // TODO: dynamically register plugins
-        // configure_foreign!(HostPlugin::HostInput, CallHostWasmInputConfigBuilder);
+        configure_foreign!(
+            HostPlugin::HostInput,
+            ETableWasmInputHelperTableConfigBuilder,
+            WasmInputForeignCallInfo
+        );
         configure_foreign!(
             HostPlugin::Sha256,
             ETableSha256HelperTableConfigBuilder,

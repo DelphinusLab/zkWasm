@@ -8,6 +8,7 @@ use crate::circuits::etable_compact::op_configure::{
 };
 
 pub mod sha256_helper;
+pub mod wasm_input_helper;
 
 pub trait ForeignCallInfo {
     fn call_id(&self) -> usize;
