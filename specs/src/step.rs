@@ -161,8 +161,9 @@ pub enum StepInfo {
         value: i64,
         result: i32,
     },
-    I64ExtendUI32 {
+    I64ExtendI32 {
         value: i32,
         result: i64,
+        sign: bool,
     },
 }
