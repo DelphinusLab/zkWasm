@@ -27,6 +27,13 @@ impl EventTableEntry {
                     2 * keep.len() as u64
                 }
             }
+            StepInfo::CallHost { plugin, .. } => {
+                if *plugin == HostPlugin::HostInput {
+                    2
+                } else {
+                    unreachable!()
+                }
+            }
             _ => 0,
         }
     }
