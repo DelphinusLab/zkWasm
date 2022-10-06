@@ -60,7 +60,7 @@ mod tests {
                 &mut NopExternals,
                 &compiled_module,
                 "fibonacci",
-                vec![Value::I32(15)],
+                vec![Value::I32(10)],
             )
             .unwrap();
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()

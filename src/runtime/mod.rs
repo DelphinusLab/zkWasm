@@ -745,7 +745,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             &[*value as u64],
             &[*result as u32 as u64],
         ),
-        StepInfo::I64ExtendUI32 { value, result } => mem_op_from_stack_only_step(
+        StepInfo::I64ExtendI32 { value, result, .. } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
             emid,

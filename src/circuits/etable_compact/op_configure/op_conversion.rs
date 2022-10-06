@@ -1,31 +1,29 @@
 use super::*;
-use crate::{
-    circuits::{
-        mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, Context},
-    },
-    constant,
-};
+use crate::circuits::{mtable_compact::encode::MemoryTableLookupEncode, utils::Context};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::mtable::VarType;
 use specs::step::StepInfo;
+use specs::{encode::opcode::encode_conversion, mtable::VarType};
 use specs::{
     etable::EventTableEntry,
-    itable::{ConversionOp, OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
+    itable::{ConversionOp, OpcodeClass},
 };
 
 pub struct ConversionConfig {
-    value: U64Cell,
+    value: U64OnU8Cell,
     value_type: CommonRangeCell,
-
     res: U64Cell,
     res_type: CommonRangeCell,
 
+    flag_bit: BitCell,
+    flag_u8_rem: CommonRangeCell,
+    flag_u8_rem_diff: CommonRangeCell,
+
     is_i32_wrap_i64: BitCell,
     is_i64_extend_i32_u: BitCell,
+    is_i64_extend_i32_s: BitCell,
 
     lookup_stack_read: MTableLookupCell,
     lookup_stack_write: MTableLookupCell,
@@ -38,14 +36,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let value = common.alloc_u64();
+        let value = common.alloc_u64_on_u8();
         let value_type = common.alloc_common_range_value();
 
         let res = common.alloc_u64();
         let res_type = common.alloc_common_range_value();
 
+        let flag_bit = common.alloc_bit_value();
+        let flag_u8_rem = common.alloc_common_range_value();
+        let flag_u8_rem_diff = common.alloc_common_range_value();
+
         let is_i32_wrap_i64 = common.alloc_bit_value();
         let is_i64_extend_i32_u = common.alloc_bit_value();
+        let is_i64_extend_i32_s = common.alloc_bit_value();
 
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
@@ -54,14 +57,72 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             "op_conversion pick one",
             Box::new(move |meta| {
                 vec![
-                    is_i32_wrap_i64.expr(meta) + is_i64_extend_i32_u.expr(meta) - constant_from!(1),
+                    is_i32_wrap_i64.expr(meta)
+                        + is_i64_extend_i32_u.expr(meta)
+                        + is_i64_extend_i32_s.expr(meta)
+                        - constant_from!(1),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "type matches op",
+            Box::new(move |meta| {
+                vec![
+                    is_i32_wrap_i64.expr(meta)
+                        * (value_type.expr(meta) - constant_from!(VarType::I64)),
+                    is_i32_wrap_i64.expr(meta)
+                        * (res_type.expr(meta) - constant_from!(VarType::I32)),
+                    (is_i64_extend_i32_s.expr(meta) + is_i64_extend_i32_u.expr(meta))
+                        * (value_type.expr(meta) - constant_from!(VarType::I32)),
+                    (is_i64_extend_i32_s.expr(meta) + is_i64_extend_i32_u.expr(meta))
+                        * (res_type.expr(meta) - constant_from!(VarType::I64)),
                 ]
             }),
         );
 
         constraint_builder.push(
             "i32_wrap_i64",
-            Box::new(move |meta| vec![is_i32_wrap_i64.expr(meta) * res.expr(meta)]),
+            Box::new(move |meta| {
+                let mut acc = constant_from!(0);
+
+                for i in 0..4 {
+                    acc = acc + value.u8_expr(meta, i) * constant_from!(1 << (i * 8));
+                }
+
+                vec![is_i32_wrap_i64.expr(meta) * (acc - res.expr(meta))]
+            }),
+        );
+
+        constraint_builder.push(
+            "extend op flag bit",
+            Box::new(move |meta| {
+                let flag_u8 = value.u8_expr(meta, 3);
+                vec![
+                    (is_i64_extend_i32_s.expr(meta) + is_i64_extend_i32_u.expr(meta))
+                        * (flag_bit.expr(meta) * constant_from!(128) + flag_u8_rem.expr(meta)
+                            - flag_u8),
+                    (is_i64_extend_i32_s.expr(meta) + is_i64_extend_i32_u.expr(meta))
+                        * (flag_u8_rem.expr(meta) + flag_u8_rem_diff.expr(meta)
+                            - constant_from!(127)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "i64_extend_i32_u",
+            Box::new(move |meta| {
+                vec![is_i64_extend_i32_u.expr(meta) * (res.expr(meta) - value.expr(meta))]
+            }),
+        );
+
+        constraint_builder.push(
+            "i64_extend_i32_s",
+            Box::new(move |meta| {
+                let pad = flag_bit.expr(meta) * constant_from!((u32::MAX as u64) << 32);
+
+                vec![is_i64_extend_i32_s.expr(meta) * (pad + value.expr(meta) - res.expr(meta))]
+            }),
         );
 
         Box::new(ConversionConfig {
@@ -69,8 +130,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             value_type,
             res,
             res_type,
+            flag_bit,
+            flag_u8_rem,
+            flag_u8_rem_diff,
             is_i32_wrap_i64,
             is_i64_extend_i32_u,
+            is_i64_extend_i32_s,
             lookup_stack_read,
             lookup_stack_write,
         })
@@ -79,14 +144,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        let subop = self.is_i32_wrap_i64.expr(meta)
-            * constant_from!(ConversionOp::I32WrapI64 as u64)
+        self.is_i32_wrap_i64.expr(meta)
+            * encode_conversion::<Expression<F>>(ConversionOp::I32WrapI64)
+            + self.is_i64_extend_i32_s.expr(meta)
+                * encode_conversion::<Expression<F>>(ConversionOp::I64ExtendI32s)
             + self.is_i64_extend_i32_u.expr(meta)
-                * constant_from!(ConversionOp::I64ExtendUI32 as u64);
-
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Conversion as u64) << OPCODE_CLASS_SHIFT)
-        )) + subop * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
+                * encode_conversion::<Expression<F>>(ConversionOp::I64ExtendI32u)
     }
 
     fn assign(
@@ -97,17 +160,33 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig {
     ) -> Result<(), Error> {
         let (value, value_type, result, result_type) = match entry.step_info {
             StepInfo::I32WrapI64 { value, result } => {
+                let power = 32;
+                let value = value as u64;
+                let rem = value & ((1 << power) - 1);
+
                 self.is_i32_wrap_i64.assign(ctx, true)?;
 
-                (
-                    value as u64,
-                    VarType::I64,
-                    result as u32 as u64,
-                    VarType::I32,
-                )
+                (value, VarType::I64, result as u32 as u64, VarType::I32)
             }
-            StepInfo::I64ExtendUI32 { value, result } => {
-                self.is_i64_extend_i32_u.assign(ctx, true)?;
+            StepInfo::I64ExtendI32 {
+                value,
+                result,
+                sign,
+            } => {
+                if sign {
+                    self.is_i64_extend_i32_s.assign(ctx, true)?;
+                } else {
+                    self.is_i64_extend_i32_u.assign(ctx, true)?;
+                }
+
+                let flag_u8 = value as u32 >> (32 - 8);
+                let flag_bit = flag_u8 >> 7;
+                let flag_u8_rem = flag_u8 & 0x7f;
+                let flag_u8_rem_diff = 0x7f - flag_u8_rem;
+
+                self.flag_bit.assign(ctx, flag_bit == 1)?;
+                self.flag_u8_rem.assign(ctx, flag_u8_rem as u16)?;
+                self.flag_u8_rem_diff.assign(ctx, flag_u8_rem_diff as u16)?;
 
                 (
                     value as u32 as u64,
@@ -197,6 +276,12 @@ mod tests {
                       (i64.const 0)
                       (i32.wrap_i64)
                       (drop)
+                      (i64.const 0xffffffff00000000)
+                      (i32.wrap_i64)
+                      (drop)
+                      (i64.const 0xfffffffff0f0f0f0)
+                      (i32.wrap_i64)
+                      (drop)
                     )
                    )
                 "#;
@@ -209,8 +294,38 @@ mod tests {
         let textual_repr = r#"
                 (module
                     (func (export "test")
-                      (i32.const 1)
+                      (i32.const 0)
                       (i64.extend_i32_u)
+                      (drop)
+                      (i32.const -1)
+                      (i64.extend_i32_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_extend_i32_s_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i64.extend_i32_s)
+                      (drop)
+
+                      (i32.const 0x7fffffff)
+                      (i64.extend_i32_s)
+                      (drop)
+
+                      (i32.const -1)
+                      (i64.extend_i32_s)
+                      (drop)
+
+                      (i32.const 0xffffffff)
+                      (i64.extend_i32_s)
                       (drop)
                     )
                    )

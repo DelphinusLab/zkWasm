@@ -1,7 +1,7 @@
 use num_bigint::BigUint;
 
 use crate::itable::{
-    OpcodeClass, OPCODE_ARG0_SHIFT as OPCODE_ARG0, OPCODE_ARG1_SHIFT as OPCODE_ARG1,
+    ConversionOp, OpcodeClass, OPCODE_ARG0_SHIFT as OPCODE_ARG0, OPCODE_ARG1_SHIFT as OPCODE_ARG1,
     OPCODE_CLASS_SHIFT as OPCODE_CLASS,
 };
 
@@ -30,4 +30,27 @@ pub fn encode_br_if_eqz<T: FromBn>(drop: T, keep: T, dst_pc: T) -> T {
         + drop * T::from_bn(&OPCODE_ARG0_SHIFT)
         + keep * T::from_bn(&OPCODE_ARG1_SHIFT)
         + dst_pc
+}
+
+pub fn encode_conversion<T: FromBn>(op: ConversionOp) -> T {
+    match op {
+        ConversionOp::I32WrapI64 => {
+            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
+                * T::from_bn(&OPCODE_CLASS_SHIFT)
+                + T::from_bn(&(BigUint::from(ConversionOp::I32WrapI64 as u64)))
+                    * T::from_bn(&OPCODE_ARG0_SHIFT)
+        }
+        ConversionOp::I64ExtendI32s => {
+            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
+                * T::from_bn(&OPCODE_CLASS_SHIFT)
+                + T::from_bn(&(BigUint::from(ConversionOp::I64ExtendI32s as u64)))
+                    * T::from_bn(&OPCODE_ARG0_SHIFT)
+        }
+        ConversionOp::I64ExtendI32u => {
+            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
+                * T::from_bn(&OPCODE_CLASS_SHIFT)
+                + T::from_bn(&(BigUint::from(ConversionOp::I64ExtendI32u as u64)))
+                    * T::from_bn(&OPCODE_ARG0_SHIFT)
+        }
+    }
 }

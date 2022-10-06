@@ -124,10 +124,11 @@ pub enum TestOp {
     Eqz,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, EnumIter)]
+#[derive(Copy, Clone, Debug, Serialize)]
 pub enum ConversionOp {
     I32WrapI64,
-    I64ExtendUI32,
+    I64ExtendI32s,
+    I64ExtendI32u,
 }
 
 #[derive(Clone, Debug, Serialize)]
