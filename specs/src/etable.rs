@@ -71,46 +71,6 @@ impl EventTable {
         &self.0
     }
 
-    pub fn rest_mops(&self) -> RestMops {
-        let mut v = Vec::with_capacity(self.0.len());
-
-        let mut mops_count = self.0.iter().fold(0, |acc, entry| {
-            acc + entry.extra_mops() + entry.inst.opcode.mops()
-        });
-
-        for entry in self.0.iter() {
-            v.push(mops_count);
-            mops_count -= entry.extra_mops() + entry.inst.opcode.mops();
-        }
-
-        v.reverse();
-
-        RestMops { rest_mops: v }
-    }
-
-    pub fn rest_jops(&self) -> RestJops {
-        let mut v = Vec::with_capacity(self.0.len());
-
-        // minus 1 becuase the last return is not a jump
-        let mut rest_jops = self
-            .0
-            .iter()
-            .fold(0, |acc, entry| acc + entry.inst.opcode.jops())
-            - 1;
-
-        for entry in self.0.iter() {
-            v.push(rest_jops);
-
-            if rest_jops > 0 {
-                rest_jops -= entry.inst.opcode.jops();
-            }
-        }
-
-        v.reverse();
-
-        RestJops { rest_jops: v }
-    }
-
     pub fn filter_foreign_entries(&self, foreign: HostPlugin) -> Vec<EventTableEntry> {
         self.0
             .clone()

@@ -175,6 +175,27 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig {
         )
     }
 
+    fn assigned_extra_mops(
+        &self,
+        _ctx: &mut Context<'_, F>,
+        _step: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> u64 {
+        match &entry.step_info {
+            StepInfo::BrIfEqz {
+                condition, keep, ..
+            } => {
+                if *condition == 0 && keep.len() > 0 {
+                    assert!(keep.len() == 1);
+                    2
+                } else {
+                    0
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
     fn mtable_lookup(
         &self,
         meta: &mut VirtualCells<'_, F>,

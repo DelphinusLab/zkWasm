@@ -465,6 +465,13 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             rot: allocated_index,
         }
     }
+
+    pub fn input_index_cell(&self) -> UnlimitedCell {
+        UnlimitedCell {
+            col: self.config.state.clone(),
+            rot: EventTableCommonRangeColumnRotation::InputIndex as i32,
+        }
+    }
 }
 
 pub struct ConstraintBuilder<'a, F: FieldExt> {
@@ -561,6 +568,15 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         entry: &EventTableEntry,
     ) -> Result<(), Error>;
 
+    fn assigned_extra_mops(
+        &self,
+        _ctx: &mut Context<'_, F>,
+        _step: &StepStatus,
+        _entry: &EventTableEntry,
+    ) -> u64 {
+        0u64
+    }
+
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
@@ -621,14 +637,14 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> Option<Expression<F>> {
         None
     }
-    fn intable_lookup(
+    fn input_index_increase(
         &self,
         _meta: &mut VirtualCells<'_, F>,
         _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
     }
-    fn is_host_input(&self) -> bool {
+    fn is_host_public_input(&self, _step: &StepStatus, _entry: &EventTableEntry) -> bool {
         false
     }
 }

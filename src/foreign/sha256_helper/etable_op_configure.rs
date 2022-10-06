@@ -1,4 +1,7 @@
-use super::{circuits::Sha2HelperEncode, Sha256HelperOp, SHA256_FOREIGN_TABLE_KEY};
+use super::{
+    circuits::Sha2HelperEncode, Sha256HelperOp, SHA256_FOREIGN_FUNCTION_NAME_CH,
+    SHA256_FOREIGN_FUNCTION_NAME_MAJ, SHA256_FOREIGN_TABLE_KEY,
+};
 use crate::{
     circuits::{
         etable_compact::{
@@ -12,7 +15,13 @@ use crate::{
         utils::{bn_to_field, Context},
     },
     constant_from, constant_from_bn,
-    foreign::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
+    foreign::{
+        sha256_helper::{
+            SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0, SHA256_FOREIGN_FUNCTION_NAME_LSIGMA1,
+            SHA256_FOREIGN_FUNCTION_NAME_SSIGMA0, SHA256_FOREIGN_FUNCTION_NAME_SSIGMA1,
+        },
+        EventTableForeignCallConfigBuilder, ForeignCallInfo,
+    },
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -150,6 +159,26 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
         Some(constant_from!(2) * is_four_mops + constant_from!(2))
     }
 
+    fn assigned_extra_mops(
+        &self,
+        _ctx: &mut Context<'_, F>,
+        _step: &StepStatus,
+        entry: &EventTableEntry,
+    ) -> u64 {
+        match &entry.step_info {
+            StepInfo::CallHost { function_name, .. } => {
+                if function_name == SHA256_FOREIGN_FUNCTION_NAME_CH
+                    || function_name == SHA256_FOREIGN_FUNCTION_NAME_MAJ
+                {
+                    4
+                } else {
+                    2
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
     fn mtable_lookup(
         &self,
         meta: &mut VirtualCells<'_, F>,
@@ -211,7 +240,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
             StepInfo::CallHost {
                 plugin,
                 function_name,
-                host_function_idx,
                 args,
                 ret_val,
                 ..
@@ -221,15 +249,25 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                 for (arg, v) in vec![&self.a, &self.b, &self.c].into_iter().zip(args.iter()) {
                     arg.assign(ctx, *v)?;
                 }
-                vec![
-                    &self.is_ssignma0,
-                    &self.is_ssignma1,
-                    &self.is_lsignma0,
-                    &self.is_lsignma1,
-                    &self.is_ch,
-                    &self.is_maj,
-                ][*host_function_idx - 1]
-                    .assign(ctx, true)?;
+
+                if function_name == SHA256_FOREIGN_FUNCTION_NAME_MAJ {
+                    self.is_maj.assign(ctx, true)?;
+                }
+                if function_name == SHA256_FOREIGN_FUNCTION_NAME_CH {
+                    self.is_ch.assign(ctx, true)?;
+                }
+                if function_name == SHA256_FOREIGN_FUNCTION_NAME_SSIGMA0 {
+                    self.is_ssignma0.assign(ctx, true)?;
+                }
+                if function_name == SHA256_FOREIGN_FUNCTION_NAME_SSIGMA1 {
+                    self.is_ssignma1.assign(ctx, true)?;
+                }
+                if function_name == SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0 {
+                    self.is_lsignma0.assign(ctx, true)?;
+                }
+                if function_name == SHA256_FOREIGN_FUNCTION_NAME_LSIGMA1 {
+                    self.is_lsignma1.assign(ctx, true)?;
+                }
 
                 for (i, (lookup, v)) in vec![
                     &self.lookup_stack_read_a,

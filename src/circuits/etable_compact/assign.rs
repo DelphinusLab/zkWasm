@@ -75,9 +75,10 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
         let mut rest_mops_cell: Option<Cell> = None;
         let mut rest_jops_cell: Option<Cell> = None;
-        let mut rest_mops = etable.rest_mops();
-        let mut rest_jops = etable.rest_jops();
-        let mut host_inputs = 0u64;
+
+        let mut mops = vec![];
+        let mut jops = vec![];
+        let mut host_public_inputs = 0u64;
 
         macro_rules! assign_advice {
             ($c:expr, $o:expr, $k:expr, $v:expr) => {
@@ -97,7 +98,87 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             };
         }
 
-        // Step 2: fill Status for each eentry
+        for entry in etable.entries().iter() {
+            status_entries.push(Status {
+                eid: entry.eid,
+                moid: entry.inst.moid,
+                fid: entry.inst.fid,
+                iid: entry.inst.iid,
+                mmid: entry.inst.mmid,
+                sp: entry.sp,
+                last_jump_eid: entry.last_jump_eid,
+            });
+        }
+
+        status_entries.push(Status {
+            eid: 0,
+            moid: 0,
+            fid: 0,
+            iid: 0,
+            mmid: 0,
+            sp: 0,
+            last_jump_eid: 0,
+        });
+
+        let mut mops_in_total = 0;
+        let mut jops_in_total = 0;
+
+        for (index, entry) in etable.entries().iter().enumerate() {
+            let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
+
+            let step_status = StepStatus {
+                current: &status_entries[index],
+                next: &status_entries[index + 1],
+            };
+
+            let config = op_configs.get(&opcode).unwrap();
+
+            config.assign(ctx, &step_status, entry)?;
+
+            mops.push(
+                config.assigned_extra_mops(ctx, &step_status, entry) + entry.inst.opcode.mops(),
+            );
+            jops.push(entry.inst.opcode.jops());
+
+            mops_in_total += mops.last().unwrap();
+            jops_in_total += jops.last().unwrap();
+
+            assign_constant!(
+                self.state,
+                EventTableCommonRangeColumnRotation::InputIndex,
+                "input index",
+                bn_to_field::<F>(&BigUint::from(host_public_inputs))
+            );
+
+            if config.is_host_public_input(&step_status, entry) {
+                host_public_inputs += 1;
+            }
+
+            for _ in 0..ETABLE_STEP_SIZE {
+                ctx.next();
+            }
+        }
+
+        ctx.reset();
+
+        mops.iter_mut().for_each(|x| {
+            let t = *x;
+            *x = mops_in_total;
+            mops_in_total -= t;
+        });
+
+        // Ignore the last return
+        jops_in_total -= 1;
+        jops.iter_mut().for_each(|x| {
+            let t = *x;
+            *x = jops_in_total;
+            jops_in_total -= t;
+        });
+
+        let mut rest_mops = mops.into_iter();
+        let mut rest_jops = jops.into_iter();
+
+        // Step: fill Status for each eentry
 
         for entry in etable.entries().iter() {
             let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
@@ -192,16 +273,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 || Ok(bn_to_field(&entry.inst.encode())),
             )?;
 
-            status_entries.push(Status {
-                eid: entry.eid,
-                moid: entry.inst.moid,
-                fid: entry.inst.fid,
-                iid: entry.inst.iid,
-                mmid: entry.inst.mmid,
-                sp: entry.sp,
-                last_jump_eid: entry.last_jump_eid,
-            });
-
             for _ in 0..ETABLE_STEP_SIZE {
                 ctx.next();
             }
@@ -210,54 +281,12 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         // Step 3: fill the first disabled row
 
         {
-            status_entries.push(Status {
-                eid: 0,
-                moid: 0,
-                fid: 0,
-                iid: 0,
-                mmid: 0,
-                sp: 0,
-                last_jump_eid: 0,
-            });
-
             assign_advice!(
                 self.shared_bits[0],
                 EventTableBitColumnRotation::Enable,
                 "shared_bits",
                 0
             );
-        }
-
-        // Step 4: fill lookup aux
-
-        ctx.reset();
-
-        for (index, entry) in etable.entries().iter().enumerate() {
-            let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
-
-            let step_status = StepStatus {
-                current: &status_entries[index],
-                next: &status_entries[index + 1],
-            };
-
-            let config = op_configs.get(&opcode).unwrap();
-
-            config.assign(ctx, &step_status, entry)?;
-
-            assign_constant!(
-                self.state,
-                EventTableCommonRangeColumnRotation::InputIndex,
-                "input index",
-                bn_to_field::<F>(&BigUint::from(host_inputs))
-            );
-
-            if config.is_host_input() {
-                host_inputs += 1;
-            }
-
-            for _ in 0..ETABLE_STEP_SIZE {
-                ctx.next();
-            }
         }
 
         Ok((rest_mops_cell, rest_jops_cell))

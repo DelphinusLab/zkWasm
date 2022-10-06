@@ -1,11 +1,16 @@
 use super::{config::MAX_INTABLE_ROWS, FromBn};
-use crate::{fixed_curr, foreign::ForeignTableConfig, instance_curr};
+use crate::{
+    fixed_curr,
+    foreign::{ForeignCallInfo, ForeignTableConfig},
+    instance_curr,
+};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{Column, ConstraintSystem, Error, Expression, Fixed, Instance, VirtualCells},
 };
 use num_bigint::BigUint;
+use specs::{host_function::HostPlugin, itable::OpcodeClass};
 use std::{
     marker::PhantomData,
     ops::{Add, Mul},
@@ -107,5 +112,12 @@ impl<F: FieldExt> InputTableChip<F> {
 
     pub fn assign_public_input() -> Result<(), Error> {
         Ok(())
+    }
+}
+
+pub struct InputForeignCallInfo {}
+impl ForeignCallInfo for InputForeignCallInfo {
+    fn call_id(&self) -> usize {
+        OpcodeClass::ForeignPluginStart as usize + HostPlugin::HostInput as usize
     }
 }
