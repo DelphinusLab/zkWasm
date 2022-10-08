@@ -1,8 +1,13 @@
 use super::super::{Sha256HelperOp, Sha256HelperTableConfig};
 use crate::{
-    constant_from, curr, foreign::sha256_helper::circuits::{Sha2HelperEncode},
+    constant_from, curr,
+    foreign::sha256_helper::circuits::{assign::Sha256HelperTableChip, Sha2HelperEncode},
 };
-use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    circuit::Region,
+    plonk::{ConstraintSystem, Error},
+};
 
 const OP: Sha256HelperOp = Sha256HelperOp::Ch;
 
@@ -27,5 +32,16 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
                         )),
             ]
         });
+    }
+}
+
+impl<F: FieldExt> Sha256HelperTableChip<F> {
+    pub(crate) fn assign_ch(
+        &self,
+        region: &mut Region<F>,
+        offset: usize,
+        args: &Vec<u32>,
+    ) -> Result<(), Error> {
+        Ok(())
     }
 }

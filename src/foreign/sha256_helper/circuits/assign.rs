@@ -45,26 +45,25 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                 for (block_i, step) in entry.iter().enumerate() {
                     if let StepInfo::CallHost {
                         plugin,
-                        host_function_idx,
                         function_name,
-                        signature,
                         args,
                         ret_val,
+                        ..
                     } = &step.step_info
                     {
                         assert_eq!(*plugin, HostPlugin::Sha256);
 
-                        // WARNING! host_function_idx may not start from 0.
-                        todo!();
-
-                        /*
                         let offset = block_i * BLOCK_LINES;
+                        let op = Sha256HelperOp::from(function_name);
+                        let args: Vec<u32> = args.iter().map(|arg| *arg as u32).collect();
+                        let ret = ret_val.unwrap() as u32;
+
                         for i in 0..BLOCK_LINES {
                             region.assign_advice(
                                 || "sha256 helper table",
                                 self.config.op.0,
                                 offset + i,
-                                || Ok(F::from(*op as u64)),
+                                || Ok(F::from(op as u64)),
                             )?;
                         }
 
@@ -78,7 +77,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                         region.assign_advice(
                             || "sha256 helper op bit",
                             self.config.op_bit.0,
-                            offset + *op as usize,
+                            offset + (op as usize),
                             || Ok(F::from(1u64)),
                         )?;
 
@@ -102,22 +101,22 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                             )?;
                         }
 
-                        if *op == Sha256HelperOp::LSigma0 as u32 {
-                            self.assign_lsigma0(&mut region, offset, args)?;
+                        match op {
+                            Sha256HelperOp::Ch => self.assign_ch(&mut region, offset, &args)?,
+                            Sha256HelperOp::Maj => self.assign_maj(&mut region, offset, &args)?,
+                            Sha256HelperOp::LSigma0 => {
+                                self.assign_lsigma0(&mut region, offset, &args)?
+                            }
+                            Sha256HelperOp::LSigma1 => {
+                                self.assign_lsigma1(&mut region, offset, &args)?
+                            }
+                            Sha256HelperOp::SSigma0 => {
+                                self.assign_ssigma0(&mut region, offset, &args)?
+                            }
+                            Sha256HelperOp::SSigma1 => {
+                                self.assign_ssigma1(&mut region, offset, &args)?
+                            }
                         }
-
-                        if *op == Sha256HelperOp::LSigma1 as u32 {
-                            self.assign_lsigma1(&mut region, offset, args)?;
-                        }
-
-                        if *op == Sha256HelperOp::SSigma0 as u32 {
-                            self.assign_ssigma0(&mut region, offset, args)?;
-                        }
-
-                        if *op == Sha256HelperOp::SSigma1 as u32 {
-                            self.assign_ssigma1(&mut region, offset, args)?;
-                        }
-                        */
                     } else {
                         unreachable!()
                     }

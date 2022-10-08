@@ -197,10 +197,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let sha256chip = Sha256HelperTableChip::new(config.sha256_helper_table);
 
         rchip.init(&mut layouter)?;
-        //TODO: call assign for sha256chip
         wasm_input_chip.init(&mut layouter)?;
         sha256chip.init(&mut layouter)?;
-        /*
+
         sha256chip.assign(
             &mut layouter,
             &self
@@ -208,7 +207,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 .etable
                 .filter_foreign_entries(HostPlugin::Sha256),
         )?;
-        */
         wasm_input_chip.assign(
             &mut layouter,
             &self
