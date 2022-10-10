@@ -38,12 +38,13 @@ impl Sha2HelperEncode {
         acc
     }
 
-    pub(super) fn encode_opcocde_f<F: FieldExt>(op: Sha256HelperOp, args: Vec<u32>) -> F {
+    pub(super) fn encode_opcocde_f<F: FieldExt>(op: Sha256HelperOp, args: Vec<u32>, ret: u32) -> F {
         assert!(args.len() < OP_ARGS_NUM);
         let mut acc = F::from(op as u64) * F::from(1u64 << (OP_ARGS_NUM * 4));
         for (i, v) in args.into_iter().enumerate() {
             acc = acc + F::from(v as u64) * F::from(1u64 << (i * 4));
         }
+        acc = acc + F::from(ret as u64);
         acc
     }
 }

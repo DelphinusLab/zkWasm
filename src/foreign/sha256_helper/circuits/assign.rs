@@ -29,7 +29,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
 
                     region.assign_fixed(
                         || "sha256 helper first block line sel",
-                        self.config.sel,
+                        self.config.block_first_line_sel,
                         i as usize,
                         || {
                             Ok(if i % BLOCK_LINES == 0 {
@@ -156,7 +156,8 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                     || {
                                         Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
                                             op,
-                                            vec![a, b, c, a ^ b ^ c],
+                                            vec![a, b, c],
+                                            a ^ b ^ c,
                                         ))
                                     },
                                 )?;
@@ -170,7 +171,8 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                 || {
                                     Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
                                         Sha256HelperOp::Ch,
-                                        vec![a, b, c, (a & b) ^ (!a & c)],
+                                        vec![a, b, c],
+                                        (a & b) ^ (!a & c),
                                     ))
                                 },
                             )?;
@@ -183,7 +185,8 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                 || {
                                     Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
                                         Sha256HelperOp::Maj,
-                                        vec![a, b, c, (a & b) ^ (a & c) ^ (b & c)],
+                                        vec![a, b, c],
+                                        (a & b) ^ (a & c) ^ (b & c),
                                     ))
                                 },
                             )?;
