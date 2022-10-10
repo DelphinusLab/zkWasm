@@ -198,6 +198,7 @@ pub enum Opcode {
         plugin: HostPlugin,
         function_index: usize,
         function_name: String,
+        op_index_in_plugin: usize,
     },
     Load {
         offset: u32,
@@ -318,11 +319,11 @@ impl Into<BigUint> for Opcode {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }
             Opcode::Call { index } => encode_call(BigUint::from(index as u64)),
-            Opcode::CallHost { function_index, .. } => {
+            Opcode::CallHost { op_index_in_plugin, .. } => {
                 let opcode_class_plain: OpcodeClassPlain = self.into();
 
                 (BigUint::from(opcode_class_plain.0) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(function_index as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(op_index_in_plugin as u64))
             }
 
             Opcode::Load {

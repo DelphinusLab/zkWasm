@@ -227,7 +227,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         let is_four_mops = self.is_ch.expr(meta) + self.is_maj.expr(meta);
-        Some(-constant_from!(2) * is_four_mops)
+        Some(constant_from!(2) * is_four_mops)
     }
 
     fn assign(

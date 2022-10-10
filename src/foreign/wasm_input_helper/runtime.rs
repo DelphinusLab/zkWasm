@@ -9,6 +9,7 @@ fn wasm_input(_args: wasmi::RuntimeArgs) -> Option<wasmi::RuntimeValue> {
 pub fn register_wasm_input_foreign(env: &mut HostEnv) {
     env.register_function(
         "wasm_input",
+        0,
         specs::host_function::Signature {
             params: vec![ValueType::I32],
             return_type: Some(specs::types::ValueType::I64),

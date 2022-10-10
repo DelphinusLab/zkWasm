@@ -47,6 +47,7 @@ impl HostEnv {
     pub fn register_function(
         &mut self,
         name: &str,
+        op_index_in_plugin: usize,
         signature: specs::host_function::Signature,
         handler: fn(RuntimeArgs) -> Option<RuntimeValue>,
         plugin: HostPlugin,
@@ -69,6 +70,7 @@ impl HostEnv {
             index,
             HostFunctionDesc {
                 name: name.to_string(),
+                op_index_in_plugin,
                 plugin,
             },
         );

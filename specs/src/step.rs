@@ -2,7 +2,7 @@ use crate::{
     host_function::{HostPlugin, Signature},
     itable::{BinOp, BitOp, RelOp, ShiftOp},
     mtable::{MemoryReadSize, MemoryStoreSize, VarType},
-    types::ValueType,
+    types::{Value, ValueType},
 };
 use serde::Serialize;
 
@@ -54,6 +54,7 @@ pub enum StepInfo {
         signature: Signature,
         args: Vec<u64>,
         ret_val: Option<u64>,
+        op_index_in_plugin: usize,
     },
 
     GetLocal {
