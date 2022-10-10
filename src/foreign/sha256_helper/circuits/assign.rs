@@ -182,7 +182,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                     Ok(Sha2HelperEncode::encode_table_f::<F>(
                                         Sha256HelperOp::Ch,
                                         [a, b, c],
-                                        (a & b) ^ (!a & c),
+                                        ((a ^ b) & (!a ^ c)) & 0xf,
                                     ))
                                 },
                             )?;
@@ -196,7 +196,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                     Ok(Sha2HelperEncode::encode_table_f::<F>(
                                         Sha256HelperOp::Maj,
                                         [a, b, c],
-                                        (a & b) ^ (a & c) ^ (b & c),
+                                        ((a ^ b) & (a ^ c) & (b ^ c)) & 0xf,
                                     ))
                                 },
                             )?;

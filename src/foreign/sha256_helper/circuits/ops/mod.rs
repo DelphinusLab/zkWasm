@@ -17,8 +17,13 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
         index: usize,
         rotate_bits: u32,
         start: usize,
+        is_shift: bool,
     ) -> Result<(), Error> {
-        let value = args[0].rotate_right(rotate_bits);
+        let value = if is_shift {
+            args[0] >> rotate_bits
+        } else {
+            args[0].rotate_right(rotate_bits)
+        };
         let u4_shift = rotate_bits / 4;
         let u4_inner_shift = rotate_bits % 4;
         let modulus_mask = (1 << (rotate_bits % 4)) - 1;
@@ -85,6 +90,30 @@ macro_rules! rotation_constraints {
                         - rem.clone() * constant_from!(1u64 << 32)
                         + rem
                         - x),
+            ]
+        });
+    };
+}
+
+#[macro_export]
+macro_rules! shift_constraints {
+    ($meta:expr, $self:expr, $key:expr, $index:expr, $rotate:expr) => {
+        $meta.create_gate($key, |meta| {
+            let enable = $self.is_op_enabled_expr(meta, OP);
+
+            let (x, x_lowest) = $self.arg_to_shift_u32_expr_with_lowest_u4(meta, 0, $rotate / 4);
+            let y = $self.arg_to_shift_u32_expr(meta, $index, 0);
+
+            let round = nextn!(meta, $self.aux.0, $index * 3 - 2);
+            let rem = nextn!(meta, $self.aux.0, $index * 3 - 1);
+            let rem_diff = nextn!(meta, $self.aux.0, $index * 3);
+
+            vec![
+                enable.clone()
+                    * (x_lowest - round * constant_from!(1 << ($rotate % 4)) - rem.clone()),
+                enable.clone()
+                    * (rem.clone() + rem_diff.clone() - constant_from!((1 << ($rotate % 4)) - 1)),
+                enable.clone() * (y * constant_from!(1 << ($rotate % 4)) + rem - x),
             ]
         });
     };

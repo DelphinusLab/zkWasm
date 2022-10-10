@@ -14,7 +14,7 @@ const OP: Sha256HelperOp = Sha256HelperOp::LSigma1;
 
 impl<F: FieldExt> Sha256HelperTableConfig<F> {
     pub(crate) fn configure_lsigma1(&self, meta: &mut ConstraintSystem<F>) {
-        // (x >> 6) ^ (x >> 11) ^ (x >> 25)
+        // (x right_rotate 6) ^ (x right_rotate 11) ^ (x right_rotate 25)
 
         meta.create_gate("sha256 lsigma1 opcode", |meta| {
             let enable = self.is_op_enabled_expr(meta, OP);
@@ -45,9 +45,9 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
         offset: usize,
         args: &Vec<u32>,
     ) -> Result<(), Error> {
-        self.assign_rotate_aux(region, offset, args, 1, 6, 1)?;
-        self.assign_rotate_aux(region, offset, args, 2, 11, 4)?;
-        self.assign_rotate_aux(region, offset, args, 3, 25, 7)?;
+        self.assign_rotate_aux(region, offset, args, 1, 6, 1, false)?;
+        self.assign_rotate_aux(region, offset, args, 2, 11, 4, false)?;
+        self.assign_rotate_aux(region, offset, args, 3, 25, 7, false)?;
 
         Ok(())
     }

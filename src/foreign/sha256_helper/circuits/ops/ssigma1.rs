@@ -2,7 +2,7 @@ use super::super::{Sha256HelperOp, Sha256HelperTableConfig};
 use crate::{
     constant_from, curr,
     foreign::sha256_helper::circuits::{assign::Sha256HelperTableChip, Sha2HelperEncode},
-    nextn, rotation_constraints,
+    nextn, rotation_constraints, shift_constraints,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -14,7 +14,7 @@ const OP: Sha256HelperOp = Sha256HelperOp::SSigma1;
 
 impl<F: FieldExt> Sha256HelperTableConfig<F> {
     pub(crate) fn configure_ssigma1(&self, meta: &mut ConstraintSystem<F>) {
-        // (x >> 17) ^ (x >> 19) ^ (x >> 10)
+        // (x right_rotate 17) ^ (x right_rotate 19) ^ (x >> 10)
 
         meta.create_gate("sha256 ssigma1 opcode", |meta| {
             let enable = self.is_op_enabled_expr(meta, OP);
@@ -34,7 +34,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
 
         rotation_constraints!(meta, self, "ssigma1 rotate 17", 1, 17);
         rotation_constraints!(meta, self, "ssigma1 rotate 19", 2, 19);
-        rotation_constraints!(meta, self, "ssigma1 rotate 10", 3, 10);
+        shift_constraints!(meta, self, "ssigma1 rotate 10", 3, 10);
     }
 }
 
@@ -45,9 +45,9 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
         offset: usize,
         args: &Vec<u32>,
     ) -> Result<(), Error> {
-        self.assign_rotate_aux(region, offset, args, 1, 17, 1)?;
-        self.assign_rotate_aux(region, offset, args, 2, 19, 4)?;
-        self.assign_rotate_aux(region, offset, args, 3, 10, 7)?;
+        self.assign_rotate_aux(region, offset, args, 1, 17, 1, false)?;
+        self.assign_rotate_aux(region, offset, args, 2, 19, 4, false)?;
+        self.assign_rotate_aux(region, offset, args, 3, 10, 7, true)?;
 
         Ok(())
     }
