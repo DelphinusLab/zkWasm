@@ -44,7 +44,7 @@ impl Sha2HelperEncode {
         for (i, v) in args.into_iter().enumerate() {
             acc = acc + F::from(v as u64) * F::from(1u64 << (i * 4));
         }
-        acc = acc + F::from(ret as u64);
+        acc = acc + F::from(ret as u64) * F::from(1u64 << ((OP_ARGS_NUM - 1) * 4));
         acc
     }
 }
