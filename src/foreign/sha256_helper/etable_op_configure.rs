@@ -250,6 +250,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                     arg.assign(ctx, *v)?;
                 }
 
+                self.res.assign(ctx, ret_val.unwrap())?;
+
                 if function_name == SHA256_FOREIGN_FUNCTION_NAME_MAJ {
                     self.is_maj.assign(ctx, true)?;
                 }
