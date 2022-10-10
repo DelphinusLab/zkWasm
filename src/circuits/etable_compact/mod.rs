@@ -292,7 +292,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_offset_len_bits_set(meta, "etable offset len bits lookup", |meta| {
-            // FIXME
             curr!(meta, aux) * fixed_curr!(meta, offset_len_bits_table_lookup)
         });
 
