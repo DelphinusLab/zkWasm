@@ -20,8 +20,7 @@ pub mod ops;
 const OP_ARGS_NUM: usize = 5;
 const K: usize = 15;
 const ENABLE_LINES: usize = 1 << (K - 1);
-const BLOCK_LINES_SHIFT: usize = 3;
-const BLOCK_LINES: usize = 1 << BLOCK_LINES_SHIFT;
+const BLOCK_LINES: usize = 10;
 
 pub struct Sha2HelperEncode();
 

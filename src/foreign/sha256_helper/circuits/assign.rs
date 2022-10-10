@@ -26,19 +26,14 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                         i as usize,
                         || Ok(F::one()),
                     )?;
-
-                    region.assign_fixed(
-                        || "sha256 helper first block line sel",
-                        self.config.block_first_line_sel,
-                        i as usize,
-                        || {
-                            Ok(if i % BLOCK_LINES == 0 {
-                                F::one()
-                            } else {
-                                F::zero()
-                            })
-                        },
-                    )?;
+                    if i % BLOCK_LINES == 0 {
+                        region.assign_fixed(
+                            || "sha256 helper first block line sel",
+                            self.config.block_first_line_sel,
+                            i as usize,
+                            || Ok(F::one()),
+                        )?;
+                    }
                 }
 
                 // op args ret
@@ -97,7 +92,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                         };
 
                         for (arg_i, arg) in args.iter().enumerate() {
-                            for i in 0..BLOCK_LINES {
+                            for i in 0..8 {
                                 region.assign_advice(
                                     || "sha256 helper args",
                                     self.config.args[arg_i + start].0,
@@ -107,7 +102,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                             }
                         }
 
-                        for i in 0..BLOCK_LINES {
+                        for i in 0..8 {
                             region.assign_advice(
                                 || "sha256 helper ret",
                                 self.config.args[OP_ARGS_NUM - 1].0,

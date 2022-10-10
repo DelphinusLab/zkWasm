@@ -17,10 +17,10 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         meta.create_gate("sha256 ch", |meta| {
             let enable = self.is_op_enabled_expr(meta, OP);
 
-            let e = self.arg_to_u32_expr(meta, 1, 0);
-            let f = self.arg_to_u32_expr(meta, 2, 0);
-            let g = self.arg_to_u32_expr(meta, 3, 0);
-            let res = self.arg_to_u32_expr(meta, 4, 0);
+            let e = self.arg_to_rotate_u32_expr(meta, 1, 0);
+            let f = self.arg_to_rotate_u32_expr(meta, 2, 0);
+            let g = self.arg_to_rotate_u32_expr(meta, 3, 0);
+            let res = self.arg_to_rotate_u32_expr(meta, 4, 0);
 
             vec![
                 enable.clone() * (curr!(meta, self.op.0) - constant_from!(OP)),
