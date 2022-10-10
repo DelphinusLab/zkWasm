@@ -120,6 +120,13 @@ impl Externals for HostEnv {
     ) -> Result<Option<RuntimeValue>, Trap> {
         let function = self.get_function_by_index(index);
 
+        let mut rev_args = Vec::new();
+        for i in args.as_ref() {
+            rev_args.push(*i);
+        }
+        rev_args.reverse();
+        let args = RuntimeArgs::from(rev_args.as_slice());
+
         Ok((function.handler)(args))
     }
 }
