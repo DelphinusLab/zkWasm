@@ -68,6 +68,13 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                         }
 
                         region.assign_advice(
+                            || "sha256 helper opcode",
+                            self.config.aux.0,
+                            offset,
+                            || Ok(Sha2HelperEncode::encode_opcode_f(op, &args, ret)),
+                        )?;
+
+                        region.assign_advice(
                             || "sha256 helper enable",
                             self.config.op_bit.0,
                             offset,
@@ -81,11 +88,19 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                             || Ok(F::from(1u64)),
                         )?;
 
+                        let start = match op {
+                            Sha256HelperOp::SSigma0
+                            | Sha256HelperOp::SSigma1
+                            | Sha256HelperOp::LSigma0
+                            | Sha256HelperOp::LSigma1 => 0,
+                            Sha256HelperOp::Ch | Sha256HelperOp::Maj => 1,
+                        };
+
                         for (arg_i, arg) in args.iter().enumerate() {
                             for i in 0..BLOCK_LINES {
                                 region.assign_advice(
                                     || "sha256 helper args",
-                                    self.config.args[arg_i].0,
+                                    self.config.args[arg_i + start].0,
                                     offset + i,
                                     || Ok(F::from((arg >> (i * 4)) as u64 & 0xfu64)),
                                 )?;
@@ -154,9 +169,9 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                     self.config.op_valid_set,
                                     index,
                                     || {
-                                        Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
+                                        Ok(Sha2HelperEncode::encode_table_f::<F>(
                                             op,
-                                            vec![a, b, c],
+                                            [a, b, c],
                                             a ^ b ^ c,
                                         ))
                                     },
@@ -169,9 +184,9 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                 self.config.op_valid_set,
                                 index,
                                 || {
-                                    Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
+                                    Ok(Sha2HelperEncode::encode_table_f::<F>(
                                         Sha256HelperOp::Ch,
-                                        vec![a, b, c],
+                                        [a, b, c],
                                         (a & b) ^ (!a & c),
                                     ))
                                 },
@@ -183,9 +198,9 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                 self.config.op_valid_set,
                                 index,
                                 || {
-                                    Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
+                                    Ok(Sha2HelperEncode::encode_table_f::<F>(
                                         Sha256HelperOp::Maj,
-                                        vec![a, b, c],
+                                        [a, b, c],
                                         (a & b) ^ (a & c) ^ (b & c),
                                     ))
                                 },

@@ -1,4 +1,4 @@
-use super::assign::Sha256HelperTableChip;
+use super::{assign::Sha256HelperTableChip, BLOCK_LINES};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Region, plonk::Error};
 
 pub mod ch;
@@ -14,9 +14,11 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
         region: &mut Region<F>,
         offset: usize,
         args: &Vec<u32>,
+        index: usize,
         shift: u32,
         rot: usize,
     ) -> Result<(), Error> {
+        let value = args[0] >> shift;
         let byte_shift = shift / 8;
         let modulus_mask = (1 << (shift - byte_shift * 8)) - 1;
 
@@ -36,6 +38,15 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
             offset + rot + 1,
             || Ok(F::from(diff)),
         )?;
+
+        for i in 0..BLOCK_LINES {
+            region.assign_advice(
+                || "sha256 rotate value",
+                self.config.args[index].0,
+                offset + i,
+                || Ok(F::from(((value as u64) >> (4 * i)) & 0xf))
+            )?;
+        }
 
         Ok(())
     }

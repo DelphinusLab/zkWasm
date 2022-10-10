@@ -17,16 +17,16 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         meta.create_gate("sha256 maj", |meta| {
             let enable = self.is_op_enabled_expr(meta, OP);
 
-            let a = self.arg_to_u32_expr(meta, 0, 0);
-            let b = self.arg_to_u32_expr(meta, 1, 0);
-            let c = self.arg_to_u32_expr(meta, 2, 0);
+            let a = self.arg_to_u32_expr(meta, 1, 0);
+            let b = self.arg_to_u32_expr(meta, 2, 0);
+            let c = self.arg_to_u32_expr(meta, 3, 0);
             let res = self.arg_to_u32_expr(meta, 4, 0);
 
             vec![
                 enable.clone() * (curr!(meta, self.op.0) - constant_from!(OP)),
                 enable.clone()
                     * (self.opcode_expr(meta)
-                        - Sha2HelperEncode::encode_opcocde_expr(
+                        - Sha2HelperEncode::encode_opcode_expr(
                             curr!(meta, self.op.0),
                             vec![&res, &a, &b, &c],
                         )),
@@ -38,9 +38,9 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
 impl<F: FieldExt> Sha256HelperTableChip<F> {
     pub(crate) fn assign_maj(
         &self,
-        region: &mut Region<F>,
-        offset: usize,
-        args: &Vec<u32>,
+        _region: &mut Region<F>,
+        _offset: usize,
+        _args: &Vec<u32>,
     ) -> Result<(), Error> {
         Ok(())
     }

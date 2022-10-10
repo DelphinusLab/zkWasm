@@ -14,7 +14,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         start: i32,
     ) -> Expression<F> {
         assert!(start < BLOCK_LINES as i32);
-        let mut shift_acc = 1;
+        let mut shift_acc = 0;
         let mut acc = nextn!(meta, self.args[index].0, start);
 
         for i in start + 1..BLOCK_LINES as i32 {

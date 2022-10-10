@@ -45,7 +45,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
                 enable.clone() * (curr!(meta, self.op.0) - constant_from!(OP as i32)),
                 enable.clone()
                     * (self.opcode_expr(meta)
-                        - Sha2HelperEncode::encode_opcocde_expr(
+                        - Sha2HelperEncode::encode_opcode_expr(
                             curr!(meta, self.op.0),
                             vec![&res, &x],
                         )),
@@ -61,9 +61,9 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
         offset: usize,
         args: &Vec<u32>,
     ) -> Result<(), Error> {
-        self.assign_rotate_aux(region, offset, args, 2, 1)?;
-        self.assign_rotate_aux(region, offset, args, 13, 3)?;
-        self.assign_rotate_aux(region, offset, args, 22, 5)?;
+        self.assign_rotate_aux(region, offset, args, 1, 2, 1)?;
+        self.assign_rotate_aux(region, offset, args, 2, 13, 3)?;
+        self.assign_rotate_aux(region, offset, args, 3, 22, 5)?;
 
         Ok(())
     }
