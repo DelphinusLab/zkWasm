@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use strum_macros::EnumIter;
 
 use crate::{imtable::InitMemoryTable, types::Value};
