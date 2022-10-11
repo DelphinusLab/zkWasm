@@ -16,6 +16,7 @@ pub enum Error {
 #[derive(Debug, Clone)]
 pub struct HostFunctionDesc {
     pub name: String,
+    pub op_index_in_plugin: usize,
     pub plugin: HostPlugin,
 }
 

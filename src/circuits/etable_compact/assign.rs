@@ -54,7 +54,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 == EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup as usize
             {
                 ctx.region.assign_fixed(
-                    || "pow table lookup",
+                    || "offset len bits table lookup",
                     self.offset_len_bits_table_lookup,
                     i,
                     || Ok(F::one()),

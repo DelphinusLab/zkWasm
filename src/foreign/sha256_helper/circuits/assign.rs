@@ -1,6 +1,7 @@
 use super::{Sha256HelperTableConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES, OP_ARGS_NUM};
 use crate::foreign::sha256_helper::Sha256HelperOp;
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
+use specs::{etable::EventTableEntry, host_function::HostPlugin, step::StepInfo};
 
 pub struct Sha256HelperTableChip<F: FieldExt> {
     pub(crate) config: Sha256HelperTableConfig<F>,
@@ -13,7 +14,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        entry: Vec<(u32, Vec<u32>, u32)>,
+        entry: &Vec<EventTableEntry>,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "sha256 helper assign",
@@ -25,80 +26,109 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                         i as usize,
                         || Ok(F::one()),
                     )?;
-
-                    region.assign_fixed(
-                        || "sha256 helper first block line sel",
-                        self.config.sel,
-                        i as usize,
-                        || {
-                            Ok(if i % BLOCK_LINES == 0 {
-                                F::one()
-                            } else {
-                                F::zero()
-                            })
-                        },
-                    )?;
+                    if i % BLOCK_LINES == 0 {
+                        region.assign_fixed(
+                            || "sha256 helper first block line sel",
+                            self.config.block_first_line_sel,
+                            i as usize,
+                            || Ok(F::one()),
+                        )?;
+                    }
                 }
 
-                for (block_i, (op, args, ret)) in entry.iter().enumerate() {
-                    let offset = block_i * BLOCK_LINES;
-                    for i in 0..BLOCK_LINES {
-                        region.assign_advice(
-                            || "sha256 helper table",
-                            self.config.op.0,
-                            offset + i,
-                            || Ok(F::from(*op as u64)),
-                        )?;
-                    }
+                // op args ret
+                for (block_i, step) in entry.iter().enumerate() {
+                    if let StepInfo::CallHost {
+                        plugin,
+                        function_name,
+                        args,
+                        ret_val,
+                        ..
+                    } = &step.step_info
+                    {
+                        assert_eq!(*plugin, HostPlugin::Sha256);
 
-                    region.assign_advice(
-                        || "sha256 helper enable",
-                        self.config.op_bit.0,
-                        offset,
-                        || Ok(F::from(1u64)),
-                    )?;
+                        let offset = block_i * BLOCK_LINES;
+                        let op = Sha256HelperOp::from(function_name);
+                        let args: Vec<u32> = args.iter().map(|arg| *arg as u32).collect();
+                        let ret = ret_val.unwrap() as u32;
 
-                    region.assign_advice(
-                        || "sha256 helper op bit",
-                        self.config.op_bit.0,
-                        offset + *op as usize,
-                        || Ok(F::from(1u64)),
-                    )?;
-
-                    for (arg_i, arg) in args.iter().enumerate() {
                         for i in 0..BLOCK_LINES {
                             region.assign_advice(
-                                || "sha256 helper args",
-                                self.config.args[arg_i].0,
+                                || "sha256 helper table",
+                                self.config.op.0,
                                 offset + i,
-                                || Ok(F::from((arg >> (i * 4)) as u64 & 0xfu64)),
+                                || Ok(F::from(op as u64)),
                             )?;
                         }
-                    }
 
-                    for i in 0..BLOCK_LINES {
                         region.assign_advice(
-                            || "sha256 helper ret",
-                            self.config.args[OP_ARGS_NUM - 1].0,
-                            offset + i,
-                            || Ok(F::from((ret >> (i * 4)) as u64 & 0xfu64)),
+                            || "sha256 helper opcode",
+                            self.config.aux.0,
+                            offset,
+                            || Ok(Sha2HelperEncode::encode_opcode_f(op, &args, ret)),
                         )?;
-                    }
 
-                    if *op == Sha256HelperOp::LSigma0 as u32 {
-                        self.assign_lsigma0(&mut region, offset, args)?;
-                    }
+                        region.assign_advice(
+                            || "sha256 helper enable",
+                            self.config.op_bit.0,
+                            offset,
+                            || Ok(F::from(1u64)),
+                        )?;
 
-                    if *op == Sha256HelperOp::LSigma1 as u32 {
-                        self.assign_lsigma1(&mut region, offset, args)?;
-                    }
+                        region.assign_advice(
+                            || "sha256 helper op bit",
+                            self.config.op_bit.0,
+                            offset + (op as usize),
+                            || Ok(F::from(1u64)),
+                        )?;
 
-                    if *op == Sha256HelperOp::SSigma0 as u32 {
-                        self.assign_ssigma0(&mut region, offset, args)?;
-                    }
+                        let start = match op {
+                            Sha256HelperOp::SSigma0
+                            | Sha256HelperOp::SSigma1
+                            | Sha256HelperOp::LSigma0
+                            | Sha256HelperOp::LSigma1 => 0,
+                            Sha256HelperOp::Ch | Sha256HelperOp::Maj => 1,
+                        };
 
-                    if *op == Sha256HelperOp::SSigma1 as u32 {
-                        self.assign_ssigma1(&mut region, offset, args)?;
+                        for (arg_i, arg) in args.iter().enumerate() {
+                            for i in 0..8 {
+                                region.assign_advice(
+                                    || "sha256 helper args",
+                                    self.config.args[arg_i + start].0,
+                                    offset + i,
+                                    || Ok(F::from((arg >> (i * 4)) as u64 & 0xfu64)),
+                                )?;
+                            }
+                        }
+
+                        for i in 0..8 {
+                            region.assign_advice(
+                                || "sha256 helper ret",
+                                self.config.args[OP_ARGS_NUM - 1].0,
+                                offset + i,
+                                || Ok(F::from((ret >> (i * 4)) as u64 & 0xfu64)),
+                            )?;
+                        }
+
+                        match op {
+                            Sha256HelperOp::Ch => self.assign_ch(&mut region, offset, &args)?,
+                            Sha256HelperOp::Maj => self.assign_maj(&mut region, offset, &args)?,
+                            Sha256HelperOp::LSigma0 => {
+                                self.assign_lsigma0(&mut region, offset, &args)?
+                            }
+                            Sha256HelperOp::LSigma1 => {
+                                self.assign_lsigma1(&mut region, offset, &args)?
+                            }
+                            Sha256HelperOp::SSigma0 => {
+                                self.assign_ssigma0(&mut region, offset, &args)?
+                            }
+                            Sha256HelperOp::SSigma1 => {
+                                self.assign_ssigma1(&mut region, offset, &args)?
+                            }
+                        }
+                    } else {
+                        unreachable!()
                     }
                 }
 
@@ -134,9 +164,10 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                     self.config.op_valid_set,
                                     index,
                                     || {
-                                        Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
+                                        Ok(Sha2HelperEncode::encode_table_f::<F>(
                                             op,
-                                            vec![a, b, c, a ^ b ^ c],
+                                            [a, b, c],
+                                            (a ^ b ^ c) & 0xf,
                                         ))
                                     },
                                 )?;
@@ -148,9 +179,10 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                 self.config.op_valid_set,
                                 index,
                                 || {
-                                    Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
+                                    Ok(Sha2HelperEncode::encode_table_f::<F>(
                                         Sha256HelperOp::Ch,
-                                        vec![a, b, c, (a & b) ^ (!a & c)],
+                                        [a, b, c],
+                                        ((a & b) ^ (!a & c)) & 0xf,
                                     ))
                                 },
                             )?;
@@ -161,9 +193,10 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                                 self.config.op_valid_set,
                                 index,
                                 || {
-                                    Ok(Sha2HelperEncode::encode_opcocde_f::<F>(
+                                    Ok(Sha2HelperEncode::encode_table_f::<F>(
                                         Sha256HelperOp::Maj,
-                                        vec![a, b, c, (a & b) ^ (a & c) ^ (b & c)],
+                                        [a, b, c],
+                                        ((a & b) ^ (a & c) ^ (b & c)) & 0xf,
                                     ))
                                 },
                             )?;

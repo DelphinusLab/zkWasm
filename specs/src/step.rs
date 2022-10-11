@@ -54,6 +54,7 @@ pub enum StepInfo {
         signature: Signature,
         args: Vec<u64>,
         ret_val: Option<u64>,
+        op_index_in_plugin: usize,
     },
 
     GetLocal {

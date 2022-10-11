@@ -111,9 +111,10 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperTa
                     + is_lsignma1.expr(meta) * constant_from!(Sha256HelperOp::LSigma1)
                     + is_ch.expr(meta) * constant_from!(Sha256HelperOp::Ch)
                     + is_maj.expr(meta) * constant_from!(Sha256HelperOp::Maj);
-                Sha2HelperEncode::encode_opcocde_expr(
+                Sha2HelperEncode::encode_opcode_expr(
                     op,
-                    vec![&res.expr(meta), &a.expr(meta), &b.expr(meta), &c.expr(meta)],
+                    vec![a.expr(meta), b.expr(meta), c.expr(meta)],
+                    res.expr(meta)
                 )
             }),
         );
@@ -227,7 +228,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         let is_four_mops = self.is_ch.expr(meta) + self.is_maj.expr(meta);
-        Some(-constant_from!(2) * is_four_mops)
+        Some(constant_from!(2) * is_four_mops)
     }
 
     fn assign(
@@ -249,6 +250,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                 for (arg, v) in vec![&self.a, &self.b, &self.c].into_iter().zip(args.iter()) {
                     arg.assign(ctx, *v)?;
                 }
+
+                self.res.assign(ctx, ret_val.unwrap())?;
 
                 if function_name == SHA256_FOREIGN_FUNCTION_NAME_MAJ {
                     self.is_maj.assign(ctx, true)?;

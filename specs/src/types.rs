@@ -50,6 +50,7 @@ pub enum FunctionType {
         plugin: HostPlugin,
         function_index: usize,
         function_name: String,
+        op_index_in_plugin: usize,
     },
 }
 

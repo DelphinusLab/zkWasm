@@ -8,7 +8,6 @@ use crate::circuits::etable_compact::op_configure::op_br::BrConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if_eqz::BrIfEqzConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_call::CallConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_call_host_input::CallHostWasmInputConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
@@ -24,7 +23,6 @@ use crate::circuits::etable_compact::op_configure::op_test::TestConfigBuilder;
 use crate::circuits::etable_compact::op_configure::ConstraintBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
-use crate::circuits::intable::InputForeignCallInfo;
 use crate::circuits::itable::encode_inst_expr;
 use crate::circuits::itable::Encode;
 use crate::circuits::utils::bn_to_field;
@@ -33,6 +31,8 @@ use crate::curr;
 use crate::fixed_curr;
 use crate::foreign::sha256_helper::etable_op_configure::ETableSha256HelperTableConfigBuilder;
 use crate::foreign::sha256_helper::etable_op_configure::Sha256ForeignCallInfo;
+use crate::foreign::wasm_input_helper::etable_op_configure::ETableWasmInputHelperTableConfigBuilder;
+use crate::foreign::wasm_input_helper::etable_op_configure::WasmInputForeignCallInfo;
 use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::ForeignTableConfig;
 use crate::nextn;
@@ -292,7 +292,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_offset_len_bits_set(meta, "etable offset len bits lookup", |meta| {
-            // FIXME
             curr!(meta, aux) * fixed_curr!(meta, offset_len_bits_table_lookup)
         });
 
@@ -444,8 +443,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         // TODO: dynamically register plugins
         configure_foreign!(
             HostPlugin::HostInput,
-            CallHostWasmInputConfigBuilder,
-            InputForeignCallInfo
+            ETableWasmInputHelperTableConfigBuilder,
+            WasmInputForeignCallInfo
         );
         configure_foreign!(
             HostPlugin::Sha256,

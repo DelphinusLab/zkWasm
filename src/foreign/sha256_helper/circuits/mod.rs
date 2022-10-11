@@ -20,30 +20,54 @@ pub mod ops;
 const OP_ARGS_NUM: usize = 5;
 const K: usize = 15;
 const ENABLE_LINES: usize = 1 << (K - 1);
-const BLOCK_LINES_SHIFT: usize = 3;
-const BLOCK_LINES: usize = 1 << BLOCK_LINES_SHIFT;
+const BLOCK_LINES: usize = 10;
 
 pub struct Sha2HelperEncode();
 
 impl Sha2HelperEncode {
-    pub(super) fn encode_opcocde_expr<F: FieldExt>(
+    pub(super) fn encode_opcode_expr<F: FieldExt>(
         op: Expression<F>,
-        args: Vec<&Expression<F>>,
+        args: Vec<Expression<F>>,
+        ret: Expression<F>,
     ) -> Expression<F> {
         assert!(args.len() < OP_ARGS_NUM);
         let mut acc = op * constant_from!(1 << (OP_ARGS_NUM * 4));
         for (i, v) in args.into_iter().enumerate() {
-            acc = acc + v.clone() * constant_from!(1 << (i * 4));
+            acc = acc + v * constant_from!(1 << (i * 4 + 4));
         }
+        acc = acc + ret;
         acc
     }
 
-    pub(super) fn encode_opcocde_f<F: FieldExt>(op: Sha256HelperOp, args: Vec<u32>) -> F {
+    pub(super) fn encode_opcode_f<F: FieldExt>(op: Sha256HelperOp, args: &Vec<u32>, ret: u32) -> F {
         assert!(args.len() < OP_ARGS_NUM);
         let mut acc = F::from(op as u64) * F::from(1u64 << (OP_ARGS_NUM * 4));
         for (i, v) in args.into_iter().enumerate() {
-            acc = acc + F::from(v as u64) * F::from(1u64 << (i * 4));
+            acc = acc + F::from(*v as u64) * F::from(1u64 << (i * 4 + 4));
         }
+        acc = acc + F::from(ret as u64);
+        acc
+    }
+
+    pub(super) fn encode_table_f<F: FieldExt>(op: Sha256HelperOp, args: [u32; 3], ret: u32) -> F {
+        let mut acc = F::from(op as u64) * F::from(1u64 << (OP_ARGS_NUM * 4));
+        for (i, v) in args.into_iter().enumerate() {
+            acc = acc + F::from(v as u64) * F::from(1u64 << (i * 4 + 4));
+        }
+        acc = acc + F::from(ret as u64);
+        acc
+    }
+
+    pub(super) fn encode_table_expr<F: FieldExt>(
+        op: Expression<F>,
+        args: [Expression<F>; 3],
+        ret: Expression<F>,
+    ) -> Expression<F> {
+        let mut acc = op * constant_from!(1u64 << (OP_ARGS_NUM * 4));
+        for (i, v) in args.into_iter().enumerate() {
+            acc = acc + v * constant_from!(1u64 << (i * 4 + 4));
+        }
+        acc = acc + ret;
         acc
     }
 }

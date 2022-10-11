@@ -22,3 +22,17 @@ pub enum Sha256HelperOp {
     SSigma0 = 5,
     SSigma1 = 6,
 }
+
+impl From<&String> for Sha256HelperOp {
+    fn from(function_name: &String) -> Self {
+        match function_name.as_str() {
+            SHA256_FOREIGN_FUNCTION_NAME_CH => Sha256HelperOp::Ch,
+            SHA256_FOREIGN_FUNCTION_NAME_MAJ => Sha256HelperOp::Maj,
+            SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0 => Sha256HelperOp::LSigma0,
+            SHA256_FOREIGN_FUNCTION_NAME_LSIGMA1 => Sha256HelperOp::LSigma1,
+            SHA256_FOREIGN_FUNCTION_NAME_SSIGMA0 => Sha256HelperOp::SSigma0,
+            SHA256_FOREIGN_FUNCTION_NAME_SSIGMA1 => Sha256HelperOp::SSigma1,
+            _ => unreachable!(),
+        }
+    }
+}

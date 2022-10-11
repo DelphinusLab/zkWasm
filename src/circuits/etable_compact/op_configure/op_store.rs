@@ -36,8 +36,9 @@ pub struct StoreConfig {
 
     mask_bits: [BitCell; 16],
     offset_modulus: U64Cell,
-    store_value: U64Cell,
+    store_raw_value: U64Cell,
     store_base: U64Cell,
+    store_wrapped_value: UnlimitedCell,
 
     vtype: CommonRangeCell,
     is_one_byte: BitCell,
@@ -78,8 +79,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let store_value1 = common.alloc_u64_on_u8();
         let store_value2 = common.alloc_u64_on_u8();
         let offset_modulus = common.alloc_u64();
-        let store_value = common.alloc_u64();
+        let store_raw_value = common.alloc_u64();
         let store_base = common.alloc_u64();
+
+        let store_wrapped_value = common.alloc_unlimited_value();
 
         let mask_bits = [0; 16].map(|_| common.alloc_bit_value());
         let is_one_byte = common.alloc_bit_value();
@@ -193,9 +196,39 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         );
 
         constraint_builder.push(
+            "op_store wrap value",
+            Box::new(move |meta| {
+                let has_two_bytes =
+                    is_two_bytes.expr(meta) + is_four_bytes.expr(meta) + is_eight_bytes.expr(meta);
+                let has_four_bytes = is_four_bytes.expr(meta) + is_eight_bytes.expr(meta);
+                let has_eight_bytes = is_eight_bytes.expr(meta);
+
+                let byte_value = (0..8)
+                    .map(|i| {
+                        store_raw_value.u4_expr(meta, i * 2) * constant_from!(1u64 << (8 * i))
+                            + store_raw_value.u4_expr(meta, i * 2 + 1)
+                                * constant_from!(1u64 << (8 * i + 4))
+                    })
+                    .collect::<Vec<_>>();
+
+                vec![
+                    byte_value[0].clone()
+                        + byte_value[1].clone() * has_two_bytes
+                        + (byte_value[2].clone() + byte_value[3].clone()) * has_four_bytes
+                        + (byte_value[4].clone()
+                            + byte_value[5].clone()
+                            + byte_value[6].clone()
+                            + byte_value[7].clone())
+                            * has_eight_bytes
+                        - store_wrapped_value.expr(meta),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
             "op_store write value",
             Box::new(move |meta| {
-                let mut acc = store_value.expr(meta) * offset_modulus.expr(meta);
+                let mut acc = store_wrapped_value.expr(meta) * offset_modulus.expr(meta);
 
                 for i in 0..8 {
                     acc = acc
@@ -253,7 +286,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             mask_bits,
             offset_modulus,
             store_base,
-            store_value,
+            store_raw_value,
+            store_wrapped_value,
             is_one_byte,
             is_two_bytes,
             is_four_bytes,
@@ -341,8 +375,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                     self.mask_bits[i].assign(ctx, (bits >> i) & 1 == 1)?;
                 }
                 self.offset_modulus.assign(ctx, 1 << (offset * 8))?;
-                self.store_value.assign(ctx, value)?;
+                self.store_raw_value.assign(ctx, value)?;
                 self.store_base.assign(ctx, raw_address.into())?;
+                self.store_wrapped_value.assign(
+                    ctx,
+                    F::from(if store_size.byte_size() == 8 {
+                        value
+                    } else {
+                        value & ((1u64 << (store_size.byte_size() * 8)) - 1)
+                    }),
+                )?;
 
                 self.is_one_byte.assign(ctx, len == 1)?;
                 self.is_two_bytes.assign(ctx, len == 2)?;
@@ -461,7 +503,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 constant_from!(1),
                 common_config.sp(meta) + constant_from!(1),
                 self.vtype.expr(meta),
-                self.store_value.expr(meta),
+                self.store_raw_value.expr(meta),
             )),
             MLookupItem::Second => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
@@ -561,6 +603,23 @@ mod tests {
                     (data (i32.const 0) "\ff\00\00\00\fe\00\00\00")
                     (func (export "test")
                       (i32.const 0)
+                      (i64.const 0x432134214)
+                      (i64.store offset=0)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_store_64_cross() {
+        let textual_repr = r#"
+                (module
+                    (memory $0 1)
+                    (data (i32.const 0) "\ff\00\00\00\fe\00\00\00")
+                    (func (export "test")
+                      (i32.const 6)
                       (i64.const 0x432134214)
                       (i64.store offset=0)
                     )

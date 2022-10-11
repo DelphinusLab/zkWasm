@@ -1,7 +1,6 @@
 use super::*;
 use crate::{
     circuits::{
-        intable::InputTableEncode,
         mtable_compact::encode::MemoryTableLookupEncode,
         utils::{bn_to_field, Context},
     },
@@ -101,6 +100,7 @@ mod tests {
         let textual_repr = r#"
         (module
             (func $foo (param i32) (result i32)
+            (local i64 i32)
               i32.const 0
             )
             (func (export "test")

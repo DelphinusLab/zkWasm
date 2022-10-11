@@ -10,7 +10,6 @@ pub(super) mod op_br;
 pub(super) mod op_br_if;
 pub(super) mod op_br_if_eqz;
 pub(super) mod op_call;
-pub(super) mod op_call_host_input;
 pub(super) mod op_const;
 pub(super) mod op_conversion;
 pub(super) mod op_drop;

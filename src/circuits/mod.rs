@@ -1,7 +1,6 @@
 use self::{
     config::{IMTABLE_COLOMNS, VAR_COLUMNS},
     etable_compact::{EventTableChip, EventTableConfig},
-    intable::{InputTableChip, InputTableConfig, INPUT_TABLE_KEY},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
 };
@@ -17,6 +16,10 @@ use crate::{
         sha256_helper::{
             circuits::{assign::Sha256HelperTableChip, Sha256HelperTableConfig},
             SHA256_FOREIGN_TABLE_KEY,
+        },
+        wasm_input_helper::circuits::{
+            assign::WasmInputHelperTableChip, WasmInputHelperTableConfig,
+            WASM_INPUT_FOREIGN_TABLE_KEY,
         },
         ForeignTableConfig,
     },
@@ -51,7 +54,6 @@ use std::{
 pub mod config;
 pub mod etable_compact;
 pub mod imtable;
-pub mod intable;
 pub mod itable;
 pub mod jtable;
 pub mod mtable_compact;
@@ -71,7 +73,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
-    intable: InputTableConfig<F>,
+    wasm_input_helper_table: WasmInputHelperTableConfig<F>,
     sha256_helper_table: Sha256HelperTableConfig<F>,
 }
 
@@ -144,11 +146,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
         let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
 
-        let intable = InputTableConfig::configure(meta);
+        let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
         let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);
 
         let mut foreign_tables = BTreeMap::<&'static str, Box<dyn ForeignTableConfig<_>>>::new();
-        foreign_tables.insert(INPUT_TABLE_KEY, Box::new(intable.clone()));
+        foreign_tables.insert(
+            WASM_INPUT_FOREIGN_TABLE_KEY,
+            Box::new(wasm_input_helper_table.clone()),
+        );
         foreign_tables.insert(
             SHA256_FOREIGN_TABLE_KEY,
             Box::new(sha256_helper_table.clone()),
@@ -172,7 +177,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             mtable,
             jtable,
             etable,
-            intable,
+            wasm_input_helper_table,
             sha256_helper_table,
         }
     }
@@ -185,18 +190,32 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
         let imchip = MInitTableChip::new(config.imtable);
-        let inchip = InputTableChip::new(config.intable);
         let mchip = MemoryTableChip::new(config.mtable);
         let jchip = JumpTableChip::new(config.jtable);
         let echip = EventTableChip::new(config.etable);
+        let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
         let sha256chip = Sha256HelperTableChip::new(config.sha256_helper_table);
 
         rchip.init(&mut layouter)?;
-        //TODO: call assign for sha256chip
+        wasm_input_chip.init(&mut layouter)?;
         sha256chip.init(&mut layouter)?;
 
+        sha256chip.assign(
+            &mut layouter,
+            &self
+                .execution_tables
+                .etable
+                .filter_foreign_entries(HostPlugin::Sha256),
+        )?;
+        wasm_input_chip.assign(
+            &mut layouter,
+            &self
+                .execution_tables
+                .etable
+                .filter_foreign_entries(HostPlugin::HostInput),
+        )?;
+
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
-        inchip.assign(&mut layouter)?;
         if self.compile_tables.imtable.0.len() > 0 {
             imchip.assign(&mut layouter, &self.compile_tables.imtable.0)?;
         }

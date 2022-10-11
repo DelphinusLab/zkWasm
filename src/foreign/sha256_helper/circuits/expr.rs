@@ -7,22 +7,69 @@ use halo2_proofs::{
 };
 
 impl<F: FieldExt> Sha256HelperTableConfig<F> {
-    pub(super) fn arg_to_u32_expr(
+    pub(super) fn arg_to_shift_u32_expr(
         &self,
         meta: &mut VirtualCells<'_, F>,
         index: usize,
         start: i32,
     ) -> Expression<F> {
         assert!(start < BLOCK_LINES as i32);
-        let mut shift_acc = 1;
+        let mut shift_acc = 0;
         let mut acc = nextn!(meta, self.args[index].0, start);
 
-        for i in start + 1..BLOCK_LINES as i32 {
+        for i in start + 1..8 as i32 {
             shift_acc += 4;
             acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
         }
 
         acc
+    }
+
+    pub(super) fn arg_to_shift_u32_expr_with_lowest_u4(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        index: usize,
+        start: i32,
+    ) -> (Expression<F>, Expression<F>) {
+        (
+            self.arg_to_shift_u32_expr(meta, index, start),
+            nextn!(meta, self.args[index].0, start),
+        )
+    }
+
+    pub(super) fn arg_to_rotate_u32_expr(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        index: usize,
+        start: i32,
+    ) -> Expression<F> {
+        assert!(start < BLOCK_LINES as i32);
+        let mut shift_acc = 0;
+        let mut acc = nextn!(meta, self.args[index].0, start);
+
+        for i in start + 1..8 as i32 {
+            shift_acc += 4;
+            acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
+        }
+
+        for i in 0..start {
+            shift_acc += 4;
+            acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
+        }
+
+        acc
+    }
+
+    pub(super) fn arg_to_rotate_u32_expr_with_lowest_u4(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        index: usize,
+        start: i32,
+    ) -> (Expression<F>, Expression<F>) {
+        (
+            self.arg_to_rotate_u32_expr(meta, index, start),
+            nextn!(meta, self.args[index].0, start),
+        )
     }
 
     pub(super) fn is_block_enabled_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
@@ -31,7 +78,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     }
 
     pub(super) fn opcode_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        fixed_curr!(meta, self.block_first_line_sel) * curr!(meta, self.aux.0)
+        curr!(meta, self.aux.0)
     }
 
     pub(super) fn is_not_block_end_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {

@@ -3,6 +3,12 @@ use wasmi::{RuntimeArgs, RuntimeValue};
 
 use crate::runtime::host::HostEnv;
 
+use super::{
+    Sha256HelperOp, SHA256_FOREIGN_FUNCTION_NAME_CH, SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0,
+    SHA256_FOREIGN_FUNCTION_NAME_LSIGMA1, SHA256_FOREIGN_FUNCTION_NAME_MAJ,
+    SHA256_FOREIGN_FUNCTION_NAME_SSIGMA0, SHA256_FOREIGN_FUNCTION_NAME_SSIGMA1,
+};
+
 fn lsigma0(args: RuntimeArgs) -> Option<RuntimeValue> {
     let x: u32 = args.nth(0);
     let res = x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22);
@@ -45,18 +51,8 @@ fn maj(args: RuntimeArgs) -> Option<RuntimeValue> {
 
 pub fn register_sha256_foreign(env: &mut HostEnv) {
     env.register_function(
-        "Sigma1",
-        specs::host_function::Signature {
-            params: vec![ValueType::I32],
-            return_type: Some(specs::types::ValueType::I32),
-        },
-        lsigma1,
-        HostPlugin::Sha256,
-    )
-    .unwrap();
-
-    env.register_function(
-        "Ch",
+        SHA256_FOREIGN_FUNCTION_NAME_CH,
+        Sha256HelperOp::Ch as usize,
         specs::host_function::Signature {
             params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
             return_type: Some(specs::types::ValueType::I32),
@@ -67,18 +63,8 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
     .unwrap();
 
     env.register_function(
-        "Sigma0",
-        specs::host_function::Signature {
-            params: vec![ValueType::I32],
-            return_type: Some(specs::types::ValueType::I32),
-        },
-        lsigma0,
-        HostPlugin::Sha256,
-    )
-    .unwrap();
-
-    env.register_function(
-        "Maj",
+        SHA256_FOREIGN_FUNCTION_NAME_MAJ,
+        Sha256HelperOp::Maj as usize,
         specs::host_function::Signature {
             params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
             return_type: Some(specs::types::ValueType::I32),
@@ -89,7 +75,32 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
     .unwrap();
 
     env.register_function(
-        "sigma0",
+        SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0,
+        Sha256HelperOp::LSigma0 as usize,
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        lsigma0,
+        HostPlugin::Sha256,
+    )
+    .unwrap();
+
+    env.register_function(
+        SHA256_FOREIGN_FUNCTION_NAME_LSIGMA1,
+        Sha256HelperOp::LSigma1 as usize,
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        lsigma1,
+        HostPlugin::Sha256,
+    )
+    .unwrap();
+
+    env.register_function(
+        SHA256_FOREIGN_FUNCTION_NAME_SSIGMA0,
+        Sha256HelperOp::SSigma0 as usize,
         specs::host_function::Signature {
             params: vec![ValueType::I32],
             return_type: Some(specs::types::ValueType::I32),
@@ -100,7 +111,8 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
     .unwrap();
 
     env.register_function(
-        "sigma1",
+        SHA256_FOREIGN_FUNCTION_NAME_SSIGMA1,
+        Sha256HelperOp::SSigma1 as usize,
         specs::host_function::Signature {
             params: vec![ValueType::I32],
             return_type: Some(specs::types::ValueType::I32),
