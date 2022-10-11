@@ -27,12 +27,6 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         });
 
         meta.lookup("sha256 op lookup", |meta| {
-            let mut acc = curr!(meta, self.op.0) * constant_from!(1 << (4 * OP_ARGS_NUM));
-
-            for i in 0..OP_ARGS_NUM {
-                acc = acc + curr!(meta, self.args[i].0) * constant_from!(1u64 << (i * 4));
-            }
-
             vec![(
                 fixed_curr!(meta, self.sel)
                     * Sha2HelperEncode::encode_table_expr(
