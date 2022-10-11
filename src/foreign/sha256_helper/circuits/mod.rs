@@ -27,13 +27,15 @@ pub struct Sha2HelperEncode();
 impl Sha2HelperEncode {
     pub(super) fn encode_opcode_expr<F: FieldExt>(
         op: Expression<F>,
-        args: Vec<&Expression<F>>,
+        args: Vec<Expression<F>>,
+        ret: Expression<F>,
     ) -> Expression<F> {
         assert!(args.len() < OP_ARGS_NUM);
         let mut acc = op * constant_from!(1 << (OP_ARGS_NUM * 4));
         for (i, v) in args.into_iter().enumerate() {
-            acc = acc + v.clone() * constant_from!(1 << (i * 4));
+            acc = acc + v * constant_from!(1 << (i * 4 + 4));
         }
+        acc = acc + ret;
         acc
     }
 

@@ -28,7 +28,8 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
                     * (self.opcode_expr(meta)
                         - Sha2HelperEncode::encode_opcode_expr(
                             curr!(meta, self.op.0),
-                            vec![&res, &a, &b, &c],
+                            vec![a, b, c],
+                            res
                         )),
             ]
         });

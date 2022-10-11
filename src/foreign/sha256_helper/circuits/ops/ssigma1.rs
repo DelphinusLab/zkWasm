@@ -23,11 +23,13 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
             let res = self.arg_to_rotate_u32_expr(meta, 4, 0);
 
             vec![
+                enable.clone() * (curr!(meta, self.op.0) - constant_from!(OP)),
                 enable.clone()
                     * (self.opcode_expr(meta)
                         - Sha2HelperEncode::encode_opcode_expr(
                             curr!(meta, self.op.0),
-                            vec![&res, &x],
+                            vec![x],
+                            res
                         )),
             ]
         });
