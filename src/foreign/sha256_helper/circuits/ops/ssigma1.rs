@@ -36,7 +36,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
 
         rotation_constraints!(meta, self, "ssigma1 rotate 17", 1, 17);
         rotation_constraints!(meta, self, "ssigma1 rotate 19", 2, 19);
-        shift_constraints!(meta, self, "ssigma1 rotate 10", 3, 10);
+        shift_constraints!(meta, self, "ssigma1 shift 10", 3, 10);
     }
 }
 
