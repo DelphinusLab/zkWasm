@@ -172,7 +172,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         jops.iter_mut().for_each(|x| {
             let t = *x;
             *x = jops_in_total;
-            jops_in_total -= t;
+            jops_in_total = jops_in_total.checked_sub(t).unwrap_or(0);
         });
 
         let mut rest_mops = mops.into_iter();
