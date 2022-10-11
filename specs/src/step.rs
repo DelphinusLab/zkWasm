@@ -2,7 +2,7 @@ use crate::{
     host_function::{HostPlugin, Signature},
     itable::{BinOp, BitOp, RelOp, ShiftOp},
     mtable::{MemoryReadSize, MemoryStoreSize, VarType},
-    types::{Value, ValueType},
+    types::ValueType,
 };
 use serde::Serialize;
 
