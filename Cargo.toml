@@ -3,6 +3,10 @@ name = "delphinus-zkwasm"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "cli"
+path = "src/cli/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -19,3 +23,4 @@ specs = { path = "./specs" }
 strum = "0.24.1"
 strum_macros = "0.24.1"
 wast = "47.0.0"
+clap = { version = "3.2.22", features = ["derive","cargo"] }

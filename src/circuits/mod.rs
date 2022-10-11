@@ -45,7 +45,7 @@ use std::{
     fs::File,
     io::{Cursor, Read},
     marker::PhantomData,
-    path::PathBuf,
+    path::PathBuf, borrow::{Borrow, BorrowMut},
 };
 
 pub mod config;
@@ -77,8 +77,8 @@ pub struct TestCircuitConfig<F: FieldExt> {
 
 #[derive(Default)]
 pub struct TestCircuit<F: FieldExt> {
-    compile_tables: CompileTable,
-    execution_tables: ExecutionTable,
+    pub compile_tables: CompileTable,
+    pub execution_tables: ExecutionTable,
     _data: PhantomData<F>,
 }
 
@@ -274,6 +274,18 @@ impl ZkWasmCircuitBuilder {
         }
     }
 
+    fn create_params(&self) -> Params<G1Affine>{
+          // Initialize the polynomial commitment parameters
+        let timer = start_timer!(|| format!("build params with K = {}", K));
+        let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+        end_timer!(timer);
+
+        
+        params
+        
+    }
+
+
     fn prepare_vk(
         &self,
         circuit: &TestCircuit<Fr>,
@@ -295,7 +307,6 @@ impl ZkWasmCircuitBuilder {
         let timer = start_timer!(|| "build pk");
         let pk = keygen_pk(&params, vk, circuit).expect("keygen_pk should not fail");
         end_timer!(timer);
-
         pk
     }
 
@@ -341,10 +352,24 @@ impl ZkWasmCircuitBuilder {
         let params = self.prepare_param();
 
         let vk = self.prepare_vk(&circuit, &params);
-        let pk = self.prepare_pk(&circuit, &params, vk);
+        let pk = self.prepare_pk(&circuit, &params,vk);
 
         let proof = self.create_proof(&[circuit], &params, &pk);
 
         self.verify_check(pk.get_vk(), &params, &proof);
+    }
+    pub fn bench_with_result(&self,) ->(Vec<u8>,Vec<u8>,Vec<u8>){
+        let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
+        let mut params_buffer: Vec<u8> = vec![];
+        let params = self.create_params();
+        params.write::<Vec<u8>>(params_buffer.borrow_mut()).unwrap();
+        let  vk = self.prepare_vk(&circuit, &params);
+        let mut vk_buffer: Vec<u8> = vec![];
+        vk.write::<Vec<u8>>(vk_buffer.borrow_mut()).unwrap();
+        let pk = self.prepare_pk(&circuit, &params,vk);
+        
+        let proof = self.create_proof(&[circuit], &params, &pk);
+        self.verify_check(pk.get_vk(), &params, &proof);
+        (params_buffer,vk_buffer,proof)
     }
 }
