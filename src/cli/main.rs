@@ -11,27 +11,25 @@ fn main() {
     let wasm_file_arg = Arg::with_name("wasm_file")
         .short('w')
         .long("wasm")
-        .value_name("FILE")
-        .help("location of the wasm file")
+        .value_name("FILEPATH")
+        .help("Path of the wasm file")
         .required(true)
         .takes_value(true)
-        .min_values(0)
         .value_parser(value_parser!(std::string::String));
     let fn_name_arg = Arg::with_name("function_name")
         .long("fname")
         .short('f')
         .required(true)
         .value_name("FUNCTIONNAME")
-        .help("input name of wasm function you would like to run")
+        .help("Function you would like to run from the file")
         .takes_value(true)
-        .min_values(0)
         .value_parser(value_parser!(std::string::String));
     let type_arg = Arg::with_name("types")
         .long("types")
         .short('t')
         .required(false)
-        .value_name("TYPES")
-        .help("input values of your wasm program arguments")
+        .value_name("TYPE")
+        .help("Types of your wasm program arguments, multiple types should be separated with ','")
         .takes_value(true)
         .use_delimiter(true)
         .value_delimiter(',')
@@ -42,7 +40,7 @@ fn main() {
         .long("values")
         .short('v')
         .value_name("VALUES")
-        .help("input values of your wasm program arguments")
+        .help("Values of your wasm program arguments, multiple values should be separated with ','")
         .required(false)
         .takes_value(true)
         .use_delimiter(true)
@@ -54,7 +52,7 @@ fn main() {
         .short('o')
         .long("output")
         .value_name("OUTPUTPATH")
-        .help("location of the output")
+        .help("Path of the output files default: './output/'")
         .required(false)
         .takes_value(true)
         .value_parser(value_parser!(std::string::String));
@@ -63,16 +61,16 @@ fn main() {
         .version("v1.0-beta")
         .subcommand(
             SubCommand::with_name("run")
+            .about("Run your function from your wasm program with inputs.\nType 'cli run --help' for more information\nOnly support I32 type now")
                 .arg(wasm_file_arg)
                 .arg(type_arg)
                 .arg(value_arg)
                 .arg(fn_name_arg)
                 .arg(output_path),
         )
-        .subcommand(SubCommand::with_name("info"))
         .get_matches();
 
-    let m = match app.subcommand() {
+    match app.subcommand() {
         Some(("run", m)) => {
             let wasm_file: &str = m.value_of("wasm_file").unwrap();
             let fn_name: &str = m.value_of("function_name").unwrap();
