@@ -11,14 +11,12 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
       with: 
         submodules: recursive
     - name: Build
-      run: cargo build --verbose
+      run: cargo +nightly build --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo +nightly test --verbose
