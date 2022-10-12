@@ -4,7 +4,8 @@ use std::{collections::HashMap, fmt, fs::File, io::Read, path::PathBuf};
 use std::{env, fs};
 
 use specs::types::Value;
-use wasmi::{ImportsBuilder, NopExternals};
+use wasmi::{ExternVal, ExternVal::Func, ImportsBuilder, NopExternals};
+use wast::kw::param;
 
 // use crate::{
 //     circuits::ZkWasmCircuitBuilder,
@@ -18,36 +19,30 @@ pub struct ArgumentError;
 
 impl fmt::Display for ArgumentError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "mismatch type number and argument number")
+        write!(f, "invalid arguments for function")
     }
 }
 
 impl std::error::Error for ArgumentError {}
 
-pub fn arg_parser(tv: Vec<&str>, vv: Vec<&str>) -> Result<Vec<Value>, ArgumentError> {
-    if tv.len() != vv.len() {
-        Err(ArgumentError)
-    } else {
-        let result = tv
-            .iter()
-            .zip(vv.iter())
-            .map(|(&tStr, &vStr)| match tStr {
-                "i32" => Value::I32(vStr.parse::<i32>().unwrap()),
-                "i64" => Value::I64(vStr.parse::<i64>().unwrap()),
-                _ => {
-                    unimplemented!();
-                }
-            })
-            .collect();
-
-        Ok(result)
-    }
+fn parser(f_sig: ExternVal, vv: Vec<&str>) -> Result<Vec<Value>, ArgumentError> {
+    let f_sig = &f_sig.as_func().unwrap().signature();
+    assert_eq!(f_sig.params().len(), vv.len());
+    f_sig
+        .params()
+        .into_iter()
+        .zip(vv.into_iter())
+        .map(|(t, v)| match t {
+            wasmi::ValueType::I32 => Ok(Value::I32(v.parse::<i32>().unwrap())),
+            wasmi::ValueType::I64 => Ok(Value::I32(v.parse::<i32>().unwrap())),
+            _ => Err(ArgumentError),
+        })
+        .collect::<Result<Vec<Value>, ArgumentError>>()
 }
 
 pub fn exec(
     file_path: &str,
     f_name: &str,
-    tv: Vec<&str>,
     vv: Vec<&str>,
     output_path: &str,
 ) -> Result<(), ArgumentError> {
@@ -63,13 +58,16 @@ pub fn exec(
     let mut f = File::open(path).unwrap();
     f.read_to_end(&mut binary).unwrap();
 
-    fs::create_dir(PathBuf::from(output_path));
+    fs::create_dir(PathBuf::from(output_path)).unwrap();
 
     let compiler = WasmInterpreter::new();
     let compiled_module = compiler
         .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
         .expect("file cannot be complied");
-    let args = arg_parser(tv, vv)?;
+
+    let f_sig = compiled_module.instance.export_by_name(f_name).unwrap();
+
+    let args = parser(f_sig, vv)?;
     let execution_log = compiler
         .run(&mut NopExternals, &compiled_module, f_name, args)
         .unwrap();

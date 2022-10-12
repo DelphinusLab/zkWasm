@@ -1,8 +1,4 @@
-use clap::{arg, value_parser, App, Arg, SubCommand};
-use std::{collections::HashMap, fmt, fs::File, io::Read, path::PathBuf};
-
-use specs::types::Value;
-use wasmi::{ImportsBuilder, NopExternals};
+use clap::{value_parser, App, Arg, SubCommand};
 
 use delphinus_zkwasm::cli::run;
 
@@ -23,17 +19,6 @@ fn main() {
         .value_name("FUNCTIONNAME")
         .help("Function you would like to run from the file")
         .takes_value(true)
-        .value_parser(value_parser!(std::string::String));
-    let type_arg = Arg::with_name("types")
-        .long("types")
-        .short('t')
-        .required(false)
-        .value_name("TYPE")
-        .help("Types of your wasm program arguments, multiple types should be separated with ','")
-        .takes_value(true)
-        .use_delimiter(true)
-        .value_delimiter(',')
-        .min_values(0)
         .value_parser(value_parser!(std::string::String));
 
     let value_arg = Arg::with_name("values")
@@ -63,7 +48,7 @@ fn main() {
             SubCommand::with_name("run")
             .about("Run your function from your wasm program with inputs.\nType 'cli run --help' for more information\nOnly support I32 type now")
                 .arg(wasm_file_arg)
-                .arg(type_arg)
+                // .arg(type_arg)
                 .arg(value_arg)
                 .arg(fn_name_arg)
                 .arg(output_path),
@@ -74,10 +59,9 @@ fn main() {
         Some(("run", m)) => {
             let wasm_file: &str = m.value_of("wasm_file").unwrap();
             let fn_name: &str = m.value_of("function_name").unwrap();
-            let types: Vec<&str> = m.values_of("types").unwrap().collect();
             let input: Vec<&str> = m.values_of("values").unwrap().collect();
             let output_path: &str = m.value_of("output_path").unwrap_or("./output/");
-            run::exec(wasm_file, fn_name, types, input, output_path).unwrap();
+            run::exec(wasm_file, fn_name, input, output_path).unwrap();
         }
         _ => unimplemented!(),
     };
