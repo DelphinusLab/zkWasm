@@ -228,9 +228,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             vec![
                 (self.ltype(meta) - constant_from!(LocationType::Heap))
                     * (constant_from!(1) - self.same_offset(meta))
-                    * (self.atype(meta) - constant_from!(AccessType::Write))
-                    // TODO: remove this once we implement call
-                    * (self.atype(meta) - constant_from!(AccessType::Init)),
+                    * (self.atype(meta) - constant_from!(AccessType::Write)),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
