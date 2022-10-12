@@ -149,18 +149,18 @@ mod tests {
         test::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
-    use specs::types::Value;
     use wasmi::{ImportsBuilder, NopExternals};
 
     #[test]
     fn test_local_set() {
         let textual_repr = r#"
                 (module
-                    (func (export "test") (param $0 i32)
-                      (i32.const 1)
-                      (local.set $0)
+                    (func (export "test")
+                        (local i32 i32)
+                        (i32.const 1)
+                        (local.set 1)
                     )
-                   )
+                )
                 "#;
 
         let wasm = wabt::wat2wasm(textual_repr).unwrap();
@@ -174,7 +174,7 @@ mod tests {
                 &mut NopExternals,
                 &compiled_module,
                 "test",
-                vec![Value::I32(0)],
+                vec![],
             )
             .unwrap();
 

@@ -156,11 +156,12 @@ mod tests {
     fn test_local_get() {
         let textual_repr = r#"
                 (module
-                    (func (export "test") (param $0 i32)
-                      (local.get $0)
-                      (drop)
+                    (func (export "test")
+                        (local i32 i32)
+                        (local.get 1)
+                        (drop)
                     )
-                   )
+                )
                 "#;
 
         let wasm = wabt::wat2wasm(textual_repr).unwrap();
@@ -170,12 +171,7 @@ mod tests {
             .compile(&wasm, &ImportsBuilder::default(), &HashMap::default())
             .unwrap();
         let execution_log = compiler
-            .run(
-                &mut NopExternals,
-                &compiled_module,
-                "test",
-                vec![Value::I32(0)],
-            )
+            .run(&mut NopExternals, &compiled_module, "test", vec![])
             .unwrap();
 
         run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
@@ -185,11 +181,12 @@ mod tests {
     fn test_local_get_64() {
         let textual_repr = r#"
                 (module
-                    (func (export "test") (param $0 i64)
-                      (local.get $0)
-                      (drop)
+                    (func (export "test")
+                        (local i64 i64)
+                        (local.get 1)
+                        (drop)
                     )
-                   )
+                )
                 "#;
 
         let wasm = wabt::wat2wasm(textual_repr).unwrap();
@@ -203,7 +200,7 @@ mod tests {
                 &mut NopExternals,
                 &compiled_module,
                 "test",
-                vec![Value::I64(0)],
+                vec![],
             )
             .unwrap();
 
