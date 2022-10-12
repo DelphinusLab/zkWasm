@@ -145,16 +145,16 @@ mod tests {
         test::run_test_circuit,
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
-    use specs::types::Value;
     use wasmi::{ImportsBuilder, NopExternals};
 
     #[test]
     fn test_local_tee() {
         let textual_repr = r#"
                 (module
-                    (func (export "test") (param $0 i32)
+                    (func (export "test")
+                      (local i32 i32)
                       (i32.const 1)
-                      (local.tee $0)
+                      (local.tee 1)
                       (drop)
                     )
                    )
@@ -171,7 +171,7 @@ mod tests {
                 &mut NopExternals,
                 &compiled_module,
                 "test",
-                vec![Value::I32(0)],
+                vec![],
             )
             .unwrap();
 
