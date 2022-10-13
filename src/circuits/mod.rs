@@ -332,12 +332,20 @@ impl ZkWasmCircuitBuilder {
         circuits: &[TestCircuit<Fr>],
         params: &Params<G1Affine>,
         pk: &ProvingKey<G1Affine>,
+        public_inputs: &Vec<Fr>,
     ) -> Vec<u8> {
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
         let timer = start_timer!(|| "create proof");
-        create_proof(params, pk, circuits, &[&[&[]]], OsRng, &mut transcript)
-            .expect("proof generation should not fail");
+        create_proof(
+            params,
+            pk,
+            circuits,
+            &[&[public_inputs]],
+            OsRng,
+            &mut transcript,
+        )
+        .expect("proof generation should not fail");
         end_timer!(timer);
 
         let proof = transcript.finalize();
@@ -350,8 +358,9 @@ impl ZkWasmCircuitBuilder {
         vk: &VerifyingKey<G1Affine>,
         params: &Params<G1Affine>,
         proof: &Vec<u8>,
+        public_inputs: &Vec<Fr>,
     ) {
-        let public_inputs_size = 0;
+        let public_inputs_size = public_inputs.len();
 
         let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
 
@@ -359,11 +368,18 @@ impl ZkWasmCircuitBuilder {
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
 
         let timer = start_timer!(|| "verify proof");
-        verify_proof(&params_verifier, vk, strategy, &[&[&[]]], &mut transcript).unwrap();
+        verify_proof(
+            &params_verifier,
+            vk,
+            strategy,
+            &[&[public_inputs]],
+            &mut transcript,
+        )
+        .unwrap();
         end_timer!(timer);
     }
 
-    pub fn bench(&self) {
+    pub fn bench(&self, public_inputs: Vec<Fr>) {
         let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
 
         let params = self.prepare_param();
@@ -371,9 +387,9 @@ impl ZkWasmCircuitBuilder {
         let vk = self.prepare_vk(&circuit, &params);
         let pk = self.prepare_pk(&circuit, &params, vk);
 
-        let proof = self.create_proof(&[circuit], &params, &pk);
+        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
 
-        self.verify_check(pk.get_vk(), &params, &proof);
+        self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
     }
     pub fn bench_with_result(&self) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();

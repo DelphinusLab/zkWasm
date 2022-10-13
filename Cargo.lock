@@ -217,6 +217,7 @@ version = "0.1.0"
 dependencies = [
  "ark-std",
  "clap",
+ "downcast-rs",
  "halo2_proofs",
  "lazy_static",
  "num-bigint",

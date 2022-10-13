@@ -4,16 +4,17 @@
   (type (;2;) (func (param i32 i32 i32) (result i32)))
   (type (;3;) (func (result i32)))
   (type (;4;) (func))
-  (type (;5;) (func (param i32 i32)))
-  (import "env" "zkwasm_sha256_lsigma1" (func (;0;) (type 0)))
-  (import "env" "zkwasm_sha256_ch" (func (;1;) (type 2)))
-  (import "env" "zkwasm_sha256_lsigma0" (func (;2;) (type 0)))
-  (import "env" "zkwasm_sha256_maj" (func (;3;) (type 2)))
-  (import "env" "zkwasm_sha256_ssigma1" (func (;4;) (type 0)))
-  (import "env" "zkwasm_sha256_ssigma0" (func (;5;) (type 0)))
-  (func (;6;) (type 3) (result i32)
+  (type (;5;) (func (param i32) (result i64)))
+  (import "env" "wasm_input" (func (;0;) (type 5)))
+  (import "env" "zkwasm_sha256_lsigma1" (func (;1;) (type 0)))
+  (import "env" "zkwasm_sha256_ch" (func (;2;) (type 2)))
+  (import "env" "zkwasm_sha256_lsigma0" (func (;3;) (type 0)))
+  (import "env" "zkwasm_sha256_maj" (func (;4;) (type 2)))
+  (import "env" "zkwasm_sha256_ssigma1" (func (;5;) (type 0)))
+  (import "env" "zkwasm_sha256_ssigma0" (func (;6;) (type 0)))
+  (func (;7;) (type 3) (result i32)
     i32.const 1152)
-  (func (;7;) (type 1) (param i32)
+  (func (;8;) (type 1) (param i32)
     i32.const 17600
     i64.const 0
     i64.store
@@ -50,7 +51,7 @@
     local.get 0
     select
     i64.store)
-  (func (;8;) (type 1) (param i32)
+  (func (;9;) (type 1) (param i32)
     (local i32 i32 i32 i32 i32 i32 i64)
     i32.const 17600
     i32.const 17600
@@ -105,7 +106,7 @@
         local.get 5
         br_if 1 (;@1;)
         i32.const 17536
-        call 9
+        call 10
         local.get 0
         local.get 2
         i32.sub
@@ -123,7 +124,7 @@
       if  ;; label = @2
         loop  ;; label = @3
           local.get 1
-          call 9
+          call 10
           local.get 1
           i32.const -64
           i32.sub
@@ -165,7 +166,7 @@
         br_if 0 (;@2;)
       end
     end)
-  (func (;9;) (type 1) (param i32)
+  (func (;10;) (type 1) (param i32)
     (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
     i32.const 17616
     i32.load
@@ -190,23 +191,23 @@
     i32.const 17624
     i32.load
     local.tee 10
-    call 0
+    call 1
     local.set 17
     local.get 10
     local.get 13
     local.get 11
-    call 1
+    call 2
     local.set 29
     local.get 0
     i32.load
     local.set 8
     local.get 15
-    call 2
+    call 3
     local.set 19
     local.get 15
     local.get 9
     local.get 3
-    call 3
+    call 4
     local.set 20
     local.get 8
     i32.const 8
@@ -239,12 +240,12 @@
     local.tee 16
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 17
     local.get 8
     local.get 10
     local.get 13
-    call 1
+    call 2
     local.set 21
     local.get 0
     i32.load offset=4
@@ -255,12 +256,12 @@
     i32.add
     i32.add
     local.tee 16
-    call 2
+    call 3
     local.set 19
     local.get 16
     local.get 15
     local.get 9
-    call 3
+    call 4
     local.get 3
     local.get 5
     i32.const 8
@@ -293,12 +294,12 @@
     local.tee 11
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 17
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 21
     local.get 0
     i32.load offset=8
@@ -308,12 +309,12 @@
     i32.add
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 20
     local.get 11
     local.get 16
     local.get 15
-    call 3
+    call 4
     local.get 9
     local.get 3
     i32.const 8
@@ -346,12 +347,12 @@
     local.tee 13
     i32.add
     local.tee 3
-    call 0
+    call 1
     local.set 17
     local.get 3
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 21
     local.get 0
     i32.load offset=12
@@ -361,12 +362,12 @@
     i32.add
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 23
     local.get 13
     local.get 11
     local.get 16
-    call 3
+    call 4
     local.get 15
     local.get 9
     i32.const 8
@@ -399,12 +400,12 @@
     local.tee 9
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 17
     local.get 15
     local.get 3
     local.get 5
-    call 1
+    call 2
     local.set 27
     local.get 0
     i32.load offset=16
@@ -414,12 +415,12 @@
     i32.add
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 23
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 16
     local.get 10
     i32.const 8
@@ -452,12 +453,12 @@
     local.tee 17
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 27
     local.get 10
     local.get 15
     local.get 3
-    call 1
+    call 2
     local.set 18
     local.get 0
     i32.load offset=20
@@ -467,12 +468,12 @@
     i32.add
     i32.add
     local.tee 16
-    call 2
+    call 3
     local.set 17
     local.get 16
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 8
     i32.const 8
@@ -505,12 +506,12 @@
     local.tee 27
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 18
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 22
     local.get 0
     i32.load offset=24
@@ -520,12 +521,12 @@
     i32.add
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 17
     local.get 11
     local.get 16
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 5
     i32.const 8
@@ -558,12 +559,12 @@
     local.tee 18
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 22
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 24
     local.get 0
     i32.load offset=28
@@ -573,12 +574,12 @@
     i32.add
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 17
     local.get 13
     local.get 11
     local.get 16
-    call 3
+    call 4
     local.get 9
     local.get 3
     i32.const 8
@@ -611,12 +612,12 @@
     local.tee 22
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 24
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 25
     local.get 0
     i32.load offset=32
@@ -626,12 +627,12 @@
     i32.add
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 17
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     i32.const 8
     i32.shl
@@ -664,12 +665,12 @@
     local.get 16
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 24
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 25
     local.get 0
     i32.load offset=36
@@ -679,12 +680,12 @@
     i32.add
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 17
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 16
     i32.const 8
@@ -717,12 +718,12 @@
     local.tee 24
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 25
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 28
     local.get 0
     i32.load offset=40
@@ -732,12 +733,12 @@
     i32.add
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 17
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 16
     i32.const 8
@@ -770,12 +771,12 @@
     local.tee 25
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 28
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 1
     local.get 0
     i32.load offset=44
@@ -785,12 +786,12 @@
     i32.add
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 17
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 16
     i32.const 8
@@ -823,12 +824,12 @@
     local.tee 28
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 1
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 2
     local.get 0
     i32.load offset=48
@@ -838,12 +839,12 @@
     i32.add
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 17
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 16
     i32.const 8
@@ -876,12 +877,12 @@
     local.tee 1
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 2
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 4
     local.get 0
     i32.load offset=52
@@ -891,12 +892,12 @@
     i32.add
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 17
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 16
     i32.const 8
@@ -929,12 +930,12 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 0
     i32.load offset=56
@@ -944,12 +945,12 @@
     i32.add
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 17
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 16
     i32.const 8
@@ -982,12 +983,12 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 0
     i32.load offset=60
@@ -997,12 +998,12 @@
     i32.add
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 17
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 0
     i32.const 8
@@ -1035,29 +1036,29 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 16
-    call 4
+    call 5
     local.set 12
     local.get 29
-    call 5
+    call 6
     local.set 14
     local.get 2
     local.get 17
     i32.add
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -1078,29 +1079,29 @@
     local.tee 6
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 0
-    call 4
+    call 5
     local.set 12
     local.get 19
-    call 5
+    call 6
     local.set 14
     i32.add
     local.get 6
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -1121,30 +1122,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 17
-    call 4
+    call 5
     local.set 12
     local.get 20
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -1165,30 +1166,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 29
-    call 4
+    call 5
     local.set 12
     local.get 21
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -1209,30 +1210,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 19
-    call 4
+    call 5
     local.set 12
     local.get 23
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -1253,30 +1254,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 20
-    call 4
+    call 5
     local.set 12
     local.get 26
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -1297,30 +1298,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 21
-    call 4
+    call 5
     local.set 12
     local.get 27
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -1341,30 +1342,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 23
-    call 4
+    call 5
     local.set 12
     local.get 18
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -1385,30 +1386,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 26
-    call 4
+    call 5
     local.set 12
     local.get 22
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -1429,30 +1430,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 27
-    call 4
+    call 5
     local.set 12
     local.get 24
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -1473,30 +1474,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 18
-    call 4
+    call 5
     local.set 12
     local.get 25
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -1517,30 +1518,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 22
-    call 4
+    call 5
     local.set 12
     local.get 30
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -1561,30 +1562,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 24
-    call 4
+    call 5
     local.set 12
     local.get 28
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -1605,30 +1606,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 25
-    call 4
+    call 5
     local.set 12
     local.get 16
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -1649,30 +1650,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 30
-    call 4
+    call 5
     local.set 12
     local.get 0
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -1693,30 +1694,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 28
-    call 4
+    call 5
     local.set 12
     local.get 17
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -1737,30 +1738,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 16
-    call 4
+    call 5
     local.set 12
     local.get 29
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -1781,30 +1782,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 0
-    call 4
+    call 5
     local.set 12
     local.get 19
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -1825,30 +1826,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 17
-    call 4
+    call 5
     local.set 12
     local.get 20
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -1869,30 +1870,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 29
-    call 4
+    call 5
     local.set 12
     local.get 21
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -1913,30 +1914,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 19
-    call 4
+    call 5
     local.set 12
     local.get 23
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -1957,30 +1958,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 20
-    call 4
+    call 5
     local.set 12
     local.get 26
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -2001,30 +2002,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 21
-    call 4
+    call 5
     local.set 12
     local.get 27
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -2045,30 +2046,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 23
-    call 4
+    call 5
     local.set 12
     local.get 18
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -2089,30 +2090,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 26
-    call 4
+    call 5
     local.set 12
     local.get 22
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -2133,30 +2134,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 27
-    call 4
+    call 5
     local.set 12
     local.get 24
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -2177,30 +2178,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 18
-    call 4
+    call 5
     local.set 12
     local.get 25
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -2221,30 +2222,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 22
-    call 4
+    call 5
     local.set 12
     local.get 30
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -2265,30 +2266,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 24
-    call 4
+    call 5
     local.set 12
     local.get 28
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -2309,30 +2310,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 25
-    call 4
+    call 5
     local.set 12
     local.get 16
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -2353,30 +2354,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 30
-    call 4
+    call 5
     local.set 12
     local.get 0
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -2397,30 +2398,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 28
-    call 4
+    call 5
     local.set 12
     local.get 17
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -2441,30 +2442,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 16
-    call 4
+    call 5
     local.set 12
     local.get 29
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -2485,30 +2486,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 0
-    call 4
+    call 5
     local.set 12
     local.get 19
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -2529,30 +2530,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 17
-    call 4
+    call 5
     local.set 12
     local.get 20
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -2573,30 +2574,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 29
-    call 4
+    call 5
     local.set 12
     local.get 21
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -2617,30 +2618,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 19
-    call 4
+    call 5
     local.set 12
     local.get 23
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -2661,30 +2662,30 @@
     local.tee 2
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 4
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 7
     local.get 20
-    call 4
+    call 5
     local.set 12
     local.get 26
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 6
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 14
     local.get 12
@@ -2705,30 +2706,30 @@
     local.tee 2
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 4
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 7
     local.get 21
-    call 4
+    call 5
     local.set 12
     local.get 27
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.set 6
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 14
     local.get 12
@@ -2749,30 +2750,30 @@
     local.tee 2
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 4
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 7
     local.get 23
-    call 4
+    call 5
     local.set 12
     local.get 18
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.set 6
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 14
     local.get 12
@@ -2793,30 +2794,30 @@
     local.tee 2
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 4
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 7
     local.get 26
-    call 4
+    call 5
     local.set 12
     local.get 22
-    call 5
+    call 6
     local.set 14
     local.get 6
     i32.add
     local.get 2
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 6
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 14
     local.get 12
@@ -2837,30 +2838,30 @@
     local.tee 18
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 2
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 4
     local.get 27
-    call 4
+    call 5
     local.set 7
     local.get 24
-    call 5
+    call 6
     local.set 12
     local.get 6
     i32.add
     local.get 18
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.set 18
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 12
     local.get 7
@@ -2881,29 +2882,29 @@
     local.tee 22
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 1
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 2
     local.get 29
-    call 4
+    call 5
     local.set 4
     local.get 25
-    call 5
+    call 6
     local.set 7
     local.get 18
     i32.add
     local.get 22
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 13
     local.get 7
     local.get 4
@@ -2924,28 +2925,28 @@
     local.tee 24
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 6
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 1
     local.get 19
-    call 4
+    call 5
     local.set 19
     local.get 30
-    call 5
+    call 6
     local.set 2
     i32.add
     local.get 24
     i32.add
     local.tee 13
-    call 2
+    call 3
     local.get 13
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.get 9
     local.get 2
     local.get 19
@@ -2966,29 +2967,29 @@
     local.tee 21
     i32.add
     local.tee 15
-    call 0
+    call 1
     local.set 24
     local.get 15
     local.get 5
     local.get 8
-    call 1
+    call 2
     local.set 25
     local.get 20
-    call 4
+    call 5
     local.set 20
     local.get 28
-    call 5
+    call 6
     local.set 6
     i32.add
     local.get 21
     i32.add
     local.tee 9
-    call 2
+    call 3
     local.set 21
     local.get 9
     local.get 13
     local.get 11
-    call 3
+    call 4
     local.get 3
     local.get 6
     local.get 20
@@ -3009,29 +3010,29 @@
     local.tee 23
     i32.add
     local.tee 10
-    call 0
+    call 1
     local.set 22
     local.get 10
     local.get 15
     local.get 5
-    call 1
+    call 2
     local.set 24
     local.get 19
-    call 4
+    call 5
     local.set 19
     local.get 16
-    call 5
+    call 6
     local.set 25
     local.get 21
     i32.add
     local.get 23
     i32.add
     local.tee 3
-    call 2
+    call 3
     local.get 3
     local.get 9
     local.get 13
-    call 3
+    call 4
     local.get 11
     local.get 25
     local.get 19
@@ -3052,28 +3053,28 @@
     local.tee 26
     i32.add
     local.tee 8
-    call 0
+    call 1
     local.set 18
     local.get 8
     local.get 10
     local.get 15
-    call 1
+    call 2
     local.set 22
     local.get 20
-    call 4
+    call 5
     local.set 20
     local.get 0
-    call 5
+    call 6
     local.set 24
     i32.add
     local.get 26
     i32.add
     local.tee 11
-    call 2
+    call 3
     local.get 11
     local.get 3
     local.get 9
-    call 3
+    call 4
     local.get 22
     local.get 5
     local.get 18
@@ -3093,29 +3094,29 @@
     local.get 13
     i32.add
     local.tee 5
-    call 0
+    call 1
     local.set 13
     local.get 5
     local.get 8
     local.get 10
-    call 1
+    call 2
     local.set 20
     local.get 19
-    call 4
+    call 5
     local.set 19
     local.get 17
-    call 5
+    call 6
     local.set 17
     i32.add
     local.get 16
     i32.add
     local.tee 16
-    call 2
+    call 3
     local.set 21
     local.get 16
     local.get 11
     local.get 3
-    call 3
+    call 4
     local.set 23
     i32.const 17612
     i32.const 17612
@@ -3186,7 +3187,7 @@
     i32.add
     i32.add
     i32.store)
-  (func (;10;) (type 4)
+  (func (;11;) (type 4)
     (local i32 i32 i32 i32 i64)
     i32.const 17600
     i32.load
@@ -3233,7 +3234,7 @@
             i32.store
           end
           i32.const 17536
-          call 9
+          call 10
           i32.const 0
           br 1 (;@2;)
         end
@@ -3369,7 +3370,7 @@
     i32.or
     i32.store
     i32.const 17536
-    call 9
+    call 10
     i32.const 17636
     i32.const 17636
     i32.load
@@ -3601,56 +3602,41 @@
       end
       unreachable
     end)
-  (func (;11;) (type 3) (result i32)
+  (func (;12;) (type 3) (result i32)
     i32.const 17536)
-  (func (;12;) (type 5) (param i32 i32)
+  (func (;13;) (type 4)
+    (local i64)
+    i32.const 1
+    call 0
+    i32.const 17640
+    i32.const 32
+    i32.store
     i32.const 17600
     i64.const 0
     i64.store
-    i32.const 17640
-    i32.const 28
-    i32.const 32
-    local.get 1
-    i32.const 224
-    i32.eq
-    local.tee 1
-    select
-    i32.store
     i32.const 17632
-    i64.const -4685344894838272089
     i64.const 6620516960021240235
-    local.get 1
-    select
     i64.store
     i32.const 17624
-    i64.const 7518782744944446257
     i64.const -7276294671082564993
-    local.get 1
-    select
     i64.store
     i32.const 17616
-    i64.const -644479594506691305
     i64.const -6534734903820487822
-    local.get 1
-    select
     i64.store
     i32.const 17608
-    i64.const 3926247204440088280
     i64.const -4942790177982912921
-    local.get 1
-    select
     i64.store
-    local.get 0
-    call 8
-    call 10)
+    i32.wrap_i64
+    call 9
+    call 11)
   (memory (;0;) 2 2)
   (global (;0;) i32 (i32.const 1024))
   (export "memory" (memory 0))
-  (export "Hash_GetBuffer" (func 6))
-  (export "Hash_Init" (func 7))
-  (export "Hash_Update" (func 8))
-  (export "Hash_Final" (func 10))
-  (export "Hash_GetState" (func 11))
-  (export "Hash_Calculate" (func 12))
+  (export "Hash_GetBuffer" (func 7))
+  (export "Hash_Init" (func 8))
+  (export "Hash_Update" (func 9))
+  (export "Hash_Final" (func 11))
+  (export "Hash_GetState" (func 12))
+  (export "Hash_Calculate" (func 13))
   (export "STATE_SIZE" (global 0))
   (data (;0;) (i32.const 1024) "p"))

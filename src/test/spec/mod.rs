@@ -5,6 +5,9 @@ use wasmi::{ImportsBuilder, NopExternals};
 use wast::{lexer::Lexer, parser::ParseBuffer, Error, Wast, WastArg};
 
 fn run_spec_test(file_name: &str) -> Result<(), Error> {
+    todo!();
+
+    /*
     let path = format!("src/test/spec/{}.wast", file_name);
     let file = fs::read_to_string(&path).unwrap();
 
@@ -77,6 +80,7 @@ fn run_spec_test(file_name: &str) -> Result<(), Error> {
         }
     }
     Ok(())
+    */
 }
 
 /*

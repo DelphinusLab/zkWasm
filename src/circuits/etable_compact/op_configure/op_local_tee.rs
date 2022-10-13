@@ -138,14 +138,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use crate::{
-        runtime::{WasmInterpreter, WasmRuntime},
-        test::run_test_circuit,
-    };
-    use halo2_proofs::pairing::bn256::Fr as Fp;
-    use wasmi::{ImportsBuilder, NopExternals};
+    use crate::test::test_circuit_noexternal;
 
     #[test]
     fn test_local_tee() {
@@ -160,21 +153,6 @@ mod tests {
                    )
                 "#;
 
-        let wasm = wabt::wat2wasm(textual_repr).unwrap();
-
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(&wasm, &ImportsBuilder::default(), &HashMap::default())
-            .unwrap();
-        let execution_log = compiler
-            .run(
-                &mut NopExternals,
-                &compiled_module,
-                "test",
-                vec![],
-            )
-            .unwrap();
-
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+        test_circuit_noexternal(textual_repr).unwrap()
     }
 }
