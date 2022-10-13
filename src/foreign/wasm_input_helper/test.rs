@@ -22,23 +22,35 @@ mod tests {
                 )
             "#;
 
+        let public_inputs = vec![9];
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
         let compiler = WasmInterpreter::new();
         let mut env = HostEnv::new();
-        register_wasm_input_foreign(&mut env);
+        register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
 
         let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler
             .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
         let execution_log = compiler
-            .run(&mut env, &compiled_module, "main", vec![])
+            .run(
+                &mut env,
+                &compiled_module,
+                "main",
+                public_inputs.clone(),
+                vec![],
+            )
             .unwrap();
 
         let circuit = TestCircuit::<Fp>::new(compiled_module.tables, execution_log.tables);
 
-        let prover = MockProver::run(K, &circuit, vec![vec![Fp::from(9)]]).unwrap();
+        let prover = MockProver::run(
+            K,
+            &circuit,
+            vec![public_inputs.into_iter().map(|v| Fp::from(v)).collect()],
+        )
+        .unwrap();
         assert_eq!(prover.verify(), Ok(()));
     }
 }

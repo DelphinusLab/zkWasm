@@ -1,47 +1,71 @@
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use halo2_proofs::pairing::bn256::Fr as Fp;
-    use specs::types::Value;
-    use wasmi::{ImportsBuilder, NopExternals};
+    use halo2_proofs::{dev::MockProver, pairing::bn256::Fr as Fp};
+    use wasmi::ImportsBuilder;
 
     use crate::{
-        runtime::{WasmInterpreter, WasmRuntime},
-        test::run_test_circuit,
+        circuits::{config::K, TestCircuit},
+        foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
+        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
     };
 
+    /*
+       unsigned long long wasm_input(int);
+
+       unsigned long long fib(unsigned long long n)
+       {
+           if (n <= 1)
+               return n;
+           return fib(n - 1) + fib(n - 2);
+       }
+
+       unsigned long long test() {
+           unsigned long long input = wasm_input(1);
+           return fib(input);
+       }
+    */
     #[test]
     fn test_fibonacci() {
         let textual_repr = r#"
         (module
-            (export "fibonacci" (func $fibonacci))
-            (func $fibonacci (; 0 ;) (param $0 i32) (result i32)
+            (import "env" "wasm_input" (func $wasm_input (param i32) (result i64)))
+            (export "fib" (func $fib))
+            (export "test" (func $test))
+            (func $fib (; 1 ;) (param $0 i32) (result i32)
              (block $label$0
               (br_if $label$0
                (i32.ne
                 (i32.or
-                 (local.get $0)
+                 (get_local $0)
                  (i32.const 1)
                 )
                 (i32.const 1)
                )
               )
               (return
-               (local.get $0)
+               (get_local $0)
               )
              )
              (i32.add
-              (call $fibonacci
+              (call $fib
                (i32.add
-                (local.get $0)
+                (get_local $0)
                 (i32.const -1)
                )
               )
-              (call $fibonacci
+              (call $fib
                (i32.add
-                (local.get $0)
+                (get_local $0)
                 (i32.const -2)
+               )
+              )
+             )
+            )
+            (func $test (; 2 ;) (result i32)
+             (call $fib
+              (i32.wrap/i64
+               (call $wasm_input
+                (i32.const 1)
                )
               )
              )
@@ -49,20 +73,35 @@ mod tests {
            )
         "#;
 
-        let compiler = WasmInterpreter::new();
-        let wasm = wabt::wat2wasm(textual_repr).unwrap();
+        let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+        let public_inputs = vec![10];
 
+        let compiler = WasmInterpreter::new();
+        let mut env = HostEnv::new();
+        register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
+
+        let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler
-            .compile(&wasm, &ImportsBuilder::default(), &HashMap::default())
+            .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
         let execution_log = compiler
             .run(
-                &mut NopExternals,
+                &mut env,
                 &compiled_module,
-                "fibonacci",
-                vec![Value::I32(10)],
+                "test",
+                public_inputs.clone(),
+                vec![],
             )
             .unwrap();
-        run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables).unwrap()
+
+        let circuit = TestCircuit::<Fp>::new(compiled_module.tables, execution_log.tables);
+
+        let prover = MockProver::run(
+            K,
+            &circuit,
+            vec![public_inputs.into_iter().map(|v| Fp::from(v)).collect()],
+        )
+        .unwrap();
+        assert_eq!(prover.verify(), Ok(()));
     }
 }

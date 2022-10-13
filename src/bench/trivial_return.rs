@@ -26,7 +26,7 @@ mod tests {
             .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
             .unwrap();
         let execution_log = compiler
-            .run(&mut NopExternals, &compiled_module, "test", vec![])
+            .run(&mut NopExternals, &compiled_module, "test", vec![], vec![])
             .unwrap();
 
         let builder = ZkWasmCircuitBuilder {
@@ -34,6 +34,6 @@ mod tests {
             execution_tables: execution_log.tables,
         };
 
-        builder.bench()
+        builder.bench(vec![])
     }
 }

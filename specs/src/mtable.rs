@@ -52,7 +52,6 @@ pub enum MemoryStoreSize {
     Byte64,
 }
 
-
 impl MemoryStoreSize {
     pub fn byte_size(&self) -> u64 {
         match self {
@@ -142,28 +141,8 @@ impl MTable {
         serde_json::to_string(self).unwrap()
     }
 
-    pub fn new(
-        entries: Vec<MemoryTableEntry>,
-        args_of_first_invoking_function: &Vec<Value>,
-    ) -> Self {
+    pub fn new(entries: Vec<MemoryTableEntry>) -> Self {
         let mut mtable = MTable(entries);
-
-        let mut start_sp = 4095;
-        for arg in args_of_first_invoking_function {
-            mtable.0.push(MemoryTableEntry {
-                eid: 0,
-                emid: 0,
-                mmid: 0, // mmid of stack is always zero
-                offset: start_sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Init,
-                vtype: (*arg).clone().into(),
-                value: arg.internal(),
-            });
-
-            start_sp -= 1;
-        }
-
         mtable.sort();
         mtable
     }

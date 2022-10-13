@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use downcast_rs::{impl_downcast, Downcast};
+
+use std::{borrow::BorrowMut, collections::HashMap};
 
 use specs::host_function::{HostFunctionDesc, HostPlugin};
 use wasmi::{
@@ -8,7 +10,7 @@ use wasmi::{
 
 struct Function {
     index: usize,
-    handler: fn(RuntimeArgs) -> Option<RuntimeValue>,
+    handler: Box<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
     signature: specs::host_function::Signature,
 }
 
@@ -20,8 +22,12 @@ pub(self) trait BuiltInHostFunction {
     fn handler(args: RuntimeArgs) -> Option<RuntimeValue>;
 }
 
+pub trait ForeignContext: Downcast {}
+impl_downcast!(ForeignContext);
+
 pub struct HostEnv {
     functions: HashMap<String, Function>,
+    contexts: HashMap<String, Box<dyn ForeignContext>>,
     pub function_plugin_lookup: HashMap<usize, HostFunctionDesc>,
     names: Vec<String>,
 }
@@ -30,6 +36,7 @@ impl HostEnv {
     pub fn new() -> HostEnv {
         HostEnv {
             functions: HashMap::default(),
+            contexts: HashMap::default(),
             names: vec![],
             function_plugin_lookup: HashMap::default(),
         }
@@ -44,12 +51,28 @@ impl HostEnv {
         self.functions.get(name).unwrap()
     }
 
+    fn get_function_with_context_by_index(
+        &mut self,
+        index: usize,
+    ) -> (&mut dyn ForeignContext, &Function) {
+        let name = self
+            .names
+            .get(index)
+            .expect(&format!("env doesn't provide function at index {}", index));
+
+        let t = self.contexts.borrow_mut();
+        let ctx = t.get_mut(name).unwrap().as_mut();
+
+        (ctx, self.functions.get(name).unwrap())
+    }
+
     pub fn register_function(
         &mut self,
         name: &str,
         op_index_in_plugin: usize,
+        context: Box<dyn ForeignContext>,
         signature: specs::host_function::Signature,
-        handler: fn(RuntimeArgs) -> Option<RuntimeValue>,
+        handler: Box<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
         plugin: HostPlugin,
     ) -> Result<usize, specs::host_function::Error> {
         if self.functions.get(name).is_some() {
@@ -65,6 +88,7 @@ impl HostEnv {
         };
 
         self.functions.insert(name.to_string(), f);
+        self.contexts.insert(name.to_string(), context);
         self.names.push(name.to_string());
         self.function_plugin_lookup.insert(
             index,
@@ -118,7 +142,7 @@ impl Externals for HostEnv {
         index: usize,
         args: RuntimeArgs,
     ) -> Result<Option<RuntimeValue>, Trap> {
-        let function = self.get_function_by_index(index);
+        let (context, function) = self.get_function_with_context_by_index(index);
 
         let mut rev_args = Vec::new();
         for i in args.as_ref() {
@@ -127,6 +151,6 @@ impl Externals for HostEnv {
         rev_args.reverse();
         let args = RuntimeArgs::from(rev_args.as_slice());
 
-        Ok((function.handler)(args))
+        Ok((function.handler)(context, args))
     }
 }

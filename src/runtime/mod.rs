@@ -49,7 +49,8 @@ pub trait WasmRuntime {
         externals: &mut E,
         compile_outcome: &CompileOutcome<Self::Module, Self::Instance, Self::Tracer>,
         function_name: &str,
-        args: Vec<Value>,
+        public_inputs: Vec<u64>,
+        private_inputs: Vec<u64>,
     ) -> Result<ExecutionOutcome, ExecutionError>;
 }
 

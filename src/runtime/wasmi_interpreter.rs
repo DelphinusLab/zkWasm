@@ -86,13 +86,14 @@ impl WasmRuntime for WasmiRuntime {
         externals: &mut E,
         compile_outcome: &CompileOutcome<Self::Module, Self::Instance, Self::Tracer>,
         function_name: &str,
-        args: Vec<Value>,
+        _public_inputs: Vec<u64>, // TODO: register built-in plugin in current trait
+        _private_inputs: Vec<u64>,
     ) -> Result<ExecutionOutcome, ExecutionError> {
         compile_outcome
             .instance
             .invoke_export_trace(
                 function_name,
-                &args.iter().map(|v| into_wasmi_value(v)).collect::<Vec<_>>(),
+                &[],
                 externals,
                 compile_outcome.tracer.clone(),
             )
@@ -116,7 +117,7 @@ impl WasmRuntime for WasmiRuntime {
             .flat_map(|x| x.into_iter())
             .collect::<Vec<_>>();
 
-        let mut mtable = MTable::new(mentries, &args);
+        let mut mtable = MTable::new(mentries);
         mtable.push_accessed_memory_initialization(&compile_outcome.tables.imtable);
 
         let jtable = tracer

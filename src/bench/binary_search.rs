@@ -1,46 +1,18 @@
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
-
-    use specs::types::Value;
-    use wasmi::{ImportsBuilder, NopExternals};
-
     use crate::{
         circuits::ZkWasmCircuitBuilder,
-        runtime::{WasmInterpreter, WasmRuntime},
+        foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
+        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
     };
+    use halo2_proofs::pairing::bn256::Fr as Fp;
+    use std::{fs::File, io::Read, path::PathBuf};
+    use wasmi::{ImportsBuilder, NopExternals};
 
     #[test]
-    fn test_binary_search_10000() {
-        let mut binary = vec![];
+    fn test_binary_search_64() {
+        let public_inputs = vec![3];
 
-        let path = PathBuf::from("wasm/bsearch.wasm");
-        let mut f = File::open(path).unwrap();
-        f.read_to_end(&mut binary).unwrap();
-
-        let compiler = WasmInterpreter::new();
-        let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
-            .unwrap();
-        let execution_log = compiler
-            .run(
-                &mut NopExternals,
-                &compiled_module,
-                "bsearch",
-                vec![Value::I32(3)],
-            )
-            .unwrap();
-
-        let builder = ZkWasmCircuitBuilder {
-            compile_tables: compiled_module.tables,
-            execution_tables: execution_log.tables,
-        };
-
-        builder.bench()
-    }
-
-    #[test]
-    fn test_binary_search_64_10000() {
         let mut binary = vec![];
 
         let path = PathBuf::from("wasm/bsearch_64.wasm");
@@ -48,15 +20,21 @@ mod tests {
         f.read_to_end(&mut binary).unwrap();
 
         let compiler = WasmInterpreter::new();
+
+        let mut env = HostEnv::new();
+        register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
+        let imports = ImportsBuilder::new().with_resolver("env", &env);
+
         let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
+            .compile(&binary, &imports, &env.function_plugin_lookup)
             .unwrap();
         let execution_log = compiler
             .run(
-                &mut NopExternals,
+                &mut env,
                 &compiled_module,
                 "bsearch",
-                vec![Value::I64(3)],
+                public_inputs.clone(),
+                vec![],
             )
             .unwrap();
 
@@ -65,6 +43,6 @@ mod tests {
             execution_tables: execution_log.tables,
         };
 
-        builder.bench()
+        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
     }
 }
