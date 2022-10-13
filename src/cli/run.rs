@@ -1,17 +1,12 @@
-use std::borrow::Borrow;
+use halo2_proofs::pairing::bn256::Fr as Fp;
+use std::fs;
 use std::io::Write;
-use std::{collections::HashMap, fmt, fs::File, io::Read, path::PathBuf};
-use std::{env, fs};
+use std::{fmt, fs::File, io::Read, path::PathBuf};
+use wasmi::{ExternVal, ImportsBuilder};
 
-use specs::types::Value;
-use wasmi::{ExternVal, ExternVal::Func, ImportsBuilder, NopExternals};
-use wast::kw::param;
-
-// use crate::{
-//     circuits::ZkWasmCircuitBuilder,
-//     runtime::{WasmInterpreter, WasmRuntime},
-// };
 use crate::circuits::ZkWasmCircuitBuilder;
+use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::runtime::host::HostEnv;
 use crate::runtime::{WasmInterpreter, WasmRuntime};
 
 #[derive(Debug, Clone)]
@@ -25,26 +20,29 @@ impl fmt::Display for ArgumentError {
 
 impl std::error::Error for ArgumentError {}
 
-fn parser(f_sig: ExternVal, vv: Vec<&str>) -> Result<Vec<Value>, ArgumentError> {
+fn check_sig(f_sig: &ExternVal) -> Result<(), ArgumentError> {
     let f_sig = &f_sig.as_func().unwrap().signature();
-    assert_eq!(f_sig.params().len(), vv.len());
-    f_sig
-        .params()
+
+    // Pass arguments from function parameter is not support.
+    if f_sig.params().len() != 0 {
+        return Err(ArgumentError);
+    }
+
+    Ok(())
+}
+
+fn parse_args(values: Vec<&str>) -> Vec<u64> {
+    values
         .into_iter()
-        .zip(vv.into_iter())
-        .map(|(t, v)| match t {
-            wasmi::ValueType::I32 => Ok(Value::I32(v.parse::<i32>().unwrap())),
-            wasmi::ValueType::I64 => Ok(Value::I64(v.parse::<i64>().unwrap())),
-            wasmi::ValueType::F32 => todo!(),
-            wasmi::ValueType::F64 => todo!(),
-        })
-        .collect::<Result<Vec<Value>, ArgumentError>>()
+        .map(|v| v.parse::<u64>().unwrap())
+        .collect()
 }
 
 pub fn exec(
     file_path: &str,
     f_name: &str,
-    vv: Vec<&str>,
+    public_args: Vec<&str>,
+    private_args: Vec<&str>,
     output_path: &str,
 ) -> Result<(), ArgumentError> {
     let mut binary = vec![];
@@ -61,16 +59,29 @@ pub fn exec(
 
     fs::create_dir(PathBuf::from(output_path)).unwrap();
 
+    let public_inputs = parse_args(public_args);
+    let private_inputs = parse_args(private_args);
+
+    let mut env = HostEnv::new();
+    register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+    let imports = ImportsBuilder::new().with_resolver("env", &env);
+
     let compiler = WasmInterpreter::new();
     let compiled_module = compiler
-        .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
+        .compile(&binary, &imports, &env.function_plugin_lookup)
         .expect("file cannot be complied");
 
     let f_sig = compiled_module.instance.export_by_name(f_name).unwrap();
+    check_sig(&f_sig)?;
 
-    let args = parser(f_sig, vv)?;
     let execution_log = compiler
-        .run(&mut NopExternals, &compiled_module, f_name, args)
+        .run(
+            &mut env,
+            &compiled_module,
+            f_name,
+            public_inputs.clone(),
+            private_inputs,
+        )
         .unwrap();
 
     let itable_str: Vec<String> = compiled_module
@@ -100,12 +111,15 @@ pub fn exec(
         execution_tables: execution_log.tables,
     };
 
-    let (params, vk, proof) = builder.bench_with_result();
+    let (params, vk, proof) =
+        builder.bench_with_result(public_inputs.into_iter().map(|v| Fp::from(v)).collect());
+
     let mut params_fd = File::create(output_path.to_string() + "param.data").unwrap();
     params_fd.write_all(&params).unwrap();
     let mut vk_fd = File::create(output_path.to_string() + "vk.data").unwrap();
     vk_fd.write_all(&vk).unwrap();
     let mut proof_fd = File::create(output_path.to_string() + "proof.data").unwrap();
     proof_fd.write_all(&proof).unwrap();
+
     Ok(())
 }

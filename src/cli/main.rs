@@ -21,11 +21,21 @@ fn main() {
         .takes_value(true)
         .value_parser(value_parser!(std::string::String));
 
-    let value_arg = Arg::with_name("values")
-        .long("values")
-        .short('v')
-        .value_name("VALUES")
-        .help("Values of your wasm program arguments, multiple values should be separated with ','")
+    let public_value_arg = Arg::with_name("public_args")
+        .long("public")
+        .value_name("PUBLIC ARGUMENTS")
+        .help("Public arguments of your wasm program arguments, multiple values should be separated with ','")
+        .required(false)
+        .takes_value(true)
+        .use_delimiter(true)
+        .value_delimiter(',')
+        .min_values(0)
+        .value_parser(value_parser!(std::string::String));
+
+    let private_value_arg = Arg::with_name("private_args")
+        .long("private")
+        .value_name("PRIVATE ARGUMENTS")
+        .help("Private arguments of your wasm program arguments, multiple values should be separated with ','")
         .required(false)
         .takes_value(true)
         .use_delimiter(true)
@@ -48,8 +58,8 @@ fn main() {
             SubCommand::with_name("run")
             .about("Run your function from your wasm program with inputs.\nType 'cli run --help' for more information\nOnly support I32 type now")
                 .arg(wasm_file_arg)
-                // .arg(type_arg)
-                .arg(value_arg)
+                .arg(public_value_arg)
+                .arg(private_value_arg)
                 .arg(fn_name_arg)
                 .arg(output_path),
         )
@@ -59,9 +69,17 @@ fn main() {
         Some(("run", m)) => {
             let wasm_file: &str = m.value_of("wasm_file").unwrap();
             let fn_name: &str = m.value_of("function_name").unwrap();
-            let input: Vec<&str> = m.values_of("values").unwrap().collect();
+            let public_inputs: Vec<&str> = m.values_of("public_args").unwrap().collect();
+            let private_inputs: Vec<&str> = m.values_of("private_args").unwrap().collect();
             let output_path: &str = m.value_of("output_path").unwrap_or("./output/");
-            run::exec(wasm_file, fn_name, input, output_path).unwrap();
+            run::exec(
+                wasm_file,
+                fn_name,
+                public_inputs,
+                private_inputs,
+                output_path,
+            )
+            .unwrap();
         }
         _ => unimplemented!(),
     };
