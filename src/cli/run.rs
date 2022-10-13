@@ -34,7 +34,7 @@ fn parser(f_sig: ExternVal, vv: Vec<&str>) -> Result<Vec<Value>, ArgumentError> 
         .zip(vv.into_iter())
         .map(|(t, v)| match t {
             wasmi::ValueType::I32 => Ok(Value::I32(v.parse::<i32>().unwrap())),
-            wasmi::ValueType::I64 => Ok(Value::I64(v.parse::<i32>().unwrap())),
+            wasmi::ValueType::I64 => Ok(Value::I64(v.parse::<i64>().unwrap())),
             _ => Err(ArgumentError),
         })
         .collect::<Result<Vec<Value>, ArgumentError>>()
