@@ -1,4 +1,4 @@
-use clap::{value_parser, App, Arg, SubCommand};
+use clap::{value_parser, App,AppSettings, Arg, SubCommand};
 
 use delphinus_zkwasm::cli::run;
 
@@ -53,6 +53,7 @@ fn main() {
         .value_parser(value_parser!(std::string::String));
 
     let app = App::new("zkwasm")
+        .setting(AppSettings::SubcommandRequired)
         .version("v1.0-beta")
         .subcommand(
             SubCommand::with_name("run")

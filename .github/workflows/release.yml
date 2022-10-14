@@ -1,0 +1,40 @@
+name: release
+on:
+  schedule:
+    - cron: '0 2 * * *' # UTC 2:00 every day
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get current date
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+    - uses: actions/checkout@v3
+      with: 
+        submodules: recursive
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        components: clippy
+        override: true
+    - name: Build
+      run: cargo +nightly build --release
+    - name: Package
+      run: tar cf zkwasm-cli-nightly-build-Linux_x86_64.tar -C target/release cli
+    - name: Release
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "nightly-build-${{ steps.date.outputs.date }}"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          zkwasm-cli-nightly-build-Linux_x86_64.tar
+
