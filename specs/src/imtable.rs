@@ -1,7 +1,10 @@
 use serde::Serialize;
+use crate::mtable::LocationType;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct InitMemoryTableEntry {
+    pub ltype: LocationType,
+    pub is_mutable: bool,
     pub mmid: u64,
     pub offset: u64,
     /// convert from [u8; 8] via u64::from_le_bytes
@@ -19,9 +22,9 @@ impl InitMemoryTable {
         serde_json::to_string(&self.0).unwrap()
     }
 
-    pub fn find(&self, mmid: u64, offset: u64) -> u64 {
+    pub fn find(&self, ltype: LocationType, mmid: u64, offset: u64) -> u64 {
         for entry in self.0.iter() {
-            if entry.mmid == mmid && entry.offset == offset {
+            if entry.ltype == ltype && entry.mmid == mmid && entry.offset == offset {
                 return entry.value;
             }
         }

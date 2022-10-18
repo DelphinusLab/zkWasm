@@ -7,8 +7,9 @@ use crate::{imtable::InitMemoryTable, types::Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub enum LocationType {
-    Heap = 0,
     Stack = 1,
+    Heap = 2,
+    Global = 3,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Hash, Eq)]
@@ -110,10 +111,12 @@ impl MemoryReadSize {
 #[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
 pub struct MemoryTableEntry {
     pub eid: u64,
-    // emid is small memory id of eid,
-    // e.g. an opcode get a value front stack top and change it,
-    // its event has two memory ops on the same memory address,
-    // we should have use emid to seq the r/w op, it is an incremental value starting from 1
+    /*
+       Emid is sub memory op id of eid.
+       E.g. an opcode gets a value from stack top and changes it.
+       This event has two memory ops on the same memory address,
+       So we need emid to seq the r/w op, which is an incremental value starting from 1.
+    */
     pub emid: u64,
     pub mmid: u64,
     pub offset: u64,
@@ -151,8 +154,8 @@ impl MTable {
         let mut set = HashSet::<MemoryTableEntry>::default();
 
         self.0.iter().for_each(|entry| {
-            if entry.ltype == LocationType::Heap {
-                let value = imtable.find(entry.mmid, entry.offset);
+            if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
+                let value = imtable.find(entry.ltype, entry.mmid, entry.offset);
 
                 set.insert(MemoryTableEntry {
                     eid: 0,

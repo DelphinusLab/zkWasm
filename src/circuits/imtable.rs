@@ -12,6 +12,10 @@ use std::marker::PhantomData;
 impl Encode for InitMemoryTableEntry {
     fn encode(&self) -> BigUint {
         let mut bn = BigUint::zero();
+        bn += self.ltype as u64;
+        bn <<= 16;
+        bn += if self.is_mutable { 1u64 } else { 0u64 };
+        bn <<= 16;
         bn += self.mmid;
         bn <<= 16;
         bn += self.offset;
@@ -37,11 +41,15 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
 
     pub fn encode(
         &self,
+        is_mutable: Expression<F>,
+        ltype: Expression<F>,
         mmid: Expression<F>,
         offset: Expression<F>,
         value: Expression<F>,
     ) -> Expression<F> {
-        mmid * Expression::Constant(bn_to_field(&(BigUint::one() << 80)))
+        ltype * Expression::Constant(bn_to_field(&(BigUint::one() << 112)))
+            + is_mutable * Expression::Constant(bn_to_field(&(BigUint::one() << 96)))
+            + mmid * Expression::Constant(bn_to_field(&(BigUint::one() << 80)))
             + offset * Expression::Constant(bn_to_field(&(BigUint::one() << 64)))
             + value
     }

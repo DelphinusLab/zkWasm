@@ -47,10 +47,12 @@ pub enum RotationOfAuxColumn {
 
 pub enum RotationOfBitColumn {
     Enable = 0,
-    Is64Bit = 1,
+    Is64Bit,
+    IsStack,
+    IsMutable,
     // To support multiple imtable columns,
     // the seletors is a bit filter for an imtable lookup.
-    IMTableSelectorStart = 2,
+    IMTableSelectorStart,
 }
 
 #[derive(Clone)]
@@ -178,6 +180,27 @@ impl<F: FieldExt> MemoryTableChip<F> {
                         F::zero()
                     }
                 );
+                assign_advice!(
+                    "ltype is stack",
+                    RotationOfBitColumn::IsStack,
+                    bit,
+                    if entry.ltype == LocationType::Stack {
+                        F::one()
+                    } else {
+                        F::zero()
+                    }
+                );
+                assign_advice!(
+                    "is mutable",
+                    RotationOfBitColumn::IsMutable,
+                    bit,
+                    if entry.ltype == LocationType::Global {
+                        todo!()
+                    } else {
+                        F::one()
+                    }
+                );
+
 
                 if entry.ltype == LocationType::Heap && entry.atype == AccessType::Init {
                     assign_advice!(

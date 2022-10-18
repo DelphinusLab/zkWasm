@@ -25,10 +25,12 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         self.configure_enable_as_bit(meta, rtable);
         self.configure_rest_mops_decrease(meta, rtable);
         self.configure_final_rest_mops_zero(meta, rtable);
+
+        self.configure_ltype_rules(meta, rtable);
+        self.configure_atype_rules(meta, rtable);
+        self.configure_mutable_rules(meta, rtable);
         self.configure_read_nochange(meta, rtable);
-        self.configure_heap_first_init(meta, rtable);
-        self.configure_stack_first_not_read(meta, rtable);
-        self.configure_init_on_first(meta, rtable);
+
         self.configure_index_sort(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
         self.configure_tvalue_bytes(meta, rtable);
@@ -49,18 +51,10 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
     );
+    fn configure_ltype_rules(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_read_nochange(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
-    fn configure_heap_first_init(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
-    );
-    fn configure_stack_first_not_read(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
-    );
-    fn configure_init_on_first(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
+    fn configure_atype_rules(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
+    fn configure_mutable_rules(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_tvalue_bytes(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_heap_init_in_imtable(
         &self,
@@ -92,14 +86,17 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     }
 
     fn configure_enable_seq(&self, meta: &mut ConstraintSystem<F>, _rtable: &RangeTableConfig<F>) {
-        meta.create_gate("mtable enable seq must be seq of 1s followed by seq of 0s", |meta| {
-            vec![
-                nextn!(meta, self.bit, STEP_SIZE)
-                    * (curr!(meta, self.bit) - constant_from!(1))
-                    * fixed_curr!(meta, self.sel)
-                    * fixed_curr!(meta, self.block_first_line_sel),
-            ]
-        });
+        meta.create_gate(
+            "mtable enable seq must be seq of 1s followed by seq of 0s",
+            |meta| {
+                vec![
+                    nextn!(meta, self.bit, STEP_SIZE)
+                        * (curr!(meta, self.bit) - constant_from!(1))
+                        * fixed_curr!(meta, self.sel)
+                        * fixed_curr!(meta, self.block_first_line_sel),
+                ]
+            },
+        );
     }
 
     fn configure_index_sort(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
@@ -202,12 +199,36 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         });
     }
 
-    fn configure_heap_first_init(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        _rtable: &RangeTableConfig<F>,
-    ) {
-        meta.create_gate("mtable heap first line must be init", |meta| {
+    fn configure_ltype_rules(&self, meta: &mut ConstraintSystem<F>, _rtable: &RangeTableConfig<F>) {
+        meta.create_gate("mtable ltype rules", |meta| {
+            vec![
+                (self.ltype(meta) - constant_from!(LocationType::Stack))
+                    * (self.ltype(meta) - constant_from!(LocationType::Heap))
+                    * (self.ltype(meta) - constant_from!(LocationType::Global)),
+                (self.is_stack(meta)) * (self.ltype(meta) - constant_from!(LocationType::Stack)),
+                (constant_from!(1) - self.is_stack(meta))
+                    * (self.ltype(meta) - constant_from!(LocationType::Heap))
+                    * (self.ltype(meta) - constant_from!(LocationType::Global)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
+    }
+
+    fn configure_atype_rules(&self, meta: &mut ConstraintSystem<F>, _rtable: &RangeTableConfig<F>) {
+        meta.create_gate("mtable atype validation", |meta| {
+            vec![
+                (self.atype(meta) - constant_from!(AccessType::Init))
+                    * (self.atype(meta) - constant_from!(AccessType::Write))
+                    * (self.atype(meta) - constant_from!(AccessType::Read)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_following_block(meta))
+            .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("mtable heap/global first line must be init", |meta| {
             vec![
                 (self.ltype(meta) - constant_from!(LocationType::Stack))
                     * (constant_from!(1) - self.same_offset(meta))
@@ -217,16 +238,11 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             .map(|e| e * self.is_enabled_following_block(meta))
             .collect::<Vec<_>>()
         });
-    }
 
-    fn configure_stack_first_not_read(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        _rtable: &RangeTableConfig<F>,
-    ) {
         meta.create_gate("mtable stack first line must be write", |meta| {
             vec![
                 (self.ltype(meta) - constant_from!(LocationType::Heap))
+                    * (self.ltype(meta) - constant_from!(LocationType::Global))
                     * (constant_from!(1) - self.same_offset(meta))
                     * (self.atype(meta) - constant_from!(AccessType::Write)),
             ]
@@ -234,13 +250,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             .map(|e| e * self.is_enabled_following_block(meta))
             .collect::<Vec<_>>()
         });
-    }
 
-    fn configure_init_on_first(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        _rtable: &RangeTableConfig<F>,
-    ) {
         meta.create_gate("mtable non-first line must be write or read", |meta| {
             vec![
                 self.same_offset(meta)
@@ -250,6 +260,40 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
             .collect::<Vec<_>>()
+        });
+    }
+
+    fn configure_mutable_rules(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        _rtable: &RangeTableConfig<F>,
+    ) {
+        meta.create_gate("mtable write only on mutable", |meta| {
+            vec![
+                (constant_from!(1) - self.is_mutable(meta))
+                    * (self.atype(meta) - constant_from!(AccessType::Read))
+                    * (self.atype(meta) - constant_from!(AccessType::Init)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_block(meta))
+            .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("mtable heap and stack are mutable", |meta| {
+            vec![
+                (constant_from!(1) - self.is_mutable(meta))
+                    * (self.ltype(meta) - constant_from!(LocationType::Global)),
+            ]
+            .into_iter()
+            .map(|e| e * self.is_enabled_block(meta))
+            .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("mtable global mutability unchange", |meta| {
+            vec![(self.prev_is_mutable(meta) - self.is_mutable(meta)) * self.same_offset(meta)]
+                .into_iter()
+                .map(|e| e * self.is_enabled_following_block(meta))
+                .collect::<Vec<_>>()
         });
     }
 
@@ -285,7 +329,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             }
             vec![
                 (constant_from!(1) - self.same_offset(meta))
-                    * self.is_heap(meta)
+                    * (constant_from!(1) - self.is_stack(meta))
                     * acc
                     * self.is_enabled_block(meta),
             ]
@@ -297,8 +341,14 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 "mtable configure_heap_init_in_imtable",
                 |meta| {
                     (constant_from!(1) - self.same_offset(meta))
-                        * self.is_heap(meta)
-                        * imtable.encode(self.mmid(meta), self.offset(meta), self.value(meta))
+                        * (constant_from!(1) - self.is_stack(meta))
+                        * imtable.encode(
+                            self.is_mutable(meta),
+                            self.ltype(meta),
+                            self.mmid(meta),
+                            self.offset(meta),
+                            self.value(meta),
+                        )
                         * self.is_enabled_block(meta)
                         * self.imtable_selector(meta, i as u32)
                 },
