@@ -140,4 +140,44 @@ impl MemoryTableLookupEncode {
             block_value,
         )
     }
+
+    pub(crate) fn encode_global_get<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
+        eid: T,
+        emid: T,
+        mmid: T,
+        address: T,
+        vtype: T,
+        value: T,
+    ) -> T {
+        MemoryTableLookupEncode::encode_for_lookup(
+            eid,
+            emid,
+            mmid,
+            address,
+            T::from_bn(&BigUint::from(LocationType::Global as u64)),
+            T::from_bn(&BigUint::from(AccessType::Read as u64)),
+            vtype,
+            value,
+        )
+    }
+
+    pub(crate) fn encode_global_set<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
+        eid: T,
+        emid: T,
+        mmid: T,
+        address: T,
+        vtype: T,
+        value: T,
+    ) -> T {
+        MemoryTableLookupEncode::encode_for_lookup(
+            eid,
+            emid,
+            mmid,
+            address,
+            T::from_bn(&BigUint::from(LocationType::Global as u64)),
+            T::from_bn(&BigUint::from(AccessType::Write as u64)),
+            vtype,
+            value,
+        )
+    }
 }
