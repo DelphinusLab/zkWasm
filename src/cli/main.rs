@@ -69,8 +69,14 @@ fn main() {
         Some(("run", m)) => {
             let wasm_file: &str = m.value_of("wasm_file").unwrap();
             let fn_name: &str = m.value_of("function_name").unwrap();
-            let public_inputs: Vec<&str> = m.values_of("public_args").unwrap().collect();
-            let private_inputs: Vec<&str> = m.values_of("private_args").unwrap().collect();
+            let public_inputs: Vec<&str> = match m.values_of("public_args") {
+                Some(x) => x.collect(),
+                None => vec![],
+            };
+            let private_inputs: Vec<&str> = match m.values_of("private_args") {
+                Some(x) => x.collect(),
+                None => vec![],
+            };
             let output_path: &str = m.value_of("output_path").unwrap_or("./output/");
             run::exec(
                 wasm_file,
