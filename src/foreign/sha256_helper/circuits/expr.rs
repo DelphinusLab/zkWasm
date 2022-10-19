@@ -13,16 +13,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         index: usize,
         start: i32,
     ) -> Expression<F> {
-        assert!(start < BLOCK_LINES as i32);
-        let mut shift_acc = 0;
-        let mut acc = nextn!(meta, self.args[index].0, start);
-
-        for i in start + 1..8 as i32 {
-            shift_acc += 4;
-            acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
-        }
-
-        acc
+        self._arg_to_shift_u32_expr(meta, index, start).0
     }
 
     pub(super) fn arg_to_shift_u32_expr_with_lowest_u4(
@@ -43,18 +34,10 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         index: usize,
         start: i32,
     ) -> Expression<F> {
-        assert!(start < BLOCK_LINES as i32);
-        let mut shift_acc = 0;
-        let mut acc = nextn!(meta, self.args[index].0, start);
-
-        for i in start + 1..8 as i32 {
-            shift_acc += 4;
-            acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
-        }
+        let (mut acc, mut shift_acc) = self._arg_to_shift_u32_expr(meta, index, start);
 
         for i in 0..start {
-            shift_acc += 4;
-            acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
+            (acc, shift_acc) = self.shift(meta, index, i, &mut shift_acc, acc);
         }
 
         acc
@@ -92,5 +75,37 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         index: Sha256HelperOp,
     ) -> Expression<F> {
         fixed_curr!(meta, self.block_first_line_sel) * nextn!(meta, self.op_bit.0, index as i32)
+    }
+
+    pub(self) fn _arg_to_shift_u32_expr(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        index: usize,
+        start: i32,
+    ) -> (Expression<F>, i32) {
+        assert!(start < BLOCK_LINES as i32);
+        let mut shift_acc: i32 = 0;
+        let mut acc = nextn!(meta, self.args[index].0, start);
+
+        for i in start + 1..8 as i32 {
+            (acc, shift_acc) = self.shift(meta, index, i, &mut shift_acc, acc);
+        }
+
+        (acc, shift_acc)
+    }
+
+    pub(self) fn shift(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        index: usize,
+        i: i32,
+        shift_acc: &mut i32,
+        acc: Expression<F>,
+    ) -> (Expression<F>, i32) {
+        *shift_acc += 4;
+        (
+            acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << *shift_acc),
+            *shift_acc,
+        )
     }
 }
