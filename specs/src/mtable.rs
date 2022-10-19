@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
 use crate::{imtable::InitMemoryTable, types::Value};
@@ -123,6 +123,7 @@ pub struct MemoryTableEntry {
     pub ltype: LocationType,
     pub atype: AccessType,
     pub vtype: VarType,
+    pub is_mutable: bool,
     pub value: u64,
 }
 
@@ -164,7 +165,8 @@ impl MTable {
                     offset: entry.offset,
                     ltype: entry.ltype,
                     atype: AccessType::Init,
-                    vtype: VarType::I64,
+                    vtype: entry.vtype,
+                    is_mutable: entry.is_mutable,
                     value,
                 });
             }

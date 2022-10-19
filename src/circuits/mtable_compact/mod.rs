@@ -194,15 +194,12 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     "is mutable",
                     RotationOfBitColumn::IsMutable,
                     bit,
-                    if entry.ltype == LocationType::Global {
-                        todo!()
-                    } else {
-                        F::one()
-                    }
+                    F::from(entry.is_mutable)
                 );
 
-
-                if entry.ltype == LocationType::Heap && entry.atype == AccessType::Init {
+                if (entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global)
+                    && entry.atype == AccessType::Init
+                {
                     assign_advice!(
                         "vtype imtable selector",
                         RotationOfBitColumn::IMTableSelectorStart as i32

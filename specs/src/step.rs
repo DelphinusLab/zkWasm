@@ -73,6 +73,23 @@ pub enum StepInfo {
         value: u64,
     },
 
+    GetGlobal {
+        idx: u32,
+        origin_module: u16,
+        origin_idx: u16,
+        vtype: VarType,
+        is_mutable: bool,
+        value: u64,
+    },
+    SetGlobal {
+        idx: u32,
+        origin_module: u16,
+        origin_idx: u16,
+        vtype: VarType,
+        is_mutable: bool,
+        value: u64,
+    },
+
     Load {
         vtype: VarType,
         load_size: MemoryReadSize,

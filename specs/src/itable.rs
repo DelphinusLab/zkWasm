@@ -1,12 +1,12 @@
 use super::mtable::VarType;
 use crate::{
-    encode::opcode::{encode_br_if_eqz, encode_call},
+    encode::opcode::{encode_br_if_eqz, encode_call, encode_global_get, encode_global_set},
     host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
     types::ValueType,
 };
 use num_bigint::BigUint;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use strum_macros::EnumIter;
 
@@ -15,6 +15,8 @@ pub enum OpcodeClass {
     LocalGet = 1,
     LocalSet,
     LocalTee,
+    GlobalGet,
+    GlobalSet,
     Const,
     Drop,
     Select,
@@ -41,6 +43,7 @@ impl OpcodeClass {
             OpcodeClass::LocalGet => 2,
             OpcodeClass::LocalSet => 2,
             OpcodeClass::LocalTee => 2,
+            OpcodeClass::GlobalGet | OpcodeClass::GlobalSet => 2,
             OpcodeClass::Const => 1,
             OpcodeClass::Drop => 0,
             OpcodeClass::Select => 4,
@@ -144,6 +147,12 @@ pub enum Opcode {
     LocalTee {
         vtype: VarType,
         offset: u64,
+    },
+    GlobalGet {
+        idx: u64,
+    },
+    GlobalSet {
+        idx: u64,
     },
     Const {
         vtype: VarType,
@@ -258,6 +267,8 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
+            Opcode::GlobalGet { idx } => encode_global_get(BigUint::from(idx)),
+            Opcode::GlobalSet { idx } => encode_global_set(BigUint::from(idx)),
             Opcode::Const { vtype, value } => {
                 (BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
@@ -319,7 +330,9 @@ impl Into<BigUint> for Opcode {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }
             Opcode::Call { index } => encode_call(BigUint::from(index as u64)),
-            Opcode::CallHost { op_index_in_plugin, .. } => {
+            Opcode::CallHost {
+                op_index_in_plugin, ..
+            } => {
                 let opcode_class_plain: OpcodeClassPlain = self.into();
 
                 (BigUint::from(opcode_class_plain.0) << OPCODE_CLASS_SHIFT)
@@ -362,6 +375,8 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::LocalGet { .. } => OpcodeClass::LocalGet,
             Opcode::LocalSet { .. } => OpcodeClass::LocalSet,
             Opcode::LocalTee { .. } => OpcodeClass::LocalTee,
+            Opcode::GlobalGet { .. } => OpcodeClass::GlobalGet,
+            Opcode::GlobalSet { .. } => OpcodeClass::GlobalSet,
             Opcode::Const { .. } => OpcodeClass::Const,
             Opcode::Drop { .. } => OpcodeClass::Drop,
             Opcode::Select { .. } => OpcodeClass::Select,

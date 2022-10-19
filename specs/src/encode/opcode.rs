@@ -13,6 +13,16 @@ lazy_static! {
     static ref OPCODE_ARG1_SHIFT: BigUint = BigUint::from(1u64) << OPCODE_ARG1;
 }
 
+pub fn encode_global_get<T: FromBn>(globalidx: T) -> T {
+    T::from_bn(&(BigUint::from(OpcodeClass::GlobalGet as u64))) * T::from_bn(&OPCODE_CLASS_SHIFT)
+        + globalidx
+}
+
+pub fn encode_global_set<T: FromBn>(globalidx: T) -> T {
+    T::from_bn(&(BigUint::from(OpcodeClass::GlobalSet as u64))) * T::from_bn(&OPCODE_CLASS_SHIFT)
+        + globalidx
+}
+
 pub fn encode_call<T: FromBn>(function_index: T) -> T {
     T::from_bn(&(BigUint::from(OpcodeClass::Call as u64))) * T::from_bn(&OPCODE_CLASS_SHIFT)
         + function_index * T::from_bn(&OPCODE_ARG0_SHIFT)

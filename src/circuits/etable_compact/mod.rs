@@ -11,6 +11,8 @@ use crate::circuits::etable_compact::op_configure::op_call::CallConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_global_get::GlobalGetConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_global_set::GlobalSetConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_load::LoadConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_local_get::LocalGetConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_local_set::LocalSetConfigBuilder;
@@ -430,6 +432,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
+        configure!(OpcodeClass::GlobalGet, GlobalGetConfigBuilder);
+        configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder);
         configure!(OpcodeClass::Bin, BinConfigBuilder);
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
         configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
