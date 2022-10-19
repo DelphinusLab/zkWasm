@@ -1,4 +1,4 @@
-use clap::{value_parser, App,AppSettings, Arg, SubCommand};
+use clap::{value_parser, App, AppSettings, Arg, SubCommand};
 
 use delphinus_zkwasm::cli::run;
 
