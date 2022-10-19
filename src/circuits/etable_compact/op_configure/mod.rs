@@ -13,6 +13,8 @@ pub(super) mod op_call;
 pub(super) mod op_const;
 pub(super) mod op_conversion;
 pub(super) mod op_drop;
+pub(super) mod op_global_get;
+pub(super) mod op_global_set;
 pub(super) mod op_load;
 pub(super) mod op_local_get;
 pub(super) mod op_local_set;

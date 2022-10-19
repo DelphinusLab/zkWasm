@@ -115,6 +115,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClassPlain(OpcodeClass::LocalGet as usize),
             OpcodeClassPlain(OpcodeClass::LocalSet as usize),
             OpcodeClassPlain(OpcodeClass::LocalTee as usize),
+            OpcodeClassPlain(OpcodeClass::GlobalGet as usize),
+            OpcodeClassPlain(OpcodeClass::GlobalSet as usize),
             OpcodeClassPlain(OpcodeClass::Bin as usize),
             OpcodeClassPlain(OpcodeClass::BinBit as usize),
             OpcodeClassPlain(OpcodeClass::BinShift as usize),
@@ -218,7 +220,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         ichip.assign(&mut layouter, &self.compile_tables.itable)?;
         if self.compile_tables.imtable.0.len() > 0 {
-            imchip.assign(&mut layouter, &self.compile_tables.imtable.0)?;
+            imchip.assign(&mut layouter, &self.compile_tables.imtable)?;
         }
 
         layouter.assign_region(

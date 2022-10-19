@@ -6,7 +6,10 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
-use specs::imtable::InitMemoryTableEntry;
+use specs::{
+    imtable::{InitMemoryTable, InitMemoryTableEntry},
+    mtable::LocationType,
+};
 use std::marker::PhantomData;
 
 impl Encode for InitMemoryTableEntry {
@@ -77,7 +80,7 @@ impl<F: FieldExt> MInitTableChip<F> {
     pub fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        minit: &Vec<InitMemoryTableEntry>,
+        minit: &InitMemoryTable,
     ) -> Result<(), Error> {
         layouter.assign_table(
             || "minit",
@@ -86,14 +89,41 @@ impl<F: FieldExt> MInitTableChip<F> {
                     table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
                 }
 
-                for v in minit.iter() {
+                let heap_entries = minit.filter(LocationType::Heap);
+                let global_entries = minit.filter(LocationType::Global);
+
+                /*
+                 * Since the number of heap entries is always n * PAGE_SIZE / sizeof(u64).
+                 */
+                assert_eq!(heap_entries.len() % IMTABLE_COLOMNS, 0);
+
+                let mut idx = 0;
+
+                for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
                     table.assign_cell(
                         || "minit table",
-                        self.config.col[v.offset as usize % IMTABLE_COLOMNS],
-                        v.offset as usize / IMTABLE_COLOMNS + 1,
+                        self.config.col[idx % IMTABLE_COLOMNS],
+                        idx / IMTABLE_COLOMNS + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),
                     )?;
+
+                    idx += 1;
                 }
+
+                /*
+                 * Fill blank cells in the last row to make halo2 happy.
+                 */
+                if idx % IMTABLE_COLOMNS != 0 {
+                    for blank_col in (idx % IMTABLE_COLOMNS)..IMTABLE_COLOMNS {
+                        table.assign_cell(
+                            || "minit table",
+                            self.config.col[blank_col],
+                            idx / IMTABLE_COLOMNS + 1,
+                            || Ok(F::zero()),
+                        )?;
+                    }
+                }
+
                 Ok(())
             },
         )?;

@@ -22,6 +22,7 @@ pub fn test_circuit_noexternal(textual_repr: &str) -> Result<(), Error> {
     let execution_log = compiler
         .run(&mut NopExternals, &compiled_module, "test", vec![], vec![])
         .unwrap();
+
     run_test_circuit::<Fp>(compiled_module.tables, execution_log.tables, vec![])
 }
 

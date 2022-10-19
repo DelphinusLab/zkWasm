@@ -84,6 +84,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -105,6 +106,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -135,6 +137,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: VarType::I32,
+                is_mutable: true,
                 value: *condition as u32 as u64,
             }];
 
@@ -155,6 +158,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -176,6 +180,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -206,6 +211,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: VarType::I32,
+                is_mutable: true,
                 value: *condition as u32 as u64,
             }];
 
@@ -226,6 +232,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -247,6 +254,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -280,6 +288,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -301,6 +310,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
                         vtype: keep[i].into(),
+                        is_mutable: true,
                         value: keep_values[i],
                     });
 
@@ -330,6 +340,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: VarType::I32,
+                is_mutable: true,
                 value: *cond,
             });
             sp = sp + 1;
@@ -343,6 +354,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *val2,
             });
             sp = sp + 1;
@@ -356,6 +368,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *val1,
             });
 
@@ -369,6 +382,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *result,
             });
             sp = sp - 1;
@@ -398,6 +412,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                     ltype: LocationType::Stack,
                     atype: AccessType::Read,
                     vtype: (*ty).into(),
+                    is_mutable: true,
                     value: *val,
                 });
 
@@ -414,6 +429,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                     ltype: LocationType::Stack,
                     atype: AccessType::Write,
                     vtype: ty.into(),
+                    is_mutable: true,
                     value: ret_val.unwrap(),
                 });
 
@@ -437,6 +453,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -449,6 +466,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -469,6 +487,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -483,6 +502,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -502,6 +522,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
 
@@ -515,10 +536,84 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
             *emid = (*emid).checked_add(1).unwrap();
             vec![read, write]
+        }
+
+        StepInfo::GetGlobal {
+            idx,
+            origin_module,
+            origin_idx,
+            vtype,
+            is_mutable,
+            value,
+        } => {
+            let global_get = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: *origin_module as u64,
+                offset: *origin_idx as u64,
+                ltype: LocationType::Global,
+                atype: AccessType::Read,
+                vtype: *vtype,
+                is_mutable: *is_mutable,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            let stack_write = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution,
+                ltype: LocationType::Stack,
+                atype: AccessType::Write,
+                vtype: *vtype,
+                is_mutable: true,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            vec![global_get, stack_write]
+        }
+        StepInfo::SetGlobal {
+            idx,
+            origin_module,
+            origin_idx,
+            vtype,
+            is_mutable,
+            value,
+        } => {
+            let stack_read = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution + 1,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: *vtype,
+                is_mutable: true,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            let global_set = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: *origin_module as u64,
+                offset: *origin_idx as u64,
+                ltype: LocationType::Global,
+                atype: AccessType::Write,
+                vtype: *vtype,
+                is_mutable: *is_mutable,
+                value: *value,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            vec![stack_read, global_set]
         }
 
         StepInfo::Load {
@@ -541,6 +636,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: VarType::I32,
+                is_mutable: true,
                 value: *raw_address as u64,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -554,6 +650,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 atype: AccessType::Read,
                 // Load u64 from address which align with 8
                 vtype: VarType::I64,
+                is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *block_value,
             };
@@ -567,6 +664,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -594,6 +692,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
+                is_mutable: true,
                 value: *value,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -606,6 +705,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: VarType::I32,
+                is_mutable: true,
                 value: *raw_address as u64,
             };
             *emid = (*emid).checked_add(1).unwrap();
@@ -619,6 +719,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 atype: AccessType::Read,
                 // Load u64 from address which align with 8
                 vtype: VarType::I64,
+                is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *pre_block_value,
             };
@@ -633,6 +734,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 atype: AccessType::Write,
                 // Load u64 from address which align with 8
                 vtype: VarType::I64,
+                is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *updated_block_value,
             };
@@ -779,6 +881,7 @@ pub(crate) fn mem_op_from_stack_only_step(
             ltype: LocationType::Stack,
             atype: AccessType::Read,
             vtype: inputs_type,
+            is_mutable: true,
             value: pop_value[i],
         });
         *emid = (*emid).checked_add(1).unwrap();
@@ -794,6 +897,7 @@ pub(crate) fn mem_op_from_stack_only_step(
             ltype: LocationType::Stack,
             atype: AccessType::Write,
             vtype: outputs_type,
+            is_mutable: true,
             value: push_value[i],
         });
         sp = sp - 1;
