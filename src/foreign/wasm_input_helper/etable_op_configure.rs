@@ -65,7 +65,8 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
             WASM_INPUT_FOREIGN_TABLE_KEY,
             "lookup input table",
             Box::new(move |meta| {
-                public.expr(meta) * InputTableEncode::encode_for_lookup(input_index.expr(meta), value.expr(meta))
+                public.expr(meta)
+                    * InputTableEncode::encode_for_lookup(input_index.expr(meta), value.expr(meta))
             }),
         );
 
