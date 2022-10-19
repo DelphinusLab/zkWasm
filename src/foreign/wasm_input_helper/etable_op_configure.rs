@@ -3,7 +3,7 @@ use crate::{
         etable_compact::{
             op_configure::{
                 BitCell, ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfig,
-                MTableLookupCell, U64Cell, UnlimitedCell,
+                MTableLookupCell, U64Cell,
             },
             EventTableCommonConfig, MLookupItem, StepStatus,
         },
@@ -35,7 +35,6 @@ impl ForeignCallInfo for WasmInputForeignCallInfo {
 }
 
 pub struct ETableWasmInputHelperTableConfig {
-    input_index: UnlimitedCell,
     public: BitCell,
     value: U64Cell,
 
@@ -71,7 +70,6 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
         );
 
         Box::new(ETableWasmInputHelperTableConfig {
-            input_index,
             public,
             value,
             lookup_read_stack,
@@ -112,8 +110,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
 
                 self.public.assign(ctx, (*args.get(0).unwrap()) == 1)?;
                 self.value.assign(ctx, ret_val.unwrap())?;
-                // TODO: assign real value
-                self.input_index.assign(ctx, F::from(0))?;
 
                 self.lookup_read_stack.assign(
                     ctx,
@@ -183,6 +179,25 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
                 self.value.expr(meta),
             )),
             _ => None,
+        }
+    }
+
+    fn input_index_increase(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(self.public.expr(meta))
+    }
+
+    fn is_host_public_input(&self, _step: &StepStatus, entry: &EventTableEntry) -> bool {
+        match &entry.step_info {
+            StepInfo::CallHost { plugin, args, .. } => {
+                assert_eq!(*plugin, HostPlugin::HostInput);
+                assert_eq!(args.len(), 1);
+                args[0] != 0
+            }
+            _ => unreachable!(),
         }
     }
 }
