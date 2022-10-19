@@ -114,7 +114,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperTa
                 Sha2HelperEncode::encode_opcode_expr(
                     op,
                     vec![a.expr(meta), b.expr(meta), c.expr(meta)],
-                    res.expr(meta)
+                    res.expr(meta),
                 )
             }),
         );

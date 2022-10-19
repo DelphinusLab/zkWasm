@@ -18,7 +18,7 @@ pub mod expr;
 pub mod ops;
 
 const OP_ARGS_NUM: usize = 5;
-const K: usize = 15;
+const K: usize = 20;
 const ENABLE_LINES: usize = 1 << (K - 1);
 const BLOCK_LINES: usize = 10;
 
