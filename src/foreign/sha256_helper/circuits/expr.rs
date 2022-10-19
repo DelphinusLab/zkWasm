@@ -14,9 +14,11 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         start: i32,
     ) -> Expression<F> {
         assert!(start < BLOCK_LINES as i32);
+        let shift_acc: i32 = 0;
         let acc = nextn!(meta, self.args[index].0, start);
-        let (acc, _) = self.u4_array_to_u32_expr(meta, index, start + 1, 8, 0, acc);
-        acc
+
+        self.u4_array_to_u32_expr(meta, index, shift_acc, acc, start + 1, 8)
+            .0
     }
 
     pub(super) fn arg_to_shift_u32_expr_with_lowest_u4(
@@ -38,10 +40,12 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         start: i32,
     ) -> Expression<F> {
         assert!(start < BLOCK_LINES as i32);
+        let shift_acc: i32 = 0;
         let acc = nextn!(meta, self.args[index].0, start);
-        let (acc, shift_acc) = self.u4_array_to_u32_expr(meta, index, start + 1, 8, 0, acc);
-        let (acc, _) = self.u4_array_to_u32_expr(meta, index, 0, start, shift_acc, acc);
-        acc
+
+        let (acc, shift_acc) = self.u4_array_to_u32_expr(meta, index, shift_acc, acc, start + 1, 8);
+        self.u4_array_to_u32_expr(meta, index, shift_acc, acc, 0, start)
+            .0
     }
 
     pub(super) fn arg_to_rotate_u32_expr_with_lowest_u4(
@@ -82,14 +86,14 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         &self,
         meta: &mut VirtualCells<'_, F>,
         index: usize,
-        a: i32,
-        b: i32,
         shift_acc: i32,
         acc: Expression<F>,
+        start: i32,
+        end: i32,
     ) -> (Expression<F>, i32) {
         let mut shift_acc = shift_acc;
         let mut acc = acc;
-        for i in a..b {
+        for i in start..end {
             shift_acc += 4;
             acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
         }
