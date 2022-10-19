@@ -143,12 +143,21 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             mops_in_total += mops.last().unwrap();
             jops_in_total += jops.last().unwrap();
 
-            assign_constant!(
-                self.state,
-                EventTableCommonRangeColumnRotation::InputIndex,
-                "input index",
-                bn_to_field::<F>(&BigUint::from(host_public_inputs))
-            );
+            if index == 0 {
+                assign_constant!(
+                    self.state,
+                    EventTableCommonRangeColumnRotation::InputIndex,
+                    "input index",
+                    F::zero()
+                );
+            } else {
+                assign_advice!(
+                    self.state,
+                    EventTableCommonRangeColumnRotation::InputIndex,
+                    "input index",
+                    host_public_inputs
+                );
+            }
 
             if config.is_host_public_input(&step_status, entry) {
                 host_public_inputs += 1;
