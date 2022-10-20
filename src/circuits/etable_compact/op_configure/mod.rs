@@ -473,6 +473,13 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             rot: EventTableCommonRangeColumnRotation::InputIndex as i32,
         }
     }
+
+    pub fn moid_cell(&self) -> UnlimitedCell {
+        UnlimitedCell {
+            col: self.config.state.clone(),
+            rot: EventTableCommonRangeColumnRotation::MOID as i32,
+        }
+    }
 }
 
 pub struct ConstraintBuilder<'a, F: FieldExt> {
