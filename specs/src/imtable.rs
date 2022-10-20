@@ -16,8 +16,8 @@ pub struct InitMemoryTableEntry {
 pub struct InitMemoryTable(pub Vec<InitMemoryTableEntry>);
 
 impl InitMemoryTable {
-    pub fn new(imetries: Vec<InitMemoryTableEntry>) -> Self {
-        let mut imtable = Self(imetries);
+    pub fn new(entries: Vec<InitMemoryTableEntry>) -> Self {
+        let mut imtable = Self(entries);
         imtable.sort();
         imtable
     }
