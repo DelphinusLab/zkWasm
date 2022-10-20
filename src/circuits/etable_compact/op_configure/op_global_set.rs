@@ -1,23 +1,14 @@
 use super::*;
 use crate::{
-    circuits::{
-        mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, Context},
-    },
+    circuits::{mtable_compact::encode::MemoryTableLookupEncode, utils::Context},
     constant,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::{
-    encode::opcode::{encode_global_get, encode_global_set},
-    step::StepInfo,
-};
-use specs::{
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
-};
+use specs::{encode::opcode::encode_global_set, step::StepInfo};
+use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct GlobalSetConfig {
     origin_module: CommonRangeCell,
@@ -35,7 +26,7 @@ pub struct GlobalSetConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalSetConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        _constraint_builder: &mut ConstraintBuilder<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let origin_module = common.alloc_common_range_value();
         let origin_idx = common.alloc_common_range_value();
@@ -49,7 +40,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalSetConfigBuilder {
         let lookup_global_set = common.alloc_mtable_lookup();
 
         // TODO: constraints
-        // build relation between (origin_module, origin_idx) and (module, idx)
+        // build relation between (origin_module, origin_idx) and (module, idx) when support import
+        constraint_builder.push(
+            "op_global_set idx constraints",
+            Box::new(move |meta| {
+                vec![
+                    origin_module.expr(meta) - module.expr(meta),
+                    origin_idx.expr(meta) - idx.expr(meta),
+                ]
+            }),
+        );
 
         Box::new(GlobalSetConfig {
             origin_module,
@@ -65,7 +65,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalSetConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig {
-    // TODO: Is it necessary to encode vtype
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         encode_global_set(self.idx.expr(meta))
     }
