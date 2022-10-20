@@ -7,7 +7,6 @@ use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use specs::mtable::LocationType;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -23,10 +22,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     pub(super) fn is_enabled_line(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         fixed_curr!(meta, self.sel)
-    }
-
-    pub(super) fn is_enabled_following_line(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        fixed_curr!(meta, self.following_block_sel)
     }
 
     pub(super) fn same_ltype_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
