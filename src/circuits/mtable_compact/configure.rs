@@ -209,6 +209,10 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 (constant_from!(1) - self.is_stack(meta))
                     * (self.ltype(meta) - constant_from!(LocationType::Heap))
                     * (self.ltype(meta) - constant_from!(LocationType::Global)),
+                (self.ltype(meta) - constant_from!(LocationType::Heap))
+                    * (self.ltype(meta) - constant_from!(LocationType::Stack))
+                    * self.same_offset(meta)
+                    * (self.prev_vtype(meta) - self.vtype(meta)),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
