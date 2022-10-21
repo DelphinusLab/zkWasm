@@ -46,6 +46,7 @@ pub struct LoadConfig {
     is_sign: BitCell,
 
     highest_bit: BitCell,
+    higher_four_bits: [BitCell; 4],
     is_zero_byte_padding: BitCell,
     is_two_byte_padding: BitCell,
     is_three_byte_padding: BitCell,
@@ -95,6 +96,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let vtype = common.alloc_common_range_value();
 
         let highest_bit = common.alloc_bit_value();
+        let higher_four_bits = [0; 4].map(|_| common.alloc_bit_value());
         let is_zero_byte_padding = common.alloc_bit_value();
         let is_two_byte_padding = common.alloc_bit_value();
         let is_three_byte_padding = common.alloc_bit_value();
@@ -255,7 +257,32 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             }),
         );
 
-        // todo: check highest_bit
+        constraint_builder.push(
+            "op_load highest_bit",
+            Box::new(move |meta| {
+                let mut acc32 = constant_from!(0);
+                let mut acc64 = constant_from!(0);
+
+                for i in 0..7 {
+                    acc32 = acc32
+                        + res.u4_expr(meta, i)
+                        * constant_from!(1u64 << (i * 4));
+                }
+                for i in 0..15 {
+                    acc64 = acc64
+                        + res.u4_expr(meta, i)
+                        * constant_from!(1u64 << (i * 4));
+                }
+                for i in 0..4 {
+                    acc32 = acc32
+                        + higher_four_bits[i].expr(meta) * constant_from!(1u64<<31 - i as u64); 
+                    acc64 = acc64
+                        + higher_four_bits[i].expr(meta) * constant_from!(1u64<<63 - i as u64); 
+                }
+                vec![(constant_from!(2) - vtype.expr(meta)) * (acc32 - res.expr(meta)) + (vtype.expr(meta) - constant_from!(1)) * (acc64 - res.expr(meta)),
+                 higher_four_bits[0].expr(meta) - highest_bit.expr(meta)]
+            }),
+        );
 
         Box::new(LoadConfig {
             opcode_load_offset,
@@ -278,6 +305,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_eight_bytes,
             is_sign,
             highest_bit,
+            higher_four_bits,
             is_zero_byte_padding,
             is_two_byte_padding,
             is_three_byte_padding,
@@ -362,6 +390,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.load_base.assign(ctx, raw_address.into())?;
                 
                 let highest_bit = value >> vtype as u64 * 32 - 1;
+                self.highest_bit.assign(ctx, highest_bit == 1)?;
+                for i in 0..4 {
+                    self.higher_four_bits[i].assign(ctx, (value >> vtype as u64 * 32 - i as u64 - 1) & 1 == 1)?;
+                }
                 let mut mask:u64 = 0;
                 for _ in 0..len {
                     mask = (mask << 8) + 0xff;
@@ -377,7 +409,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_sign.assign(ctx, load_size.is_sign())?;
                 self.vtype.assign(ctx, vtype as u16)?;
 
-                self.highest_bit.assign(ctx, highest_bit == 1)?;
                 self.is_zero_byte_padding.assign(ctx, vtype as u64 *4 - len == 0)?;
                 self.is_two_byte_padding.assign(ctx, vtype as u64 * 4 - len == 2)?;
                 self.is_three_byte_padding.assign(ctx, vtype as u64 * 4 - len == 3)?;
