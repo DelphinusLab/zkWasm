@@ -35,6 +35,7 @@ pub struct LoadConfig {
     mask_bits: [BitCell; 16],
     offset_modulus: U64Cell,
     res: U64Cell,
+    value_in_heap: U64OnU8Cell,
     load_base: U64Cell,
 
     vtype: CommonRangeCell,
@@ -43,6 +44,14 @@ pub struct LoadConfig {
     is_four_bytes: BitCell,
     is_eight_bytes: BitCell,
     is_sign: BitCell,
+
+    highest_bit: BitCell,
+    is_zero_byte_padding: BitCell,
+    is_two_byte_padding: BitCell,
+    is_three_byte_padding: BitCell,
+    is_four_byte_padding: BitCell,
+    is_six_byte_padding: BitCell,
+    is_seven_byte_padding: BitCell,
 
     lookup_stack_read: MTableLookupCell,
     lookup_heap_read1: MTableLookupCell,
@@ -74,6 +83,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let load_value2 = common.alloc_u64_on_u8();
         let offset_modulus = common.alloc_u64();
         let res = common.alloc_u64();
+        let value_in_heap = common.alloc_u64_on_u8();
         let load_base = common.alloc_u64();
 
         let mask_bits = [0; 16].map(|_| common.alloc_bit_value());
@@ -83,6 +93,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_eight_bytes = common.alloc_bit_value();
         let is_sign = common.alloc_bit_value();
         let vtype = common.alloc_common_range_value();
+
+        let highest_bit = common.alloc_bit_value();
+        let is_zero_byte_padding = common.alloc_bit_value();
+        let is_two_byte_padding = common.alloc_bit_value();
+        let is_three_byte_padding = common.alloc_bit_value();
+        let is_four_byte_padding = common.alloc_bit_value();
+        let is_six_byte_padding = common.alloc_bit_value();
+        let is_seven_byte_padding = common.alloc_bit_value();
+
 
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_heap_read1 = common.alloc_mtable_lookup();
@@ -187,9 +206,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_load values",
+            "op_load value_in_heap",
             Box::new(move |meta| {
-                let mut acc = res.expr(meta) * offset_modulus.expr(meta);
+                let mut acc = value_in_heap.expr(meta) * offset_modulus.expr(meta);
 
                 for i in 0..8 {
                     acc = acc
@@ -207,6 +226,37 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             }),
         );
 
+        constraint_builder.push(
+            "op_load padding type",
+            Box::new(move |meta| {
+                vec![
+                    is_zero_byte_padding.expr(meta)
+                        + is_two_byte_padding.expr(meta)
+                        + is_three_byte_padding.expr(meta)
+                        + is_four_byte_padding.expr(meta)
+                        + is_six_byte_padding.expr(meta)
+                        + is_seven_byte_padding.expr(meta)
+                        - constant_from!(1),
+                ]
+            }),
+        );
+
+
+        constraint_builder.push(
+            "op_load value: value = padding + value_in_heap",
+            Box::new(move |meta| {
+                let padding = is_two_byte_padding.expr(meta) * constant_from!(0xffff0000) 
+                    + is_three_byte_padding.expr(meta) * constant_from!(0xffffff00) 
+                    + is_four_byte_padding.expr(meta) * constant_from!(0xffffffff00000000)
+                    + is_six_byte_padding.expr(meta) * constant_from!(0xffffffffffff0000)
+                    + is_seven_byte_padding.expr(meta) * constant_from!(0xffffffffffffff00);
+                vec![res.expr(meta) - value_in_heap.expr(meta) 
+                - highest_bit.expr(meta) * is_sign.expr(meta) * padding]
+            }),
+        );
+
+        // todo: check highest_bit
+
         Box::new(LoadConfig {
             opcode_load_offset,
             load_start_block_index,
@@ -221,11 +271,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             offset_modulus,
             load_base,
             res,
+            value_in_heap,
             is_one_byte,
             is_two_bytes,
             is_four_bytes,
             is_eight_bytes,
             is_sign,
+            highest_bit,
+            is_zero_byte_padding,
+            is_two_byte_padding,
+            is_three_byte_padding,
+            is_four_byte_padding,
+            is_six_byte_padding,
+            is_seven_byte_padding,
             vtype,
             lookup_stack_read,
             lookup_heap_read1,
@@ -301,8 +359,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                     self.mask_bits[i].assign(ctx, (bits >> i) & 1 == 1)?;
                 }
                 self.offset_modulus.assign(ctx, 1 << (offset * 8))?;
-                self.res.assign(ctx, value)?;
                 self.load_base.assign(ctx, raw_address.into())?;
+                
+                let highest_bit = value >> vtype as u64 * 32 - 1;
+                let mut mask:u64 = 0;
+                for _ in 0..len {
+                    mask = (mask << 8) + 0xff;
+                }
+                let value_in_heap = if load_size.is_sign() && highest_bit  == 1 {value & mask} else {value};
+                self.value_in_heap.assign(ctx, value_in_heap)?;
+                self.res.assign(ctx, value)?;
 
                 self.is_one_byte.assign(ctx, len == 1)?;
                 self.is_two_bytes.assign(ctx, len == 2)?;
@@ -310,6 +376,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_eight_bytes.assign(ctx, len == 8)?;
                 self.is_sign.assign(ctx, load_size.is_sign())?;
                 self.vtype.assign(ctx, vtype as u16)?;
+
+                self.highest_bit.assign(ctx, highest_bit == 1)?;
+                self.is_zero_byte_padding.assign(ctx, vtype as u64 *4 - len == 0)?;
+                self.is_two_byte_padding.assign(ctx, vtype as u64 * 4 - len == 2)?;
+                self.is_three_byte_padding.assign(ctx, vtype as u64 * 4 - len == 3)?;
+                self.is_four_byte_padding.assign(ctx, vtype as u64 * 4 - len == 4)?;
+                self.is_six_byte_padding.assign(ctx, vtype as u64 * 4 - len  == 6)?;
+                self.is_seven_byte_padding.assign(ctx, vtype as u64 * 4 - len == 7)?;
+
 
                 self.lookup_stack_read.assign(
                     ctx,
