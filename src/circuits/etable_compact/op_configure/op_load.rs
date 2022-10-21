@@ -47,12 +47,6 @@ pub struct LoadConfig {
 
     highest_bit: BitCell,
     higher_four_bits: [BitCell; 4],
-    is_zero_byte_padding: BitCell,
-    is_two_byte_padding: BitCell,
-    is_three_byte_padding: BitCell,
-    is_four_byte_padding: BitCell,
-    is_six_byte_padding: BitCell,
-    is_seven_byte_padding: BitCell,
 
     lookup_stack_read: MTableLookupCell,
     lookup_heap_read1: MTableLookupCell,
@@ -97,13 +91,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
 
         let highest_bit = common.alloc_bit_value();
         let higher_four_bits = [0; 4].map(|_| common.alloc_bit_value());
-        let is_zero_byte_padding = common.alloc_bit_value();
-        let is_two_byte_padding = common.alloc_bit_value();
-        let is_three_byte_padding = common.alloc_bit_value();
-        let is_four_byte_padding = common.alloc_bit_value();
-        let is_six_byte_padding = common.alloc_bit_value();
-        let is_seven_byte_padding = common.alloc_bit_value();
-
 
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_heap_read1 = common.alloc_mtable_lookup();
@@ -229,29 +216,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_load padding type",
-            Box::new(move |meta| {
-                vec![
-                    is_zero_byte_padding.expr(meta)
-                        + is_two_byte_padding.expr(meta)
-                        + is_three_byte_padding.expr(meta)
-                        + is_four_byte_padding.expr(meta)
-                        + is_six_byte_padding.expr(meta)
-                        + is_seven_byte_padding.expr(meta)
-                        - constant_from!(1),
-                ]
-            }),
-        );
-
-
-        constraint_builder.push(
             "op_load value: value = padding + value_in_heap",
             Box::new(move |meta| {
-                let padding = is_two_byte_padding.expr(meta) * constant_from!(0xffff0000) 
-                    + is_three_byte_padding.expr(meta) * constant_from!(0xffffff00) 
-                    + is_four_byte_padding.expr(meta) * constant_from!(0xffffffff00000000)
-                    + is_six_byte_padding.expr(meta) * constant_from!(0xffffffffffff0000)
-                    + is_seven_byte_padding.expr(meta) * constant_from!(0xffffffffffffff00);
+                let padding = is_one_byte.expr(meta) * constant_from!(0xffffff00)
+                    + is_two_bytes.expr(meta) * constant_from!(0xffff0000)
+                    + (constant_from!(1) - is_eight_bytes.expr(meta)) * (vtype.expr(meta) - constant_from!(1)) * constant_from!(0xffffffff00000000);
                 vec![res.expr(meta) - value_in_heap.expr(meta) 
                 - highest_bit.expr(meta) * is_sign.expr(meta) * padding]
             }),
@@ -306,12 +275,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_sign,
             highest_bit,
             higher_four_bits,
-            is_zero_byte_padding,
-            is_two_byte_padding,
-            is_three_byte_padding,
-            is_four_byte_padding,
-            is_six_byte_padding,
-            is_seven_byte_padding,
             vtype,
             lookup_stack_read,
             lookup_heap_read1,
@@ -408,14 +371,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_eight_bytes.assign(ctx, len == 8)?;
                 self.is_sign.assign(ctx, load_size.is_sign())?;
                 self.vtype.assign(ctx, vtype as u16)?;
-
-                self.is_zero_byte_padding.assign(ctx, vtype as u64 *4 - len == 0)?;
-                self.is_two_byte_padding.assign(ctx, vtype as u64 * 4 - len == 2)?;
-                self.is_three_byte_padding.assign(ctx, vtype as u64 * 4 - len == 3)?;
-                self.is_four_byte_padding.assign(ctx, vtype as u64 * 4 - len == 4)?;
-                self.is_six_byte_padding.assign(ctx, vtype as u64 * 4 - len  == 6)?;
-                self.is_seven_byte_padding.assign(ctx, vtype as u64 * 4 - len == 7)?;
-
 
                 self.lookup_stack_read.assign(
                     ctx,
