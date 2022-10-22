@@ -33,9 +33,9 @@ pub struct LoadConfig {
     load_value2: U64OnU8Cell,
 
     mask_bits: [BitCell; 16],
-    offset_modulus: U64Cell,
+    offset_modulus: U64OnU8Cell,
     res: U64Cell,
-    value_in_heap: U64OnU8Cell,
+    value_in_heap: U64Cell,
     load_base: U64Cell,
 
     vtype: CommonRangeCell,
@@ -45,8 +45,7 @@ pub struct LoadConfig {
     is_eight_bytes: BitCell,
     is_sign: BitCell,
 
-    highest_bit: BitCell,
-    higher_four_bits: [BitCell; 4],
+    highest_u4 : [BitCell; 4],
 
     lookup_stack_read: MTableLookupCell,
     lookup_heap_read1: MTableLookupCell,
@@ -76,9 +75,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
 
         let load_value1 = common.alloc_u64_on_u8();
         let load_value2 = common.alloc_u64_on_u8();
-        let offset_modulus = common.alloc_u64();
+        let offset_modulus = common.alloc_u64_on_u8();
         let res = common.alloc_u64();
-        let value_in_heap = common.alloc_u64_on_u8();
+        let value_in_heap = common.alloc_u64();
         let load_base = common.alloc_u64();
 
         let mask_bits = [0; 16].map(|_| common.alloc_bit_value());
@@ -89,8 +88,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_sign = common.alloc_bit_value();
         let vtype = common.alloc_common_range_value();
 
-        let highest_bit = common.alloc_bit_value();
-        let higher_four_bits = [0; 4].map(|_| common.alloc_bit_value());
+        let highest_u4 = [0; 4].map(|_| common.alloc_bit_value());
 
         let lookup_stack_read = common.alloc_mtable_lookup();
         let lookup_heap_read1 = common.alloc_mtable_lookup();
@@ -218,38 +216,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         constraint_builder.push(
             "op_load value: value = padding + value_in_heap",
             Box::new(move |meta| {
+                let mut acc = is_one_byte.expr(meta) * value_in_heap.u4_expr(meta, 0) + is_two_bytes.expr(meta) * value_in_heap.u4_expr(meta, 3)
+                    + is_four_bytes.expr(meta) * value_in_heap.u4_expr(meta, 7) + is_eight_bytes.expr(meta) * value_in_heap.u4_expr(meta, 15);
+                for i in 0..4 {
+                    acc = acc - highest_u4[i].expr(meta) * constant_from!(1u64<<3 - i as u64)
+                }
                 let padding = is_one_byte.expr(meta) * constant_from!(0xffffff00)
                     + is_two_bytes.expr(meta) * constant_from!(0xffff0000)
                     + (constant_from!(1) - is_eight_bytes.expr(meta)) * (vtype.expr(meta) - constant_from!(1)) * constant_from!(0xffffffff00000000);
                 vec![res.expr(meta) - value_in_heap.expr(meta) 
-                - highest_bit.expr(meta) * is_sign.expr(meta) * padding]
-            }),
-        );
-
-        constraint_builder.push(
-            "op_load highest_bit",
-            Box::new(move |meta| {
-                let mut acc32 = constant_from!(0);
-                let mut acc64 = constant_from!(0);
-
-                for i in 0..7 {
-                    acc32 = acc32
-                        + res.u4_expr(meta, i)
-                        * constant_from!(1u64 << (i * 4));
-                }
-                for i in 0..15 {
-                    acc64 = acc64
-                        + res.u4_expr(meta, i)
-                        * constant_from!(1u64 << (i * 4));
-                }
-                for i in 0..4 {
-                    acc32 = acc32
-                        + higher_four_bits[i].expr(meta) * constant_from!(1u64<<31 - i as u64); 
-                    acc64 = acc64
-                        + higher_four_bits[i].expr(meta) * constant_from!(1u64<<63 - i as u64); 
-                }
-                vec![(constant_from!(2) - vtype.expr(meta)) * (acc32 - res.expr(meta)) + (vtype.expr(meta) - constant_from!(1)) * (acc64 - res.expr(meta)),
-                 higher_four_bits[0].expr(meta) - highest_bit.expr(meta)]
+                - highest_u4[0].expr(meta) * is_sign.expr(meta) * padding, acc]
             }),
         );
 
@@ -273,8 +249,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_four_bytes,
             is_eight_bytes,
             is_sign,
-            highest_bit,
-            higher_four_bits,
+            highest_u4,
             vtype,
             lookup_stack_read,
             lookup_heap_read1,
@@ -352,18 +327,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.offset_modulus.assign(ctx, 1 << (offset * 8))?;
                 self.load_base.assign(ctx, raw_address.into())?;
                 
-                let highest_bit = value >> vtype as u64 * 32 - 1;
-                self.highest_bit.assign(ctx, highest_bit == 1)?;
-                for i in 0..4 {
-                    self.higher_four_bits[i].assign(ctx, (value >> vtype as u64 * 32 - i as u64 - 1) & 1 == 1)?;
-                }
                 let mut mask:u64 = 0;
                 for _ in 0..len {
                     mask = (mask << 8) + 0xff;
                 }
+                let highest_bit = value >> vtype as u64 * 32 - 1;
                 let value_in_heap = if load_size.is_sign() && highest_bit  == 1 {value & mask} else {value};
                 self.value_in_heap.assign(ctx, value_in_heap)?;
                 self.res.assign(ctx, value)?;
+
+                for i in 0..4 {
+                    self.highest_u4[i].assign(ctx, (value_in_heap >> 8 * len - i as u64 - 1) & 1 == 1)?;
+                }
 
                 self.is_one_byte.assign(ctx, len == 1)?;
                 self.is_two_bytes.assign(ctx, len == 2)?;
