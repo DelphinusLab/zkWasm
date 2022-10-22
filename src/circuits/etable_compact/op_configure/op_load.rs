@@ -44,6 +44,7 @@ pub struct LoadConfig {
     is_four_bytes: BitCell,
     is_eight_bytes: BitCell,
     is_sign: BitCell,
+    is_i64: BitCell,
 
     highest_u4 : [BitCell; 4],
 
@@ -86,6 +87,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_four_bytes = common.alloc_bit_value();
         let is_eight_bytes = common.alloc_bit_value();
         let is_sign = common.alloc_bit_value();
+        let is_i64 = common.alloc_bit_value();
         let vtype = common.alloc_common_range_value();
 
         let highest_u4 = [0; 4].map(|_| common.alloc_bit_value());
@@ -223,7 +225,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                 }
                 let padding = is_one_byte.expr(meta) * constant_from!(0xffffff00)
                     + is_two_bytes.expr(meta) * constant_from!(0xffff0000)
-                    + (constant_from!(1) - is_eight_bytes.expr(meta)) * (vtype.expr(meta) - constant_from!(1)) * constant_from!(0xffffffff00000000);
+                    + (constant_from!(1) - is_eight_bytes.expr(meta)) * is_i64.expr(meta) * constant_from!(0xffffffff00000000);
                 vec![res.expr(meta) - value_in_heap.expr(meta) 
                 - highest_u4[0].expr(meta) * is_sign.expr(meta) * padding, acc]
             }),
@@ -249,6 +251,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_four_bytes,
             is_eight_bytes,
             is_sign,
+            is_i64,
             highest_u4,
             vtype,
             lookup_stack_read,
@@ -345,6 +348,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_four_bytes.assign(ctx, len == 4)?;
                 self.is_eight_bytes.assign(ctx, len == 8)?;
                 self.is_sign.assign(ctx, load_size.is_sign())?;
+                self.is_i64.assign(ctx, vtype == VarType::I64)?;
                 self.vtype.assign(ctx, vtype as u16)?;
 
                 self.lookup_stack_read.assign(
