@@ -1,6 +1,6 @@
-use std::ops::{Add, Mul, Shl};
+use std::ops::{Add, Mul};
 
-use halo2_proofs::{arithmetic::FieldExt, plonk::Expression, transcript::bn_to_field};
+use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 use num_bigint::BigUint;
 
 pub mod opcode;
@@ -19,6 +19,14 @@ impl FromBn for BigUint {
         bn.clone()
     }
 }
+
+fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
+    let mut bytes = bn.to_bytes_le();
+    bytes.resize(32, 0);
+    let mut bytes = &bytes[..];
+    F::read(&mut bytes).unwrap()
+}
+
 
 impl<F: FieldExt> FromBn for Expression<F> {
     fn from_bn(bn: &BigUint) -> Self {
