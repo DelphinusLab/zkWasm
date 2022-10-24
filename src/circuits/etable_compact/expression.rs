@@ -197,6 +197,14 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         )
     }
 
+    pub fn brtable_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.aux,
+            EventTableUnlimitColumnRotation::BrTableLookup as i32
+        )
+    }
+
     pub fn jtable_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,

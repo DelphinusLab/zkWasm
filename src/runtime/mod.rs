@@ -265,6 +265,76 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 
             ops
         }
+        StepInfo::BrTable {
+            index,
+            drop,
+            keep,
+            keep_values,
+            ..
+        } => {
+            assert_eq!(keep.len(), keep_values.len());
+            assert!(keep.len() <= 1);
+
+            let mut sp = sp_before_execution + 1;
+
+            let mut ops = vec![MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: VarType::I32,
+                is_mutable: true,
+                value: *index as u32 as u64,
+            }];
+
+            sp = sp + 1;
+            *emid = (*emid).checked_add(1).unwrap();
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: keep[i].into(),
+                        is_mutable: true,
+                        value: keep_values[i],
+                    });
+
+                    sp = sp + 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            sp = sp + ((*drop) as u64);
+            sp -= 1;
+
+            {
+                for i in 0..keep.len() {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        emid: *emid,
+                        mmid: 0,
+                        offset: sp,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Write,
+                        vtype: keep[i].into(),
+                        is_mutable: true,
+                        value: keep_values[i],
+                    });
+
+                    sp = sp - 1;
+                    *emid = (*emid).checked_add(1).unwrap();
+                }
+            }
+
+            ops
+        }
         StepInfo::Return {
             drop,
             keep,

@@ -9,6 +9,7 @@ pub(super) mod op_bin_shift;
 pub(super) mod op_br;
 pub(super) mod op_br_if;
 pub(super) mod op_br_if_eqz;
+pub(crate) mod op_br_table;
 pub(super) mod op_call;
 pub(super) mod op_const;
 pub(super) mod op_conversion;
@@ -120,6 +121,31 @@ impl PowTableLookupCell {
                     &((BigUint::from(1u64) << (power + 16)) + power),
                 ))
             },
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
+}
+
+pub struct BrTableLookupCell {
+    pub col: Column<Advice>,
+    pub rot: i32,
+}
+
+impl BrTableLookupCell {
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: &BigUint,
+    ) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "brlookup cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(bn_to_field(value)),
         )?;
         Ok(())
     }
@@ -333,6 +359,7 @@ pub struct EventTableCellAllocator<'a, F> {
     pub u4_bop_index: i32,
     pub u64_index: i32,
     pub u64_on_u8_index: i32,
+    pub brtable_lookup_index: i32,
     pub mtable_lookup_index: i32,
     pub jtable_lookup_index: i32,
     pub pow_table_lookup_index: i32,
@@ -350,6 +377,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             u64_index: 0,
             u64_on_u8_index: 0,
             pow_table_lookup_index: EventTableUnlimitColumnRotation::PowTableLookup as i32,
+            brtable_lookup_index: EventTableUnlimitColumnRotation::BrTableLookup as i32,
             mtable_lookup_index: EventTableUnlimitColumnRotation::MTableLookupStart as i32,
             jtable_lookup_index: EventTableUnlimitColumnRotation::JTableLookup as i32,
             offset_len_bits_lookup_index: EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup
@@ -456,10 +484,18 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         }
     }
 
+    pub fn alloc_brtable_lookup(&mut self) -> BrTableLookupCell {
+        assert!(self.brtable_lookup_index < EventTableUnlimitColumnRotation::JTableLookup as i32);
+        let allocated_index = self.brtable_lookup_index;
+        self.brtable_lookup_index += 1;
+        BrTableLookupCell {
+            col: self.config.aux,
+            rot: allocated_index,
+        }
+    }
+
     pub fn alloc_jtable_lookup(&mut self) -> JTableLookupCell {
-        assert!(
-            self.jtable_lookup_index < EventTableUnlimitColumnRotation::MTableLookupStart as i32
-        );
+        assert!(self.jtable_lookup_index < EventTableUnlimitColumnRotation::PowTableLookup as i32);
         let allocated_index = self.jtable_lookup_index;
         self.jtable_lookup_index += 1;
         JTableLookupCell {
@@ -640,6 +676,13 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         None
     }
     fn itable_lookup(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        None
+    }
+    fn brtable_lookup(
         &self,
         _meta: &mut VirtualCells<'_, F>,
         _common_config: &EventTableCommonConfig<F>,

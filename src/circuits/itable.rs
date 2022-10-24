@@ -10,6 +10,7 @@ use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 use num_traits::One;
+use specs::itable::InstructionTable;
 use specs::itable::InstructionTableEntry;
 use std::marker::PhantomData;
 
@@ -98,13 +99,13 @@ impl<F: FieldExt> InstructionTableChip<F> {
     pub fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        instructions: &Vec<InstructionTableEntry>,
+        instructions: &InstructionTable,
     ) -> Result<(), Error> {
         layouter.assign_table(
             || "itable",
             |mut table| {
                 table.assign_cell(|| "inst_init table", self.config.col, 0, || Ok(F::zero()))?;
-                for (i, v) in instructions.iter().enumerate() {
+                for (i, v) in instructions.entries().iter().enumerate() {
                     table.assign_cell(
                         || "inst_init table",
                         self.config.col,
