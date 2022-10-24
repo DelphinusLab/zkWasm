@@ -218,7 +218,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         constraint_builder.push(
             "op_load value: value = padding + value_in_heap",
             Box::new(move |meta| {
-                let mut acc = is_one_byte.expr(meta) * value_in_heap.u4_expr(meta, 0) + is_two_bytes.expr(meta) * value_in_heap.u4_expr(meta, 3)
+                let mut acc = is_one_byte.expr(meta) * value_in_heap.u4_expr(meta, 1) + is_two_bytes.expr(meta) * value_in_heap.u4_expr(meta, 3)
                     + is_four_bytes.expr(meta) * value_in_heap.u4_expr(meta, 7) + is_eight_bytes.expr(meta) * value_in_heap.u4_expr(meta, 15);
                 for i in 0..4 {
                     acc = acc - highest_u4[i].expr(meta) * constant_from!(1u64<<3 - i as u64)
@@ -228,6 +228,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                     + (constant_from!(1) - is_eight_bytes.expr(meta)) * is_i64.expr(meta) * constant_from!(0xffffffff00000000);
                 vec![res.expr(meta) - value_in_heap.expr(meta) 
                 - highest_u4[0].expr(meta) * is_sign.expr(meta) * padding, acc]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_load: is_i64 = 1 when vtype = 2",
+            Box::new(move |meta| {
+                vec![is_i64.expr(meta) + constant_from!(1) - vtype.expr(meta)]
             }),
         );
 
