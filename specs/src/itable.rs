@@ -1,6 +1,9 @@
 use super::mtable::VarType;
 use crate::{
-    encode::opcode::{encode_br_if_eqz, encode_call, encode_global_get, encode_global_set},
+    brtable::{BrTable, BrTableEntry},
+    encode::opcode::{
+        encode_br_if_eqz, encode_br_table, encode_call, encode_global_get, encode_global_set,
+    },
     host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
     types::ValueType,
@@ -30,6 +33,7 @@ pub enum OpcodeClass {
     Br,
     BrIf,
     BrIfEqz,
+    BrTable,
     Unreachable,
     Call,
     Load,
@@ -58,6 +62,7 @@ impl OpcodeClass {
             OpcodeClass::Br => 0,
             OpcodeClass::BrIf => 1,
             OpcodeClass::BrIfEqz => 1,
+            OpcodeClass::BrTable => 1,
             OpcodeClass::Unreachable => todo!(),
             OpcodeClass::Call => 0,
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
@@ -150,6 +155,13 @@ pub enum ConversionOp {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct BrTarget {
+    pub drop: u32,
+    pub keep: Vec<ValueType>,
+    pub dst_pc: u32,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub enum Opcode {
     LocalGet {
         vtype: VarType,
@@ -218,6 +230,9 @@ pub enum Opcode {
         keep: Vec<ValueType>,
         dst_pc: u32,
     },
+    BrTable {
+        targets: Vec<BrTarget>,
+    },
     Unreachable,
     Call {
         index: u16,
@@ -267,6 +282,7 @@ impl Opcode {
 pub const OPCODE_CLASS_SHIFT: usize = 96;
 pub const OPCODE_ARG0_SHIFT: usize = 80;
 pub const OPCODE_ARG1_SHIFT: usize = 64;
+pub const OPCODE_CELL: usize = 4;
 
 impl Into<BigUint> for Opcode {
     fn into(self) -> BigUint {
@@ -350,6 +366,7 @@ impl Into<BigUint> for Opcode {
                 BigUint::from(keep.len() as u64),
                 BigUint::from(dst_pc),
             ),
+            Opcode::BrTable { targets } => encode_br_table(BigUint::from(targets.len())),
             Opcode::Unreachable => {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }
@@ -414,6 +431,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Br { .. } => OpcodeClass::Br,
             Opcode::BrIf { .. } => OpcodeClass::BrIf,
             Opcode::BrIfEqz { .. } => OpcodeClass::BrIfEqz,
+            Opcode::BrTable { .. } => OpcodeClass::BrTable,
             Opcode::Unreachable => OpcodeClass::Unreachable,
             Opcode::Call { .. } => OpcodeClass::Call,
             Opcode::CallHost { .. } => OpcodeClass::ForeignPluginStart,
@@ -458,6 +476,43 @@ impl InstructionTableEntry {
         bn = bn << 16;
         bn += self.iid;
         bn
+    }
+}
+#[derive(Default, Serialize, Debug, Clone)]
+pub struct InstructionTable(Vec<InstructionTableEntry>);
+
+impl InstructionTable {
+    pub fn new(entries: Vec<InstructionTableEntry>) -> Self {
+        InstructionTable(entries)
+    }
+
+    pub fn entries(&self) -> &Vec<InstructionTableEntry> {
+        &self.0
+    }
+
+    pub fn create_brtable(&self) -> BrTable {
+        let entries: Vec<Vec<BrTableEntry>> = self
+            .entries()
+            .iter()
+            .map(|entry| match &entry.opcode {
+                Opcode::BrTable { targets } => targets
+                    .iter()
+                    .enumerate()
+                    .map(|(index, target)| BrTableEntry {
+                        moid: entry.moid,
+                        fid: entry.fid,
+                        iid: entry.iid,
+                        index: index as u16,
+                        drop: target.drop as u16,
+                        keep: target.keep.len() as u16,
+                        dst_pc: target.dst_pc as u16,
+                    })
+                    .collect(),
+                _ => vec![],
+            })
+            .collect();
+
+        BrTable::new(entries.concat())
     }
 }
 

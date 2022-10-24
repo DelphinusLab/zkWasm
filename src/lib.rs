@@ -1,5 +1,6 @@
 #![deny(unused_imports)]
 #![deny(dead_code)]
+#![deny(unused_variables)]
 
 pub mod bench;
 pub mod circuits;

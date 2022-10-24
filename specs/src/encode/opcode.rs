@@ -42,6 +42,10 @@ pub fn encode_br_if_eqz<T: FromBn>(drop: T, keep: T, dst_pc: T) -> T {
         + dst_pc
 }
 
+pub fn encode_br_table<T: FromBn>(len: T) -> T {
+    T::from_bn(&BigUint::from(OpcodeClass::BrTable as u64)) + len
+}
+
 pub fn encode_conversion<T: FromBn>(op: ConversionOp) -> T {
     match op {
         ConversionOp::I32WrapI64 => {

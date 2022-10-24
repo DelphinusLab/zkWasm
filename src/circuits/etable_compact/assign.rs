@@ -34,6 +34,15 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
+            if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::BrTableLookup as usize {
+                ctx.region.assign_fixed(
+                    || "brtable lookup",
+                    self.brtable_lookup,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
+
             if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::JTableLookup as usize {
                 ctx.region.assign_fixed(
                     || "jtable lookup",

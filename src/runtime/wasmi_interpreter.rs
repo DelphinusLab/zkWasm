@@ -4,6 +4,7 @@ use specs::{
     etable::EventTable,
     host_function::HostFunctionDesc,
     imtable::InitMemoryTable,
+    itable::InstructionTable,
     mtable::MTable,
     types::{CompileError, ExecutionError},
     CompileTable, ExecutionTable,
@@ -49,13 +50,15 @@ impl WasmRuntime for WasmiRuntime {
             .expect("failed to instantiate wasm module")
             .assert_no_start();
 
-        let itable = tracer
-            .borrow()
-            .itable
-            .0
-            .iter()
-            .map(|ientry| ientry.clone().into())
-            .collect();
+        let itable = InstructionTable::new(
+            tracer
+                .borrow()
+                .itable
+                .0
+                .iter()
+                .map(|ientry| ientry.clone().into())
+                .collect(),
+        );
         let imtable = InitMemoryTable::new(
             tracer
                 .borrow()

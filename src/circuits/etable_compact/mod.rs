@@ -6,6 +6,7 @@ use crate::circuits::etable_compact::op_configure::op_bin_shift::BinShiftConfigB
 use crate::circuits::etable_compact::op_configure::op_br::BrConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if_eqz::BrIfEqzConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_br_table::BrTableConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_call::CallConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
@@ -106,11 +107,12 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
 
 pub(crate) enum EventTableUnlimitColumnRotation {
     ITableLookup = 0,
-    JTableLookup = 1,
-    PowTableLookup = 2,
-    OffsetLenBitsTableLookup = 3,
-    MTableLookupStart = 4,
-    U64Start = 5 + MTABLE_LOOKUPS_SIZE as isize,
+    BrTableLookup = 1,
+    JTableLookup = 2,
+    PowTableLookup = 3,
+    OffsetLenBitsTableLookup = 4,
+    MTableLookupStart = 5,
+    U64Start = 6 + MTABLE_LOOKUPS_SIZE as isize,
 }
 
 pub enum MLookupItem {
@@ -179,6 +181,7 @@ pub struct EventTableCommonConfig<F> {
     pub unlimited: Column<Advice>,
 
     pub itable_lookup: Column<Fixed>,
+    pub brtable_lookup: Column<Fixed>,
     pub jtable_lookup: Column<Fixed>,
     pub mtable_lookup: Column<Fixed>,
     pub pow_table_lookup: Column<Fixed>,
@@ -208,6 +211,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
+        brtable: &BrTableConfig<F>,
         foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
         opcode_set: &BTreeSet<OpcodeClassPlain>,
     ) -> Self {
@@ -221,6 +225,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let unlimited = cols.next().unwrap();
 
         let itable_lookup = meta.fixed_column();
+        let brtable_lookup = meta.fixed_column();
         let jtable_lookup = meta.fixed_column();
         let mtable_lookup = meta.fixed_column();
         let pow_table_lookup = meta.fixed_column();
@@ -278,6 +283,10 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         itable.configure_in_table(meta, "etable itable lookup", |meta| {
             curr!(meta, aux) * fixed_curr!(meta, itable_lookup)
+        });
+
+        brtable.configure_in_table(meta, "etable brtable lookup", |meta| {
+            curr!(meta, aux) * fixed_curr!(meta, brtable_lookup)
         });
 
         mtable.configure_in_table(meta, "etable mtable lookup", |meta| {
@@ -360,6 +369,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             state,
             unlimited,
             itable_lookup,
+            brtable_lookup,
             jtable_lookup,
             mtable_lookup,
             pow_table_lookup,
@@ -428,6 +438,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
         configure!(OpcodeClass::Br, BrConfigBuilder);
         configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder);
+        configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
         configure!(OpcodeClass::Call, CallConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
@@ -493,6 +504,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
 
             let mut itable_lookup = common_config.itable_lookup(meta);
+            let mut brtable_lookup = common_config.brtable_lookup(meta);
             let mut jtable_lookup = common_config.jtable_lookup(meta);
             let mut mtable_lookup = vec![];
 
@@ -569,6 +581,14 @@ impl<F: FieldExt> EventTableConfig<F> {
                         config.opcode(meta),
                     ) * common_config.op_enabled(meta, *lvl1, *lvl2);
 
+                match config.brtable_lookup(meta, &common_config) {
+                    Some(e) => {
+                        brtable_lookup =
+                            brtable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
                 match config.jtable_lookup(meta, &common_config) {
                     Some(e) => {
                         jtable_lookup =
@@ -610,6 +630,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     sp_acc * common_config.next_enable(meta),
                     last_jump_eid_acc,
                     itable_lookup,
+                    brtable_lookup,
                     jtable_lookup,
                     input_index_acc * common_config.next_enable(meta),
                 ],

@@ -4,6 +4,7 @@ use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 use num_bigint::BigUint;
 
 pub mod opcode;
+pub mod table;
 
 pub trait FromBn: Sized + Add<Self, Output = Self> + Mul<Self, Output = Self> {
     fn zero() -> Self;
