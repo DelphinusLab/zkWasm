@@ -24,4 +24,5 @@ pub struct HostFunctionDesc {
 pub enum HostPlugin {
     HostInput = 0,
     Sha256,
+    AssemblyScriptPolyfill,
 }
