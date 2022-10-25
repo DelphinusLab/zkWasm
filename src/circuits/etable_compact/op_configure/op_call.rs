@@ -1,18 +1,12 @@
 use super::*;
-use crate::{
-    circuits::{
-        mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, Context},
-    },
-    constant,
-};
+use crate::circuits::utils::Context;
 
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
+use specs::step::StepInfo;
 use specs::{encode::opcode::encode_call, etable::EventTableEntry, itable::OpcodeClass};
-use specs::{mtable::VarType, step::StepInfo};
 
 pub struct CallConfig {
     index: CommonRangeCell,
@@ -23,7 +17,7 @@ pub struct CallConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
+        _constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let index = common.alloc_common_range_value();
 

@@ -86,7 +86,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig {
                 match vtype {
                     VarType::I32 => self.is_four_bytes.assign(ctx, true)?,
                     VarType::I64 => (),
-                    _ => unreachable!(),
                 }
                 self.value.assign(ctx, value)?;
                 self.res.assign(ctx, result == 1)?;

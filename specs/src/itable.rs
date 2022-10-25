@@ -6,7 +6,7 @@ use crate::{
     types::ValueType,
 };
 use num_bigint::BigUint;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashSet;
 use strum_macros::EnumIter;
 

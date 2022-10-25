@@ -49,9 +49,9 @@ pub struct StoreConfig {
     lookup_stack_read_pos: MTableLookupCell,
     lookup_stack_read_val: MTableLookupCell,
     lookup_heap_read1: MTableLookupCell,
-    lookup_heap_read2: MTableLookupCell,
+    _lookup_heap_read2: MTableLookupCell,
     lookup_heap_write1: MTableLookupCell,
-    lookup_heap_write2: MTableLookupCell,
+    _lookup_heap_write2: MTableLookupCell,
 
     lookup_offset_len_bits: OffsetLenBitsTableLookupCell,
     lookup_pow: PowTableLookupCell,
@@ -294,13 +294,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             is_eight_bytes,
             vtype,
             lookup_heap_read1,
-            lookup_heap_read2,
+            _lookup_heap_read2: lookup_heap_read2,
             lookup_offset_len_bits,
             lookup_pow,
             lookup_stack_read_pos,
             lookup_stack_read_val,
             lookup_heap_write1,
-            lookup_heap_write2,
+            _lookup_heap_write2: lookup_heap_write2,
             load_value1,
             load_value2,
         })
@@ -548,7 +548,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                     self.store_value2.expr(meta),
                 ) * cross_block.clone(),
             ),
-            _ => None,
         }
     }
 }

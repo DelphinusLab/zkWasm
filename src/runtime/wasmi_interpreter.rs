@@ -2,26 +2,19 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use specs::{
     etable::EventTable,
-    host_function::{HostFunctionDesc, HostPlugin},
+    host_function::HostFunctionDesc,
     imtable::InitMemoryTable,
     mtable::MTable,
-    types::{CompileError, ExecutionError, Value},
+    types::{CompileError, ExecutionError},
     CompileTable, ExecutionTable,
 };
-use wasmi::{Externals, ImportResolver, ModuleInstance, RuntimeValue};
+use wasmi::{Externals, ImportResolver, ModuleInstance};
 
 use crate::runtime::{memory_event_of_step, ExecutionOutcome};
 
 use super::{CompileOutcome, WasmRuntime};
 
 pub struct WasmiRuntime {}
-
-fn into_wasmi_value(v: &Value) -> RuntimeValue {
-    match v {
-        Value::I32(v) => RuntimeValue::I32(*v),
-        Value::I64(v) => RuntimeValue::I64(*v),
-    }
-}
 
 impl WasmRuntime for WasmiRuntime {
     type Module = wasmi::Module;

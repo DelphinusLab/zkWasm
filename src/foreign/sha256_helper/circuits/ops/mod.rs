@@ -1,4 +1,4 @@
-use super::{assign::Sha256HelperTableChip, BLOCK_LINES};
+use super::assign::Sha256HelperTableChip;
 use halo2_proofs::{arithmetic::FieldExt, circuit::Region, plonk::Error};
 
 pub mod ch;

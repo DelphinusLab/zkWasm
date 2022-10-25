@@ -7,7 +7,6 @@ use halo2_proofs::plonk::VirtualCells;
 
 use crate::constant_from;
 use crate::curr;
-use crate::fixed_curr;
 
 #[derive(Clone)]
 pub struct U4Column(pub Column<Advice>);
