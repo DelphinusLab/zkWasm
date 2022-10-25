@@ -160,9 +160,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig {
     ) -> Result<(), Error> {
         let (value, value_type, result, result_type) = match entry.step_info {
             StepInfo::I32WrapI64 { value, result } => {
-                let power = 32;
                 let value = value as u64;
-                let rem = value & ((1 << power) - 1);
 
                 self.is_i32_wrap_i64.assign(ctx, true)?;
 

@@ -190,7 +190,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
         match vtype {
             VarType::I32 => self.is_32bits.assign(ctx, true)?,
             VarType::I64 => self.is_64bits.assign(ctx, true)?,
-            _ => unreachable!(),
         };
 
         self.lookup_stack_read_lhs.assign(

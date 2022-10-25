@@ -32,10 +32,10 @@ pub struct RelConfig {
     res_is_gt: BitCell,
     res: UnlimitedCell,
 
-    lhs_leading_bit: BitCell,
-    rhs_leading_bit: BitCell,
-    lhs_rem_value: CommonRangeCell,
-    rhs_rem_value: CommonRangeCell,
+    _lhs_leading_bit: BitCell,
+    _rhs_leading_bit: BitCell,
+    _lhs_rem_value: CommonRangeCell,
+    _rhs_rem_value: CommonRangeCell,
 
     op_is_eq: BitCell,
     op_is_ne: BitCell,
@@ -201,10 +201,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             op_is_ge,
             op_is_sign,
             is_eight_bytes,
-            lhs_leading_bit,
-            rhs_leading_bit,
-            lhs_rem_value,
-            rhs_rem_value,
+            _lhs_leading_bit: lhs_leading_bit,
+            _rhs_leading_bit: rhs_leading_bit,
+            _lhs_rem_value: lhs_rem_value,
+            _rhs_rem_value: rhs_rem_value,
         })
     }
 }

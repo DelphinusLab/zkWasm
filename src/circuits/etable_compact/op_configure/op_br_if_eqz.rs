@@ -1,22 +1,13 @@
 use super::*;
-use crate::{
-    circuits::{
-        mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, Context},
-    },
-    constant,
-};
+use crate::circuits::{mtable_compact::encode::MemoryTableLookupEncode, utils::Context};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
+use specs::encode::opcode::encode_br_if_eqz;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
-use specs::{encode::opcode::encode_br_if_eqz, itable::OPCODE_ARG1_SHIFT};
-use specs::{
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
-};
+use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct BrIfEqzConfig {
     cond: U64Cell,

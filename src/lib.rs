@@ -1,3 +1,6 @@
+#![deny(unused_imports)]
+#![deny(dead_code)]
+
 pub mod bench;
 pub mod circuits;
 pub mod cli;

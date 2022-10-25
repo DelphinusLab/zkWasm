@@ -10,7 +10,7 @@ mod tests {
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use std::{fs::File, io::Read, path::PathBuf};
-    use wasmi::{ImportsBuilder, NopExternals};
+    use wasmi::ImportsBuilder;
 
     #[test]
     fn test_sha256() {

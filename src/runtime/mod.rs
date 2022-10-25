@@ -2,10 +2,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use specs::{
     etable::EventTableEntry,
-    host_function::{HostFunctionDesc, HostPlugin},
+    host_function::HostFunctionDesc,
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
     step::StepInfo,
-    types::{CompileError, ExecutionError, Value},
+    types::{CompileError, ExecutionError},
     CompileTable, ExecutionTable,
 };
 use wasmi::{Externals, ImportResolver};
@@ -385,7 +385,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 is_mutable: true,
                 value: *result,
             });
-            sp = sp - 1;
             *emid = (*emid).checked_add(1).unwrap();
 
             ops
@@ -434,7 +433,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 });
 
                 *emid = (*emid).checked_add(1).unwrap();
-                sp = sp - 1;
             }
 
             mops
@@ -544,12 +542,12 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         }
 
         StepInfo::GetGlobal {
-            idx,
             origin_module,
             origin_idx,
             vtype,
             is_mutable,
             value,
+            ..
         } => {
             let global_get = MemoryTableEntry {
                 eid,
@@ -580,12 +578,12 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             vec![global_get, stack_write]
         }
         StepInfo::SetGlobal {
-            idx,
             origin_module,
             origin_idx,
             vtype,
             is_mutable,
             value,
+            ..
         } => {
             let stack_read = MemoryTableEntry {
                 eid,
@@ -618,16 +616,14 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 
         StepInfo::Load {
             vtype,
-            load_size,
             offset: _offset,
             raw_address,
             effective_address,
             value,
             block_value,
             mmid,
+            ..
         } => {
-            // TODO: adapt load_size
-
             let load_address_from_stack = MemoryTableEntry {
                 eid,
                 emid: *emid,
@@ -673,7 +669,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         }
         StepInfo::Store {
             vtype,
-            store_size,
             raw_address,
             effective_address,
             value,

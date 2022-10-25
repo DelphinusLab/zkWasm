@@ -46,11 +46,11 @@ pub struct LoadConfig {
     is_sign: BitCell,
     is_i64: BitCell,
 
-    highest_u4 : [BitCell; 4],
+    highest_u4: [BitCell; 4],
 
     lookup_stack_read: MTableLookupCell,
     lookup_heap_read1: MTableLookupCell,
-    lookup_heap_read2: MTableLookupCell,
+    _lookup_heap_read2: MTableLookupCell,
     lookup_stack_write: MTableLookupCell,
 
     lookup_offset_len_bits: OffsetLenBitsTableLookupCell,
@@ -218,24 +218,30 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         constraint_builder.push(
             "op_load value: value = padding + value_in_heap",
             Box::new(move |meta| {
-                let mut acc = is_one_byte.expr(meta) * value_in_heap.u4_expr(meta, 1) + is_two_bytes.expr(meta) * value_in_heap.u4_expr(meta, 3)
-                    + is_four_bytes.expr(meta) * value_in_heap.u4_expr(meta, 7) + is_eight_bytes.expr(meta) * value_in_heap.u4_expr(meta, 15);
+                let mut acc = is_one_byte.expr(meta) * value_in_heap.u4_expr(meta, 1)
+                    + is_two_bytes.expr(meta) * value_in_heap.u4_expr(meta, 3)
+                    + is_four_bytes.expr(meta) * value_in_heap.u4_expr(meta, 7)
+                    + is_eight_bytes.expr(meta) * value_in_heap.u4_expr(meta, 15);
                 for i in 0..4 {
-                    acc = acc - highest_u4[i].expr(meta) * constant_from!(1u64<<3 - i as u64)
+                    acc = acc - highest_u4[i].expr(meta) * constant_from!(1u64 << 3 - i as u64)
                 }
                 let padding = is_one_byte.expr(meta) * constant_from!(0xffffff00)
                     + is_two_bytes.expr(meta) * constant_from!(0xffff0000)
-                    + (constant_from!(1) - is_eight_bytes.expr(meta)) * is_i64.expr(meta) * constant_from!(0xffffffff00000000);
-                vec![res.expr(meta) - value_in_heap.expr(meta) 
-                - highest_u4[0].expr(meta) * is_sign.expr(meta) * padding, acc]
+                    + (constant_from!(1) - is_eight_bytes.expr(meta))
+                        * is_i64.expr(meta)
+                        * constant_from!(0xffffffff00000000);
+                vec![
+                    res.expr(meta)
+                        - value_in_heap.expr(meta)
+                        - highest_u4[0].expr(meta) * is_sign.expr(meta) * padding,
+                    acc,
+                ]
             }),
         );
 
         constraint_builder.push(
             "op_load: is_i64 = 1 when vtype = 2",
-            Box::new(move |meta| {
-                vec![is_i64.expr(meta) + constant_from!(1) - vtype.expr(meta)]
-            }),
+            Box::new(move |meta| vec![is_i64.expr(meta) + constant_from!(1) - vtype.expr(meta)]),
         );
 
         Box::new(LoadConfig {
@@ -263,7 +269,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             vtype,
             lookup_stack_read,
             lookup_heap_read1,
-            lookup_heap_read2,
+            _lookup_heap_read2: lookup_heap_read2,
             lookup_stack_write,
             lookup_offset_len_bits,
             lookup_pow,
@@ -336,18 +342,23 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 }
                 self.offset_modulus.assign(ctx, 1 << (offset * 8))?;
                 self.load_base.assign(ctx, raw_address.into())?;
-                
-                let mut mask:u64 = 0;
+
+                let mut mask: u64 = 0;
                 for _ in 0..len {
                     mask = (mask << 8) + 0xff;
                 }
                 let highest_bit = value >> vtype as u64 * 32 - 1;
-                let value_in_heap = if load_size.is_sign() && highest_bit  == 1 {value & mask} else {value};
+                let value_in_heap = if load_size.is_sign() && highest_bit == 1 {
+                    value & mask
+                } else {
+                    value
+                };
                 self.value_in_heap.assign(ctx, value_in_heap)?;
                 self.res.assign(ctx, value)?;
 
                 for i in 0..4 {
-                    self.highest_u4[i].assign(ctx, (value_in_heap >> 8 * len - i as u64 - 1) & 1 == 1)?;
+                    self.highest_u4[i]
+                        .assign(ctx, (value_in_heap >> 8 * len - i as u64 - 1) & 1 == 1)?;
                 }
 
                 self.is_one_byte.assign(ctx, len == 1)?;
@@ -428,7 +439,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 effective_address,
                 ..
             } => {
-                if (*effective_address + load_size.byte_size() as u32 - 1) / 8 != *effective_address / 8
+                if (*effective_address + load_size.byte_size() as u32 - 1) / 8
+                    != *effective_address / 8
                 {
                     1
                 } else {

@@ -1,4 +1,6 @@
 #![feature(trait_alias)]
+#![deny(unused_imports)]
+#![deny(dead_code)]
 
 use std::{env, io::Write, path::PathBuf};
 

@@ -1,4 +1,4 @@
-use super::{Sha256HelperTableConfig, Sha2HelperEncode, OP_ARGS_NUM};
+use super::{Sha256HelperTableConfig, Sha2HelperEncode};
 use crate::foreign::sha256_helper::Sha256HelperOp;
 use crate::{constant_from, curr, fixed_curr, next, nextn};
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
