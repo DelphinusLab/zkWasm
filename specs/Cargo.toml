@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", rev = "4112958c7fa980b331897fd030a329095f418ff9", default-features = true }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true, features = ["cuda"] }
 lazy_static = "1.4.0"
 num-bigint = { version = "0.4", features = ["rand"] }
 parity-wasm = { version = "0.42.0", default-features = false }
