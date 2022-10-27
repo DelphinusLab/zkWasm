@@ -12,7 +12,7 @@ path = "src/cli/main.rs"
 [dependencies]
 ark-std = { version = "0.3.0", features = ["print-trace"] }
 downcast-rs = "1.2.0"
-halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true, features = ["cuda"] }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true }
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-traits = "0.2.15"
@@ -25,6 +25,8 @@ strum = "0.24.1"
 strum_macros = "0.24.1"
 wast = "47.0.0"
 clap = { version = "3.2.22", features = ["derive","cargo"] }
-
-#[dev-dependencies]
 hex = "0.4.3"
+
+[features]
+default = []
+cuda = ["halo2_proofs/cuda", "specs/cuda"]
