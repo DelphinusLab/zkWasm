@@ -1,14 +1,17 @@
 use halo2_proofs::pairing::bn256::Fr as Fp;
 use std::fs;
 use std::io::Write;
+use std::process::exit;
 use std::{fmt, fs::File, io::Read, path::PathBuf};
 use wasmi::{ExternVal, ImportsBuilder};
+use specs::{host_function::HostPlugin, types::ValueType};
 
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
-use crate::runtime::host::HostEnv;
+use crate::runtime::host::{ForeignContext, HostEnv};
 use crate::runtime::{WasmInterpreter, WasmRuntime};
-
+struct Context {}
+impl ForeignContext for Context {}
 #[derive(Debug, Clone)]
 pub struct ArgumentError;
 
@@ -63,6 +66,15 @@ pub fn exec(
     let private_inputs = parse_args(private_args);
 
     let mut env = HostEnv::new();
+    env.register_function("abort",
+    0, Box::new(Context {}),
+    specs::host_function::Signature {
+        params: vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
+        return_type: None,
+    },
+    Box::new(|_, args| {
+        exit(-1);
+    }), HostPlugin::AssemblyScriptPolyfill);
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
