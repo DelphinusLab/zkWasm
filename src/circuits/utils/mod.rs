@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use halo2_proofs::{
     arithmetic::{BaseExt, FieldExt},
     circuit::Region,
@@ -13,26 +15,32 @@ pub mod u64;
 pub mod u8;
 
 pub struct Context<'a, F: FieldExt> {
-    pub region: Box<Region<'a, F>>,
+    pub region: Rc<RefCell<Region<'a, F>>>,
     pub offset: usize,
+    pub start_offset: usize,
+    pub end_offset: usize,
     records: Vec<usize>,
 }
 
 impl<'a, F: FieldExt> Context<'a, F> {
-    pub fn new(region: Region<'a, F>) -> Self {
+    pub fn new(region: Rc<RefCell<Region<'a, F>>>, start_offset: usize, end_offset: usize) -> Self {
         Self {
-            region: Box::new(region),
-            offset: 0usize,
+            region,
+            offset: start_offset,
+            start_offset,
+            end_offset,
             records: vec![],
         }
     }
 
     pub fn next(&mut self) {
         self.offset += 1;
+
+        assert!(self.offset <= self.end_offset);
     }
 
     pub fn reset(&mut self) {
-        self.offset = 0;
+        self.offset = self.start_offset;
         self.records.clear();
     }
 

@@ -47,7 +47,7 @@ impl<F: FieldExt> Bytes8Config<F> {
     }
 
     pub fn assign(&self, ctx: &mut Context<F>, value: u64) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "u64 value",
             self.value.clone(),
             ctx.offset,
@@ -58,7 +58,7 @@ impl<F: FieldExt> Bytes8Config<F> {
         bytes.resize(8, 0);
 
         for i in 0..8 {
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "u64 byte",
                 self.bytes_le[i],
                 ctx.offset,

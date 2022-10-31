@@ -35,7 +35,7 @@ pub struct UnlimitedCell {
 
 impl UnlimitedCell {
     pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
@@ -60,7 +60,7 @@ impl MTableLookupCell {
         ctx: &mut Context<'_, F>,
         value: &BigUint,
     ) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "mlookup cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
@@ -87,7 +87,7 @@ impl OffsetLenBitsTableLookupCell {
         offset: u64,
         len: u64,
     ) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "offset len bits lookup cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
@@ -110,7 +110,7 @@ pub struct PowTableLookupCell {
 impl PowTableLookupCell {
     pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, power: u64) -> Result<(), Error> {
         assert!(power < POW_TABLE_LIMIT);
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "pow lookup cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
@@ -139,7 +139,7 @@ impl JTableLookupCell {
         ctx: &mut Context<'_, F>,
         value: &BigUint,
     ) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "jlookup cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
@@ -161,7 +161,7 @@ pub struct BitCell {
 
 impl BitCell {
     pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: bool) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "bit cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
@@ -184,7 +184,7 @@ pub struct CommonRangeCell {
 
 impl CommonRangeCell {
     pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: u16) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "common range cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
@@ -206,7 +206,7 @@ pub struct U4BopCell {
 impl U4BopCell {
     pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
         for i in 0..16usize {
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "u4 bop cell",
                 self.col,
                 ctx.offset + i,
@@ -250,7 +250,7 @@ impl U64Cell {
         ctx: &mut Context<'_, F>,
         mut value: u64,
     ) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "u64 range cell",
             self.value_col,
             (ctx.offset as i32 + self.value_rot) as usize,
@@ -260,7 +260,7 @@ impl U64Cell {
         for i in 0..16usize {
             let v = value & 0xf;
             value >>= 4;
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "u4 range cell",
                 self.u4_col,
                 ctx.offset + i,
@@ -294,7 +294,7 @@ impl U64OnU8Cell {
         ctx: &mut Context<'_, F>,
         mut value: u64,
     ) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "u64 range cell",
             self.value_col,
             (ctx.offset as i32 + self.value_rot) as usize,
@@ -304,7 +304,7 @@ impl U64OnU8Cell {
         for i in 0..8usize {
             let v = value & 0xff;
             value >>= 8;
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "u8 range cell",
                 self.u8_col,
                 ((ctx.offset + i) as i32 + self.u8_rot) as usize,

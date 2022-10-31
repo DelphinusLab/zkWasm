@@ -1,12 +1,15 @@
 use self::{
-    config::{IMTABLE_COLOMNS, VAR_COLUMNS},
+    config::{
+        ETABLE_END_OFFSET, ETABLE_START_OFFSET, IMTABLE_COLOMNS, JTABLE_START_OFFSET,
+        MTABLE_END_OFFSET, MTABLE_START_OFFSET, VAR_COLUMNS,
+    },
     etable_compact::{EventTableChip, EventTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
 };
 use crate::{
     circuits::{
-        config::K,
+        config::{JTABLE_END_OFFSET, K},
         imtable::{InitMemoryTableConfig, MInitTableChip},
         itable::{InstructionTableChip, InstructionTableConfig},
         rtable::{RangeTableChip, RangeTableConfig},
@@ -43,13 +46,16 @@ use specs::{
     itable::{OpcodeClass, OpcodeClassPlain},
     CompileTable, ExecutionTable,
 };
+use static_assertions::const_assert;
 use std::{
     borrow::BorrowMut,
+    cell::RefCell,
     collections::{BTreeMap, BTreeSet},
     fs::File,
     io::{Cursor, Read},
     marker::PhantomData,
     path::PathBuf,
+    rc::Rc,
 };
 
 pub mod config;
@@ -226,16 +232,30 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         layouter.assign_region(
             || "jtable mtable etable",
             |region| {
-                let mut ctx = Context::new(region);
+                const_assert!(ETABLE_END_OFFSET <= MTABLE_START_OFFSET);
+                const_assert!(MTABLE_END_OFFSET <= JTABLE_START_OFFSET);
 
-                let (rest_mops_cell, rest_jops_cell) =
-                    { echip.assign(&mut ctx, &self.execution_tables.etable)? };
+                let region = Rc::new(RefCell::new(region));
 
-                ctx.reset();
-                mchip.assign(&mut ctx, &self.execution_tables.mtable, rest_mops_cell)?;
+                let (rest_mops_cell, rest_jops_cell) = {
+                    let mut ctx =
+                        Context::new(region.clone(), ETABLE_START_OFFSET, ETABLE_END_OFFSET);
 
-                ctx.reset();
-                jchip.assign(&mut ctx, &self.execution_tables.jtable, rest_jops_cell)?;
+                    echip.assign(&mut ctx, &self.execution_tables.etable)?
+                };
+
+                {
+                    let mut ctx =
+                        Context::new(region.clone(), MTABLE_START_OFFSET, MTABLE_END_OFFSET);
+
+                    mchip.assign(&mut ctx, &self.execution_tables.mtable, rest_mops_cell)?;
+                }
+
+                {
+                    let mut ctx = Context::new(region, JTABLE_START_OFFSET, JTABLE_END_OFFSET);
+
+                    jchip.assign(&mut ctx, &self.execution_tables.jtable, rest_jops_cell)?;
+                }
 
                 Ok(())
             },

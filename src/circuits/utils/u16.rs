@@ -31,7 +31,7 @@ impl<F: FieldExt> U16Config<F> {
     }
 
     pub fn assign(&self, ctx: &mut Context<F>, value: u64) -> Result<(), Error> {
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "u16 value",
             self.value.clone(),
             ctx.offset,

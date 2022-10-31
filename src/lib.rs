@@ -12,6 +12,7 @@ pub mod traits;
 #[macro_use]
 extern crate lazy_static;
 extern crate downcast_rs;
+extern crate static_assertions;
 
 // fn main() {
 //     println!("Hello, world!");

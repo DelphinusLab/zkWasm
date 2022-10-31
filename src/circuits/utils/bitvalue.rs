@@ -49,11 +49,15 @@ impl<F: FieldExt> BitValueConfig<F> {
 
     pub fn assign(&self, ctx: &mut Context<F>, value: u64) -> Result<(), Error> {
         let mut v = value;
-        ctx.region
-            .assign_advice(|| "value", self.value, ctx.offset, || Ok(F::from(value)))?;
+        ctx.region.as_ref().borrow_mut().assign_advice(
+            || "value",
+            self.value,
+            ctx.offset,
+            || Ok(F::from(value)),
+        )?;
 
         for i in 0..16 {
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "tvalue vtype",
                 self.bits_le[i],
                 ctx.offset,

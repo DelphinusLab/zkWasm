@@ -21,6 +21,7 @@ wasmi = { path = "./wasmi" }
 lazy_static = "1.4.0"
 rand = "0.8.4"
 specs = { path = "./specs" }
+static_assertions = "0.1"
 strum = "0.24.1"
 strum_macros = "0.24.1"
 wast = "47.0.0"

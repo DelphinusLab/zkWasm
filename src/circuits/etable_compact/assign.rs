@@ -10,68 +10,84 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         let mut status_entries = Vec::with_capacity(etable.entries().len() + 1);
 
         // Step 1: fill fixed columns
-        for i in 0..MAX_ETABLE_ROWS {
-            ctx.region
-                .assign_fixed(|| "etable common sel", self.sel, i, || Ok(F::one()))?;
+        for _ in 0..MAX_ETABLE_ROWS {
+            ctx.region.as_ref().borrow_mut().assign_fixed(
+                || "etable common sel",
+                self.sel,
+                ctx.offset,
+                || Ok(F::one()),
+            )?;
 
-            if i % ETABLE_STEP_SIZE == EventTableBitColumnRotation::Enable as usize {
-                ctx.region.assign_fixed(
+            if ctx.offset % ETABLE_STEP_SIZE == EventTableBitColumnRotation::Enable as usize {
+                ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "etable common block first line sel",
                     self.block_first_line_sel,
-                    i,
+                    ctx.offset,
                     || Ok(F::one()),
                 )?;
             }
 
-            if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::ITableLookup as usize {
-                ctx.region.assign_fixed(
+            if ctx.offset % ETABLE_STEP_SIZE
+                == EventTableUnlimitColumnRotation::ITableLookup as usize
+            {
+                ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "itable lookup",
                     self.itable_lookup,
-                    i,
+                    ctx.offset,
                     || Ok(F::one()),
                 )?;
             }
 
-            if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::JTableLookup as usize {
-                ctx.region.assign_fixed(
+            if ctx.offset % ETABLE_STEP_SIZE
+                == EventTableUnlimitColumnRotation::JTableLookup as usize
+            {
+                ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "jtable lookup",
                     self.jtable_lookup,
-                    i,
+                    ctx.offset,
                     || Ok(F::one()),
                 )?;
             }
 
-            if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::PowTableLookup as usize {
-                ctx.region.assign_fixed(
+            if ctx.offset % ETABLE_STEP_SIZE
+                == EventTableUnlimitColumnRotation::PowTableLookup as usize
+            {
+                ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "pow table lookup",
                     self.pow_table_lookup,
-                    i,
+                    ctx.offset,
                     || Ok(F::one()),
                 )?;
             }
 
-            if i % ETABLE_STEP_SIZE
+            if ctx.offset % ETABLE_STEP_SIZE
                 == EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup as usize
             {
-                ctx.region.assign_fixed(
+                ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "offset len bits table lookup",
                     self.offset_len_bits_table_lookup,
-                    i,
+                    ctx.offset,
                     || Ok(F::one()),
                 )?;
             }
 
-            if i % ETABLE_STEP_SIZE >= EventTableUnlimitColumnRotation::MTableLookupStart as usize
-                && i % ETABLE_STEP_SIZE < EventTableUnlimitColumnRotation::U64Start as usize
+            if ctx.offset % ETABLE_STEP_SIZE
+                >= EventTableUnlimitColumnRotation::MTableLookupStart as usize
+                && ctx.offset % ETABLE_STEP_SIZE
+                    < EventTableUnlimitColumnRotation::U64Start as usize
             {
-                ctx.region.assign_fixed(
+                ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "mtable lookup",
                     self.mtable_lookup,
-                    i,
+                    ctx.offset,
                     || Ok(F::one()),
                 )?;
             }
+
+            ctx.next();
         }
+
+        ctx.reset();
 
         let mut rest_mops_cell: Option<Cell> = None;
         let mut rest_jops_cell: Option<Cell> = None;
@@ -82,19 +98,21 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
         macro_rules! assign_advice {
             ($c:expr, $o:expr, $k:expr, $v:expr) => {
-                ctx.region
-                    .assign_advice(|| $k, $c, ctx.offset + $o as usize, || Ok(F::from($v)))?
+                ctx.region.as_ref().borrow_mut().assign_advice(
+                    || $k,
+                    $c,
+                    ctx.offset + $o as usize,
+                    || Ok(F::from($v)),
+                )?
             };
         }
 
         macro_rules! assign_constant {
             ($c:expr, $o:expr, $k:expr, $v:expr) => {
-                ctx.region.assign_advice_from_constant(
-                    || $k,
-                    $c,
-                    ctx.offset + $o as usize,
-                    F::from($v),
-                )?
+                ctx.region
+                    .as_ref()
+                    .borrow_mut()
+                    .assign_advice_from_constant(|| $k, $c, ctx.offset + $o as usize, F::from($v))?
             };
         }
 
@@ -275,7 +293,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 entry.last_jump_eid
             );
 
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "itable lookup entry",
                 self.aux,
                 ctx.offset + EventTableUnlimitColumnRotation::ITableLookup as usize,

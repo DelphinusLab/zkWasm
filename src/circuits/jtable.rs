@@ -60,12 +60,25 @@ impl<F: FieldExt> JumpTableChip<F> {
         entries: &Vec<JumpTableEntry>,
         etable_rest_jops_cell: Option<Cell>,
     ) -> Result<(), Error> {
-        for i in 0..JTABLE_ROWS {
-            if (i as u32) % (JtableOffset::JtableOffsetMax as u32) == 0 {
-                ctx.region
-                    .assign_fixed(|| "jtable sel", self.config.sel, i, || Ok(F::one()))?;
+        assert_eq!(
+            ctx.start_offset % (JtableOffset::JtableOffsetMax as usize),
+            0
+        );
+
+        for _ in 0..JTABLE_ROWS {
+            if (ctx.offset as u32) % (JtableOffset::JtableOffsetMax as u32) == 0 {
+                ctx.region.as_ref().borrow_mut().assign_fixed(
+                    || "jtable sel",
+                    self.config.sel,
+                    ctx.offset,
+                    || Ok(F::one()),
+                )?;
             }
+
+            ctx.next();
         }
+
+        ctx.reset();
 
         let entries: Vec<&JumpTableEntry> = entries.into_iter().filter(|e| e.eid != 0).collect();
         let mut rest = entries.len() as u64 * 2;
@@ -73,7 +86,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             let rest_f = rest.into();
             let entry_f = bn_to_field(&entry.encode());
 
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable enable",
                 self.config.data,
                 ctx.offset,
@@ -81,7 +94,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let cell = ctx.region.assign_advice(
+            let cell = ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable rest",
                 self.config.data,
                 ctx.offset,
@@ -91,10 +104,12 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             if i == 0 && etable_rest_jops_cell.is_some() {
                 ctx.region
+                    .as_ref()
+                    .borrow_mut()
                     .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
             }
 
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable entry",
                 self.config.data,
                 ctx.offset,
@@ -106,7 +121,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         }
 
         {
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable enable",
                 self.config.data,
                 ctx.offset,
@@ -114,7 +129,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let cell = ctx.region.assign_advice(
+            let cell = ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable rest",
                 self.config.data,
                 ctx.offset,
@@ -122,12 +137,14 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            if ctx.offset == 0 && etable_rest_jops_cell.is_some() {
+            if ctx.offset == ctx.start_offset && etable_rest_jops_cell.is_some() {
                 ctx.region
+                    .as_ref()
+                    .borrow_mut()
                     .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
             }
 
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable entry",
                 self.config.data,
                 ctx.offset,

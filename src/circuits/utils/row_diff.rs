@@ -65,10 +65,14 @@ impl<F: FieldExt> RowDiffConfig<F> {
             ctx.offset
         };
 
-        ctx.region
-            .assign_advice(|| "row diff data", self.data, offset, || Ok(data))?;
+        ctx.region.as_ref().borrow_mut().assign_advice(
+            || "row diff data",
+            self.data,
+            offset,
+            || Ok(data),
+        )?;
 
-        ctx.region.assign_advice(
+        ctx.region.as_ref().borrow_mut().assign_advice(
             || "row diff inv",
             self.inv,
             offset,
@@ -76,14 +80,12 @@ impl<F: FieldExt> RowDiffConfig<F> {
         )?;
 
         if offset < self.distance as usize {
-            ctx.region.assign_advice_from_constant(
-                || "row diff same",
-                self.same,
-                offset,
-                F::zero(),
-            )?;
+            ctx.region
+                .as_ref()
+                .borrow_mut()
+                .assign_advice_from_constant(|| "row diff same", self.same, offset, F::zero())?;
         } else {
-            ctx.region.assign_advice(
+            ctx.region.as_ref().borrow_mut().assign_advice(
                 || "row diff same",
                 self.same,
                 offset,
