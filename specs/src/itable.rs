@@ -82,6 +82,10 @@ pub enum BinOp {
     Add,
     Sub,
     Mul,
+    UnsignedDiv,
+    UnsignedRem,
+    SignedDiv,
+    SignedRem,
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
