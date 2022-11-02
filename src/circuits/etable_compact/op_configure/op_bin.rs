@@ -160,14 +160,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             }),
         );
 
-        // HARD
         constraint_builder.push(
-            "binop: div_s/rem_s constraints",
+            "binop: div_s/rem_s constraints common",
             Box::new(move |meta| {
                 let enable = is_div_s.expr(meta) + is_rem_s.expr(meta);
 
                 let modulus = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
-                    + constant!(bn_to_field(&(BigUint::from((u32::max as u64) << 32usize))))
+                    + constant!(bn_to_field(&(BigUint::from((u32::MAX as u64) << 32usize))))
                         * is_64bits.expr(meta);
 
                 let lhs_leading_u4 = lhs.u4_expr(meta, 7)
@@ -186,33 +185,66 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                     - constant_from!(2) * lhs_flag.expr(meta) * rhs_flag.expr(meta);
 
                 vec![
-                    vec![
-                        lhs_leading_u4
-                            - lhs_flag.expr(meta) * constant_from!(8)
-                            - lhs_flag_helper.expr(meta),
-                        lhs_flag_helper.expr(meta) + lhs_flag_helper_diff.expr(meta)
-                            - constant_from!(7),
-                        rhs_leading_u4
-                            - rhs_flag.expr(meta) * constant_from!(8)
-                            - rhs_flag_helper.expr(meta),
-                        rhs_flag_helper.expr(meta) + rhs_flag_helper_diff.expr(meta)
-                            - constant_from!(7),
-                        // d_flag is zero
-                        d_leading_u4 + d_flag_helper_diff.expr(meta) - constant_from!(7),
-                        normalized_lhs - normalized_rhs.clone() * d.expr(meta) - aux1.expr(meta),
-                        aux1.expr(meta) + aux2.expr(meta) + constant_from!(1) - normalized_rhs,
-                    ]
-                    .into_iter()
-                    .map(|x| x * enable.clone())
-                    .collect(),
-                    vec![
-                        (res.expr(meta) - d.expr(meta) - res_flag.clone() * modulus.clone())
-                            * is_div_s.expr(meta),
-                        (res.expr(meta) - aux1.expr(meta) - res_flag * modulus)
-                            * is_div_s.expr(meta),
-                    ],
+                    lhs_leading_u4
+                        - lhs_flag.expr(meta) * constant_from!(8)
+                        - lhs_flag_helper.expr(meta),
+                    lhs_flag_helper.expr(meta) + lhs_flag_helper_diff.expr(meta)
+                        - constant_from!(7),
+                    rhs_leading_u4
+                        - rhs_flag.expr(meta) * constant_from!(8)
+                        - rhs_flag_helper.expr(meta),
+                    rhs_flag_helper.expr(meta) + rhs_flag_helper_diff.expr(meta)
+                        - constant_from!(7),
+                    // d_flag must be zero if res_flag is zero
+                    (d_leading_u4 + d_flag_helper_diff.expr(meta) - constant_from!(7))
+                        * (constant_from!(1) - res_flag.clone()),
+                    normalized_lhs - normalized_rhs.clone() * d.expr(meta) - aux1.expr(meta),
+                    aux1.expr(meta) + aux2.expr(meta) + constant_from!(1) - normalized_rhs,
                 ]
-                .concat()
+                .into_iter()
+                .map(|x| x * enable.clone())
+                .collect()
+            }),
+        );
+
+        constraint_builder.push(
+            "binop: div_s constraints res",
+            Box::new(move |meta| {
+                let modulus = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
+                    + constant!(bn_to_field(&(BigUint::from((u32::MAX as u64) << 32usize))))
+                        * is_64bits.expr(meta);
+
+                let res_flag = lhs_flag.expr(meta) + rhs_flag.expr(meta)
+                    - constant_from!(2) * lhs_flag.expr(meta) * rhs_flag.expr(meta);
+
+                vec![
+                    (res.expr(meta) - d.expr(meta))
+                        * (constant_from!(1) - res_flag.clone())
+                        * is_div_s.expr(meta),
+                    (res.expr(meta) + d.expr(meta) - modulus.clone())
+                        * (d.expr(meta) + res.expr(meta))
+                        * res_flag.clone()
+                        * is_div_s.expr(meta),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "binop: rem_s constraints res",
+            Box::new(move |meta| {
+                let modulus = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
+                    + constant!(bn_to_field(&(BigUint::from((u32::MAX as u64) << 32usize))))
+                        * is_64bits.expr(meta);
+
+                vec![
+                    (res.expr(meta) - aux1.expr(meta))
+                        * (constant_from!(1) - lhs_flag.expr(meta))
+                        * is_rem_s.expr(meta),
+                    (res.expr(meta) + aux1.expr(meta) - modulus.clone())
+                        * (aux1.expr(meta) + res.expr(meta))
+                        * lhs_flag.expr(meta)
+                        * is_rem_s.expr(meta),
+                ]
             }),
         );
 
@@ -346,7 +378,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
             }
             BinOp::Mul => {
                 self.is_mul.assign(ctx, true)?;
-                self.aux1.assign(ctx, ((left as u128 * right as u128) >> shift) as u64)?;
+                self.aux1
+                    .assign(ctx, ((left as u128 * right as u128) >> shift) as u64)?;
             }
             BinOp::UnsignedDiv => {
                 self.is_div_u.assign(ctx, true)?;
@@ -372,7 +405,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 let left_flag = left >> (shift - 1) != 0;
                 let right_flag = right >> (shift - 1) != 0;
 
-                self.is_div_s.assign(ctx, true)?;
                 self.lhs_flag.assign(ctx, left_flag)?;
                 self.lhs_flag_helper
                     .assign(ctx, ((left >> (shift - 4)) & 7) as u16)?;
@@ -384,12 +416,28 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.rhs_flag_helper_diff
                     .assign(ctx, (7 - (right >> (shift - 4)) & 7) as u16)?;
 
-                let normalized_lhs = if left_flag { 1 + !left } else { left };
-                let normalized_rhs = if right_flag { 1 + !right } else { right };
+                let mask = if shift == 32 {
+                    u32::MAX as u64
+                } else {
+                    u64::MAX
+                };
+                let normalized_lhs = if left_flag { (1 + !left) & mask } else { left };
+                let normalized_rhs = if right_flag {
+                    (1 + !right) & mask
+                } else {
+                    right
+                };
                 let d = normalized_lhs / normalized_rhs;
                 let rem = normalized_lhs % normalized_rhs;
-                self.d_flag_helper_diff
-                    .assign(ctx, (d >> (shift - 4)) as u16)?;
+                let d_leading_u4 = (d >> (shift - 4)) as u16;
+                self.d_flag_helper_diff.assign(
+                    ctx,
+                    if d_leading_u4 > 7 {
+                        0
+                    } else {
+                        7 - d_leading_u4
+                    },
+                )?;
                 self.d.assign(ctx, d)?;
                 self.aux1.assign(ctx, rem)?;
                 self.aux2.assign(ctx, normalized_rhs - rem - 1)?;
@@ -665,12 +713,28 @@ mod tests {
     }
 
     #[test]
-    fn test_i32_divu_zero() {
+    fn test_i32_divu() {
         let textual_repr = r#"
                 (module
                     (func (export "test")
                       (i32.const 4)
                       (i32.const 4)
+                      i32.div_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_divs() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0x80000000)
+                      (i32.const 1)
                       i32.div_u
                       drop
                     )
@@ -721,6 +785,10 @@ mod tests {
                       (i64.const 3)
                       i64.div_u
                       drop
+                      (i64.const 4)
+                      (i64.const 4)
+                      i64.div_u
+                      drop
                     )
                    )
                 "#;
@@ -729,14 +797,111 @@ mod tests {
     }
 
     #[test]
-    fn test_i64_divu_zero() {
+    fn test_i64_remu_normal() {
         let textual_repr = r#"
                 (module
                     (func (export "test")
                       (i64.const 4)
-                      (i64.const 4)
-                      i64.div_u
+                      (i64.const 3)
+                      i64.rem_u
                       drop
+                      (i64.const 4)
+                      (i64.const 4)
+                      i64.rem_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_divs_normal() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 3)
+                      i64.div_s
+                      drop
+                      (i64.const -4)
+                      (i64.const -3)
+                      i64.div_s
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_divs_neg() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const -4)
+                      (i64.const 3)
+                      i64.div_s
+                      drop
+                      (i64.const 4)
+                      (i64.const -3)
+                      i64.div_s
+                      drop
+                      (i64.const -3)
+                      (i64.const 4)
+                      i64.div_s
+                      drop
+                      (i64.const 0x8000000000000000)
+                      (i64.const 1)
+                      i64.div_s
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_rems_normal() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 3)
+                      i64.rem_s
+                      drop
+                      (i64.const -4)
+                      (i64.const -3)
+                      i64.rem_s
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_rems_neg() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const -4)
+                      (i64.const 3)
+                      i64.rem_s
+                      drop
+                      (i64.const 4)
+                      (i64.const -3)
+                      i64.rem_s
+                      drop
+                      (i64.const 4)
+                      (i64.const -4)
+                      i64.rem_s
+                      drop
+                      
                     )
                    )
                 "#;
