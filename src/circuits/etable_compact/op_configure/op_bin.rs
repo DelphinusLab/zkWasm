@@ -28,6 +28,7 @@ pub struct BinConfig {
     res: U64OnU8Cell,
     aux1: U64OnU8Cell,
     aux2: U64OnU8Cell,
+    aux3: U64OnU8Cell,
 
     lhs_flag: BitCell,
     lhs_flag_helper: CommonRangeCell,
@@ -37,8 +38,6 @@ pub struct BinConfig {
     rhs_flag_helper: CommonRangeCell,
     rhs_flag_helper_diff: CommonRangeCell,
 
-    d_flag: BitCell,
-    d_flag_helper: CommonRangeCell,
     d_flag_helper_diff: CommonRangeCell,
 
     overflow: BitCell,
@@ -69,6 +68,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let d = common.alloc_u64();
         let aux1 = common.alloc_u64_on_u8();
         let aux2 = common.alloc_u64_on_u8();
+        let aux3 = common.alloc_u64_on_u8();
         let res = common.alloc_u64_on_u8();
 
         let overflow = common.alloc_bit_value();
@@ -83,13 +83,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
 
         let lhs_flag = common.alloc_bit_value();
         let rhs_flag = common.alloc_bit_value();
-        let d_flag = common.alloc_bit_value();
 
         let lhs_flag_helper = common.alloc_common_range_value();
         let lhs_flag_helper_diff = common.alloc_common_range_value();
         let rhs_flag_helper = common.alloc_common_range_value();
         let rhs_flag_helper_diff = common.alloc_common_range_value();
-        let d_flag_helper = common.alloc_common_range_value();
         let d_flag_helper_diff = common.alloc_common_range_value();
 
         let is_64bits = common.alloc_bit_value();
@@ -114,7 +112,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             "binop: add/sub constraints",
             Box::new(move |meta| {
                 let modulus = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
-                    + constant!(bn_to_field(&(BigUint::from((u32::max as u64) << 32usize))))
+                    + constant!(bn_to_field(&(BigUint::from((u32::MAX as u64) << 32usize))))
                         * is_64bits.expr(meta);
 
                 // The range of res can be limited with vtype in mtable
@@ -135,7 +133,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             "binop: mul constraints",
             Box::new(move |meta| {
                 let modulus = constant!(bn_to_field(&(BigUint::from(1u64) << 32usize)))
-                    + constant!(bn_to_field(&(BigUint::from((u32::max as u64) << 32usize))))
+                    + constant!(bn_to_field(&(BigUint::from((u32::MAX as u64) << 32usize))))
                         * is_64bits.expr(meta);
 
                 // The range of res can be limited with vtype in mtable
@@ -154,7 +152,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                 vec![
                     (lhs.expr(meta) - rhs.expr(meta) * aux1.expr(meta) - aux2.expr(meta))
                         * (is_rem_u.expr(meta) + is_div_u.expr(meta)),
-                    (aux1.expr(meta) + aux2.expr(meta) + constant_from!(1) - rhs.expr(meta))
+                    (aux2.expr(meta) + aux3.expr(meta) + constant_from!(1) - rhs.expr(meta))
                         * (is_rem_u.expr(meta) + is_div_u.expr(meta)),
                     (res.expr(meta) - aux1.expr(meta)) * is_div_u.expr(meta),
                     (res.expr(meta) - aux2.expr(meta)) * is_rem_u.expr(meta),
@@ -229,14 +227,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             res,
             aux1,
             aux2,
+            aux3,
             lhs_flag,
             lhs_flag_helper,
             lhs_flag_helper_diff,
             rhs_flag,
             rhs_flag_helper,
             rhs_flag_helper_diff,
-            d_flag,
-            d_flag_helper,
             d_flag_helper_diff,
             overflow,
             is_add,
@@ -332,27 +329,73 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
         self.rhs.assign(ctx, right)?;
         self.res.assign(ctx, value)?;
 
-        todo!();
-
         match class {
-            specs::itable::BinOp::Add => {
+            BinOp::Add => {
                 self.is_add.assign(ctx, true)?;
                 self.overflow.assign(
                     ctx,
                     (BigUint::from(left) + BigUint::from(right)) >> shift == BigUint::one(),
                 )?;
             }
-            specs::itable::BinOp::Sub => {
+            BinOp::Sub => {
                 self.is_sub.assign(ctx, true)?;
                 self.overflow.assign(
                     ctx,
                     (BigUint::from(right) + BigUint::from(value)) >> shift == BigUint::one(),
                 )?;
             }
-            specs::itable::BinOp::Mul => {
-                unimplemented!()
+            BinOp::Mul => {
+                self.is_mul.assign(ctx, true)?;
+                self.aux1.assign(ctx, ((left as u128 * right as u128) >> shift) as u64)?;
+            }
+            BinOp::UnsignedDiv => {
+                self.is_div_u.assign(ctx, true)?;
+            }
+            BinOp::UnsignedRem => {
+                self.is_rem_u.assign(ctx, true)?;
+            }
+            BinOp::SignedDiv => {
+                self.is_div_s.assign(ctx, true)?;
+            }
+            BinOp::SignedRem => {
+                self.is_rem_s.assign(ctx, true)?;
             }
         };
+
+        match class {
+            BinOp::UnsignedDiv | BinOp::UnsignedRem => {
+                self.aux1.assign(ctx, left / right)?;
+                self.aux2.assign(ctx, left % right)?;
+                self.aux3.assign(ctx, right - left % right - 1)?;
+            }
+            BinOp::SignedDiv | BinOp::SignedRem => {
+                let left_flag = left >> (shift - 1) != 0;
+                let right_flag = right >> (shift - 1) != 0;
+
+                self.is_div_s.assign(ctx, true)?;
+                self.lhs_flag.assign(ctx, left_flag)?;
+                self.lhs_flag_helper
+                    .assign(ctx, ((left >> (shift - 4)) & 7) as u16)?;
+                self.lhs_flag_helper_diff
+                    .assign(ctx, (7 - (left >> (shift - 4)) & 7) as u16)?;
+                self.rhs_flag.assign(ctx, right_flag)?;
+                self.rhs_flag_helper
+                    .assign(ctx, ((right >> (shift - 4)) & 7) as u16)?;
+                self.rhs_flag_helper_diff
+                    .assign(ctx, (7 - (right >> (shift - 4)) & 7) as u16)?;
+
+                let normalized_lhs = if left_flag { 1 + !left } else { left };
+                let normalized_rhs = if right_flag { 1 + !right } else { right };
+                let d = normalized_lhs / normalized_rhs;
+                let rem = normalized_lhs % normalized_rhs;
+                self.d_flag_helper_diff
+                    .assign(ctx, (d >> (shift - 4)) as u16)?;
+                self.d.assign(ctx, d)?;
+                self.aux1.assign(ctx, rem)?;
+                self.aux2.assign(ctx, normalized_rhs - rem - 1)?;
+            }
+            _ => {}
+        }
 
         match vtype {
             VarType::I64 => self.is_64bits.assign(ctx, true)?,
@@ -565,6 +608,134 @@ mod tests {
                       (i64.const 0)
                       (i64.const 1)
                       i64.sub
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_mult() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4)
+                      (i32.const 3)
+                      i32.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_mult_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4294967295)
+                      (i32.const 4294967295)
+                      i32.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_divu_normal() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4)
+                      (i32.const 3)
+                      i32.div_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_divu_zero() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 4)
+                      (i32.const 4)
+                      i32.div_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_mult() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 3)
+                      i64.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_mult_overflow() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 18446744073709551615)
+                      (i64.const 18446744073709551615)
+                      i64.mul
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_divu_normal() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 3)
+                      i64.div_u
+                      drop
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_divu_zero() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 4)
+                      (i64.const 4)
+                      i64.div_u
                       drop
                     )
                    )
