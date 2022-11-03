@@ -6,6 +6,7 @@ use self::{
     etable_compact::{EventTableChip, EventTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
+    shared_column_pool::{SharedColumnChip, SharedColumnPool},
 };
 use crate::{
     circuits::{
@@ -65,6 +66,7 @@ pub mod itable;
 pub mod jtable;
 pub mod mtable_compact;
 pub mod rtable;
+pub mod shared_column_pool;
 pub mod utils;
 
 pub(crate) trait FromBn {
@@ -74,6 +76,7 @@ pub(crate) trait FromBn {
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
+    shared_column: SharedColumnPool<F>,
     rtable: RangeTableConfig<F>,
     itable: InstructionTableConfig<F>,
     imtable: InitMemoryTableConfig<F>,
@@ -152,7 +155,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let imtable = InitMemoryTableConfig::configure(
             [0; IMTABLE_COLOMNS].map(|_| meta.lookup_table_column()),
         );
-        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
+
+        let shared_column_pool = SharedColumnPool::configure(meta, &rtable);
+
+        let mtable =
+            MemoryTableConfig::configure(meta, &shared_column_pool, &mut cols, &rtable, &imtable);
         let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
 
         let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
@@ -170,6 +177,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let etable = EventTableConfig::configure(
             meta,
+            &shared_column_pool,
             &mut cols,
             &rtable,
             &itable,
@@ -180,6 +188,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         );
 
         Self::Config {
+            shared_column: shared_column_pool,
             rtable,
             itable,
             imtable,
@@ -204,10 +213,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let echip = EventTableChip::new(config.etable);
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
         let sha256chip = Sha256HelperTableChip::new(config.sha256_helper_table);
+        let shared_column_chip = SharedColumnChip::new(config.shared_column);
 
         rchip.init(&mut layouter)?;
         wasm_input_chip.init(&mut layouter)?;
         sha256chip.init(&mut layouter)?;
+        shared_column_chip.init(&mut layouter)?;
 
         sha256chip.assign(
             &mut layouter,

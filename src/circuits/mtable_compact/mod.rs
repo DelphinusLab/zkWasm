@@ -2,6 +2,7 @@ use self::configure::MemoryTableConstriants;
 use super::config::MAX_MATBLE_ROWS;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
+use super::shared_column_pool::SharedColumnPool;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::Context;
 use crate::circuits::config::MTABLE_END_OFFSET;
@@ -79,11 +80,12 @@ pub struct MemoryTableConfig<F: FieldExt> {
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
+        shared_column_pool: &SharedColumnPool<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
     ) -> Self {
-        let mtconfig = Self::new(meta, cols);
+        let mtconfig = Self::new(meta, shared_column_pool, cols);
         meta.enable_equality(mtconfig.aux);
         mtconfig.configure(meta, rtable, imtable);
         mtconfig

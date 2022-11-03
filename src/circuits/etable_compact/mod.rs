@@ -63,7 +63,7 @@ pub mod op_configure;
 // 1. add constraints for termination
 // 2. add input output for circuits
 
-const ETABLE_STEP_SIZE: usize = 20usize;
+pub const ETABLE_STEP_SIZE: usize = 20usize;
 const U4_COLUMNS: usize = 3usize;
 const U8_COLUMNS: usize = 2usize;
 const BITS_COLUMNS: usize = 2usize;
@@ -201,6 +201,7 @@ pub struct EventTableConfig<F: FieldExt> {
 impl<F: FieldExt> EventTableConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
+        shared_column_pool: &SharedColumnPool<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
         itable: &InstructionTableConfig<F>,
@@ -225,7 +226,10 @@ impl<F: FieldExt> EventTableConfig<F> {
         let offset_len_bits_table_lookup = meta.fixed_column();
 
         let u4_shared = [0; U4_COLUMNS].map(|_| cols.next().unwrap());
-        let u8_shared = [0; U8_COLUMNS].map(|_| cols.next().unwrap());
+        let u8_shared = [
+            shared_column_pool.acquire_u8_col(0),
+            shared_column_pool.acquire_u8_col(1),
+        ];
         let u4_bop = cols.next().unwrap();
 
         meta.enable_equality(state);
@@ -265,12 +269,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         for i in 0..U4_COLUMNS {
             rtable.configure_in_u4_range(meta, "etable u4", |meta| {
                 curr!(meta, u4_shared[i]) * fixed_curr!(meta, sel)
-            });
-        }
-
-        for i in 0..U8_COLUMNS {
-            rtable.configure_in_u8_range(meta, "etable u8", |meta| {
-                curr!(meta, u8_shared[i]) * fixed_curr!(meta, sel)
             });
         }
 

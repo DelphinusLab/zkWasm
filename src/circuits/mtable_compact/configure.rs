@@ -33,7 +33,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
 
         self.configure_index_sort(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
-        self.configure_tvalue_bytes(meta, rtable);
+        self.configure_tvalue_bytes(meta);
         self.configure_encode_range(meta, rtable);
     }
 
@@ -55,7 +55,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
     fn configure_read_nochange(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_atype_rules(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_mutable_rules(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
-    fn configure_tvalue_bytes(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
+    fn configure_tvalue_bytes(&self, meta: &mut ConstraintSystem<F>);
     fn configure_heap_init_in_imtable(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -301,11 +301,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         });
     }
 
-    fn configure_tvalue_bytes(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
-        rtable.configure_in_u8_range(meta, "mtable bytes", |meta| {
-            curr!(meta, self.bytes) * self.is_enabled_line(meta)
-        });
-
+    fn configure_tvalue_bytes(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("mtable byte mask consistent", |meta| {
             vec![
                 (self.is_i64(meta) - constant_from!(1))
@@ -383,6 +379,7 @@ impl<F: FieldExt> Lookup<F> for MemoryTableConfig<F> {
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
+        shared_column_pool: &SharedColumnPool<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let sel = meta.fixed_column();
@@ -393,7 +390,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             fixed_curr!(meta, following_block_sel)
         });
         let aux = cols.next().unwrap();
-        let bytes = cols.next().unwrap();
+        let bytes = shared_column_pool.acquire_u8_col(0);
 
         MemoryTableConfig {
             sel,
