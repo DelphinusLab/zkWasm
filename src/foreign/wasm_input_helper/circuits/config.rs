@@ -3,15 +3,12 @@ use halo2_proofs::{
     plonk::{ConstraintSystem, Expression, VirtualCells},
 };
 
-use crate::{
-    foreign::ForeignTableConfig,
-    traits::circuits::bit_range_table::BitRangeTable,
-};
+use crate::{foreign::ForeignTableConfig, traits::circuits::bit_range_table::BitRangeTable};
 
 use super::WasmInputHelperTableConfig;
 
 impl<F: FieldExt> WasmInputHelperTableConfig<F> {
-    pub fn configure(meta: &mut ConstraintSystem<F>, rtable: &impl BitRangeTable<F>) -> Self {
+    pub fn configure(meta: &mut ConstraintSystem<F>, _rtable: &impl BitRangeTable<F>) -> Self {
         let enable = meta.fixed_column();
         let index = meta.fixed_column();
         let input = meta.instance_column();

@@ -1,7 +1,6 @@
 use super::{etable_compact::ETABLE_STEP_SIZE, mtable_compact::configure::STEP_SIZE};
 
 pub const K: u32 = 20;
-pub const VAR_COLUMNS: usize = 16;
 const _MAX_ETABLE_ROWS: usize = 1usize << (K - 2);
 pub const MAX_ETABLE_ROWS: usize = _MAX_ETABLE_ROWS / ETABLE_STEP_SIZE * ETABLE_STEP_SIZE;
 const _MAX_MATBLE_ROWS: usize = 1usize << (K - 1);

@@ -202,7 +202,6 @@ impl<F: FieldExt> EventTableConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         shared_column_pool: &SharedColumnPool<F>,
-        cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
@@ -210,6 +209,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
         opcode_set: &BTreeSet<OpcodeClassPlain>,
     ) -> Self {
+        let mut cols = shared_column_pool.advice_iter();
+
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
         let shared_bits = [0; BITS_COLUMNS].map(|_| cols.next().unwrap());

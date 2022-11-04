@@ -7,8 +7,6 @@ use crate::curr;
 use crate::fixed_curr;
 use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::Advice;
-use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
@@ -380,13 +378,14 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
         shared_column_pool: &SharedColumnPool<F>,
-        cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
+        let mut cols = shared_column_pool.advice_iter();
+
         let sel = meta.fixed_column();
         let following_block_sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
         let bit = cols.next().unwrap();
-        let index = RowDiffConfig::configure("mtable index", meta, cols, STEP_SIZE, |meta| {
+        let index = RowDiffConfig::configure("mtable index", meta, &mut cols, STEP_SIZE, |meta| {
             fixed_curr!(meta, following_block_sel)
         });
         let aux = cols.next().unwrap();

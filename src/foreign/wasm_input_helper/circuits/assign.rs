@@ -15,7 +15,7 @@ impl<F: FieldExt> WasmInputHelperTableChip<F> {
     pub fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        entries: &Vec<EventTableEntry>,
+        _entries: &Vec<EventTableEntry>,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "wasm input helper assign",

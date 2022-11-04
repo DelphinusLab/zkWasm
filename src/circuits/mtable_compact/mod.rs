@@ -81,11 +81,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         shared_column_pool: &SharedColumnPool<F>,
-        cols: &mut impl Iterator<Item = Column<Advice>>,
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
     ) -> Self {
-        let mtconfig = Self::new(meta, shared_column_pool, cols);
+        let mtconfig = Self::new(meta, shared_column_pool);
         meta.enable_equality(mtconfig.aux);
         mtconfig.configure(meta, rtable, imtable);
         mtconfig

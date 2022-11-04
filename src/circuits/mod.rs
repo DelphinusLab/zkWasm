@@ -1,7 +1,7 @@
 use self::{
     config::{
         ETABLE_END_OFFSET, ETABLE_START_OFFSET, IMTABLE_COLOMNS, JTABLE_START_OFFSET,
-        MTABLE_END_OFFSET, MTABLE_START_OFFSET, VAR_COLUMNS,
+        MTABLE_END_OFFSET, MTABLE_START_OFFSET,
     },
     etable_compact::{EventTableChip, EventTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
@@ -37,7 +37,7 @@ use halo2_proofs::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
         Expression, ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
     },
-    poly::commitment::{ParamsVerifier, Params},
+    poly::commitment::{Params, ParamsVerifier},
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
 };
 use num_bigint::BigUint;
@@ -148,8 +148,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         meta.enable_constant(constants);
         meta.enable_equality(constants);
 
-        let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
-
         let rtable = RangeTableConfig::configure([0; 5].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
         let imtable = InitMemoryTableConfig::configure(
@@ -158,9 +156,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let shared_column_pool = SharedColumnPool::configure(meta, &rtable);
 
-        let mtable =
-            MemoryTableConfig::configure(meta, &shared_column_pool, &mut cols, &rtable, &imtable);
-        let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
+        let mtable = MemoryTableConfig::configure(meta, &shared_column_pool, &rtable, &imtable);
+        let jtable = JumpTableConfig::configure(meta, &shared_column_pool, &rtable);
 
         let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
         let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);
@@ -178,7 +175,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let etable = EventTableConfig::configure(
             meta,
             &shared_column_pool,
-            &mut cols,
             &rtable,
             &itable,
             &mtable,
