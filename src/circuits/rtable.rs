@@ -1,6 +1,6 @@
-use super::config::K;
 use super::config::POW_TABLE_LIMIT;
 use super::utils::bn_to_field;
+use crate::constant;
 use crate::constant_from;
 use crate::traits::circuits::bit_range_table::BitRangeTable;
 use halo2_proofs::arithmetic::FieldExt;
@@ -15,14 +15,27 @@ use specs::itable::BitOp;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
 
+enum RangeTableMixColumn {
+    U4 = 1,
+    U8 = 2,
+    U16 = 3,
+}
+
+impl RangeTableMixColumn {
+    fn prefix<F: FieldExt>(self) -> F {
+        bn_to_field::<F>(&(BigUint::from(self as u64) << 64))
+    }
+}
+
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
-    // [0 .. 65536)
-    u16_col: TableColumn,
-    // [0 .. 256)
-    u8_col: TableColumn,
-    // [0 .. 16)
-    u4_col: TableColumn,
+    /*
+     * includes
+     *   (1 << 64) + [0 .. 16)
+     *   (2 << 64) + [0 .. 256)
+     *   (3 << 64) + [0 .. 65536)
+     */
+    mix_col: TableColumn,
     // {(left, right, res, op) | op(left, right) = res}, encoded by concat(left, right, res) << op
     u4_bop_calc_col: TableColumn,
     // {0, 1, 1 << 12, 1 << 24 ...}
@@ -36,17 +49,27 @@ pub struct RangeTableConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 7]) -> Self {
+    pub fn configure(cols: [TableColumn; 5]) -> Self {
         RangeTableConfig {
-            u16_col: cols[0],
-            u8_col: cols[1],
-            u4_col: cols[2],
-            u4_bop_calc_col: cols[3],
-            u4_bop_col: cols[4],
-            pow_col: cols[5],
-            offset_len_bits_col: cols[6],
+            mix_col: cols[0],
+            u4_bop_calc_col: cols[1],
+            u4_bop_col: cols[2],
+            pow_col: cols[3],
+            offset_len_bits_col: cols[4],
             _mark: PhantomData,
         }
+    }
+
+    fn configure_in_mixed(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        range: RangeTableMixColumn,
+    ) {
+        meta.lookup(key, |meta| {
+            vec![(constant!(range.prefix()) + expr(meta), self.mix_col)]
+        });
     }
 
     pub fn configure_in_common_range(
@@ -55,7 +78,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u16_col)]);
+        self.configure_in_mixed(meta, key, expr, RangeTableMixColumn::U16);
     }
 
     pub fn configure_in_u16_range(
@@ -64,7 +87,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u16_col)]);
+        self.configure_in_mixed(meta, key, expr, RangeTableMixColumn::U16);
     }
 
     pub fn configure_in_u8_range(
@@ -73,7 +96,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
+        self.configure_in_mixed(meta, key, expr, RangeTableMixColumn::U8);
     }
 
     pub fn configure_in_u4_range(
@@ -82,7 +105,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u4_col)]);
+        self.configure_in_mixed(meta, key, expr, RangeTableMixColumn::U4);
     }
 
     pub fn configure_in_u4_bop_set(
@@ -171,46 +194,43 @@ impl<F: FieldExt> RangeTableChip<F> {
 
     pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         layouter.assign_table(
-            || "common range table",
+            || "mixed range table",
             |mut table| {
-                for i in 0..(1 << (K - 1)) {
+                let mut o: usize = 0;
+
+                for i in 0..(1 << 16) {
                     table.assign_cell(
                         || "range table",
-                        self.config.u16_col,
-                        i,
-                        || Ok(F::from(i as u64)),
+                        self.config.mix_col,
+                        o,
+                        || Ok(RangeTableMixColumn::U16.prefix::<F>() + F::from(i as u64)),
                     )?;
-                }
-                Ok(())
-            },
-        )?;
 
-        layouter.assign_table(
-            || "u8 range table",
-            |mut table| {
+                    o += 1;
+                }
+
                 for i in 0..(1 << 8) {
                     table.assign_cell(
                         || "range table",
-                        self.config.u8_col,
-                        i,
-                        || Ok(F::from(i as u64)),
+                        self.config.mix_col,
+                        o,
+                        || Ok(RangeTableMixColumn::U8.prefix::<F>() + F::from(i as u64)),
                     )?;
-                }
-                Ok(())
-            },
-        )?;
 
-        layouter.assign_table(
-            || "u4 range table",
-            |mut table| {
+                    o += 1;
+                }
+
                 for i in 0..(1 << 4) {
                     table.assign_cell(
                         || "range table",
-                        self.config.u4_col,
-                        i,
-                        || Ok(F::from(i as u64)),
+                        self.config.mix_col,
+                        o,
+                        || Ok(RangeTableMixColumn::U4.prefix::<F>() + F::from(i as u64)),
                     )?;
+
+                    o += 1;
                 }
+
                 Ok(())
             },
         )?;
