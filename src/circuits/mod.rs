@@ -367,6 +367,10 @@ impl ZkWasmCircuitBuilder {
         println!("permutation argument: {}", vk.permutation.commitments.len());
         println!("degree: {}", vk.cs.degree() - 1);
 
+        for l in vk.cs.lookups.iter() {
+            println!("{}", l.name);
+        }
+
         println!(
             "total: {}",
             vk.cs.num_instance_columns
