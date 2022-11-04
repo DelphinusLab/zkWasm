@@ -148,7 +148,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         meta.enable_constant(constants);
         meta.enable_equality(constants);
 
-        let rtable = RangeTableConfig::configure([0; 5].map(|_| meta.lookup_table_column()));
+        let rtable = RangeTableConfig::configure([0; 3].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
         let imtable = InitMemoryTableConfig::configure(
             [0; IMTABLE_COLOMNS].map(|_| meta.lookup_table_column()),

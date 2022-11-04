@@ -19,11 +19,13 @@ enum RangeTableMixColumn {
     U4 = 1,
     U8 = 2,
     U16 = 3,
+    Pow = 4,
+    OffsetLenBits = 5,
 }
 
 impl RangeTableMixColumn {
     fn prefix<F: FieldExt>(self) -> F {
-        bn_to_field::<F>(&(BigUint::from(self as u64) << 64))
+        bn_to_field::<F>(&(BigUint::from(self as u64) << 192))
     }
 }
 
@@ -31,31 +33,27 @@ impl RangeTableMixColumn {
 pub struct RangeTableConfig<F: FieldExt> {
     /*
      * includes
-     *   (1 << 64) + [0 .. 16)
-     *   (2 << 64) + [0 .. 256)
-     *   (3 << 64) + [0 .. 65536)
+     *   u4 range: (1 << 64) + [0 .. 16)
+     *   u8 range: (2 << 64) + [0 .. 256)
+     *   u16 range: (3 << 64) + [0 .. 65536)
+     *   pow: {1 | 0, 2 | 1, 4 | 2, ...}
+     *   offset_len_bits_col: {0 | 1 | 0b1000000000000000, 0 | 2 | 0b110000000000000 ...}
      */
     mix_col: TableColumn,
     // {(left, right, res, op) | op(left, right) = res}, encoded by concat(left, right, res) << op
     u4_bop_calc_col: TableColumn,
     // {0, 1, 1 << 12, 1 << 24 ...}
     u4_bop_col: TableColumn,
-    // {1 | 0, 2 | 1, 4 | 2, ...}
-    pow_col: TableColumn,
-    // {0 | 1 | 0b1000000000000000, 0 | 2 | 0b110000000000000 ...}
-    offset_len_bits_col: TableColumn,
 
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 5]) -> Self {
+    pub fn configure(cols: [TableColumn; 3]) -> Self {
         RangeTableConfig {
             mix_col: cols[0],
             u4_bop_calc_col: cols[1],
             u4_bop_col: cols[2],
-            pow_col: cols[3],
-            offset_len_bits_col: cols[4],
             _mark: PhantomData,
         }
     }
@@ -140,7 +138,12 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.pow_col)]);
+        meta.lookup(key, |meta| {
+            vec![(
+                constant!(RangeTableMixColumn::Pow.prefix::<F>()) + expr(meta),
+                self.mix_col,
+            )]
+        });
     }
 
     pub fn configure_in_offset_len_bits_set(
@@ -149,7 +152,12 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.offset_len_bits_col)]);
+        meta.lookup(key, |meta| {
+            vec![(
+                constant!(RangeTableMixColumn::OffsetLenBits.prefix()) + expr(meta),
+                self.mix_col,
+            )]
+        });
     }
 }
 
@@ -231,6 +239,54 @@ impl<F: FieldExt> RangeTableChip<F> {
                     o += 1;
                 }
 
+                // Pow table
+                table.assign_cell(
+                    || "range table",
+                    self.config.mix_col,
+                    o,
+                    || Ok(RangeTableMixColumn::Pow.prefix::<F>() + F::from(0 as u64)),
+                )?;
+
+                o += 1;
+
+                for i in 0..POW_TABLE_LIMIT {
+                    table.assign_cell(
+                        || "range table",
+                        self.config.mix_col,
+                        o,
+                        || {
+                            Ok(RangeTableMixColumn::Pow.prefix::<F>()
+                                + bn_to_field::<F>(&(BigUint::from(1u64) << (i + 16)))
+                                + F::from(i as u64))
+                        },
+                    )?;
+                    o += 1;
+                }
+
+                // offset len bits table
+                table.assign_cell(
+                    || "range table",
+                    self.config.mix_col,
+                    o,
+                    || Ok(RangeTableMixColumn::OffsetLenBits.prefix::<F>() + F::from(0 as u64)),
+                )?;
+                o += 1;
+
+                for i in 0..8 {
+                    for j in vec![1, 2, 4, 8] {
+                        table.assign_cell(
+                            || "range table",
+                            self.config.mix_col,
+                            o,
+                            || {
+                                Ok(RangeTableMixColumn::OffsetLenBits.prefix::<F>()
+                                    + F::from(offset_len_bits_encode(i, j)))
+                            },
+                        )?;
+                        o += 1;
+                    }
+                }
+
                 Ok(())
             },
         )?;
@@ -289,57 +345,6 @@ impl<F: FieldExt> RangeTableChip<F> {
                             )?;
                             offset += 1;
                         }
-                    }
-                }
-                Ok(())
-            },
-        )?;
-
-        layouter.assign_table(
-            || "pow table",
-            |mut table| {
-                table.assign_cell(
-                    || "range table",
-                    self.config.pow_col,
-                    0,
-                    || Ok(F::from(0 as u64)),
-                )?;
-                let mut offset = 1;
-                for i in 0..POW_TABLE_LIMIT {
-                    table.assign_cell(
-                        || "range table",
-                        self.config.pow_col,
-                        offset as usize,
-                        || {
-                            Ok(bn_to_field::<F>(&(BigUint::from(1u64) << (i + 16)))
-                                + F::from(i as u64))
-                        },
-                    )?;
-                    offset += 1;
-                }
-                Ok(())
-            },
-        )?;
-
-        layouter.assign_table(
-            || "offset len bits table",
-            |mut table| {
-                table.assign_cell(
-                    || "range table",
-                    self.config.offset_len_bits_col,
-                    0,
-                    || Ok(F::from(0 as u64)),
-                )?;
-                let mut offset = 1;
-                for i in 0..8 {
-                    for j in vec![1, 2, 4, 8] {
-                        table.assign_cell(
-                            || "range table",
-                            self.config.offset_len_bits_col,
-                            offset as usize,
-                            || Ok(F::from(offset_len_bits_encode(i, j))),
-                        )?;
-                        offset += 1;
                     }
                 }
                 Ok(())
