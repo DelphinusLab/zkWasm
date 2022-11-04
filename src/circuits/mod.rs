@@ -314,6 +314,24 @@ impl ZkWasmCircuitBuilder {
         let vk = keygen_vk(params, circuit).expect("keygen_vk should not fail");
         end_timer!(timer);
 
+        println!("instance commitments: {}", vk.cs.num_instance_columns);
+        println!("advice commitments: {}", vk.cs.num_advice_columns);
+        println!("fixed commitments: {}", vk.fixed_commitments.len());
+        println!("lookup argument * 3: {}", vk.cs.lookups.len() * 3);
+        println!("permutation argument: {}", vk.permutation.commitments.len());
+        println!("degree: {}", vk.cs.degree() - 1);
+
+        println!(
+            "total: {}",
+            vk.cs.num_instance_columns
+                + vk.cs.num_advice_columns
+                + vk.fixed_commitments.len()
+                + vk.cs.lookups.len() * 3
+                + vk.permutation.commitments.len()
+                + vk.cs.degree()
+                - 1
+        );
+
         vk
     }
 
