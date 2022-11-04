@@ -17,12 +17,14 @@ use super::{
 };
 
 const U8_COLUMNS: usize = 2;
+const U4_COLUMNS: usize = 5;
 const EXTRA_ADVICES: usize = 10;
 
 #[derive(Clone)]
 pub struct SharedColumnPool<F> {
     sel: Column<Fixed>,
     u8_col: [Column<Advice>; U8_COLUMNS],
+    u4_cols: [Column<Advice>; U4_COLUMNS],
     advices: [Column<Advice>; EXTRA_ADVICES],
     _mark: PhantomData<F>,
 }
@@ -31,6 +33,7 @@ impl<F: FieldExt> SharedColumnPool<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) -> Self {
         let sel = meta.fixed_column();
         let u8_col = [(); U8_COLUMNS].map(|_| meta.advice_column());
+        let u4_cols = [(); U4_COLUMNS].map(|_| meta.advice_column());
         let advices = [(); EXTRA_ADVICES].map(|_| meta.advice_column());
 
         for i in 0..U8_COLUMNS {
@@ -39,9 +42,16 @@ impl<F: FieldExt> SharedColumnPool<F> {
             });
         }
 
+        for i in 0..U4_COLUMNS {
+            rtable.configure_in_u4_range(meta, &"shared column u4 {}", |meta| {
+                curr!(meta, u4_cols[i]) * fixed_curr!(meta, sel)
+            });
+        }
+
         SharedColumnPool::<F> {
             sel,
             u8_col,
+            u4_cols,
             advices,
             _mark: PhantomData,
         }
@@ -53,6 +63,10 @@ impl<F: FieldExt> SharedColumnPool<F> {
 
     pub fn acquire_u8_col(&self, index: usize) -> Column<Advice> {
         self.u8_col[index].clone()
+    }
+
+    pub fn acquire_u4_col(&self, index: usize) -> Column<Advice> {
+        self.u4_cols[index].clone()
     }
 
     pub fn advice_iter(&self) -> impl Iterator<Item = Column<Advice>> {
