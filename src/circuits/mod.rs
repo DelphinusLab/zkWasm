@@ -37,7 +37,7 @@ use halo2_proofs::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
         Expression, ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
     },
-    poly::commitment::{Params, ParamsVerifier},
+    poly::commitment::{ParamsVerifier, Params},
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
 };
 use num_bigint::BigUint;

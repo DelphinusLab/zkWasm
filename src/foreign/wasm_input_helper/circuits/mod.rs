@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, Fixed, Instance},
+    plonk::{Column, Fixed, Instance},
 };
 use num_bigint::BigUint;
 use specs::encode::FromBn;
@@ -30,6 +30,5 @@ pub struct WasmInputHelperTableConfig<F: FieldExt> {
     enable: Column<Fixed>,
     index: Column<Fixed>,
     input: Column<Instance>,
-    input_u8: [Column<Advice>; 8],
     _mark: PhantomData<F>,
 }
