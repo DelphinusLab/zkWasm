@@ -523,7 +523,6 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/junyu0312/halo2?branch=gpu#611a0d25db5da9b7b9087a5cd86e6b7a2a54a53a"
 dependencies = [
  "ark-std",
  "blake2b_simd",
