@@ -54,22 +54,20 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             if ctx.offset % ETABLE_STEP_SIZE
                 == EventTableUnlimitColumnRotation::PowTableLookup as usize
             {
-                ctx.region.as_ref().borrow_mut().assign_fixed(
-                    || "pow table lookup",
-                    self.aux.lookup,
+                self.aux.assign_lookup(
+                    &mut ctx.region.as_ref().borrow_mut(),
                     ctx.offset,
-                    || Ok(F::from(RangeTableMixColumn::Pow as u64)),
+                    RangeTableMixColumn::Pow,
                 )?;
             }
 
             if ctx.offset % ETABLE_STEP_SIZE
                 == EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup as usize
             {
-                ctx.region.as_ref().borrow_mut().assign_fixed(
-                    || "offset len bits table lookup",
-                    self.aux.lookup,
+                self.aux.assign_lookup(
+                    &mut ctx.region.as_ref().borrow_mut(),
                     ctx.offset,
-                    || Ok(F::from(RangeTableMixColumn::OffsetLenBits as u64)),
+                    RangeTableMixColumn::OffsetLenBits,
                 )?;
             }
 

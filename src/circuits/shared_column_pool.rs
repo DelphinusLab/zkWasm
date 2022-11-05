@@ -1,14 +1,13 @@
 use std::marker::PhantomData;
 
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::Layouter,
-    plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
-};
-
 use crate::{
     circuits::config::{ETABLE_END_OFFSET, ETABLE_START_OFFSET},
     curr, fixed_curr,
+};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    circuit::{Layouter, Region},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
 };
 
 use super::{
@@ -20,9 +19,31 @@ use super::{
 };
 
 #[derive(Clone)]
-pub struct DynTableLookupColumn {
+pub struct DynTableLookupColumn<F> {
     pub internal: Column<Advice>,
-    pub lookup: Column<Fixed>,
+    lookup: Column<Fixed>,
+    _mark: PhantomData<F>,
+}
+
+impl<F: FieldExt> DynTableLookupColumn<F> {
+    pub fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        curr!(meta, self.internal)
+    }
+    pub fn assign_lookup<'a>(
+        &self,
+        region: &mut Region<'a, F>,
+        offset: usize,
+        kind: RangeTableMixColumn,
+    ) -> Result<(), Error> {
+        region.assign_fixed(
+            || "DynTableLookupColumn lookup",
+            self.lookup,
+            offset,
+            || Ok(F::from(kind as u64)),
+        )?;
+
+        Ok(())
+    }
 }
 
 const U8_COLUMNS: usize = 2;
@@ -38,7 +59,7 @@ pub struct SharedColumnPool<F> {
     u8_col: [Column<Advice>; U8_COLUMNS],
     u16_cols: [Column<Advice>; U16_COLUMNS],
     advices: [Column<Advice>; EXTRA_ADVICES],
-    dyn_cols: [DynTableLookupColumn; DYN_COLUMNS],
+    dyn_cols: [DynTableLookupColumn<F>; DYN_COLUMNS],
     _mark: PhantomData<F>,
 }
 
@@ -49,9 +70,10 @@ impl<F: FieldExt> SharedColumnPool<F> {
         let u8_col = [(); U8_COLUMNS].map(|_| meta.advice_column());
         let u16_cols = [(); U16_COLUMNS].map(|_| meta.advice_column());
         let advices = [(); EXTRA_ADVICES].map(|_| meta.advice_column());
-        let dyn_cols = [(); DYN_COLUMNS].map(|_| DynTableLookupColumn {
+        let dyn_cols = [(); DYN_COLUMNS].map(|_| DynTableLookupColumn::<F> {
             internal: meta.advice_column(),
             lookup: meta.fixed_column(),
+            _mark: PhantomData,
         });
 
         for i in 0..U8_COLUMNS {
@@ -121,7 +143,7 @@ impl<F: FieldExt> SharedColumnPool<F> {
         self.u16_cols[index].clone()
     }
 
-    pub fn acquire_dyn_col(&self, index: usize) -> DynTableLookupColumn {
+    pub fn acquire_dyn_col(&self, index: usize) -> DynTableLookupColumn<F> {
         self.dyn_cols[index].clone()
     }
 

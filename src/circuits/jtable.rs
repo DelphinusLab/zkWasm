@@ -1,12 +1,14 @@
+use crate::circuits::rtable::RangeTableMixColumn;
+
 use self::configure::JTableConstraint;
 use super::config::MAX_JATBLE_ROWS;
 use super::rtable::RangeTableConfig;
+use super::shared_column_pool::DynTableLookupColumn;
 use super::shared_column_pool::SharedColumnPool;
 use super::utils::bn_to_field;
 use super::utils::Context;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
-use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
@@ -30,7 +32,7 @@ const JTABLE_ROWS: usize = MAX_JATBLE_ROWS / JtableOffset::JtableOffsetMax as us
 #[derive(Clone)]
 pub struct JumpTableConfig<F: FieldExt> {
     sel: Column<Fixed>,
-    data: Column<Advice>,
+    data: DynTableLookupColumn<F>,
     _m: PhantomData<F>,
 }
 
@@ -76,6 +78,14 @@ impl<F: FieldExt> JumpTableChip<F> {
                 )?;
             }
 
+            if (ctx.offset as u32) % (JtableOffset::JtableOffsetMax as u32) == 1 {
+                self.config.data.assign_lookup(
+                    &mut ctx.region.as_ref().borrow_mut(),
+                    ctx.offset,
+                    RangeTableMixColumn::U16,
+                )?;
+            }
+
             ctx.next();
         }
 
@@ -89,7 +99,7 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable enable",
-                self.config.data,
+                self.config.data.internal,
                 ctx.offset,
                 || Ok(F::one()),
             )?;
@@ -97,7 +107,7 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             let cell = ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable rest",
-                self.config.data,
+                self.config.data.internal,
                 ctx.offset,
                 || Ok(rest_f),
             )?;
@@ -112,7 +122,7 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable entry",
-                self.config.data,
+                self.config.data.internal,
                 ctx.offset,
                 || Ok(entry_f),
             )?;
@@ -124,7 +134,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         {
             ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable enable",
-                self.config.data,
+                self.config.data.internal,
                 ctx.offset,
                 || Ok(F::zero()),
             )?;
@@ -132,7 +142,7 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             let cell = ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable rest",
-                self.config.data,
+                self.config.data.internal,
                 ctx.offset,
                 || Ok(F::zero()),
             )?;
@@ -147,7 +157,7 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             ctx.region.as_ref().borrow_mut().assign_advice(
                 || "jtable entry",
-                self.config.data,
+                self.config.data.internal,
                 ctx.offset,
                 || Ok(F::zero()),
             )?;

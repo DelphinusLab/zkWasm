@@ -180,7 +180,7 @@ pub struct EventTableCommonConfig<F> {
     pub itable_lookup: Column<Fixed>,
     pub jtable_lookup: Column<Fixed>,
     pub mtable_lookup: Column<Fixed>,
-    pub aux: DynTableLookupColumn,
+    pub aux: DynTableLookupColumn<F>,
 
     pub u4_bop: Column<Advice>,
     pub u4_shared: [Column<Advice>; U4_COLUMNS],

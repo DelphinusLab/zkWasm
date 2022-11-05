@@ -13,23 +13,35 @@ pub(crate) const FID_SHIFT: usize = 16;
 
 impl<F: FieldExt> JumpTableConfig<F> {
     pub(super) fn enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JtableOffset::JtableOffsetEnable as i32)
+        nextn!(
+            meta,
+            self.data.internal,
+            JtableOffset::JtableOffsetEnable as i32
+        )
     }
 
     pub(super) fn rest(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JtableOffset::JtableOffsetRest as i32)
+        nextn!(
+            meta,
+            self.data.internal,
+            JtableOffset::JtableOffsetRest as i32
+        )
     }
 
     pub(super) fn next_rest(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,
-            self.data,
+            self.data.internal,
             JtableOffset::JtableOffsetRest as i32 + JtableOffset::JtableOffsetMax as i32
         )
     }
 
     pub(super) fn entry(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JtableOffset::JtableOffsetEntry as i32)
+        nextn!(
+            meta,
+            self.data.internal,
+            JtableOffset::JtableOffsetEntry as i32
+        )
     }
 }
 

@@ -14,22 +14,16 @@ pub trait JTableConstraint<F: FieldExt> {
         self.enable_rest_jops_permutation(meta);
         self.configure_rest_jops_decrease(meta);
         // self.disabled_block_should_be_empty(meta);
-        self.configure_rest_jops_in_u16_range(meta, rtable);
     }
 
     fn enable_rest_jops_permutation(&self, meta: &mut ConstraintSystem<F>);
     fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>);
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>);
-    fn configure_rest_jops_in_u16_range(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
-    );
 }
 
 impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
     fn enable_rest_jops_permutation(&self, meta: &mut ConstraintSystem<F>) {
-        meta.enable_equality(self.data);
+        meta.enable_equality(self.data.internal);
     }
 
     fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>) {
@@ -52,16 +46,6 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
                     * (self.enable(meta) - constant_from!(1))
                     * fixed_curr!(meta, self.sel),
             ]
-        });
-    }
-
-    fn configure_rest_jops_in_u16_range(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
-    ) {
-        rtable.configure_in_common_range(meta, "jtable rest in common range", |meta| {
-            self.rest(meta) * fixed_curr!(meta, self.sel)
         });
     }
 }
@@ -91,10 +75,8 @@ impl<F: FieldExt> JumpTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         shared_column_pool: &SharedColumnPool<F>,
     ) -> Self {
-        let mut cols = shared_column_pool.advice_iter();
-
         let sel = meta.fixed_column();
-        let data = cols.next().unwrap();
+        let data = shared_column_pool.acquire_dyn_col(0);
 
         JumpTableConfig {
             sel,
