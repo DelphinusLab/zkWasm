@@ -216,7 +216,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let shared_bits = [0; BITS_COLUMNS].map(|_| cols.next().unwrap());
         let opcode_bits = cols.next().unwrap();
 
-        let state = cols.next().unwrap();
+        let state = shared_column_pool.acquire_u16_col(0);
         let aux = cols.next().unwrap();
         let unlimited = cols.next().unwrap();
 
@@ -226,7 +226,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let pow_table_lookup = meta.fixed_column();
         let offset_len_bits_table_lookup = meta.fixed_column();
 
-        let u4_shared = [0; U4_COLUMNS].map(|_| cols.next().unwrap());
+        let u4_shared = [0, 1, 2].map(|i| shared_column_pool.acquire_u4_col(i));
         let u8_shared = [
             shared_column_pool.acquire_u8_col(0),
             shared_column_pool.acquire_u8_col(1),
@@ -262,16 +262,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 curr!(meta, u4_bop) * fixed_curr!(meta, sel),
             )
         });
-
-        rtable.configure_in_common_range(meta, "etable aux in common", |meta| {
-            curr!(meta, state) * fixed_curr!(meta, sel)
-        });
-
-        for i in 0..U4_COLUMNS {
-            rtable.configure_in_u4_range(meta, "etable u4", |meta| {
-                curr!(meta, u4_shared[i]) * fixed_curr!(meta, sel)
-            });
-        }
 
         itable.configure_in_table(meta, "etable itable lookup", |meta| {
             curr!(meta, aux) * fixed_curr!(meta, itable_lookup)

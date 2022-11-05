@@ -32,11 +32,9 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         self.configure_index_sort(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
         self.configure_tvalue_bytes(meta);
-        self.configure_encode_range(meta, rtable);
     }
 
     fn configure_enable_as_bit(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
-    fn configure_encode_range(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_enable_seq(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_index_sort(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>);
     fn configure_rest_mops_decrease(
@@ -63,12 +61,6 @@ pub trait MemoryTableConstriants<F: FieldExt> {
 }
 
 impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
-    fn configure_encode_range(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
-        rtable.configure_in_common_range(meta, "mtable encode in common range", |meta| {
-            curr!(meta, self.aux) * self.is_enabled_line(meta)
-        })
-    }
-
     fn configure_enable_as_bit(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -388,7 +380,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let index = RowDiffConfig::configure("mtable index", meta, &mut cols, STEP_SIZE, |meta| {
             fixed_curr!(meta, following_block_sel)
         });
-        let aux = cols.next().unwrap();
+        let aux = shared_column_pool.acquire_u16_col(0);
         let bytes = shared_column_pool.acquire_u8_col(0);
 
         MemoryTableConfig {

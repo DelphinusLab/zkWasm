@@ -21,13 +21,15 @@ use super::{
 
 const U8_COLUMNS: usize = 2;
 const U4_COLUMNS: usize = 5;
-const EXTRA_ADVICES: usize = 10;
+const U16_COLUMNS: usize = 1;
+const EXTRA_ADVICES: usize = 6;
 
 #[derive(Clone)]
 pub struct SharedColumnPool<F> {
     sel: Column<Fixed>,
-    u8_col: [Column<Advice>; U8_COLUMNS],
     u4_cols: [Column<Advice>; U4_COLUMNS],
+    u8_col: [Column<Advice>; U8_COLUMNS],
+    u16_cols: [Column<Advice>; U16_COLUMNS],
     advices: [Column<Advice>; EXTRA_ADVICES],
     _mark: PhantomData<F>,
 }
@@ -35,19 +37,26 @@ pub struct SharedColumnPool<F> {
 impl<F: FieldExt> SharedColumnPool<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) -> Self {
         let sel = meta.fixed_column();
-        let u8_col = [(); U8_COLUMNS].map(|_| meta.advice_column());
         let u4_cols = [(); U4_COLUMNS].map(|_| meta.advice_column());
+        let u8_col = [(); U8_COLUMNS].map(|_| meta.advice_column());
+        let u16_cols = [(); U16_COLUMNS].map(|_| meta.advice_column());
         let advices = [(); EXTRA_ADVICES].map(|_| meta.advice_column());
 
         for i in 0..U8_COLUMNS {
-            rtable.configure_in_u8_range(meta, "mtable bytes", |meta| {
+            rtable.configure_in_u8_range(meta, "shared column u8", |meta| {
                 curr!(meta, u8_col[i]) * fixed_curr!(meta, sel)
             });
         }
 
         for i in 0..U4_COLUMNS {
-            rtable.configure_in_u4_range(meta, &"shared column u4 {}", |meta| {
+            rtable.configure_in_u4_range(meta, &"shared column u4", |meta| {
                 curr!(meta, u4_cols[i]) * fixed_curr!(meta, sel)
+            });
+        }
+
+        for i in 0..U16_COLUMNS {
+            rtable.configure_in_u16_range(meta, &"shared column u16", |meta| {
+                curr!(meta, u16_cols[i]) * fixed_curr!(meta, sel)
             });
         }
 
@@ -55,6 +64,7 @@ impl<F: FieldExt> SharedColumnPool<F> {
             sel,
             u8_col,
             u4_cols,
+            u16_cols,
             advices,
             _mark: PhantomData,
         }
@@ -70,6 +80,10 @@ impl<F: FieldExt> SharedColumnPool<F> {
 
     pub fn acquire_u4_col(&self, index: usize) -> Column<Advice> {
         self.u4_cols[index].clone()
+    }
+
+    pub fn acquire_u16_col(&self, index: usize) -> Column<Advice> {
+        self.u16_cols[index].clone()
     }
 
     pub fn advice_iter(&self) -> impl Iterator<Item = Column<Advice>> {
