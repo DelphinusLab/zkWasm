@@ -328,7 +328,8 @@ impl ZkWasmCircuitBuilder {
     }
 
     pub fn prepare_param(&self) -> Params<G1Affine> {
-        let path = PathBuf::from(PARAMS);
+        let path = format!("{}.{}", K, PARAMS);
+        let path = PathBuf::from(&path);
 
         if path.exists() {
             let mut fd = File::open(path.as_path()).unwrap();
@@ -362,10 +363,11 @@ impl ZkWasmCircuitBuilder {
         &self,
         circuit: &TestCircuit<Fr>,
         params: &Params<G1Affine>,
+        cache: bool,
     ) -> VerifyingKey<G1Affine> {
         let path = PathBuf::from(VK);
 
-        let vk = if path.exists() {
+        let vk = if path.exists() & cache {
             let mut fd = File::open(path.as_path()).unwrap();
             let mut buf = vec![];
 
@@ -378,8 +380,10 @@ impl ZkWasmCircuitBuilder {
             let vk = keygen_vk(params, circuit).expect("keygen_vk should not fail");
             end_timer!(timer);
 
-            let mut fd = File::create(path.as_path()).unwrap();
-            vk.write(&mut fd).unwrap();
+            if cache {
+                let mut fd = File::create(path.as_path()).unwrap();
+                vk.write(&mut fd).unwrap();
+            }
 
             vk
         };
@@ -427,10 +431,11 @@ impl ZkWasmCircuitBuilder {
         params: &Params<G1Affine>,
         pk: &ProvingKey<G1Affine>,
         public_inputs: &Vec<Fr>,
+        cache: bool,
     ) -> Vec<u8> {
         let path = PathBuf::from(PROOF);
 
-        if path.exists() {
+        if path.exists() && cache {
             let mut buf = vec![];
             let mut fd = std::fs::File::open(path).unwrap();
             fd.read_to_end(&mut buf).unwrap();
@@ -452,8 +457,10 @@ impl ZkWasmCircuitBuilder {
 
             let proof = transcript.finalize();
 
-            let mut fd = std::fs::File::create(path).unwrap();
-            fd.write(&proof).unwrap();
+            if cache {
+                let mut fd = std::fs::File::create(path).unwrap();
+                fd.write(&proof).unwrap();
+            }
 
             proof
         }
@@ -490,10 +497,10 @@ impl ZkWasmCircuitBuilder {
 
         let params = self.prepare_param();
 
-        let vk = self.prepare_vk(&circuit, &params);
+        let vk = self.prepare_vk(&circuit, &params, false);
         let pk = self.prepare_pk(&circuit, &params, vk);
 
-        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
+        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs, false);
 
         self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
     }
@@ -504,13 +511,13 @@ impl ZkWasmCircuitBuilder {
         let mut params_buffer: Vec<u8> = vec![];
         let params = self.create_params();
         params.write::<Vec<u8>>(params_buffer.borrow_mut()).unwrap();
-        let vk = self.prepare_vk(&circuit, &params);
+        let vk = self.prepare_vk(&circuit, &params, false);
 
         let mut vk_buffer: Vec<u8> = vec![];
         vk.write::<Vec<u8>>(vk_buffer.borrow_mut()).unwrap();
         let pk = self.prepare_pk(&circuit, &params, vk);
 
-        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
+        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs, false);
         self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
 
         (params_buffer, vk_buffer, proof)
