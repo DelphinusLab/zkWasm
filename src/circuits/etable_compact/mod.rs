@@ -1,4 +1,5 @@
 use self::op_configure::EventTableOpcodeConfig;
+use super::shared_column_pool::DynTableLookupColumn;
 use super::*;
 use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
@@ -179,10 +180,7 @@ pub struct EventTableCommonConfig<F> {
     pub itable_lookup: Column<Fixed>,
     pub jtable_lookup: Column<Fixed>,
     pub mtable_lookup: Column<Fixed>,
-    pub pow_table_lookup: Column<Fixed>,
-    pub offset_len_bits_table_lookup: Column<Fixed>,
-
-    pub aux: Column<Advice>,
+    pub aux: DynTableLookupColumn,
 
     pub u4_bop: Column<Advice>,
     pub u4_shared: [Column<Advice>; U4_COLUMNS],
@@ -217,14 +215,12 @@ impl<F: FieldExt> EventTableConfig<F> {
         let opcode_bits = cols.next().unwrap();
 
         let state = shared_column_pool.acquire_u16_col(0);
-        let aux = cols.next().unwrap();
+        let aux = shared_column_pool.acquire_dyn_col(0);
         let unlimited = cols.next().unwrap();
 
         let itable_lookup = meta.fixed_column();
         let jtable_lookup = meta.fixed_column();
         let mtable_lookup = meta.fixed_column();
-        let pow_table_lookup = meta.fixed_column();
-        let offset_len_bits_table_lookup = meta.fixed_column();
 
         let u4_shared = [0, 1, 2].map(|i| shared_column_pool.acquire_u4_col(i));
         let u8_shared = [
@@ -264,33 +260,25 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         itable.configure_in_table(meta, "etable itable lookup", |meta| {
-            curr!(meta, aux) * fixed_curr!(meta, itable_lookup)
+            curr!(meta, aux.internal) * fixed_curr!(meta, itable_lookup)
         });
 
         mtable.configure_in_table(meta, "etable mtable lookup", |meta| {
-            curr!(meta, aux) * fixed_curr!(meta, mtable_lookup)
+            curr!(meta, aux.internal) * fixed_curr!(meta, mtable_lookup)
         });
 
         // TODO: elegantly handle the last return
         jtable.configure_in_table(meta, "etable jtable lookup", |meta| {
-            curr!(meta, aux)
-                * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
+            curr!(meta, aux.internal)
+                * nextn!(meta, aux.internal, ETABLE_STEP_SIZE as i32)
                 * fixed_curr!(meta, jtable_lookup)
-        });
-
-        rtable.configure_in_pow_set(meta, "etable pow_table lookup", |meta| {
-            curr!(meta, aux) * fixed_curr!(meta, pow_table_lookup)
-        });
-
-        rtable.configure_in_offset_len_bits_set(meta, "etable offset len bits lookup", |meta| {
-            curr!(meta, aux) * fixed_curr!(meta, offset_len_bits_table_lookup)
         });
 
         for i in 0..U4_COLUMNS {
             meta.create_gate("etable u64 on u4", |meta| {
                 let mut acc = nextn!(
                     meta,
-                    aux,
+                    aux.internal,
                     EventTableUnlimitColumnRotation::U64Start as i32 + i as i32
                 );
                 let mut base = 1u64;
@@ -307,7 +295,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             meta.create_gate("etable u64 on u8", |meta| {
                 let mut acc1 = nextn!(
                     meta,
-                    aux,
+                    aux.internal,
                     EventTableUnlimitColumnRotation::U64Start as i32
                         + U4_COLUMNS as i32
                         + i as i32 * 2
@@ -320,7 +308,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 let mut acc2 = nextn!(
                     meta,
-                    aux,
+                    aux.internal,
                     EventTableUnlimitColumnRotation::U64Start as i32
                         + U4_COLUMNS as i32
                         + i as i32 * 2
@@ -349,8 +337,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             itable_lookup,
             jtable_lookup,
             mtable_lookup,
-            pow_table_lookup,
-            offset_len_bits_table_lookup,
             aux,
             u4_shared,
             u8_shared,

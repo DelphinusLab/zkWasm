@@ -1,3 +1,5 @@
+use crate::circuits::rtable::RangeTableMixColumn;
+
 use super::*;
 
 impl<F: FieldExt> EventTableCommonConfig<F> {
@@ -54,9 +56,9 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             {
                 ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "pow table lookup",
-                    self.pow_table_lookup,
+                    self.aux.lookup,
                     ctx.offset,
-                    || Ok(F::one()),
+                    || Ok(F::from(RangeTableMixColumn::Pow as u64)),
                 )?;
             }
 
@@ -65,9 +67,9 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             {
                 ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "offset len bits table lookup",
-                    self.offset_len_bits_table_lookup,
+                    self.aux.lookup,
                     ctx.offset,
-                    || Ok(F::one()),
+                    || Ok(F::from(RangeTableMixColumn::OffsetLenBits as u64)),
                 )?;
             }
 
@@ -295,7 +297,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
             ctx.region.as_ref().borrow_mut().assign_advice(
                 || "itable lookup entry",
-                self.aux,
+                self.aux.internal,
                 ctx.offset + EventTableUnlimitColumnRotation::ITableLookup as usize,
                 || Ok(bn_to_field(&entry.inst.encode())),
             )?;

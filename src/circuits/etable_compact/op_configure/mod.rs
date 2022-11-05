@@ -399,7 +399,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.u64_index;
         self.u64_index += 1;
         U64Cell {
-            value_col: self.config.aux,
+            value_col: self.config.aux.internal,
             value_rot: allocated_index + EventTableUnlimitColumnRotation::U64Start as i32,
             u4_col: self.config.u4_shared[allocated_index as usize],
         }
@@ -410,7 +410,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.u64_on_u8_index;
         self.u64_on_u8_index += 1;
         U64OnU8Cell {
-            value_col: self.config.aux,
+            value_col: self.config.aux.internal,
             value_rot: allocated_index
                 + EventTableUnlimitColumnRotation::U64Start as i32
                 + U4_COLUMNS as i32,
@@ -424,7 +424,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.mtable_lookup_index;
         self.mtable_lookup_index += 1;
         MTableLookupCell {
-            col: self.config.aux,
+            col: self.config.aux.internal,
             rot: allocated_index,
         }
     }
@@ -437,7 +437,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.pow_table_lookup_index;
         self.pow_table_lookup_index += 1;
         PowTableLookupCell {
-            col: self.config.aux,
+            col: self.config.aux.internal,
             rot: allocated_index,
         }
     }
@@ -450,7 +450,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.offset_len_bits_lookup_index;
         self.offset_len_bits_lookup_index += 1;
         OffsetLenBitsTableLookupCell {
-            col: self.config.aux,
+            col: self.config.aux.internal,
             rot: allocated_index,
         }
     }
@@ -462,7 +462,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.jtable_lookup_index;
         self.jtable_lookup_index += 1;
         JTableLookupCell {
-            col: self.config.aux,
+            col: self.config.aux.internal,
             rot: allocated_index,
         }
     }

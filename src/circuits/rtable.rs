@@ -15,7 +15,8 @@ use specs::itable::BitOp;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
 
-enum RangeTableMixColumn {
+#[derive(PartialEq, Clone, Copy)]
+pub enum RangeTableMixColumn {
     U4 = 1,
     U8 = 2,
     U16 = 3,
@@ -24,8 +25,35 @@ enum RangeTableMixColumn {
 }
 
 impl RangeTableMixColumn {
-    fn prefix<F: FieldExt>(self) -> F {
+    pub fn prefix<F: FieldExt>(self) -> F {
         bn_to_field::<F>(&(BigUint::from(self as u64) << 192))
+    }
+
+    pub fn largrange<F: FieldExt>(&self, x: Expression<F>) -> Expression<F> {
+        let mut set = vec![];
+
+        for i in [
+            RangeTableMixColumn::U4,
+            RangeTableMixColumn::U8,
+            RangeTableMixColumn::U16,
+            RangeTableMixColumn::Pow,
+            RangeTableMixColumn::OffsetLenBits,
+        ] {
+            if *self != i {
+                set.push(i)
+            }
+        }
+
+        let numerator = set
+            .iter()
+            .map(|kind| x.clone() - constant_from!(*kind as u64))
+            .fold(constant_from!(1), |r, v| r * v);
+        let denominator = set
+            .iter()
+            .map(|kind| F::from(*self as u64) - F::from(*kind as u64))
+            .fold(F::from(1), |r, v| r * v);
+
+        numerator * constant!(denominator.invert().unwrap())
     }
 }
 
@@ -39,7 +67,7 @@ pub struct RangeTableConfig<F: FieldExt> {
      *   pow: {1 | 0, 2 | 1, 4 | 2, ...}
      *   offset_len_bits_col: {0 | 1 | 0b1000000000000000, 0 | 2 | 0b110000000000000 ...}
      */
-    mix_col: TableColumn,
+    pub mix_col: TableColumn,
     // {(left, right, res, op) | op(left, right) = res}, encoded by concat(left, right, res) << op
     u4_bop_calc_col: TableColumn,
     // {0, 1, 1 << 12, 1 << 24 ...}
@@ -66,7 +94,10 @@ impl<F: FieldExt> RangeTableConfig<F> {
         range: RangeTableMixColumn,
     ) {
         meta.lookup(key, |meta| {
-            vec![(constant!(range.prefix()) + expr(meta), self.mix_col)]
+            vec![(
+                (constant_from!(range as u64)) * (constant!(range.prefix()) + expr(meta)),
+                self.mix_col,
+            )]
         });
     }
 
@@ -206,12 +237,19 @@ impl<F: FieldExt> RangeTableChip<F> {
             |mut table| {
                 let mut o: usize = 0;
 
+                table.assign_cell(|| "range table", self.config.mix_col, o, || Ok(F::from(0)))?;
+
+                o += 1;
+
                 for i in 0..(1 << 16) {
                     table.assign_cell(
                         || "range table",
                         self.config.mix_col,
                         o,
-                        || Ok(RangeTableMixColumn::U16.prefix::<F>() + F::from(i as u64)),
+                        || {
+                            Ok(F::from(RangeTableMixColumn::U16 as u64)
+                                * (RangeTableMixColumn::U16.prefix::<F>() + F::from(i as u64)))
+                        },
                     )?;
 
                     o += 1;
@@ -222,7 +260,10 @@ impl<F: FieldExt> RangeTableChip<F> {
                         || "range table",
                         self.config.mix_col,
                         o,
-                        || Ok(RangeTableMixColumn::U8.prefix::<F>() + F::from(i as u64)),
+                        || {
+                            Ok(F::from(RangeTableMixColumn::U8 as u64)
+                                * (RangeTableMixColumn::U8.prefix::<F>() + F::from(i as u64)))
+                        },
                     )?;
 
                     o += 1;
@@ -233,7 +274,10 @@ impl<F: FieldExt> RangeTableChip<F> {
                         || "range table",
                         self.config.mix_col,
                         o,
-                        || Ok(RangeTableMixColumn::U4.prefix::<F>() + F::from(i as u64)),
+                        || {
+                            Ok(F::from(RangeTableMixColumn::U4 as u64)
+                                * (RangeTableMixColumn::U4.prefix::<F>() + F::from(i as u64)))
+                        },
                     )?;
 
                     o += 1;
@@ -244,7 +288,10 @@ impl<F: FieldExt> RangeTableChip<F> {
                     || "range table",
                     self.config.mix_col,
                     o,
-                    || Ok(RangeTableMixColumn::Pow.prefix::<F>() + F::from(0 as u64)),
+                    || {
+                        Ok(F::from(RangeTableMixColumn::Pow as u64)
+                            * (RangeTableMixColumn::Pow.prefix::<F>() + F::from(0 as u64)))
+                    },
                 )?;
 
                 o += 1;
@@ -255,9 +302,10 @@ impl<F: FieldExt> RangeTableChip<F> {
                         self.config.mix_col,
                         o,
                         || {
-                            Ok(RangeTableMixColumn::Pow.prefix::<F>()
-                                + bn_to_field::<F>(&(BigUint::from(1u64) << (i + 16)))
-                                + F::from(i as u64))
+                            Ok(F::from(RangeTableMixColumn::Pow as u64)
+                                * (RangeTableMixColumn::Pow.prefix::<F>()
+                                    + bn_to_field::<F>(&(BigUint::from(1u64) << (i + 16)))
+                                    + F::from(i as u64)))
                         },
                     )?;
                     o += 1;
@@ -268,7 +316,11 @@ impl<F: FieldExt> RangeTableChip<F> {
                     || "range table",
                     self.config.mix_col,
                     o,
-                    || Ok(RangeTableMixColumn::OffsetLenBits.prefix::<F>() + F::from(0 as u64)),
+                    || {
+                        Ok(F::from(RangeTableMixColumn::OffsetLenBits as u64)
+                            * (RangeTableMixColumn::OffsetLenBits.prefix::<F>()
+                                + F::from(0 as u64)))
+                    },
                 )?;
                 o += 1;
 
@@ -279,8 +331,9 @@ impl<F: FieldExt> RangeTableChip<F> {
                             self.config.mix_col,
                             o,
                             || {
-                                Ok(RangeTableMixColumn::OffsetLenBits.prefix::<F>()
-                                    + F::from(offset_len_bits_encode(i, j)))
+                                Ok(F::from(RangeTableMixColumn::OffsetLenBits as u64)
+                                    * (RangeTableMixColumn::OffsetLenBits.prefix::<F>()
+                                        + F::from(offset_len_bits_encode(i, j))))
                             },
                         )?;
                         o += 1;
