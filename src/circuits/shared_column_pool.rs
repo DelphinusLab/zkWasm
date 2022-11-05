@@ -12,7 +12,10 @@ use crate::{
 };
 
 use super::{
-    config::{MTABLE_END_OFFSET, MTABLE_START_OFFSET},
+    config::{
+        FOREIGN_HELPER_END_OFFSET, FOREIGN_HELPER_START_OFFSET, MTABLE_END_OFFSET,
+        MTABLE_START_OFFSET,
+    },
     rtable::RangeTableConfig,
 };
 
@@ -87,6 +90,15 @@ impl<F: FieldExt> SharedColumnChip<F> {
         layouter.assign_region(
             || "shared column",
             |mut region| {
+                for o in FOREIGN_HELPER_START_OFFSET..FOREIGN_HELPER_END_OFFSET {
+                    region.assign_fixed(
+                        || "shared column sel",
+                        self.config.sel,
+                        o,
+                        || Ok(F::from(1u64)),
+                    )?;
+                }
+
                 for o in ETABLE_START_OFFSET..ETABLE_END_OFFSET {
                     region.assign_fixed(
                         || "shared column sel",

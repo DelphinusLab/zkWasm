@@ -15,7 +15,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     ) -> Expression<F> {
         assert!(start < BLOCK_LINES as i32);
         let shift_acc: i32 = 0;
-        let acc = nextn!(meta, self.args[index].0, start);
+        let acc = nextn!(meta, self.args[index], start);
 
         self.u4_array_to_u32_expr(meta, index, shift_acc, acc, start + 1, 8)
             .0
@@ -29,7 +29,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     ) -> (Expression<F>, Expression<F>) {
         (
             self.arg_to_shift_u32_expr(meta, index, start),
-            nextn!(meta, self.args[index].0, start),
+            nextn!(meta, self.args[index], start),
         )
     }
 
@@ -41,7 +41,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     ) -> Expression<F> {
         assert!(start < BLOCK_LINES as i32);
         let shift_acc: i32 = 0;
-        let acc = nextn!(meta, self.args[index].0, start);
+        let acc = nextn!(meta, self.args[index], start);
 
         let (acc, shift_acc) = self.u4_array_to_u32_expr(meta, index, shift_acc, acc, start + 1, 8);
         self.u4_array_to_u32_expr(meta, index, shift_acc, acc, 0, start)
@@ -56,7 +56,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     ) -> (Expression<F>, Expression<F>) {
         (
             self.arg_to_rotate_u32_expr(meta, index, start),
-            nextn!(meta, self.args[index].0, start),
+            nextn!(meta, self.args[index], start),
         )
     }
 
@@ -95,7 +95,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         let mut acc = acc;
         for i in start..end {
             shift_acc += 4;
-            acc = acc + nextn!(meta, self.args[index].0, i) * constant_from!(1u64 << shift_acc);
+            acc = acc + nextn!(meta, self.args[index], i) * constant_from!(1u64 << shift_acc);
         }
         (acc, shift_acc)
     }

@@ -10,9 +10,12 @@ use self::{
 };
 use crate::{
     circuits::{
-        config::{JTABLE_END_OFFSET, K},
+        config::{FOREIGN_HELPER_END_OFFSET, FOREIGN_HELPER_START_OFFSET, JTABLE_END_OFFSET, K},
+        etable_compact::ETABLE_STEP_SIZE,
+        foreign_region_allocator::ForeignRegion,
         imtable::{InitMemoryTableConfig, MInitTableChip},
         itable::{InstructionTableChip, InstructionTableConfig},
+        mtable_compact::configure::STEP_SIZE,
         rtable::{RangeTableChip, RangeTableConfig},
         utils::Context,
     },
@@ -61,6 +64,7 @@ use std::{
 
 pub mod config;
 pub mod etable_compact;
+pub mod foreign_region_allocator;
 pub mod imtable;
 pub mod itable;
 pub mod jtable;
@@ -160,7 +164,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let jtable = JumpTableConfig::configure(meta, &shared_column_pool, &rtable);
 
         let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
-        let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);
+        let sha256_helper_table =
+            Sha256HelperTableConfig::configure(meta, &shared_column_pool, &rtable);
 
         let mut foreign_tables = BTreeMap::<&'static str, Box<dyn ForeignTableConfig<_>>>::new();
         foreign_tables.insert(
@@ -201,6 +206,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
+        const_assert!(FOREIGN_HELPER_END_OFFSET <= ETABLE_START_OFFSET);
+        const_assert!(ETABLE_END_OFFSET <= MTABLE_START_OFFSET);
+        const_assert!(MTABLE_END_OFFSET <= JTABLE_START_OFFSET);
+
+        const_assert!(ETABLE_START_OFFSET % ETABLE_STEP_SIZE == 0);
+        const_assert!(MTABLE_START_OFFSET % (STEP_SIZE as usize) == 0);
+
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
         let imchip = MInitTableChip::new(config.imtable);
@@ -213,16 +225,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         rchip.init(&mut layouter)?;
         wasm_input_chip.init(&mut layouter)?;
-        sha256chip.init(&mut layouter)?;
         shared_column_chip.init(&mut layouter)?;
 
-        sha256chip.assign(
-            &mut layouter,
-            &self
-                .execution_tables
-                .etable
-                .filter_foreign_entries(HostPlugin::Sha256),
-        )?;
         wasm_input_chip.assign(
             &mut layouter,
             &self
@@ -236,12 +240,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             imchip.assign(&mut layouter, &self.compile_tables.imtable)?;
         }
 
+        sha256chip.init(&mut layouter)?;
+
         layouter.assign_region(
             || "jtable mtable etable",
             |region| {
-                const_assert!(ETABLE_END_OFFSET <= MTABLE_START_OFFSET);
-                const_assert!(MTABLE_END_OFFSET <= JTABLE_START_OFFSET);
-
                 let region = Rc::new(RefCell::new(region));
 
                 let (rest_mops_cell, rest_jops_cell) = {
@@ -259,9 +262,30 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 }
 
                 {
-                    let mut ctx = Context::new(region, JTABLE_START_OFFSET, JTABLE_END_OFFSET);
+                    let mut ctx =
+                        Context::new(region.clone(), JTABLE_START_OFFSET, JTABLE_END_OFFSET);
 
                     jchip.assign(&mut ctx, &self.execution_tables.jtable, rest_jops_cell)?;
+                }
+
+                {
+                    // TODO: dynamically alloc foreign region
+                    let sha256_region = ForeignRegion {
+                        start: FOREIGN_HELPER_START_OFFSET,
+                        end: FOREIGN_HELPER_START_OFFSET
+                            + crate::foreign::sha256_helper::circuits::ENABLE_LINES,
+                    };
+
+                    let mut ctx =
+                        Context::new(region.clone(), sha256_region.start, sha256_region.end);
+
+                    sha256chip.assign(
+                        &mut ctx,
+                        &self
+                            .execution_tables
+                            .etable
+                            .filter_foreign_entries(HostPlugin::Sha256),
+                    )?;
                 }
 
                 Ok(())

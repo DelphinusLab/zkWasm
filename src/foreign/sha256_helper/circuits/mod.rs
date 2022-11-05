@@ -1,14 +1,13 @@
 use super::Sha256HelperOp;
 use crate::{
+    circuits::shared_column_pool::SharedColumnPool,
     constant_from, fixed_curr,
     foreign::ForeignTableConfig,
-    traits::circuits::bit_range_table::{
-        BitColumn, BitRangeTable, U4Column, U8Column, U8PartialColumn,
-    },
+    traits::circuits::bit_range_table::{BitColumn, BitRangeTable, U8PartialColumn},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Column, ConstraintSystem, Expression, Fixed, TableColumn, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, TableColumn, VirtualCells},
 };
 use std::marker::PhantomData;
 
@@ -19,7 +18,7 @@ pub mod ops;
 
 const OP_ARGS_NUM: usize = 5;
 const K: usize = 15;
-const ENABLE_LINES: usize = 1 << (K - 1);
+pub const ENABLE_LINES: usize = 1 << (K - 1);
 const BLOCK_LINES: usize = 10;
 
 pub struct Sha2HelperEncode();
@@ -78,8 +77,8 @@ pub struct Sha256HelperTableConfig<F: FieldExt> {
     block_first_line_sel: Column<Fixed>,
 
     op_bit: BitColumn,
-    op: U8Column,
-    args: [U4Column; OP_ARGS_NUM],
+    op: Column<Advice>,
+    args: [Column<Advice>; OP_ARGS_NUM],
     aux: U8PartialColumn, // limited to u8 except for block first line
 
     op_valid_set: TableColumn,
@@ -87,13 +86,16 @@ pub struct Sha256HelperTableConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> Sha256HelperTableConfig<F> {
-    fn new(meta: &mut ConstraintSystem<F>, rtable: &impl BitRangeTable<F>) -> Self {
+    fn new(
+        meta: &mut ConstraintSystem<F>,
+        shared_column_pool: &SharedColumnPool<F>,
+        rtable: &impl BitRangeTable<F>,
+    ) -> Self {
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
-        let op = rtable.u8_column(meta, "sha256 helper op", |meta| fixed_curr!(meta, sel));
+        let op = shared_column_pool.acquire_u8_col(0);
         let op_bit = rtable.bit_column(meta, "sha256 helper op_bit", |meta| fixed_curr!(meta, sel));
-        let args = [0; OP_ARGS_NUM]
-            .map(|_| rtable.u4_column(meta, "sha256 helper args", |meta| fixed_curr!(meta, sel)));
+        let args = [0, 1, 2, 3, 4].map(|i| shared_column_pool.acquire_u4_col(i));
         let aux = rtable.u8_partial_column(meta, "sha256 aux", |meta| {
             fixed_curr!(meta, sel) * (constant_from!(1) - fixed_curr!(meta, block_first_line_sel))
         });
@@ -111,8 +113,12 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         }
     }
 
-    pub fn configure(meta: &mut ConstraintSystem<F>, rtable: &impl BitRangeTable<F>) -> Self {
-        let config = Self::new(meta, rtable);
+    pub fn configure(
+        meta: &mut ConstraintSystem<F>,
+        shared_column_pool: &SharedColumnPool<F>,
+        rtable: &impl BitRangeTable<F>,
+    ) -> Self {
+        let config = Self::new(meta, shared_column_pool, rtable);
         config._configure(meta);
         config
     }

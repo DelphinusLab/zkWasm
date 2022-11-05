@@ -13,7 +13,7 @@ pub mod expr;
 
 pub const WASM_INPUT_FOREIGN_TABLE_KEY: &'static str = "wasm-input-helper-table";
 const K: usize = 15;
-const ENABLE_LINES: usize = 1 << (K - 1);
+pub const ENABLE_LINES: usize = 1 << (K - 1);
 
 pub struct InputTableEncode {}
 

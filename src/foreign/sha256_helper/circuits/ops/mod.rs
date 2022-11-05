@@ -57,7 +57,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
         for i in 0..8 {
             region.assign_advice(
                 || "sha256 rotate value",
-                self.config.args[index].0,
+                self.config.args[index],
                 offset + i,
                 || Ok(F::from(((value as u64) >> (4 * i)) & 0xf)),
             )?;
