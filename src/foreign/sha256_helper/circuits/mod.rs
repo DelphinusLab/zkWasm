@@ -1,9 +1,9 @@
 use super::Sha256HelperOp;
 use crate::{
-    circuits::shared_column_pool::SharedColumnPool,
+    circuits::shared_column_pool::{DynTableLookupColumn, SharedColumnPool},
     constant_from, fixed_curr,
     foreign::ForeignTableConfig,
-    traits::circuits::bit_range_table::{BitColumn, BitRangeTable, U8PartialColumn},
+    traits::circuits::bit_range_table::{BitColumn, BitRangeTable},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -79,7 +79,7 @@ pub struct Sha256HelperTableConfig<F: FieldExt> {
     op_bit: BitColumn,
     op: Column<Advice>,
     args: [Column<Advice>; OP_ARGS_NUM],
-    aux: U8PartialColumn, // limited to u8 except for block first line
+    aux: DynTableLookupColumn<F>, // limited to u8 except for block first line
 
     op_valid_set: TableColumn,
     mark: PhantomData<F>,
@@ -96,9 +96,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         let op = shared_column_pool.acquire_u8_col(0);
         let op_bit = rtable.bit_column(meta, "sha256 helper op_bit", |meta| fixed_curr!(meta, sel));
         let args = [0, 1, 2, 3, 4].map(|i| shared_column_pool.acquire_u4_col(i));
-        let aux = rtable.u8_partial_column(meta, "sha256 aux", |meta| {
-            fixed_curr!(meta, sel) * (constant_from!(1) - fixed_curr!(meta, block_first_line_sel))
-        });
+        let aux = shared_column_pool.acquire_dyn_col(0);
         let op_valid_set = meta.lookup_table_column();
 
         Self {

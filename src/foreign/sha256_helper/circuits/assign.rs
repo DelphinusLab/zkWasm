@@ -1,5 +1,8 @@
 use super::{Sha256HelperTableConfig, Sha2HelperEncode, BLOCK_LINES, OP_ARGS_NUM};
-use crate::{circuits::utils::Context, foreign::sha256_helper::Sha256HelperOp};
+use crate::{
+    circuits::{rtable::RangeTableMixColumn, utils::Context},
+    foreign::sha256_helper::Sha256HelperOp,
+};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
 use specs::{etable::EventTableEntry, host_function::HostPlugin, step::StepInfo};
 
@@ -25,12 +28,22 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                 i as usize,
                 || Ok(F::one()),
             )?;
+
             if i % BLOCK_LINES == 0 {
                 ctx.region.as_ref().borrow_mut().assign_fixed(
                     || "sha256 helper first block line sel",
                     self.config.block_first_line_sel,
                     i as usize,
                     || Ok(F::one()),
+                )?;
+            }
+
+            // limited to u8 except for block first line
+            if i % BLOCK_LINES != 0 {
+                self.config.aux.assign_lookup(
+                    &mut ctx.region.as_ref().borrow_mut(),
+                    i,
+                    RangeTableMixColumn::U8,
                 )?;
             }
         }
@@ -63,7 +76,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
 
                 ctx.region.as_ref().borrow_mut().assign_advice(
                     || "sha256 helper opcode",
-                    self.config.aux.0,
+                    self.config.aux.internal,
                     offset,
                     || Ok(Sha2HelperEncode::encode_opcode_f(op, &args, ret)),
                 )?;

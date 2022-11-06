@@ -66,7 +66,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     }
 
     pub(super) fn opcode_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        curr!(meta, self.aux.0)
+        curr!(meta, self.aux.internal)
     }
 
     pub(super) fn is_not_block_end_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {

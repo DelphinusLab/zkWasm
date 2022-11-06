@@ -35,21 +35,21 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
 
         region.assign_advice(
             || "sha256 helper rotate round",
-            self.config.aux.0,
+            self.config.aux.internal,
             offset + start,
             || Ok(F::from(round as u64)),
         )?;
 
         region.assign_advice(
             || "sha256 helper rotate rem",
-            self.config.aux.0,
+            self.config.aux.internal,
             offset + start + 1,
             || Ok(F::from(rem as u64)),
         )?;
 
         region.assign_advice(
             || "sha256 helper rotate diff",
-            self.config.aux.0,
+            self.config.aux.internal,
             offset + start + 2,
             || Ok(F::from(diff as u64)),
         )?;
@@ -76,9 +76,9 @@ macro_rules! rotation_constraints {
             let (x, x_lowest) = $self.arg_to_rotate_u32_expr_with_lowest_u4(meta, 0, $rotate / 4);
             let y = $self.arg_to_rotate_u32_expr(meta, $index, 0);
 
-            let round = nextn!(meta, $self.aux.0, $index * 3 - 2);
-            let rem = nextn!(meta, $self.aux.0, $index * 3 - 1);
-            let rem_diff = nextn!(meta, $self.aux.0, $index * 3);
+            let round = nextn!(meta, $self.aux.internal, $index * 3 - 2);
+            let rem = nextn!(meta, $self.aux.internal, $index * 3 - 1);
+            let rem_diff = nextn!(meta, $self.aux.internal, $index * 3);
 
             vec![
                 enable.clone()
@@ -104,9 +104,9 @@ macro_rules! shift_constraints {
             let (x, x_lowest) = $self.arg_to_shift_u32_expr_with_lowest_u4(meta, 0, $rotate / 4);
             let y = $self.arg_to_shift_u32_expr(meta, $index, 0);
 
-            let round = nextn!(meta, $self.aux.0, $index * 3 - 2);
-            let rem = nextn!(meta, $self.aux.0, $index * 3 - 1);
-            let rem_diff = nextn!(meta, $self.aux.0, $index * 3);
+            let round = nextn!(meta, $self.aux.internal, $index * 3 - 2);
+            let rem = nextn!(meta, $self.aux.internal, $index * 3 - 1);
+            let rem_diff = nextn!(meta, $self.aux.internal, $index * 3);
 
             vec![
                 enable.clone()
