@@ -1,11 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use crate::circuits::ZkWasmCircuitBuilder;
-    use crate::test::test_binary_search::build_test;
+    use crate::{circuits::ZkWasmCircuitBuilder, test::test_fibonacci::build_test};
     use halo2_proofs::pairing::bn256::Fr as Fp;
 
     #[test]
-    fn test_binary_search() {
+    fn test_fibonacci() {
         let (compiled_module, execution_log, public_inputs) = build_test();
 
         let builder = ZkWasmCircuitBuilder {

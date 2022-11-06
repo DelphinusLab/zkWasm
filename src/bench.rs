@@ -1,3 +1,4 @@
 mod binary_search;
-mod trivial_return;
+pub mod fibonacci;
 mod sha256;
+mod trivial_return;
