@@ -1,5 +1,6 @@
 use super::config::POW_TABLE_LIMIT;
 use super::utils::bn_to_field;
+use super::utils::largrange::largrange_expr;
 use crate::constant;
 use crate::constant_from;
 use crate::traits::circuits::bit_range_table::BitRangeTable;
@@ -30,30 +31,17 @@ impl RangeTableMixColumn {
     }
 
     pub fn largrange<F: FieldExt>(&self, x: Expression<F>) -> Expression<F> {
-        let mut set = vec![];
-
-        for i in [
-            RangeTableMixColumn::U4,
-            RangeTableMixColumn::U8,
-            RangeTableMixColumn::U16,
-            RangeTableMixColumn::Pow,
-            RangeTableMixColumn::OffsetLenBits,
-        ] {
-            if *self != i {
-                set.push(i)
-            }
-        }
-
-        let numerator = set
-            .iter()
-            .map(|kind| x.clone() - constant_from!(*kind as u64))
-            .fold(constant_from!(1), |r, v| r * v);
-        let denominator = set
-            .iter()
-            .map(|kind| F::from(*self as u64) - F::from(*kind as u64))
-            .fold(F::from(1), |r, v| r * v);
-
-        numerator * constant!(denominator.invert().unwrap())
+        largrange_expr(
+            x,
+            vec![
+                RangeTableMixColumn::U4 as u64,
+                RangeTableMixColumn::U8 as u64,
+                RangeTableMixColumn::U16 as u64,
+                RangeTableMixColumn::Pow as u64,
+                RangeTableMixColumn::OffsetLenBits as u64,
+            ],
+            *self as u64,
+        )
     }
 }
 
