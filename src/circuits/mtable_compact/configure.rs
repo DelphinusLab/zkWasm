@@ -92,7 +92,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     fn configure_index_sort(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
         meta.create_gate("mtable configure_index_same", |meta| {
             vec![
-                curr!(meta, self.aux) - constant_from!(1),
+                curr!(meta, self.aux.internal) - constant_from!(1),
                 self.same_mmid(meta) - self.same_ltype(meta) * self.same_mmid_single(meta),
                 self.same_offset(meta) - self.same_mmid(meta) * self.same_offset_single(meta),
                 self.same_eid(meta) - self.same_offset(meta) * self.same_eid_single(meta),
@@ -104,7 +104,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
 
         rtable.configure_in_common_range(meta, "mtable configure_index_sort", |meta| {
             (curr!(meta, self.index.data) - nextn!(meta, self.index.data, -STEP_SIZE))
-                * curr!(meta, self.aux)
+                * curr!(meta, self.aux.internal)
                 * self.is_enabled_following_block(meta)
         });
 
@@ -372,6 +372,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         shared_column_pool: &SharedColumnPool<F>,
     ) -> Self {
         let mut cols = shared_column_pool.advice_iter();
+        let mut dyn_cols = shared_column_pool.dyn_col_iter();
 
         let sel = meta.fixed_column();
         let following_block_sel = meta.fixed_column();
@@ -380,8 +381,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let index = RowDiffConfig::configure("mtable index", meta, &mut cols, STEP_SIZE, |meta| {
             fixed_curr!(meta, following_block_sel)
         });
-        let aux = shared_column_pool.acquire_u16_col(0);
-        let bytes = shared_column_pool.acquire_u8_col(0);
+        let aux = dyn_cols.next().unwrap();
+        let bytes = dyn_cols.next().unwrap();
 
         MemoryTableConfig {
             sel,

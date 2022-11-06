@@ -20,20 +20,23 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         });
 
         meta.create_gate("sha256 op eq inside a block", |meta| {
-            vec![self.is_not_block_end_expr(meta) * (next!(meta, self.op) - curr!(meta, self.op))]
+            vec![
+                self.is_not_block_end_expr(meta)
+                    * (next!(meta, self.op.internal) - curr!(meta, self.op.internal)),
+            ]
         });
 
         meta.lookup("sha256 op lookup", |meta| {
             vec![(
                 fixed_curr!(meta, self.sel)
                     * Sha2HelperEncode::encode_table_expr(
-                        curr!(meta, self.op),
+                        curr!(meta, self.op.internal),
                         [
-                            curr!(meta, self.args[1]),
-                            curr!(meta, self.args[2]),
-                            curr!(meta, self.args[3]),
+                            curr!(meta, self.args[1].internal),
+                            curr!(meta, self.args[2].internal),
+                            curr!(meta, self.args[3].internal),
                         ],
-                        curr!(meta, self.args[4]),
+                        curr!(meta, self.args[4].internal),
                     ),
                 self.op_valid_set,
             )]

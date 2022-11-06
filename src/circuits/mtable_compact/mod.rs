@@ -2,11 +2,13 @@ use self::configure::MemoryTableConstriants;
 use super::config::MAX_MATBLE_ROWS;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
+use super::shared_column_pool::DynTableLookupColumn;
 use super::shared_column_pool::SharedColumnPool;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::Context;
 use crate::circuits::config::MTABLE_END_OFFSET;
 use crate::circuits::mtable_compact::configure::STEP_SIZE;
+use crate::circuits::rtable::RangeTableMixColumn;
 use crate::circuits::IMTABLE_COLOMNS;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
@@ -70,11 +72,11 @@ pub struct MemoryTableConfig<F: FieldExt> {
     pub(crate) index: RowDiffConfig<F>,
 
     // See enum RotationOfBitColumn
-    pub(crate) aux: Column<Advice>,
+    pub(crate) aux: DynTableLookupColumn<F>,
 
     // Rotation:
     // 0..8 bytes
-    pub(crate) bytes: Column<Advice>,
+    pub(crate) bytes: DynTableLookupColumn<F>,
 }
 
 impl<F: FieldExt> MemoryTableConfig<F> {
@@ -85,7 +87,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         imtable: &InitMemoryTableConfig<F>,
     ) -> Self {
         let mtconfig = Self::new(meta, shared_column_pool);
-        meta.enable_equality(mtconfig.aux);
+        meta.enable_equality(mtconfig.aux.internal);
         mtconfig.configure(meta, rtable, imtable);
         mtconfig
     }
@@ -139,6 +141,18 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 )?;
             }
 
+            self.config.aux.assign_lookup(
+                &mut ctx.region.as_ref().borrow_mut(),
+                ctx.offset,
+                RangeTableMixColumn::U16,
+            )?;
+
+            self.config.bytes.assign_lookup(
+                &mut ctx.region.as_ref().borrow_mut(),
+                ctx.offset,
+                RangeTableMixColumn::U8,
+            )?;
+
             ctx.next();
         }
 
@@ -155,6 +169,17 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     ctx.region.as_ref().borrow_mut().assign_advice(
                         || $key,
                         self.config.$column,
+                        ctx.offset + ($offset as usize),
+                        || Ok($value),
+                    )?
+                };
+            }
+
+            macro_rules! assign_advice_dyn_col {
+                ($key: expr, $offset: expr, $column: ident, $value: expr) => {
+                    ctx.region.as_ref().borrow_mut().assign_advice(
+                        || $key,
+                        self.config.$column.internal,
                         ctx.offset + ($offset as usize),
                         || Ok($value),
                     )?
@@ -253,43 +278,43 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     same_eid = last_entry.eid == entry.eid && same_offset;
                 }
 
-                assign_advice!(
+                assign_advice_dyn_col!(
                     "constant 1",
                     RotationOfAuxColumn::ConstantOne,
                     aux,
                     F::one()
                 );
-                assign_advice!(
+                assign_advice_dyn_col!(
                     "same ltype",
                     RotationOfAuxColumn::SameLtype,
                     aux,
                     F::from(same_ltype as u64)
                 );
-                assign_advice!(
+                assign_advice_dyn_col!(
                     "same mmid",
                     RotationOfAuxColumn::SameMmid,
                     aux,
                     F::from(same_mmid as u64)
                 );
-                assign_advice!(
+                assign_advice_dyn_col!(
                     "same offset",
                     RotationOfAuxColumn::SameOffset,
                     aux,
                     F::from(same_offset as u64)
                 );
-                assign_advice!(
+                assign_advice_dyn_col!(
                     "same eid",
                     RotationOfAuxColumn::SameEid,
                     aux,
                     F::from(same_eid as u64)
                 );
-                assign_advice!(
+                assign_advice_dyn_col!(
                     "atype",
                     RotationOfAuxColumn::Atype,
                     aux,
                     F::from(entry.atype as u64)
                 );
-                let cell = assign_advice!(
+                let cell = assign_advice_dyn_col!(
                     "rest mops",
                     RotationOfAuxColumn::RestMops,
                     aux,
@@ -308,7 +333,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 let mut bytes = Vec::from(entry.value.to_le_bytes());
                 bytes.resize(8, 0);
                 for i in 0..8 {
-                    assign_advice!("bytes", i, bytes, F::from(bytes[i] as u64));
+                    assign_advice_dyn_col!("bytes", i, bytes, F::from(bytes[i] as u64));
                 }
             }
 

@@ -76,7 +76,7 @@ impl<F: FieldExt> JumpTableConfig<F> {
         shared_column_pool: &SharedColumnPool<F>,
     ) -> Self {
         let sel = meta.fixed_column();
-        let data = shared_column_pool.acquire_dyn_col(0);
+        let data = shared_column_pool.dyn_col_iter().next().unwrap();
 
         JumpTableConfig {
             sel,

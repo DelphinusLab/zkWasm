@@ -46,6 +46,20 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                     RangeTableMixColumn::U8,
                 )?;
             }
+
+            self.config.op.assign_lookup(
+                &mut ctx.region.as_ref().borrow_mut(),
+                i,
+                RangeTableMixColumn::U8,
+            )?;
+
+            for col in 0..OP_ARGS_NUM {
+                self.config.args[col].assign_lookup(
+                    &mut ctx.region.as_ref().borrow_mut(),
+                    i,
+                    RangeTableMixColumn::U4,
+                )?;
+            }
         }
 
         // op args ret
@@ -68,7 +82,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                 for i in 0..BLOCK_LINES {
                     ctx.region.as_ref().borrow_mut().assign_advice(
                         || "sha256 helper table",
-                        self.config.op,
+                        self.config.op.internal,
                         offset + i,
                         || Ok(F::from(op as u64)),
                     )?;
@@ -107,7 +121,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                     for i in 0..8 {
                         ctx.region.as_ref().borrow_mut().assign_advice(
                             || "sha256 helper args",
-                            self.config.args[arg_i + start],
+                            self.config.args[arg_i + start].internal,
                             offset + i,
                             || Ok(F::from((arg >> (i * 4)) as u64 & 0xfu64)),
                         )?;
@@ -117,7 +131,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
                 for i in 0..8 {
                     ctx.region.as_ref().borrow_mut().assign_advice(
                         || "sha256 helper ret",
-                        self.config.args[OP_ARGS_NUM - 1],
+                        self.config.args[OP_ARGS_NUM - 1].internal,
                         offset + i,
                         || Ok(F::from((ret >> (i * 4)) as u64 & 0xfu64)),
                     )?;

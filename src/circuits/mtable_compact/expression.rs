@@ -10,8 +10,7 @@ use halo2_proofs::plonk::VirtualCells;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.bit)
-            * fixed_curr!(meta, self.block_first_line_sel)
+        curr!(meta, self.bit) * fixed_curr!(meta, self.block_first_line_sel)
     }
 
     pub(super) fn is_enabled_following_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -45,15 +44,23 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn same_mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, RotationOfAuxColumn::SameMmid as i32)
+        nextn!(
+            meta,
+            self.aux.internal,
+            RotationOfAuxColumn::SameMmid as i32
+        )
     }
 
     pub(super) fn same_offset(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, RotationOfAuxColumn::SameOffset as i32)
+        nextn!(
+            meta,
+            self.aux.internal,
+            RotationOfAuxColumn::SameOffset as i32
+        )
     }
 
     pub(super) fn same_eid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, RotationOfAuxColumn::SameEid as i32)
+        nextn!(meta, self.aux.internal, RotationOfAuxColumn::SameEid as i32)
     }
 
     pub(super) fn ltype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -77,13 +84,13 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn atype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, RotationOfAuxColumn::Atype as i32)
+        nextn!(meta, self.aux.internal, RotationOfAuxColumn::Atype as i32)
     }
 
     pub(super) fn prev_atype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,
-            self.aux,
+            self.aux.internal,
             RotationOfAuxColumn::Atype as i32 - STEP_SIZE
         )
     }
@@ -121,19 +128,23 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, RotationOfAuxColumn::RestMops as i32)
+        nextn!(
+            meta,
+            self.aux.internal,
+            RotationOfAuxColumn::RestMops as i32
+        )
     }
 
     pub(super) fn prev_rest_mops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,
-            self.aux,
+            self.aux.internal,
             RotationOfAuxColumn::RestMops as i32 - STEP_SIZE
         )
     }
 
     pub(super) fn byte(&self, meta: &mut VirtualCells<F>, index: i32) -> Expression<F> {
-        nextn!(meta, self.bytes, index)
+        nextn!(meta, self.bytes.internal, index)
     }
 
     pub(super) fn is_i64(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -141,7 +152,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn prev_is_i64(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, RotationOfBitColumn::Is64Bit as i32 - STEP_SIZE)
+        nextn!(
+            meta,
+            self.bit,
+            RotationOfBitColumn::Is64Bit as i32 - STEP_SIZE
+        )
     }
 
     pub(super) fn is_mutable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -149,7 +164,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn prev_is_mutable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, RotationOfBitColumn::IsMutable as i32 - STEP_SIZE)
+        nextn!(
+            meta,
+            self.bit,
+            RotationOfBitColumn::IsMutable as i32 - STEP_SIZE
+        )
     }
 
     pub(super) fn is_stack(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -158,6 +177,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     pub(super) fn imtable_selector(&self, meta: &mut VirtualCells<F>, i: u32) -> Expression<F> {
         assert!((i as u32 + RotationOfBitColumn::IMTableSelectorStart as u32) < STEP_SIZE as u32);
-        nextn!(meta, self.bit, RotationOfBitColumn::IMTableSelectorStart as i32 + i as i32)
+        nextn!(
+            meta,
+            self.bit,
+            RotationOfBitColumn::IMTableSelectorStart as i32 + i as i32
+        )
     }
 }

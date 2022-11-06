@@ -173,7 +173,7 @@ pub struct EventTableCommonConfig<F> {
     pub shared_bits: [Column<Advice>; BITS_COLUMNS],
     pub opcode_bits: Column<Advice>,
 
-    pub state: Column<Advice>,
+    pub state: DynTableLookupColumn<F>,
 
     pub unlimited: Column<Advice>,
 
@@ -183,8 +183,8 @@ pub struct EventTableCommonConfig<F> {
     pub aux: DynTableLookupColumn<F>,
 
     pub u4_bop: Column<Advice>,
-    pub u4_shared: [Column<Advice>; U4_COLUMNS],
-    pub u8_shared: [Column<Advice>; U8_COLUMNS],
+    pub u4_shared: [DynTableLookupColumn<F>; U4_COLUMNS],
+    pub u8_shared: [DynTableLookupColumn<F>; U8_COLUMNS],
 
     _mark: PhantomData<F>,
 }
@@ -208,28 +208,26 @@ impl<F: FieldExt> EventTableConfig<F> {
         opcode_set: &BTreeSet<OpcodeClassPlain>,
     ) -> Self {
         let mut cols = shared_column_pool.advice_iter();
+        let mut dyn_cols = shared_column_pool.dyn_col_iter();
 
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
         let shared_bits = [0; BITS_COLUMNS].map(|_| cols.next().unwrap());
         let opcode_bits = cols.next().unwrap();
 
-        let state = shared_column_pool.acquire_u16_col(0);
-        let aux = shared_column_pool.acquire_dyn_col(0);
+        let state = dyn_cols.next().unwrap();
+        let aux = dyn_cols.next().unwrap();
         let unlimited = cols.next().unwrap();
 
         let itable_lookup = meta.fixed_column();
         let jtable_lookup = meta.fixed_column();
         let mtable_lookup = meta.fixed_column();
 
-        let u4_shared = [0, 1, 2].map(|i| shared_column_pool.acquire_u4_col(i));
-        let u8_shared = [
-            shared_column_pool.acquire_u8_col(0),
-            shared_column_pool.acquire_u8_col(1),
-        ];
+        let u4_shared = [(); U4_COLUMNS].map(|_| dyn_cols.next().unwrap());
+        let u8_shared = [(); U8_COLUMNS].map(|_| dyn_cols.next().unwrap());
         let u4_bop = cols.next().unwrap();
 
-        meta.enable_equality(state);
+        meta.enable_equality(state.internal);
         meta.create_gate("etable opcode bits", |meta| {
             vec![curr!(meta, opcode_bits) * (curr!(meta, opcode_bits) - constant_from!(1))]
                 .into_iter()
@@ -252,9 +250,9 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         rtable.configure_in_u4_bop_calc_set(meta, "etable u4 bop calc", |meta| {
             (
-                curr!(meta, u4_shared[0]),
-                curr!(meta, u4_shared[1]),
-                curr!(meta, u4_shared[2]),
+                curr!(meta, u4_shared[0].internal),
+                curr!(meta, u4_shared[1].internal),
+                curr!(meta, u4_shared[2].internal),
                 curr!(meta, u4_bop) * fixed_curr!(meta, sel),
             )
         });
@@ -283,7 +281,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 );
                 let mut base = 1u64;
                 for j in 0..16 {
-                    acc = acc - nextn!(meta, u4_shared[i], j) * constant_from!(base);
+                    acc = acc - nextn!(meta, u4_shared[i].internal, j) * constant_from!(base);
                     base <<= 4;
                 }
 
@@ -302,7 +300,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 );
                 let mut base = 1u64;
                 for j in 0..8 {
-                    acc1 = acc1 - nextn!(meta, u8_shared[i], j) * constant_from!(base);
+                    acc1 = acc1 - nextn!(meta, u8_shared[i].internal, j) * constant_from!(base);
                     base <<= 8;
                 }
 
@@ -316,7 +314,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 );
                 let mut base = 1u64;
                 for j in 8..16 {
-                    acc2 = acc2 - nextn!(meta, u8_shared[i], j) * constant_from!(base);
+                    acc2 = acc2 - nextn!(meta, u8_shared[i].internal, j) * constant_from!(base);
                     base <<= 8;
                 }
 

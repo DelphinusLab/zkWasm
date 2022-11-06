@@ -371,7 +371,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.common_range_index;
         self.common_range_index += 1;
         CommonRangeCell {
-            col: self.config.state,
+            col: self.config.state.internal,
             rot: allocated_index,
         }
     }
@@ -401,7 +401,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         U64Cell {
             value_col: self.config.aux.internal,
             value_rot: allocated_index + EventTableUnlimitColumnRotation::U64Start as i32,
-            u4_col: self.config.u4_shared[allocated_index as usize],
+            u4_col: self.config.u4_shared[allocated_index as usize].internal,
         }
     }
 
@@ -414,7 +414,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             value_rot: allocated_index
                 + EventTableUnlimitColumnRotation::U64Start as i32
                 + U4_COLUMNS as i32,
-            u8_col: self.config.u8_shared[allocated_index as usize / 2],
+            u8_col: self.config.u8_shared[allocated_index as usize / 2].internal,
             u8_rot: (allocated_index % 2) * 8,
         }
     }
@@ -469,14 +469,14 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
 
     pub fn input_index_cell(&self) -> UnlimitedCell {
         UnlimitedCell {
-            col: self.config.state.clone(),
+            col: self.config.state.internal.clone(),
             rot: EventTableCommonRangeColumnRotation::InputIndex as i32,
         }
     }
 
     pub fn moid_cell(&self) -> UnlimitedCell {
         UnlimitedCell {
-            col: self.config.state.clone(),
+            col: self.config.state.internal.clone(),
             rot: EventTableCommonRangeColumnRotation::MOID as i32,
         }
     }

@@ -84,6 +84,28 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
+            self.state.assign_lookup(
+                &mut ctx.region.as_ref().borrow_mut(),
+                ctx.offset,
+                RangeTableMixColumn::U16,
+            )?;
+
+            for i in 0..U4_COLUMNS {
+                self.u4_shared[i].assign_lookup(
+                    &mut ctx.region.as_ref().borrow_mut(),
+                    ctx.offset,
+                    RangeTableMixColumn::U4,
+                )?;
+            }
+
+            for i in 0..U8_COLUMNS {
+                self.u8_shared[i].assign_lookup(
+                    &mut ctx.region.as_ref().borrow_mut(),
+                    ctx.offset,
+                    RangeTableMixColumn::U8,
+                )?;
+            }
+
             ctx.next();
         }
 
@@ -163,14 +185,14 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
             if index == 0 {
                 assign_constant!(
-                    self.state,
+                    self.state.internal,
                     EventTableCommonRangeColumnRotation::InputIndex,
                     "input index",
                     F::zero()
                 );
             } else {
                 assign_advice!(
-                    self.state,
+                    self.state.internal,
                     EventTableCommonRangeColumnRotation::InputIndex,
                     "input index",
                     host_public_inputs
@@ -225,7 +247,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             }
 
             let cell = assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::RestMOps,
                 "rest mops",
                 rest_mops.next().unwrap()
@@ -235,7 +257,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             }
 
             let cell = assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::RestJOps,
                 "rest jops",
                 rest_jops.next().unwrap()
@@ -245,49 +267,49 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             }
 
             assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::EID,
                 "eid",
                 entry.eid
             );
 
             assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::MOID,
                 "moid",
                 entry.inst.moid as u64
             );
 
             assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::FID,
                 "fid",
                 entry.inst.fid as u64
             );
 
             assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::IID,
                 "iid",
                 entry.inst.iid as u64
             );
 
             assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::MMID,
                 "mmid",
                 entry.inst.mmid as u64
             );
 
             assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::SP,
                 "sp",
                 entry.sp
             );
 
             assign_advice!(
-                self.state,
+                self.state.internal,
                 EventTableCommonRangeColumnRotation::LastJumpEid,
                 "last jump eid",
                 entry.last_jump_eid

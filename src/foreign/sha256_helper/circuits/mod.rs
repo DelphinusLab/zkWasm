@@ -7,7 +7,7 @@ use crate::{
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, TableColumn, VirtualCells},
+    plonk::{Column, ConstraintSystem, Expression, Fixed, TableColumn, VirtualCells},
 };
 use std::marker::PhantomData;
 
@@ -16,7 +16,7 @@ pub mod config;
 pub mod expr;
 pub mod ops;
 
-const OP_ARGS_NUM: usize = 5;
+pub(crate) const OP_ARGS_NUM: usize = 5;
 const K: usize = 15;
 pub const ENABLE_LINES: usize = 1 << (K - 1);
 const BLOCK_LINES: usize = 10;
@@ -77,8 +77,8 @@ pub struct Sha256HelperTableConfig<F: FieldExt> {
     block_first_line_sel: Column<Fixed>,
 
     op_bit: BitColumn,
-    op: Column<Advice>,
-    args: [Column<Advice>; OP_ARGS_NUM],
+    op: DynTableLookupColumn<F>,
+    args: [DynTableLookupColumn<F>; OP_ARGS_NUM],
     aux: DynTableLookupColumn<F>, // limited to u8 except for block first line
 
     op_valid_set: TableColumn,
@@ -91,12 +91,14 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
         shared_column_pool: &SharedColumnPool<F>,
         rtable: &impl BitRangeTable<F>,
     ) -> Self {
+        let mut dyn_cols = shared_column_pool.dyn_col_iter();
+
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();
-        let op = shared_column_pool.acquire_u8_col(0);
+        let args = [(); OP_ARGS_NUM].map(|_| dyn_cols.next().unwrap());
+        let op = dyn_cols.next().unwrap();
         let op_bit = rtable.bit_column(meta, "sha256 helper op_bit", |meta| fixed_curr!(meta, sel));
-        let args = [0, 1, 2, 3, 4].map(|i| shared_column_pool.acquire_u4_col(i));
-        let aux = shared_column_pool.acquire_dyn_col(0);
+        let aux = dyn_cols.next().unwrap();
         let op_valid_set = meta.lookup_table_column();
 
         Self {
