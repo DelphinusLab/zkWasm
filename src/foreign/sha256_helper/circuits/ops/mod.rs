@@ -68,6 +68,29 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
 }
 
 #[macro_export]
+macro_rules! sha256_constraints {
+    ($meta:expr, $self:expr, $key:expr) => {
+        $meta.create_gate($key, |meta| {
+            let enable = $self.is_op_enabled_expr(meta, OP);
+
+            let x = $self.arg_to_rotate_u32_expr(meta, 0, 0);
+            let res = $self.arg_to_rotate_u32_expr(meta, 4, 0);
+
+            vec![
+                enable.clone() * (curr!(meta, $self.op.0) - constant_from!(OP)),
+                enable.clone()
+                    * ($self.opcode_expr(meta)
+                        - Sha2HelperEncode::encode_opcode_expr(
+                            curr!(meta, $self.op.0),
+                            vec![x],
+                            res,
+                        )),
+            ]
+        });
+    };
+}
+
+#[macro_export]
 macro_rules! rotation_constraints {
     ($meta:expr, $self:expr, $key:expr, $index:expr, $rotate:expr) => {
         $meta.create_gate($key, |meta| {
