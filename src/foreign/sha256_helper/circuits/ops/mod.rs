@@ -68,7 +68,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
 }
 
 #[macro_export]
-macro_rules! sha256_constraints {
+macro_rules! sha256_sigma_common_constraints {
     ($meta:expr, $self:expr, $key:expr) => {
         $meta.create_gate($key, |meta| {
             let enable = $self.is_op_enabled_expr(meta, OP);
