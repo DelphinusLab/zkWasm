@@ -2,7 +2,7 @@ use super::super::{Sha256HelperOp, Sha256HelperTableConfig};
 use crate::{
     constant_from, curr,
     foreign::sha256_helper::circuits::{assign::Sha256HelperTableChip, Sha2HelperEncode},
-    nextn, rotation_constraints, sha256_constraints, shift_constraints,
+    nextn, rotation_constraints, sha256_sigma_common_constraints, shift_constraints,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -16,7 +16,7 @@ impl<F: FieldExt> Sha256HelperTableConfig<F> {
     pub(crate) fn configure_ssigma0(&self, meta: &mut ConstraintSystem<F>) {
         // (x right_rotate 7) ^ (x right_rotate 18) ^ (x >> 3)
 
-        sha256_constraints!(meta, self, "sha256 ssigma0 opcode");
+        sha256_sigma_common_constraints!(meta, self, "sha256 ssigma0 opcode");
         rotation_constraints!(meta, self, "ssigma0 rotate 7", 1, 7);
         rotation_constraints!(meta, self, "ssigma0 rotate 18", 2, 18);
         shift_constraints!(meta, self, "ssigma0 shift 3", 3, 3);
