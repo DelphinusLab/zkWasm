@@ -7,6 +7,9 @@
 </p>
 
 # Overview：
+## Circuit Details:
+https://jhc.sjtu.edu.cn/~hongfeifu/manuscriptb.pdf
+
 ## Setup input:
 wasm code
 
@@ -98,7 +101,7 @@ Execution table represents the execution sequence and it needs to match the sema
     * map from etable to mtable is identical mapping
     * It remains to show two table has same number of memory rw rows:
         * Suppose that $e$ is the last element of $\mathbb{T_e}$, then $e.restMops = 0$.
-* sp -> stack memory log [emid] 存在于 mtable
+* sp -> stack memory log [emid] is in mtable
     * mtable log = init + execution
 
 
