@@ -5,11 +5,11 @@ mod tests {
 
     #[test]
     fn test_fibonacci() {
-        let (compiled_module, execution_log, public_inputs) = build_test();
+        let (compile_tables, execution_tables, public_inputs) = build_test();
 
         let builder = ZkWasmCircuitBuilder {
-            compile_tables: compiled_module.tables,
-            execution_tables: execution_log.tables,
+            compile_tables,
+            execution_tables,
         };
 
         builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())

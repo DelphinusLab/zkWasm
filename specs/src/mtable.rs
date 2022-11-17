@@ -155,7 +155,7 @@ impl MTable {
 
         self.0.iter().for_each(|entry| {
             if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
-                let value = imtable.find(entry.ltype, entry.mmid, entry.offset);
+                let value = imtable.find_init(entry.ltype, entry.mmid, entry.offset);
 
                 set.insert(MemoryTableEntry {
                     eid: 0,

@@ -1,11 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use specs::{
     etable::EventTableEntry,
     host_function::HostFunctionDesc,
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
     step::StepInfo,
-    types::{CompileError, ExecutionError},
+    types::{CompileError, ExecutionError, Value},
     CompileTable, ExecutionTable,
 };
 use wasmi::{Externals, ImportResolver};
@@ -15,43 +15,33 @@ use self::wasmi_interpreter::WasmiRuntime;
 pub(crate) mod host;
 pub mod wasmi_interpreter;
 
-pub struct CompileOutcome<M, I, T> {
-    pub module: M,
-    pub tables: CompileTable,
-    pub instance: I,
-    pub tracer: Rc<RefCell<T>>,
-}
-
-pub struct ExecutionOutcome {
-    pub tables: ExecutionTable,
-}
-
 pub trait WasmRuntime {
     type Module;
     type Tracer;
     type Instance;
 
-    fn new() -> Self;
+    fn new(host_plugin_lookup: HashMap<usize, HostFunctionDesc>) -> Self;
     fn compile_from_wast<I: ImportResolver>(
         &self,
         module: wast::core::Module,
         imports: &I,
-        host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
-    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
+    ) -> Result<Self::Instance, CompileError>;
     fn compile<I: ImportResolver>(
         &self,
         textual_repr: &Vec<u8>,
         imports: &I,
-        host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
-    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
+    ) -> Result<Self::Instance, CompileError>;
     fn run<E: Externals>(
         &self,
         externals: &mut E,
-        compile_outcome: &CompileOutcome<Self::Module, Self::Instance, Self::Tracer>,
+        instance: &Self::Instance,
         function_name: &str,
         public_inputs: Vec<u64>,
         private_inputs: Vec<u64>,
-    ) -> Result<ExecutionOutcome, ExecutionError>;
+    ) -> Result<Option<Value>, ExecutionError>;
+
+    fn compile_table(&self) -> CompileTable;
+    fn execution_tables(&self) -> ExecutionTable;
 }
 
 // TODO: use feature

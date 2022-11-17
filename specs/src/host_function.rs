@@ -10,7 +10,8 @@ pub struct Signature {
 
 #[derive(Debug)]
 pub enum Error {
-    DuplicateRegister,
+    DuplicateRegisterFunction,
+    DuplicateRegisterGlobal
 }
 
 #[derive(Debug, Clone)]

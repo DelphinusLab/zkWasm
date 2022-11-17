@@ -105,10 +105,11 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
 pub(crate) enum EventTableUnlimitColumnRotation {
     ITableLookup = 0,
     JTableLookup = 1,
-    PowTableLookup = 2,
-    OffsetLenBitsTableLookup = 3,
-    MTableLookupStart = 4,
-    U64Start = 5 + MTABLE_LOOKUPS_SIZE as isize,
+    IMTableLookup = 2,
+    PowTableLookup = 3,
+    OffsetLenBitsTableLookup = 4,
+    MTableLookupStart = 5,
+    U64Start = 6 + MTABLE_LOOKUPS_SIZE as isize,
 }
 
 pub enum MLookupItem {
@@ -179,6 +180,7 @@ pub struct EventTableCommonConfig<F> {
     pub itable_lookup: Column<Fixed>,
     pub jtable_lookup: Column<Fixed>,
     pub mtable_lookup: Column<Fixed>,
+    pub imtable_lookup: Column<Fixed>,
     pub pow_table_lookup: Column<Fixed>,
     pub offset_len_bits_table_lookup: Column<Fixed>,
 
@@ -206,6 +208,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
+        imtable: &InitMemoryTableConfig<F>,
         foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
         opcode_set: &BTreeSet<OpcodeClassPlain>,
     ) -> Self {
@@ -221,6 +224,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let itable_lookup = meta.fixed_column();
         let jtable_lookup = meta.fixed_column();
         let mtable_lookup = meta.fixed_column();
+        let imtable_lookup = meta.fixed_column();
         let pow_table_lookup = meta.fixed_column();
         let offset_len_bits_table_lookup = meta.fixed_column();
 
@@ -297,6 +301,13 @@ impl<F: FieldExt> EventTableConfig<F> {
             curr!(meta, aux) * fixed_curr!(meta, offset_len_bits_table_lookup)
         });
 
+        imtable.configure_in_table(
+            meta,
+            "etable imtable lookup",
+            |meta| curr!(meta, aux) * fixed_curr!(meta, imtable_lookup),
+            0,
+        );
+
         for i in 0..U4_COLUMNS {
             meta.create_gate("etable u64 on u4", |meta| {
                 let mut acc = nextn!(
@@ -360,6 +371,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             itable_lookup,
             jtable_lookup,
             mtable_lookup,
+            imtable_lookup,
             pow_table_lookup,
             offset_len_bits_table_lookup,
             aux,
@@ -486,6 +498,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
             let mut itable_lookup = common_config.itable_lookup(meta);
             let mut jtable_lookup = common_config.jtable_lookup(meta);
+            let mut imtable_lookup = common_config.imtable_lookup(meta);
             let mut mtable_lookup = vec![];
 
             for i in 0..MTABLE_LOOKUPS_SIZE {
@@ -569,6 +582,14 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
+                match config.imtable_lookup(meta, &common_config) {
+                    Some(e) => {
+                        imtable_lookup =
+                            imtable_lookup - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
                 match config.input_index_increase(meta, &common_config) {
                     Some(e) => {
                         input_index_acc =
@@ -603,6 +624,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     last_jump_eid_acc,
                     itable_lookup,
                     jtable_lookup,
+                    imtable_lookup,
                     input_index_acc * common_config.next_enable(meta),
                 ],
                 mtable_lookup,

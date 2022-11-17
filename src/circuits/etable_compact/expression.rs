@@ -212,4 +212,12 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             EventTableUnlimitColumnRotation::MTableLookupStart as i32 + i
         )
     }
+
+    pub fn imtable_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.aux,
+            EventTableUnlimitColumnRotation::IMTableLookup as i32
+        )
+    }
 }

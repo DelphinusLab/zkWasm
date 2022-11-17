@@ -1,6 +1,7 @@
 use super::encode::MemoryTableLookupEncode;
 use super::*;
 use crate::circuits::config::IMTABLE_COLOMNS;
+use crate::circuits::imtable::IMTableEncode;
 use crate::circuits::Lookup;
 use crate::constant_from;
 use crate::curr;
@@ -346,7 +347,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 |meta| {
                     (constant_from!(1) - self.same_offset(meta))
                         * (constant_from!(1) - self.is_stack(meta))
-                        * imtable.encode(
+                        * IMTableEncode::encode_for_init(
                             self.is_mutable(meta),
                             self.ltype(meta),
                             self.mmid(meta),

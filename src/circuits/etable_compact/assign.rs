@@ -41,6 +41,15 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 )?;
             }
 
+            if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::IMTableLookup as usize {
+                ctx.region.assign_fixed(
+                    || "imtable lookup",
+                    self.imtable_lookup,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
+
             if i % ETABLE_STEP_SIZE == EventTableUnlimitColumnRotation::PowTableLookup as usize {
                 ctx.region.assign_fixed(
                     || "pow table lookup",

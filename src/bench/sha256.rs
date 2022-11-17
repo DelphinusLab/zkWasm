@@ -22,17 +22,15 @@ mod tests {
         let mut f = File::open(path).unwrap();
         f.read_to_end(&mut binary).unwrap();
 
-        let compiler = WasmInterpreter::new();
-
         let mut env = HostEnv::new();
         register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
         register_sha256_foreign(&mut env);
         let imports = ImportsBuilder::new().with_resolver("env", &env);
 
-        let compiled_module = compiler
-            .compile(&binary, &imports, &env.function_plugin_lookup)
-            .unwrap();
-        let execution_log = compiler
+        let compiler = WasmInterpreter::new(env.function_plugin_lookup.clone());
+
+        let compiled_module = compiler.compile(&binary, &imports).unwrap();
+        let _ = compiler
             .run(
                 &mut env,
                 &compiled_module,
@@ -42,10 +40,7 @@ mod tests {
             )
             .unwrap();
 
-        let builder = ZkWasmCircuitBuilder {
-            compile_tables: compiled_module.tables,
-            execution_tables: execution_log.tables,
-        };
+        let builder = ZkWasmCircuitBuilder::from_wasm_runtime(&compiler);
 
         builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
     }

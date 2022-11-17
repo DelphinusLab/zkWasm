@@ -21,18 +21,15 @@ mod tests {
 
         let binary = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-        let compiler = WasmInterpreter::new();
+        let compiler = WasmInterpreter::new(HashMap::new());
         let compiled_module = compiler
-            .compile(&binary, &ImportsBuilder::default(), &HashMap::new())
+            .compile(&binary, &ImportsBuilder::default())
             .unwrap();
-        let execution_log = compiler
+        let _ = compiler
             .run(&mut NopExternals, &compiled_module, "test", vec![], vec![])
             .unwrap();
 
-        let builder = ZkWasmCircuitBuilder {
-            compile_tables: compiled_module.tables,
-            execution_tables: execution_log.tables,
-        };
+        let builder = ZkWasmCircuitBuilder::from_wasm_runtime(&compiler);
 
         builder.bench(vec![])
     }

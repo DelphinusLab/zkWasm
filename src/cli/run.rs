@@ -66,15 +66,15 @@ pub fn exec(
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
-    let compiler = WasmInterpreter::new();
+    let compiler = WasmInterpreter::new(env.function_plugin_lookup.clone());
     let compiled_module = compiler
-        .compile(&binary, &imports, &env.function_plugin_lookup)
+        .compile(&binary, &imports)
         .expect("file cannot be complied");
 
-    let f_sig = compiled_module.instance.export_by_name(f_name).unwrap();
+    let f_sig = compiled_module.export_by_name(f_name).unwrap();
     check_sig(&f_sig)?;
 
-    let execution_log = compiler
+    let _ = compiler
         .run(
             &mut env,
             &compiled_module,
@@ -84,14 +84,14 @@ pub fn exec(
         )
         .unwrap();
 
-    let itable_str: Vec<String> = compiled_module
-        .tables
+    let itable_str: Vec<String> = compiler
+        .compile_table()
         .itable
         .iter()
         .map(|x| x.to_string())
         .collect();
-    let imtable_str = compiled_module.tables.imtable.to_string();
-    let etable_jtable_mtable_str = execution_log.tables.to_string();
+    let imtable_str = compiler.compile_table().imtable.to_string();
+    let etable_jtable_mtable_str = compiler.execution_tables().to_string();
 
     let mut i_fd = File::create(output_path.to_string() + "itable").unwrap();
 
@@ -106,10 +106,7 @@ pub fn exec(
         .write_all(etable_jtable_mtable_str.as_bytes())
         .unwrap();
 
-    let builder = ZkWasmCircuitBuilder {
-        compile_tables: compiled_module.tables,
-        execution_tables: execution_log.tables,
-    };
+    let builder = ZkWasmCircuitBuilder::from_wasm_runtime(&compiler);
 
     let (params, vk, proof) =
         builder.bench_with_result(public_inputs.into_iter().map(|v| Fp::from(v)).collect());

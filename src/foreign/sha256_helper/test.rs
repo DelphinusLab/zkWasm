@@ -43,16 +43,16 @@ pub(crate) mod tests {
         let mut f = File::open(path).unwrap();
         f.read_to_end(&mut wasm).unwrap();
 
-        let compiler = WasmInterpreter::new();
         let mut env = HostEnv::new();
         register_sha256_foreign(&mut env);
         register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
 
         let imports = ImportsBuilder::new().with_resolver("env", &env);
-        let compiled_module = compiler
-            .compile(&wasm, &imports, &env.function_plugin_lookup)
-            .unwrap();
-        let execution_log = compiler
+
+        let compiler = WasmInterpreter::new(env.function_plugin_lookup.clone());
+
+        let compiled_module = compiler.compile(&wasm, &imports).unwrap();
+        let _ = compiler
             .run(
                 &mut env,
                 &compiled_module,
@@ -61,9 +61,10 @@ pub(crate) mod tests {
                 private_inputs,
             )
             .unwrap();
+
         run_test_circuit::<Fp>(
-            compiled_module.tables,
-            execution_log.tables,
+            compiler.compile_table(),
+            compiler.execution_tables(),
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap()

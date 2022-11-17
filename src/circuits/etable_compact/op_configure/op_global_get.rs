@@ -1,13 +1,15 @@
 use super::*;
 use crate::{
-    circuits::{mtable_compact::encode::MemoryTableLookupEncode, utils::Context},
+    circuits::{
+        imtable::IMTableEncode, mtable_compact::encode::MemoryTableLookupEncode, utils::Context,
+    },
     constant,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::{encode::opcode::encode_global_get, step::StepInfo};
+use specs::{encode::opcode::encode_global_get, mtable::LocationType, step::StepInfo};
 use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct GlobalGetConfig {
@@ -16,8 +18,10 @@ pub struct GlobalGetConfig {
     idx: CommonRangeCell,
     vtype: CommonRangeCell,
     value: U64Cell,
+    local: BitCell,
     lookup_global_read: MTableLookupCell,
     lookup_stack_write: MTableLookupCell,
+    imtable_lookup: IMTableLookupCell,
 }
 
 pub struct GlobalGetConfigBuilder {}
@@ -32,21 +36,20 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalGetConfigBuilder {
         let moid = common.moid_cell();
         let idx = common.alloc_common_range_value();
 
+        let local = common.alloc_bit_value();
+
         let vtype = common.alloc_common_range_value();
         let value = common.alloc_u64();
 
         let lookup_global_read = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
-        // TODO: constraints
-        // build relation between (origin_moid, origin_idx) and (module, idx) when support import
+        let imtable_lookup = common.alloc_imtable_lookup();
+
         constraint_builder.push(
-            "op_global_get idx constraints",
+            "op_global_get imported",
             Box::new(move |meta| {
-                vec![
-                    origin_moid.expr(meta) - moid.expr(meta),
-                    origin_idx.expr(meta) - idx.expr(meta),
-                ]
+                vec![local.expr(meta) * (origin_moid.expr(meta) - moid.expr(meta))]
             }),
         );
 
@@ -54,10 +57,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalGetConfigBuilder {
             origin_moid,
             origin_idx,
             idx,
+            local,
             vtype,
             value,
             lookup_global_read,
             lookup_stack_write,
+            imtable_lookup,
         })
     }
 }
@@ -87,6 +92,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
                 self.origin_moid.assign(ctx, *origin_module as u16)?;
                 self.vtype.assign(ctx, *vtype as u16)?;
                 self.value.assign(ctx, *value)?;
+                self.local
+                    .assign(ctx, *origin_module == step_info.current.moid)?;
 
                 self.lookup_global_read.assign(
                     ctx,
@@ -110,6 +117,19 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
                         BigUint::from(*value),
                     ),
                 )?;
+
+                if *origin_module != step_info.current.moid {
+                    self.imtable_lookup.assign(
+                        ctx,
+                        &IMTableEncode::encode_for_import(
+                            BigUint::from(LocationType::Global as u64),
+                            BigUint::from(*origin_module),
+                            BigUint::from(*origin_idx),
+                            BigUint::from(step_info.current.moid),
+                            BigUint::from(*idx),
+                        ),
+                    )?;
+                }
 
                 Ok(())
             }
@@ -156,11 +176,37 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
             _ => None,
         }
     }
+
+    fn imtable_lookup(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(
+            (constant_from!(1) - self.local.expr(meta))
+                * IMTableEncode::encode_for_import(
+                    constant_from!(LocationType::Global),
+                    self.origin_moid.expr(meta),
+                    self.origin_idx.expr(meta),
+                    common_config.moid(meta),
+                    self.idx.expr(meta),
+                ),
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test::test_circuit_noexternal;
+    use std::collections::HashMap;
+
+    use halo2_proofs::pairing::bn256::Fr as Fp;
+    use specs::types::Value;
+    use wasmi::ImportsBuilder;
+
+    use crate::{
+        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+        test::{run_test_circuit, test_circuit_noexternal},
+    };
 
     #[test]
     fn test_global_get() {
@@ -176,5 +222,97 @@ mod tests {
                 "#;
 
         test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_global_get_import_env() {
+        let textual_repr = r#"
+          (module
+            (import "env" "global_i32" (global i32))
+
+            (func (export "test")
+              (global.get 0)
+              (drop)
+            )
+          )
+          "#;
+
+        let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+
+        let mut env = HostEnv::new();
+        env.register_global("global_i32", false, Value::I32(33))
+            .unwrap();
+        let imports = ImportsBuilder::new().with_resolver("env", &env);
+
+        let compiler = WasmInterpreter::new(HashMap::default());
+
+        let compiled_module = compiler.compile(&wasm, &imports).unwrap();
+        let _ = compiler
+            .run(&mut env, &compiled_module, "test", vec![], vec![])
+            .unwrap();
+
+        run_test_circuit::<Fp>(
+            compiler.compile_table(),
+            compiler.execution_tables(),
+            vec![],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_global_get_import_other_instance() {
+        let compiler = WasmInterpreter::new(HashMap::default());
+        let mut env = HostEnv::new();
+
+        let instance_export = {
+            let mod_export = r#"
+                (module
+                  (global (export "global-i32") i32 (i32.const 100))
+                )
+              "#;
+
+            let mod_export = wabt::wat2wasm(mod_export).expect("failed to parse wat");
+            let imports = &ImportsBuilder::default();
+            compiler.compile(&mod_export, imports).unwrap()
+        };
+
+        env.register_global_ref(
+            "global-i32",
+            instance_export
+                .export_by_name("global-i32")
+                .unwrap()
+                .as_global()
+                .unwrap()
+                .clone(),
+        )
+        .unwrap();
+
+        let instance_import = {
+            let mod_import = r#"
+              (module
+                (import "env" "global-i32" (global i32))
+
+                (func (export "test") (result i32)
+                  (global.get 0)
+                )
+              )
+            "#;
+
+            let mod_import = wabt::wat2wasm(&mod_import).expect("failed to parse wat");
+            let imports = ImportsBuilder::new().with_resolver("env", &env);
+            compiler.compile(&mod_import, &imports).unwrap()
+        };
+
+        let result = compiler
+            .run(&mut env, &instance_import, "test", vec![], vec![])
+            .unwrap();
+        assert_eq!(result.unwrap(), Value::I32(100));
+
+        run_test_circuit::<Fp>(
+            compiler.compile_table(),
+            compiler.execution_tables(),
+            vec![],
+        )
+        .unwrap()
     }
 }

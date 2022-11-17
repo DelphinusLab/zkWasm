@@ -23,6 +23,7 @@ use crate::{
         },
         ForeignTableConfig,
     },
+    runtime::WasmRuntime,
 };
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::{
@@ -93,6 +94,20 @@ impl<F: FieldExt> TestCircuit<F> {
             _data: PhantomData,
         }
     }
+
+    pub fn from_wasm_runtime(wasm_runtime: &impl WasmRuntime) -> Self {
+        Self::new(
+            wasm_runtime.compile_table(),
+            wasm_runtime.execution_tables(),
+        )
+    }
+
+    // pub fn run_mock_test(&self, public_inputs: Vec<F>) -> Result<(), Error> {
+    //     let prover = MockProver::run(K, self, vec![public_inputs]).unwrap();
+    //     assert_eq!(prover.verify(), Ok(()));
+
+    //     Ok(())
+    // }
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -169,6 +184,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &itable,
             &mtable,
             &jtable,
+            &imtable,
             &foreign_tables,
             &opcode_set,
         );
@@ -270,6 +286,13 @@ pub struct ZkWasmCircuitBuilder {
 const PARAMS: &str = "param.data";
 
 impl ZkWasmCircuitBuilder {
+    pub fn from_wasm_runtime(wasm_runtime: &impl WasmRuntime) -> Self {
+        ZkWasmCircuitBuilder {
+            compile_tables: wasm_runtime.compile_table(),
+            execution_tables: wasm_runtime.execution_tables(),
+        }
+    }
+
     fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
         TestCircuit::new(self.compile_tables.clone(), self.execution_tables.clone())
     }

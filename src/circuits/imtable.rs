@@ -1,32 +1,19 @@
-use super::{config::IMTABLE_COLOMNS, utils::bn_to_field, Encode};
+use super::{config::IMTABLE_COLOMNS, utils::bn_to_field};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{ConstraintSystem, Error, Expression, TableColumn, VirtualCells},
 };
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use num_traits::One;
 use specs::{
-    imtable::{InitMemoryTable, InitMemoryTableEntry},
-    mtable::LocationType,
+    encode::FromBn,
+    imtable::{ImportMemoryEntry, InitMemoryEntry, InitMemoryTable, InitMemoryTableEntry},
 };
-use std::marker::PhantomData;
-
-impl Encode for InitMemoryTableEntry {
-    fn encode(&self) -> BigUint {
-        let mut bn = BigUint::zero();
-        bn += self.ltype as u64;
-        bn <<= 16;
-        bn += if self.is_mutable { 1u64 } else { 0u64 };
-        bn <<= 16;
-        bn += self.mmid;
-        bn <<= 16;
-        bn += self.offset;
-        bn <<= 64;
-        bn += self.value;
-        bn
-    }
-}
+use std::{
+    marker::PhantomData,
+    ops::{Add, Mul},
+};
 
 #[derive(Clone)]
 pub struct InitMemoryTableConfig<F: FieldExt> {
@@ -40,21 +27,6 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
             col,
             _mark: PhantomData,
         }
-    }
-
-    pub fn encode(
-        &self,
-        is_mutable: Expression<F>,
-        ltype: Expression<F>,
-        mmid: Expression<F>,
-        offset: Expression<F>,
-        value: Expression<F>,
-    ) -> Expression<F> {
-        ltype * Expression::Constant(bn_to_field(&(BigUint::one() << 112)))
-            + is_mutable * Expression::Constant(bn_to_field(&(BigUint::one() << 96)))
-            + mmid * Expression::Constant(bn_to_field(&(BigUint::one() << 80)))
-            + offset * Expression::Constant(bn_to_field(&(BigUint::one() << 64)))
-            + value
     }
 
     pub fn configure_in_table(
@@ -89,38 +61,72 @@ impl<F: FieldExt> MInitTableChip<F> {
                     table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
                 }
 
-                let heap_entries = minit.filter(LocationType::Heap);
-                let global_entries = minit.filter(LocationType::Global);
+                let import_entries = minit.filter_import();
+                let heap_entries = minit.filter_memory_init();
+                let mut init_entries = minit.filter_global_init();
 
-                /*
-                 * Since the number of heap entries is always n * PAGE_SIZE / sizeof(u64).
-                 */
-                assert_eq!(heap_entries.len() % IMTABLE_COLOMNS, 0);
+                init_entries.push(heap_entries);
 
-                let mut idx = 0;
+                let mut offset = 1;
 
-                for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
-                    table.assign_cell(
-                        || "minit table",
-                        self.config.col[idx % IMTABLE_COLOMNS],
-                        idx / IMTABLE_COLOMNS + 1,
-                        || Ok(bn_to_field::<F>(&v.encode())),
-                    )?;
+                {
+                    for group in init_entries.iter() {
+                        let mut idx = 0;
 
-                    idx += 1;
+                        for e in group {
+                            table.assign_cell(
+                                || "minit table",
+                                self.config.col[e.offset as usize % IMTABLE_COLOMNS],
+                                offset,
+                                || Ok(bn_to_field::<F>(&e.encode())),
+                            )?;
+
+                            idx += 1;
+
+                            if idx == IMTABLE_COLOMNS {
+                                idx = 0;
+                                offset += 1;
+                            }
+                        }
+
+                        /*
+                         * Fill blank cells in the last row to make halo2 happy.
+                         */
+                        if idx % IMTABLE_COLOMNS != 0 {
+                            for blank_col in idx..IMTABLE_COLOMNS {
+                                table.assign_cell(
+                                    || "minit table",
+                                    self.config.col[blank_col],
+                                    offset,
+                                    || Ok(F::zero()),
+                                )?;
+                            }
+
+                            offset += 1;
+                        }
+                    }
                 }
 
-                /*
-                 * Fill blank cells in the last row to make halo2 happy.
-                 */
-                if idx % IMTABLE_COLOMNS != 0 {
-                    for blank_col in (idx % IMTABLE_COLOMNS)..IMTABLE_COLOMNS {
+                {
+                    // Import table
+                    for e in import_entries.into_iter() {
                         table.assign_cell(
-                            || "minit table",
-                            self.config.col[blank_col],
-                            idx / IMTABLE_COLOMNS + 1,
-                            || Ok(F::zero()),
+                            || "import table",
+                            self.config.col[0],
+                            offset,
+                            || Ok(bn_to_field::<F>(&e.encode())),
                         )?;
+
+                        for i in 1..IMTABLE_COLOMNS {
+                            table.assign_cell(
+                                || "import table",
+                                self.config.col[i],
+                                offset,
+                                || Ok(F::zero()),
+                            )?;
+                        }
+
+                        offset += 1;
                     }
                 }
 
@@ -128,5 +134,76 @@ impl<F: FieldExt> MInitTableChip<F> {
             },
         )?;
         Ok(())
+    }
+}
+
+pub struct IMTableEncode;
+
+impl IMTableEncode {
+    pub fn encode_for_init<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
+        is_mutable: T,
+        ltype: T,
+        mmid: T,
+        offset: T,
+        value: T,
+    ) -> T {
+        T::from_bn(&(BigUint::from(1u64))) * T::from_bn(&(BigUint::one() << 128))
+            + ltype * T::from_bn(&(BigUint::one() << 112))
+            + is_mutable * T::from_bn(&(BigUint::one() << 96))
+            + mmid * T::from_bn(&(BigUint::one() << 80))
+            + offset * T::from_bn(&(BigUint::one() << 64))
+            + value
+    }
+
+    pub(crate) fn encode_for_import<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
+        ltype: T,
+        origin_moid: T,
+        origin_idx: T,
+        moid: T,
+        idx: T,
+    ) -> T {
+        T::from_bn(&(BigUint::from(2u64))) * T::from_bn(&(BigUint::one() << 128))
+            + ltype * T::from_bn(&(BigUint::one() << 112))
+            + origin_moid * T::from_bn(&(BigUint::one() << 96))
+            + origin_idx * T::from_bn(&(BigUint::one() << 80))
+            + moid * T::from_bn(&(BigUint::one() << 64))
+            + idx
+    }
+}
+
+pub trait EncodeImTableEntry {
+    fn encode(&self) -> BigUint;
+}
+
+impl EncodeImTableEntry for ImportMemoryEntry {
+    fn encode(&self) -> BigUint {
+        IMTableEncode::encode_for_import(
+            BigUint::from(self.ltype as u64),
+            BigUint::from(self.origin_moid),
+            BigUint::from(self.origin_idx),
+            BigUint::from(self.moid),
+            BigUint::from(self.idx),
+        )
+    }
+}
+
+impl EncodeImTableEntry for InitMemoryEntry {
+    fn encode(&self) -> BigUint {
+        IMTableEncode::encode_for_init(
+            BigUint::from(self.is_mutable as u64),
+            BigUint::from(self.ltype as u64),
+            BigUint::from(self.mmid),
+            BigUint::from(self.offset),
+            BigUint::from(self.value),
+        )
+    }
+}
+
+impl EncodeImTableEntry for InitMemoryTableEntry {
+    fn encode(&self) -> BigUint {
+        match self {
+            InitMemoryTableEntry::Import(e) => e.encode(),
+            InitMemoryTableEntry::Init(e) => e.encode(),
+        }
     }
 }
