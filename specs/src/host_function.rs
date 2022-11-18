@@ -11,7 +11,8 @@ pub struct Signature {
 #[derive(Debug)]
 pub enum Error {
     DuplicateRegisterFunction,
-    DuplicateRegisterGlobal
+    DuplicateRegisterGlobal,
+    DuplicateRegisterMemory,
 }
 
 #[derive(Debug, Clone)]

@@ -113,7 +113,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 moid: entry.inst.moid,
                 fid: entry.inst.fid,
                 iid: entry.inst.iid,
-                mmid: entry.inst.mmid,
                 sp: entry.sp,
                 last_jump_eid: entry.last_jump_eid,
             });
@@ -124,7 +123,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             moid: 0,
             fid: 0,
             iid: 0,
-            mmid: 0,
             sp: 0,
             last_jump_eid: 0,
         });
@@ -261,13 +259,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 EventTableCommonRangeColumnRotation::IID,
                 "iid",
                 entry.inst.iid as u64
-            );
-
-            assign_advice!(
-                self.state,
-                EventTableCommonRangeColumnRotation::MMID,
-                "mmid",
-                entry.inst.mmid as u64
             );
 
             assign_advice!(

@@ -611,7 +611,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             effective_address,
             value,
             block_value,
-            mmid,
+            origin_mmid,
             ..
         } => {
             let load_address_from_stack = MemoryTableEntry {
@@ -630,7 +630,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let load_value = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                mmid: *mmid,
+                mmid: *origin_mmid as u64,
                 offset: ((*effective_address) / 8) as u64,
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
@@ -662,7 +662,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             raw_address,
             effective_address,
             value,
-            mmid,
+            origin_mmid,
             pre_block_value,
             updated_block_value,
             ..
@@ -698,7 +698,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let load_value = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                mmid: *mmid,
+                mmid: *origin_mmid as u64,
                 offset: ((*effective_address) / 8) as u64,
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
@@ -713,7 +713,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let write_value = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                mmid: *mmid,
+                mmid: *origin_mmid as u64,
                 offset: ((*effective_address) / 8) as u64,
                 ltype: LocationType::Heap,
                 atype: AccessType::Write,

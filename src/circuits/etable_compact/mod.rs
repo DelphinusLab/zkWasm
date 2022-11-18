@@ -96,7 +96,6 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
     MOID,
     FID,
     IID,
-    MMID,
     SP,
     LastJumpEid,
     Max,
@@ -141,7 +140,6 @@ pub struct Status {
     pub moid: u16,
     pub fid: u16,
     pub iid: u16,
-    pub mmid: u16,
     pub sp: u64,
     pub last_jump_eid: u64,
 }
@@ -493,8 +491,6 @@ impl<F: FieldExt> EventTableConfig<F> {
 
             let eid_diff =
                 common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1);
-            // MMID equals to MOID in single module version
-            let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
 
             let mut itable_lookup = common_config.itable_lookup(meta);
             let mut jtable_lookup = common_config.jtable_lookup(meta);
@@ -568,7 +564,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 itable_lookup = itable_lookup
                     - encode_inst_expr(
                         common_config.moid(meta),
-                        common_config.mmid(meta),
+                        //common_config.mmid(meta),
                         common_config.fid(meta),
                         common_config.iid(meta),
                         config.opcode(meta),
@@ -619,7 +615,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                     moid_acc,
                     fid_acc,
                     iid_acc * common_config.next_enable(meta),
-                    mmid_diff,
                     sp_acc * common_config.next_enable(meta),
                     last_jump_eid_acc,
                     itable_lookup,

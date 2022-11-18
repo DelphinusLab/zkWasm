@@ -7,8 +7,8 @@ use specs::{
     types::Value,
 };
 use wasmi::{
-    Error, Externals, FuncInstance, GlobalInstance, GlobalRef, ModuleImportResolver, RuntimeArgs,
-    RuntimeValue, Signature, Trap,
+    Error, Externals, FuncInstance, GlobalInstance, GlobalRef, MemoryRef, ModuleImportResolver,
+    RuntimeArgs, RuntimeValue, Signature, Trap,
 };
 
 struct Function {
@@ -31,6 +31,7 @@ impl_downcast!(ForeignContext);
 pub struct HostEnv {
     functions: HashMap<String, Function>,
     globals: HashMap<String, wasmi::GlobalRef>,
+    memory: HashMap<String, wasmi::MemoryRef>,
     contexts: HashMap<String, Box<dyn ForeignContext>>,
     pub function_plugin_lookup: HashMap<usize, HostFunctionDesc>,
     names: Vec<String>,
@@ -41,6 +42,7 @@ impl HostEnv {
         HostEnv {
             functions: HashMap::default(),
             globals: HashMap::default(),
+            memory: HashMap::default(),
             contexts: HashMap::default(),
             names: vec![],
             function_plugin_lookup: HashMap::default(),
@@ -143,6 +145,20 @@ impl HostEnv {
         Ok(())
     }
 
+    pub fn register_memory_ref(
+        &mut self,
+        field_name: &str,
+        memory_ref: MemoryRef,
+    ) -> Result<(), specs::host_function::Error> {
+        if self.memory.get(field_name).is_some() {
+            return Err(specs::host_function::Error::DuplicateRegisterMemory);
+        }
+
+        self.memory.insert(field_name.to_string(), memory_ref);
+
+        Ok(())
+    }
+
     fn check_signature(&self, index: usize, signature: &Signature) -> bool {
         let sig = self.get_function_by_index(index);
         let signature: specs::host_function::Signature = signature.clone().into();
@@ -185,6 +201,20 @@ impl ModuleImportResolver for HostEnv {
             Some(global_ref) => Ok(global_ref.clone()),
             None => Err(Error::Instantiation(format!(
                 "env module doesn't provide global '{}'",
+                field_name
+            ))),
+        }
+    }
+
+    fn resolve_memory(
+        &self,
+        field_name: &str,
+        _memory_type: &wasmi::MemoryDescriptor,
+    ) -> Result<MemoryRef, Error> {
+        match self.memory.get(field_name) {
+            Some(memory_ref) => Ok(memory_ref.clone()),
+            None => Err(Error::Instantiation(format!(
+                "env module doesn't provide memory '{}'",
                 field_name
             ))),
         }
