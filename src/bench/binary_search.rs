@@ -8,11 +8,8 @@ mod tests {
     fn test_binary_search() {
         let (compile_tables, execution_tables, public_inputs) = build_test();
 
-        let builder = ZkWasmCircuitBuilder {
-            compile_tables,
-            execution_tables,
-        };
+        let builder = ZkWasmCircuitBuilder::new(compile_tables, execution_tables);
 
-        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
+        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect());
     }
 }

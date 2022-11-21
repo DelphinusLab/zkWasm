@@ -1,13 +1,17 @@
 use halo2_proofs::pairing::bn256::Fr as Fp;
-use std::fs;
-use std::io::Write;
-use std::{fmt, fs::File, io::Read, path::PathBuf};
+use std::{
+    fmt,
+    fs::{self, File},
+    io::{Read, Write},
+    path::PathBuf,
+};
 use wasmi::{ExternVal, ImportsBuilder};
 
-use crate::circuits::ZkWasmCircuitBuilder;
-use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
-use crate::runtime::host::HostEnv;
-use crate::runtime::{WasmInterpreter, WasmRuntime};
+use crate::{
+    circuits::ZkWasmCircuitBuilder,
+    foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
+    runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+};
 
 #[derive(Debug, Clone)]
 pub struct ArgumentError;
@@ -108,8 +112,10 @@ pub fn exec(
 
     let builder = ZkWasmCircuitBuilder::from_wasm_runtime(&compiler);
 
-    let (params, vk, proof) =
-        builder.bench_with_result(public_inputs.into_iter().map(|v| Fp::from(v)).collect());
+    let (params, vk, proof) = builder.run(
+        public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
+        false,
+    );
 
     let mut params_fd = File::create(output_path.to_string() + "param.data").unwrap();
     params_fd.write_all(&params).unwrap();

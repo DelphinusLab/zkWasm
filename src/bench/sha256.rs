@@ -42,6 +42,6 @@ mod tests {
 
         let builder = ZkWasmCircuitBuilder::from_wasm_runtime(&compiler);
 
-        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
+        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect());
     }
 }

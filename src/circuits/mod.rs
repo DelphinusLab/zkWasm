@@ -27,7 +27,7 @@ use crate::{
 };
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::{
-    arithmetic::FieldExt,
+    arithmetic::{CurveAffine, FieldExt, MultiMillerLoop},
     circuit::{Layouter, SimpleFloorPlanner},
     pairing::bn256::{Bn256, Fr, G1Affine},
     plonk::{
@@ -35,7 +35,9 @@ use halo2_proofs::{
         Expression, ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
     },
     poly::commitment::{Params, ParamsVerifier},
-    transcript::{Blake2bRead, Blake2bWrite, Challenge255},
+    transcript::{
+        Blake2bRead, Blake2bWrite, Challenge255, EncodedChallenge, TranscriptRead, TranscriptWrite,
+    },
 };
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
@@ -79,7 +81,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     sha256_helper_table: Sha256HelperTableConfig<F>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
     pub compile_tables: CompileTable,
     pub execution_tables: ExecutionTable,
@@ -101,13 +103,6 @@ impl<F: FieldExt> TestCircuit<F> {
             wasm_runtime.execution_tables(),
         )
     }
-
-    // pub fn run_mock_test(&self, public_inputs: Vec<F>) -> Result<(), Error> {
-    //     let prover = MockProver::run(K, self, vec![public_inputs]).unwrap();
-    //     assert_eq!(prover.verify(), Ok(()));
-
-    //     Ok(())
-    // }
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -278,119 +273,106 @@ pub(self) trait Lookup<F: FieldExt> {
     }
 }
 
-pub struct ZkWasmCircuitBuilder {
-    pub compile_tables: CompileTable,
-    pub execution_tables: ExecutionTable,
+pub struct ZkWasmCircuitBuilder<C: CurveAffine, E: MultiMillerLoop> {
+    circuit: TestCircuit<C::ScalarExt>,
+    _mark_c: PhantomData<C>,
+    _mark_e: PhantomData<E>,
 }
 
 const PARAMS: &str = "param.data";
 
-impl ZkWasmCircuitBuilder {
-    pub fn from_wasm_runtime(wasm_runtime: &impl WasmRuntime) -> Self {
-        ZkWasmCircuitBuilder {
-            compile_tables: wasm_runtime.compile_table(),
-            execution_tables: wasm_runtime.execution_tables(),
+impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
+    ZkWasmCircuitBuilder<C, E>
+{
+    pub fn new(
+        compile_tables: CompileTable,
+        execution_tables: ExecutionTable,
+    ) -> ZkWasmCircuitBuilder<C, E> {
+        ZkWasmCircuitBuilder::<C, E> {
+            circuit: TestCircuit::new(compile_tables, execution_tables),
+            _mark_c: PhantomData,
+            _mark_e: PhantomData,
         }
     }
 
-    fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-        TestCircuit::new(self.compile_tables.clone(), self.execution_tables.clone())
+    pub fn from_wasm_runtime(wasm_runtime: &impl WasmRuntime) -> ZkWasmCircuitBuilder<C, E> {
+        ZkWasmCircuitBuilder::<C, E>::new(
+            wasm_runtime.compile_table(),
+            wasm_runtime.execution_tables(),
+        )
     }
 
-    fn prepare_param(&self) -> Params<G1Affine> {
+    fn prepare_param(&self, cache: bool) -> Params<C> {
         let path = PathBuf::from(PARAMS);
 
-        if path.exists() {
+        if cache && path.exists() {
             let mut fd = File::open(path.as_path()).unwrap();
             let mut buf = vec![];
 
             fd.read_to_end(&mut buf).unwrap();
-            Params::<G1Affine>::read(Cursor::new(buf)).unwrap()
+            Params::<C>::read(Cursor::new(buf)).unwrap()
         } else {
             // Initialize the polynomial commitment parameters
             let timer = start_timer!(|| format!("build params with K = {}", K));
-            let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+            let params: Params<C> = Params::<C>::unsafe_setup::<E>(K);
             end_timer!(timer);
 
-            let mut fd = File::create(path.as_path()).unwrap();
-            params.write(&mut fd).unwrap();
+            if cache {
+                let mut fd = File::create(path.as_path()).unwrap();
+                params.write(&mut fd).unwrap();
+            }
 
             params
         }
     }
 
-    fn create_params(&self) -> Params<G1Affine> {
-        // Initialize the polynomial commitment parameters
-        let timer = start_timer!(|| format!("build params with K = {}", K));
-        let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
-        end_timer!(timer);
-
-        params
-    }
-
-    fn prepare_vk(
-        &self,
-        circuit: &TestCircuit<Fr>,
-        params: &Params<G1Affine>,
-    ) -> VerifyingKey<G1Affine> {
+    fn prepare_vk(&self, params: &Params<C>) -> VerifyingKey<C> {
         let timer = start_timer!(|| "build vk");
-        let vk = keygen_vk(params, circuit).expect("keygen_vk should not fail");
+        let vk = keygen_vk(params, &self.circuit).expect("keygen_vk should not fail");
         end_timer!(timer);
 
         vk
     }
 
-    fn prepare_pk(
-        &self,
-        circuit: &TestCircuit<Fr>,
-        params: &Params<G1Affine>,
-        vk: VerifyingKey<G1Affine>,
-    ) -> ProvingKey<G1Affine> {
+    fn prepare_pk(&self, params: &Params<C>, vk: VerifyingKey<C>) -> ProvingKey<C> {
         let timer = start_timer!(|| "build pk");
-        let pk = keygen_pk(&params, vk, circuit).expect("keygen_pk should not fail");
+        let pk = keygen_pk(&params, vk, &self.circuit).expect("keygen_pk should not fail");
         end_timer!(timer);
         pk
     }
 
-    fn create_proof(
+    fn create_proof<Encode: EncodedChallenge<C>, T: TranscriptWrite<C, Encode>>(
         &self,
-        circuits: &[TestCircuit<Fr>],
-        params: &Params<G1Affine>,
-        pk: &ProvingKey<G1Affine>,
-        public_inputs: &Vec<Fr>,
-    ) -> Vec<u8> {
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-
+        params: &Params<C>,
+        pk: &ProvingKey<C>,
+        public_inputs: &Vec<C::ScalarExt>,
+        transcript: &mut T,
+    ) {
         let timer = start_timer!(|| "create proof");
         create_proof(
             params,
             pk,
-            circuits,
+            &vec![self.circuit.clone()],
             &[&[public_inputs]],
             OsRng,
-            &mut transcript,
+            transcript,
         )
         .expect("proof generation should not fail");
         end_timer!(timer);
-
-        let proof = transcript.finalize();
-
-        proof
     }
 
-    fn verify_check(
+    fn verify_check<Encode: EncodedChallenge<C>, T: TranscriptRead<C, Encode>>(
         &self,
-        vk: &VerifyingKey<G1Affine>,
-        params: &Params<G1Affine>,
-        proof: &Vec<u8>,
-        public_inputs: &Vec<Fr>,
+        vk: &VerifyingKey<C>,
+        params: &Params<C>,
+        public_inputs: &Vec<C::ScalarExt>,
+        transcript: &mut T,
     ) {
         let public_inputs_size = public_inputs.len();
 
-        let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
+        let params_verifier: ParamsVerifier<E> = params.verifier(public_inputs_size).unwrap();
 
         let strategy = SingleVerifier::new(&params_verifier);
-        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
 
         let timer = start_timer!(|| "verify proof");
         verify_proof(
@@ -398,40 +380,39 @@ impl ZkWasmCircuitBuilder {
             vk,
             strategy,
             &[&[public_inputs]],
-            &mut transcript,
+            transcript,
         )
         .unwrap();
         end_timer!(timer);
     }
+}
 
-    pub fn bench(&self, public_inputs: Vec<Fr>) {
-        let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
-
-        let params = self.prepare_param();
-
-        let vk = self.prepare_vk(&circuit, &params);
-        let pk = self.prepare_pk(&circuit, &params, vk);
-
-        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
-
-        self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
-    }
-
-    pub fn bench_with_result(&self, public_inputs: Vec<Fr>) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
-        let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
-
+impl ZkWasmCircuitBuilder<G1Affine, Bn256> {
+    pub fn run(&self, public_inputs: Vec<Fr>, cache_params: bool) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let mut params_buffer: Vec<u8> = vec![];
-        let params = self.create_params();
+        let params = self.prepare_param(cache_params);
         params.write::<Vec<u8>>(params_buffer.borrow_mut()).unwrap();
-        let vk = self.prepare_vk(&circuit, &params);
+        let vk = self.prepare_vk(&params);
 
         let mut vk_buffer: Vec<u8> = vec![];
         vk.write::<Vec<u8>>(vk_buffer.borrow_mut()).unwrap();
-        let pk = self.prepare_pk(&circuit, &params, vk);
+        let pk = self.prepare_pk(&params, vk);
 
-        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
-        self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
+        let proof = {
+            let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+            self.create_proof(&params, &pk, &public_inputs, &mut transcript);
+            transcript.finalize()
+        };
+
+        {
+            let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+            self.verify_check(pk.get_vk(), &params, &public_inputs, &mut transcript);
+        }
 
         (params_buffer, vk_buffer, proof)
+    }
+
+    pub fn bench(&self, public_inputs: Vec<Fr>) {
+        let _ = self.run(public_inputs, true);
     }
 }
