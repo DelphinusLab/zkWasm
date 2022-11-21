@@ -8,7 +8,7 @@ use specs::{
     types::{CompileError, ExecutionError, Value},
     CompileTable, ExecutionTable,
 };
-use wasmi::{Externals, ImportResolver, ModuleInstance};
+use wasmi::{Externals, ImportResolver, ImportsBuilder, ModuleInstance};
 
 use super::{memory_event_of_step, WasmRuntime};
 
@@ -194,4 +194,8 @@ impl WasmRuntime for WasmiRuntime {
             jtable,
         }
     }
+}
+
+pub fn create_imports_builder<'a>() -> ImportsBuilder<'a> {
+    ImportsBuilder::default()
 }

@@ -274,7 +274,7 @@ pub(self) trait Lookup<F: FieldExt> {
 }
 
 pub struct ZkWasmCircuitBuilder<C: CurveAffine, E: MultiMillerLoop> {
-    circuit: TestCircuit<C::ScalarExt>,
+    pub circuit: TestCircuit<C::ScalarExt>,
     _mark_c: PhantomData<C>,
     _mark_e: PhantomData<E>,
 }
@@ -302,7 +302,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
         )
     }
 
-    fn prepare_param(&self, cache: bool) -> Params<C> {
+    pub fn prepare_param(&self, cache: bool) -> Params<C> {
         let path = PathBuf::from(PARAMS);
 
         if cache && path.exists() {
@@ -326,7 +326,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
         }
     }
 
-    fn prepare_vk(&self, params: &Params<C>) -> VerifyingKey<C> {
+    pub fn prepare_vk(&self, params: &Params<C>) -> VerifyingKey<C> {
         let timer = start_timer!(|| "build vk");
         let vk = keygen_vk(params, &self.circuit).expect("keygen_vk should not fail");
         end_timer!(timer);
@@ -334,14 +334,14 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
         vk
     }
 
-    fn prepare_pk(&self, params: &Params<C>, vk: VerifyingKey<C>) -> ProvingKey<C> {
+    pub fn prepare_pk(&self, params: &Params<C>, vk: VerifyingKey<C>) -> ProvingKey<C> {
         let timer = start_timer!(|| "build pk");
         let pk = keygen_pk(&params, vk, &self.circuit).expect("keygen_pk should not fail");
         end_timer!(timer);
         pk
     }
 
-    fn create_proof<Encode: EncodedChallenge<C>, T: TranscriptWrite<C, Encode>>(
+    pub fn create_proof<Encode: EncodedChallenge<C>, T: TranscriptWrite<C, Encode>>(
         &self,
         params: &Params<C>,
         pk: &ProvingKey<C>,
@@ -361,7 +361,7 @@ impl<C: CurveAffine, E: MultiMillerLoop<G1Affine = C, Scalar = C::ScalarExt>>
         end_timer!(timer);
     }
 
-    fn verify_check<Encode: EncodedChallenge<C>, T: TranscriptRead<C, Encode>>(
+    pub fn verify_check<Encode: EncodedChallenge<C>, T: TranscriptRead<C, Encode>>(
         &self,
         vk: &VerifyingKey<C>,
         params: &Params<C>,
