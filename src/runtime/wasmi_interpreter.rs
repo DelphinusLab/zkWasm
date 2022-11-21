@@ -129,3 +129,5 @@ impl WasmRuntime for WasmiRuntime {
         })
     }
 }
+
+pub type ImportsBuilder<'a> = wasmi::ImportsBuilder<'a>;
