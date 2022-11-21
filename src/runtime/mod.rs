@@ -12,7 +12,7 @@ use wasmi::{Externals, ImportResolver};
 
 use self::wasmi_interpreter::WasmiRuntime;
 
-pub(crate) mod host;
+pub mod host;
 pub mod wasmi_interpreter;
 
 pub struct CompileOutcome<M, I, T> {
