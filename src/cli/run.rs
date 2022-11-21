@@ -34,7 +34,38 @@ fn check_sig(f_sig: &ExternVal) -> Result<(), ArgumentError> {
 fn parse_args(values: Vec<&str>) -> Vec<u64> {
     values
         .into_iter()
-        .map(|v| v.parse::<u64>().unwrap())
+        .map(|v| {
+            let [v, t] = v.split(":").collect::<Vec<&str>>()[..] else { todo!() };
+            match t {
+                "i64" => {
+                    if v.starts_with("0x") {
+                        vec![u64::from_str_radix(String::from(v).trim_start_matches("0x"), 16).unwrap()]
+                    } else {
+                        vec![v.parse::<u64>().unwrap()]
+                    }
+                },
+                "bytes" => {
+                    if !v.starts_with("0x") {
+                        panic!("bytes input need start with 0x");
+                    }
+                    let bytes = hex::decode(String::from(v).trim_start_matches("0x")).unwrap();
+                    bytes.into_iter().map(|x| {u64::from(x)}).collect::<Vec<u64>>()
+                },
+                "bytes-packed" => {
+                    if !v.starts_with("0x") {
+                        panic!("bytes input need start with 0x");
+                    }
+                    let bytes = hex::decode(String::from(v).trim_start_matches("0x")).unwrap();
+                    let bytes = bytes.chunks(8);
+                    bytes.into_iter().map(|x| {u64::from_le_bytes(x.try_into().unwrap())}).collect::<Vec<u64>>()
+                },
+
+                _ => {
+                    panic!("Unsupported input data type: {}", t)
+                }
+            }
+        })
+        .flatten()
         .collect()
 }
 
@@ -46,7 +77,6 @@ pub fn exec(
     output_path: &str,
 ) -> Result<(), ArgumentError> {
     let mut binary = vec![];
-
     let path = PathBuf::from(file_path);
 
     println!(
@@ -57,7 +87,10 @@ pub fn exec(
     let mut f = File::open(path).unwrap();
     f.read_to_end(&mut binary).unwrap();
 
-    fs::create_dir(PathBuf::from(output_path)).unwrap();
+    let mut output_dir = std::env::current_dir().unwrap();
+    output_dir.push(output_path);
+
+    fs::create_dir(output_dir.clone()).unwrap();
 
     let public_inputs = parse_args(public_args);
     let private_inputs = parse_args(private_args);
@@ -93,18 +126,17 @@ pub fn exec(
     let imtable_str = compiled_module.tables.imtable.to_string();
     let etable_jtable_mtable_str = execution_log.tables.to_string();
 
-    let mut i_fd = File::create(output_path.to_string() + "itable").unwrap();
+    let serialize = |output_dir: &PathBuf, fname: &str, data:&[u8]| {
+        let mut fd = File::create(output_dir.clone().to_str().unwrap().to_string() + fname).unwrap();
+        fd.write_all(data).unwrap();
+    };
+
+    let mut i_fd = File::create(output_dir.clone().to_str().unwrap().to_string() + "/itable").unwrap();
 
     for data in &itable_str {
         i_fd.write_all(data.as_bytes()).unwrap();
     }
 
-    let mut im_fd = File::create(output_path.to_string() + "imtable").unwrap();
-    im_fd.write_all(imtable_str.as_bytes()).unwrap();
-    let mut ejm_fd = File::create(output_path.to_string() + "etable_jtable_mtable").unwrap();
-    ejm_fd
-        .write_all(etable_jtable_mtable_str.as_bytes())
-        .unwrap();
 
     let builder = ZkWasmCircuitBuilder {
         compile_tables: compiled_module.tables,
@@ -114,12 +146,11 @@ pub fn exec(
     let (params, vk, proof) =
         builder.bench_with_result(public_inputs.into_iter().map(|v| Fp::from(v)).collect());
 
-    let mut params_fd = File::create(output_path.to_string() + "param.data").unwrap();
-    params_fd.write_all(&params).unwrap();
-    let mut vk_fd = File::create(output_path.to_string() + "vk.data").unwrap();
-    vk_fd.write_all(&vk).unwrap();
-    let mut proof_fd = File::create(output_path.to_string() + "proof.data").unwrap();
-    proof_fd.write_all(&proof).unwrap();
+    serialize(&output_dir, "/imtable", imtable_str.as_bytes());
+    serialize(&output_dir, "/ejmtable", etable_jtable_mtable_str.as_bytes());
+    serialize(&output_dir, "/param.data", &params);
+    serialize(&output_dir, "/vk.data", &vk);
+    serialize(&output_dir, "/proof.data", &proof);
 
     Ok(())
 }

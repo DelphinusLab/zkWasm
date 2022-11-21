@@ -26,6 +26,7 @@ strum_macros = "0.24.1"
 wast = "47.0.0"
 clap = { version = "3.2.22", features = ["derive","cargo"] }
 hex = "0.4.3"
+uuid = { version = "1.2.2", features = ["serde", "v4"] }
 
 [features]
 default = []

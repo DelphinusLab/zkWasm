@@ -1,5 +1,5 @@
 use clap::{value_parser, App, AppSettings, Arg, SubCommand};
-
+use uuid::Uuid;
 use delphinus_zkwasm::cli::run;
 
 /// Simple program to greet a person
@@ -47,7 +47,7 @@ fn main() {
         .short('o')
         .long("output")
         .value_name("OUTPUTPATH")
-        .help("Path of the output files default: './output/'")
+        .help("Path of the output files default: './output_uuid_xxxx/'")
         .required(false)
         .takes_value(true)
         .value_parser(value_parser!(std::string::String));
@@ -78,13 +78,16 @@ fn main() {
                 Some(x) => x.collect(),
                 None => vec![],
             };
-            let output_path: &str = m.value_of("output_path").unwrap_or("./output/");
+            let output_path : String = match m.value_of("output_path") {
+                Some (v) => v.to_string(),
+                None => format!("output_{}", Uuid::new_v4())
+            };
             run::exec(
                 wasm_file,
                 fn_name,
                 public_inputs,
                 private_inputs,
-                output_path,
+                &output_path[..],
             )
             .unwrap();
         }
