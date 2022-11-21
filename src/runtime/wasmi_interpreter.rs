@@ -8,7 +8,7 @@ use specs::{
     types::{CompileError, ExecutionError},
     CompileTable, ExecutionTable,
 };
-use wasmi::{Externals, ImportResolver, ModuleInstance};
+use wasmi::{Externals, ImportResolver, ImportsBuilder, ModuleInstance};
 
 use crate::runtime::{memory_event_of_step, ExecutionOutcome};
 
@@ -130,4 +130,6 @@ impl WasmRuntime for WasmiRuntime {
     }
 }
 
-pub type ImportsBuilder<'a> = wasmi::ImportsBuilder<'a>;
+pub fn create_imports_builder<'a>() -> ImportsBuilder<'a> {
+    ImportsBuilder::default()
+}
