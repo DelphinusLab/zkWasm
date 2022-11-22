@@ -414,7 +414,6 @@ impl Into<OpcodeClassPlain> for Opcode {
 #[derive(Clone, Debug, Serialize)]
 pub struct InstructionTableEntry {
     pub moid: u16,
-    pub mmid: u16,
     pub fid: u16,
     pub iid: u16,
     pub opcode: Opcode,

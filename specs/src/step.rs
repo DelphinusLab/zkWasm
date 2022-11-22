@@ -91,6 +91,7 @@ pub enum StepInfo {
     },
 
     Load {
+        origin_mmid: u16,
         vtype: VarType,
         load_size: MemoryReadSize,
         offset: u32,
@@ -98,7 +99,6 @@ pub enum StepInfo {
         effective_address: u32,
         value: u64,
         block_value: u64,
-        mmid: u64,
     },
     Store {
         vtype: VarType,
@@ -109,7 +109,7 @@ pub enum StepInfo {
         pre_block_value: u64,
         updated_block_value: u64,
         value: u64,
-        mmid: u64,
+        origin_mmid: u16,
     },
 
     I32Const {

@@ -141,22 +141,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         )
     }
 
-    pub fn mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.state,
-            EventTableCommonRangeColumnRotation::MMID as i32
-        )
-    }
-
-    pub fn next_mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.state,
-            EventTableCommonRangeColumnRotation::MMID as i32 + ETABLE_STEP_SIZE as i32
-        )
-    }
-
     pub fn sp(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,
@@ -210,6 +194,14 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             meta,
             self.aux,
             EventTableUnlimitColumnRotation::MTableLookupStart as i32 + i
+        )
+    }
+
+    pub fn imtable_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.aux,
+            EventTableUnlimitColumnRotation::IMTableLookup as i32
         )
     }
 }

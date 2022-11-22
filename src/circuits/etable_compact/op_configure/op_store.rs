@@ -1,6 +1,7 @@
 use super::*;
 use crate::{
     circuits::{
+        imtable::IMTableEncode,
         mtable_compact::encode::MemoryTableLookupEncode,
         rtable::{bits_of_offset_len, offset_len_bits_encode_expr, pow_table_encode},
         utils::{bn_to_field, Context},
@@ -15,10 +16,16 @@ use halo2_proofs::{
 use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
+    mtable::LocationType,
 };
 use specs::{mtable::VarType, step::StepInfo};
 
 pub struct StoreConfig {
+    origin_mmid: CommonRangeCell,
+    current_moid: UnlimitedCell,
+    local: BitCell,
+    import_lookup: IMTableLookupCell,
+
     opcode_store_offset: CommonRangeCell,
 
     store_start_block_index: CommonRangeCell,
@@ -64,6 +71,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         common: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
+        let origin_mmid = common.alloc_common_range_value();
+        let current_moid = common.moid_cell();
+        let local = common.alloc_bit_value();
+        let import_lookup = common.alloc_imtable_lookup();
+
         let opcode_store_offset = common.alloc_common_range_value();
 
         let store_start_block_index = common.alloc_common_range_value();
@@ -100,6 +112,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
 
         let lookup_offset_len_bits = common.alloc_offset_len_bits_table_lookup();
         let lookup_pow = common.alloc_pow_table_lookup();
+
+        constraint_builder.push(
+            "op_load local",
+            Box::new(move |meta| {
+                vec![local.expr(meta) * (origin_mmid.expr(meta) - current_moid.expr(meta))]
+            }),
+        );
 
         constraint_builder.push(
             "op_store start end offset range",
@@ -274,6 +293,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         );
 
         Box::new(StoreConfig {
+            origin_mmid,
+            current_moid,
+            local,
+            import_lookup,
             opcode_store_offset,
             store_start_block_index,
             store_start_block_inner_offset,
@@ -338,8 +361,24 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 pre_block_value,
                 updated_block_value,
                 value,
-                mmid,
+                origin_mmid,
             } => {
+                self.origin_mmid.assign(ctx, origin_mmid)?;
+                self.local
+                    .assign(ctx, origin_mmid == step_info.current.moid)?;
+                if origin_mmid != step_info.current.moid {
+                    self.import_lookup.assign(
+                        ctx,
+                        &IMTableEncode::encode_for_import(
+                            BigUint::from(LocationType::Heap as u64),
+                            BigUint::from(origin_mmid),
+                            BigUint::from(0u64), // Currently Wasm only supports one memory instance per module.
+                            BigUint::from(step_info.current.moid),
+                            BigUint::from(0u64),
+                        ),
+                    )?;
+                }
+
                 self.opcode_store_offset
                     .assign(ctx, offset.try_into().unwrap())?;
 
@@ -419,7 +458,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                     &MemoryTableLookupEncode::encode_memory_load(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(3 as u64),
-                        BigUint::from(mmid),
+                        BigUint::from(origin_mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
                         BigUint::from(pre_block_value),
@@ -431,7 +470,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                     &MemoryTableLookupEncode::encode_memory_store(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(4 as u64),
-                        BigUint::from(mmid),
+                        BigUint::from(origin_mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
                         BigUint::from(updated_block_value),
@@ -488,6 +527,23 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
         }
     }
 
+    fn imtable_lookup(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(
+            (constant_from!(1) - self.local.expr(meta))
+                * IMTableEncode::encode_for_import(
+                    constant_from!(LocationType::Heap as u64),
+                    self.origin_mmid.expr(meta),
+                    constant_from!(0),
+                    self.current_moid.expr(meta),
+                    constant_from!(0),
+                ),
+        )
+    }
+
     fn mtable_lookup(
         &self,
         meta: &mut VirtualCells<'_, F>,
@@ -515,7 +571,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
             MLookupItem::Third => Some(MemoryTableLookupEncode::encode_memory_load(
                 common_config.eid(meta),
                 constant_from!(3),
-                common_config.mmid(meta),
+                self.origin_mmid.expr(meta),
                 self.store_start_block_index.expr(meta),
                 constant_from!(VarType::I64),
                 self.load_value1.expr(meta),
@@ -524,7 +580,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 MemoryTableLookupEncode::encode_memory_load(
                     common_config.eid(meta),
                     constant_from!(4),
-                    common_config.mmid(meta),
+                    self.origin_mmid.expr(meta),
                     self.store_end_block_index.expr(meta),
                     constant_from!(VarType::I64),
                     self.load_value2.expr(meta),
@@ -533,7 +589,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
             MLookupItem::Fifth => Some(MemoryTableLookupEncode::encode_memory_store(
                 common_config.eid(meta),
                 constant_from!(4) + cross_block,
-                common_config.mmid(meta),
+                self.origin_mmid.expr(meta),
                 self.store_start_block_index.expr(meta),
                 constant_from!(VarType::I64),
                 self.store_value1.expr(meta),
@@ -542,7 +598,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 MemoryTableLookupEncode::encode_memory_store(
                     common_config.eid(meta),
                     constant_from!(6),
-                    common_config.mmid(meta),
+                    self.origin_mmid.expr(meta),
                     self.store_end_block_index.expr(meta),
                     constant_from!(VarType::I64),
                     self.store_value2.expr(meta),
@@ -554,7 +610,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::test_circuit_noexternal;
+    use std::collections::HashMap;
+
+    use halo2_proofs::pairing::bn256::Fr as Fp;
+    use wasmi::ImportsBuilder;
+
+    use crate::{
+        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+        test::{run_test_circuit, test_circuit_noexternal},
+    };
 
     #[test]
     fn test_store_32() {
@@ -626,5 +690,63 @@ mod tests {
                 "#;
 
         test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_store_import_other_instance() {
+        let compiler = WasmInterpreter::new(HashMap::default());
+        let mut env = HostEnv::new();
+
+        let instance_export = {
+            let mod_export = r#"
+                (module
+                  (memory (export "mem") 1 1)
+                )
+              "#;
+
+            let mod_export = wabt::wat2wasm(mod_export).expect("failed to parse wat");
+            let imports = &ImportsBuilder::default();
+            compiler.compile(&mod_export, imports).unwrap()
+        };
+
+        env.register_memory_ref(
+            "mem",
+            instance_export
+                .export_by_name("mem")
+                .unwrap()
+                .as_memory()
+                .unwrap()
+                .clone(),
+        )
+        .unwrap();
+
+        let instance_import = {
+            let mod_import = r#"
+              (module
+                (import "env" "mem" (memory 1))
+
+                (func (export "test")
+                  (i32.const 1)
+                  (i32.const 0)
+                  (i32.store offset=0)
+                )
+              )
+            "#;
+
+            let mod_import = wabt::wat2wasm(&mod_import).expect("failed to parse wat");
+            let imports = ImportsBuilder::new().with_resolver("env", &env);
+            compiler.compile(&mod_import, &imports).unwrap()
+        };
+
+        let _ = compiler
+            .run(&mut env, &instance_import, "test", vec![], vec![])
+            .unwrap();
+
+        run_test_circuit::<Fp>(
+            compiler.compile_table(),
+            compiler.execution_tables(),
+            vec![],
+        )
+        .unwrap()
     }
 }

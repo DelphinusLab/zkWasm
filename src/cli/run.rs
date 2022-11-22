@@ -1,13 +1,17 @@
 use halo2_proofs::pairing::bn256::Fr as Fp;
-use std::fs;
-use std::io::Write;
-use std::{fmt, fs::File, io::Read, path::PathBuf};
+use std::{
+    fmt,
+    fs::{self, File},
+    io::{Read, Write},
+    path::PathBuf,
+};
 use wasmi::{ExternVal, ImportsBuilder};
 
-use crate::circuits::ZkWasmCircuitBuilder;
-use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
-use crate::runtime::host::HostEnv;
-use crate::runtime::{WasmInterpreter, WasmRuntime};
+use crate::{
+    circuits::ZkWasmCircuitBuilder,
+    foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
+    runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+};
 
 #[derive(Debug, Clone)]
 pub struct ArgumentError;
@@ -99,15 +103,15 @@ pub fn exec(
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
-    let compiler = WasmInterpreter::new();
+    let compiler = WasmInterpreter::new(env.function_plugin_lookup.clone());
     let compiled_module = compiler
-        .compile(&binary, &imports, &env.function_plugin_lookup)
+        .compile(&binary, &imports)
         .expect("file cannot be complied");
 
-    let f_sig = compiled_module.instance.export_by_name(f_name).unwrap();
+    let f_sig = compiled_module.export_by_name(f_name).unwrap();
     check_sig(&f_sig)?;
 
-    let execution_log = compiler
+    let _ = compiler
         .run(
             &mut env,
             &compiled_module,
@@ -117,14 +121,14 @@ pub fn exec(
         )
         .unwrap();
 
-    let itable_str: Vec<String> = compiled_module
-        .tables
+    let itable_str: Vec<String> = compiler
+        .compile_table()
         .itable
         .iter()
         .map(|x| x.to_string())
         .collect();
-    let imtable_str = compiled_module.tables.imtable.to_string();
-    let etable_jtable_mtable_str = execution_log.tables.to_string();
+    let imtable_str = compiler.compile_table().imtable.to_string();
+    let etable_jtable_mtable_str = compiler.execution_tables().to_string();
 
     let serialize = |output_dir: &PathBuf, fname: &str, data:&[u8]| {
         let mut fd = File::create(output_dir.clone().to_str().unwrap().to_string() + fname).unwrap();
@@ -138,13 +142,12 @@ pub fn exec(
     }
 
 
-    let builder = ZkWasmCircuitBuilder {
-        compile_tables: compiled_module.tables,
-        execution_tables: execution_log.tables,
-    };
+    let builder = ZkWasmCircuitBuilder::from_wasm_runtime(&compiler);
 
-    let (params, vk, proof) =
-        builder.bench_with_result(public_inputs.into_iter().map(|v| Fp::from(v)).collect());
+    let (params, vk, proof) = builder.run(
+        public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
+        false,
+    );
 
     serialize(&output_dir, "/imtable", imtable_str.as_bytes());
     serialize(&output_dir, "/ejmtable", etable_jtable_mtable_str.as_bytes());

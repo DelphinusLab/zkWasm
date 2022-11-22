@@ -2,10 +2,13 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use std::{borrow::BorrowMut, collections::HashMap};
 
-use specs::host_function::{HostFunctionDesc, HostPlugin};
+use specs::{
+    host_function::{HostFunctionDesc, HostPlugin},
+    types::Value,
+};
 use wasmi::{
-    Error, Externals, FuncInstance, ModuleImportResolver, RuntimeArgs, RuntimeValue, Signature,
-    Trap,
+    Error, Externals, FuncInstance, GlobalInstance, GlobalRef, MemoryRef, ModuleImportResolver,
+    RuntimeArgs, RuntimeValue, Signature, Trap,
 };
 
 struct Function {
@@ -27,6 +30,8 @@ impl_downcast!(ForeignContext);
 
 pub struct HostEnv {
     functions: HashMap<String, Function>,
+    globals: HashMap<String, wasmi::GlobalRef>,
+    memory: HashMap<String, wasmi::MemoryRef>,
     contexts: HashMap<String, Box<dyn ForeignContext>>,
     pub function_plugin_lookup: HashMap<usize, HostFunctionDesc>,
     names: Vec<String>,
@@ -36,6 +41,8 @@ impl HostEnv {
     pub fn new() -> HostEnv {
         HostEnv {
             functions: HashMap::default(),
+            globals: HashMap::default(),
+            memory: HashMap::default(),
             contexts: HashMap::default(),
             names: vec![],
             function_plugin_lookup: HashMap::default(),
@@ -76,7 +83,7 @@ impl HostEnv {
         plugin: HostPlugin,
     ) -> Result<usize, specs::host_function::Error> {
         if self.functions.get(name).is_some() {
-            return Err(specs::host_function::Error::DuplicateRegister);
+            return Err(specs::host_function::Error::DuplicateRegisterFunction);
         }
 
         let index = self.names.len();
@@ -100,6 +107,56 @@ impl HostEnv {
         );
 
         Ok(index)
+    }
+
+    pub fn register_global(
+        &mut self,
+        field_name: &str,
+        mutable: bool,
+        val: Value,
+    ) -> Result<(), specs::host_function::Error> {
+        if self.globals.get(field_name).is_some() {
+            return Err(specs::host_function::Error::DuplicateRegisterGlobal);
+        }
+
+        let runtime_value = match val {
+            Value::I32(v) => RuntimeValue::I32(v),
+            Value::I64(v) => RuntimeValue::I64(v),
+        };
+        self.globals.insert(
+            field_name.to_string(),
+            GlobalInstance::alloc(runtime_value, mutable),
+        );
+
+        Ok(())
+    }
+
+    pub fn register_global_ref(
+        &mut self,
+        field_name: &str,
+        global_ref: GlobalRef,
+    ) -> Result<(), specs::host_function::Error> {
+        if self.globals.get(field_name).is_some() {
+            return Err(specs::host_function::Error::DuplicateRegisterGlobal);
+        }
+
+        self.globals.insert(field_name.to_string(), global_ref);
+
+        Ok(())
+    }
+
+    pub fn register_memory_ref(
+        &mut self,
+        field_name: &str,
+        memory_ref: MemoryRef,
+    ) -> Result<(), specs::host_function::Error> {
+        if self.memory.get(field_name).is_some() {
+            return Err(specs::host_function::Error::DuplicateRegisterMemory);
+        }
+
+        self.memory.insert(field_name.to_string(), memory_ref);
+
+        Ok(())
     }
 
     fn check_signature(&self, index: usize, signature: &Signature) -> bool {
@@ -133,6 +190,34 @@ impl ModuleImportResolver for HostEnv {
         }
 
         Ok(FuncInstance::alloc_host(signature.clone(), index))
+    }
+
+    fn resolve_global(
+        &self,
+        field_name: &str,
+        _global_type: &wasmi::GlobalDescriptor,
+    ) -> Result<wasmi::GlobalRef, Error> {
+        match self.globals.get(field_name) {
+            Some(global_ref) => Ok(global_ref.clone()),
+            None => Err(Error::Instantiation(format!(
+                "env module doesn't provide global '{}'",
+                field_name
+            ))),
+        }
+    }
+
+    fn resolve_memory(
+        &self,
+        field_name: &str,
+        _memory_type: &wasmi::MemoryDescriptor,
+    ) -> Result<MemoryRef, Error> {
+        match self.memory.get(field_name) {
+            Some(memory_ref) => Ok(memory_ref.clone()),
+            None => Err(Error::Instantiation(format!(
+                "env module doesn't provide memory '{}'",
+                field_name
+            ))),
+        }
     }
 }
 

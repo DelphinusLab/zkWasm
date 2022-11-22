@@ -19,7 +19,7 @@ impl From<parity_wasm::elements::ValueType> for ValueType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     I32(i32),
     I64(i64),

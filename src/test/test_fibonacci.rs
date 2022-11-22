@@ -1,8 +1,9 @@
 use crate::{
     foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{host::HostEnv, CompileOutcome, ExecutionOutcome, WasmInterpreter, WasmRuntime},
+    runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
 };
-use wasmi::{tracer::Tracer, ImportsBuilder, Module, ModuleRef};
+use specs::{CompileTable, ExecutionTable};
+use wasmi::ImportsBuilder;
 
 /*
    unsigned long long wasm_input(int);
@@ -19,11 +20,7 @@ use wasmi::{tracer::Tracer, ImportsBuilder, Module, ModuleRef};
        return fib(input);
    }
 */
-pub fn build_test() -> (
-    CompileOutcome<Module, ModuleRef, Tracer>,
-    ExecutionOutcome,
-    Vec<u64>,
-) {
+pub fn build_test() -> (CompileTable, ExecutionTable, Vec<u64>) {
     let textual_repr = r#"
     (module
         (import "env" "wasm_input" (func $wasm_input (param i32) (result i64)))
@@ -74,15 +71,14 @@ pub fn build_test() -> (
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
     let public_inputs = vec![13];
 
-    let compiler = WasmInterpreter::new();
     let mut env = HostEnv::new();
     register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
 
+    let compiler = WasmInterpreter::new(env.function_plugin_lookup.clone());
+
     let imports = ImportsBuilder::new().with_resolver("env", &env);
-    let compiled_module = compiler
-        .compile(&wasm, &imports, &env.function_plugin_lookup)
-        .unwrap();
-    let execution_log = compiler
+    let compiled_module = compiler.compile(&wasm, &imports).unwrap();
+    let _ = compiler
         .run(
             &mut env,
             &compiled_module,
@@ -92,7 +88,11 @@ pub fn build_test() -> (
         )
         .unwrap();
 
-    (compiled_module, execution_log, public_inputs)
+    (
+        compiler.compile_table(),
+        compiler.execution_tables(),
+        public_inputs,
+    )
 }
 
 mod tests {
@@ -102,11 +102,11 @@ mod tests {
 
     #[test]
     fn test_fibonacci() {
-        let (compiled_module, execution_log, public_inputs) = build_test();
+        let (compile_table, execution_table, public_inputs) = build_test();
 
         run_test_circuit(
-            compiled_module.tables,
-            execution_log.tables,
+            compile_table,
+            execution_table,
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap();
