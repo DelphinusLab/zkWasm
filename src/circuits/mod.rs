@@ -78,7 +78,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     sha256_helper_table: Sha256HelperTableConfig<F>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
     pub compile_tables: CompileTable,
     pub execution_tables: ExecutionTable,
@@ -274,7 +274,7 @@ pub struct ZkWasmCircuitBuilder {
 const PARAMS: &str = "param.data";
 
 impl ZkWasmCircuitBuilder {
-    fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
+    pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
         TestCircuit::new(self.compile_tables.clone(), self.execution_tables.clone())
     }
 
