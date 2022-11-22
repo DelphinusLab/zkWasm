@@ -1,96 +1,126 @@
-use clap::{value_parser, App, AppSettings, Arg, SubCommand};
-use uuid::Uuid;
-use delphinus_zkwasm::cli::run;
+use clap::{arg, value_parser, Arg, ArgMatches};
+use delphinus_zkwasm::{
+    circuits::config::K,
+    cli::{app_builder::AppBuilder, args::ArgBuilder, command::CommandBuilder},
+};
+
+fn parse_args(values: Vec<&str>) -> Vec<u64> {
+    values
+        .into_iter()
+        .map(|v| {
+            let [v, t] = v.split(":").collect::<Vec<&str>>()[..] else { todo!() };
+            match t {
+                "i64" => {
+                    if v.starts_with("0x") {
+                        vec![
+                            u64::from_str_radix(String::from(v).trim_start_matches("0x"), 16)
+                                .unwrap(),
+                        ]
+                    } else {
+                        vec![v.parse::<u64>().unwrap()]
+                    }
+                }
+                "bytes" => {
+                    if !v.starts_with("0x") {
+                        panic!("bytes input need start with 0x");
+                    }
+                    let bytes = hex::decode(String::from(v).trim_start_matches("0x")).unwrap();
+                    bytes
+                        .into_iter()
+                        .map(|x| u64::from(x))
+                        .collect::<Vec<u64>>()
+                }
+                "bytes-packed" => {
+                    if !v.starts_with("0x") {
+                        panic!("bytes input need start with 0x");
+                    }
+                    let bytes = hex::decode(String::from(v).trim_start_matches("0x")).unwrap();
+                    let bytes = bytes.chunks(8);
+                    bytes
+                        .into_iter()
+                        .map(|x| u64::from_le_bytes(x.try_into().unwrap()))
+                        .collect::<Vec<u64>>()
+                }
+
+                _ => {
+                    panic!("Unsupported input data type: {}", t)
+                }
+            }
+        })
+        .flatten()
+        .collect()
+}
+
+struct SampleApp;
+
+impl ArgBuilder for SampleApp {
+    fn single_public_arg<'a>() -> Arg<'a> {
+        arg!(--public [PUBLIC_INPUT] "Public arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
+            .use_value_delimiter(true)
+            .min_values(0)
+            .value_parser(value_parser!(String))
+    }
+    fn parse_single_public_arg(matches: &ArgMatches) -> Vec<u64> {
+        let inputs: Vec<&str> = matches
+            .get_many("public")
+            .unwrap_or_default()
+            .map(|v: &String| v.as_str())
+            .collect();
+
+        parse_args(inputs.into())
+    }
+
+    fn aggregate_public_args<'a>() -> Arg<'a> {
+        // We only aggregate one proof in the sample program.
+        Self::single_public_arg()
+    }
+    fn parse_aggregate_public_args(matches: &ArgMatches) -> Vec<Vec<u64>> {
+        let inputs = Self::parse_single_public_arg(matches);
+
+        vec![inputs]
+    }
+
+    fn single_private_arg<'a>() -> Arg<'a> {
+        arg!(--private [PRIVATE_INPUT] "Private arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
+            .use_value_delimiter(true)
+            .min_values(0)
+            .value_parser(value_parser!(String))
+    }
+    fn parse_single_private_arg(matches: &ArgMatches) -> Vec<u64> {
+        let inputs: Vec<&str> = matches
+            .get_many("private")
+            .unwrap_or_default()
+            .map(|v: &String| v.as_str())
+            .collect();
+
+        parse_args(inputs.into())
+    }
+
+    fn aggregate_private_args<'a>() -> Arg<'a> {
+        // We only aggregate one proof in the sample program.
+        Self::single_private_arg()
+    }
+    fn parse_aggregate_private_args(matches: &ArgMatches) -> Vec<Vec<u64>> {
+        let inputs = Self::parse_single_private_arg(matches);
+
+        vec![inputs]
+    }
+}
+impl CommandBuilder for SampleApp {}
+impl AppBuilder for SampleApp {
+    const NAME: &'static str = "zkwasm";
+    const VERSION: &'static str = "v1.0-beta";
+
+    const ZKWASM_K: u32 = K;
+    const AGGREGATE_K: u32 = 23;
+    const MAX_PUBLIC_INPUT_SIZE: usize = 1;
+
+    const N_PROOFS: usize = 1;
+}
 
 /// Simple program to greet a person
 fn main() {
-    let wasm_file_arg = Arg::with_name("wasm_file")
-        .short('w')
-        .long("wasm")
-        .value_name("FILEPATH")
-        .help("Path of the wasm file")
-        .required(true)
-        .takes_value(true)
-        .value_parser(value_parser!(std::string::String));
-    let fn_name_arg = Arg::with_name("function_name")
-        .long("fname")
-        .short('f')
-        .required(true)
-        .value_name("FUNCTIONNAME")
-        .help("Function you would like to run from the file")
-        .takes_value(true)
-        .value_parser(value_parser!(std::string::String));
+    let app = SampleApp::app_builder();
 
-    let public_value_arg = Arg::with_name("public_args")
-        .long("public")
-        .value_name("PUBLIC ARGUMENTS")
-        .help("Public arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
-        .required(false)
-        .takes_value(true)
-        .use_delimiter(true)
-        .value_delimiter(',')
-        .min_values(0)
-        .value_parser(value_parser!(std::string::String));
-
-    let private_value_arg = Arg::with_name("private_args")
-        .long("private")
-        .value_name("PRIVATE ARGUMENTS")
-        .help("Private arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
-        .required(false)
-        .takes_value(true)
-        .use_delimiter(true)
-        .value_delimiter(',')
-        .min_values(0)
-        .value_parser(value_parser!(std::string::String));
-
-    let output_path = Arg::with_name("output_path")
-        .short('o')
-        .long("output")
-        .value_name("OUTPUTPATH")
-        .help("Path of the output files default: './output_uuid_xxxx/'")
-        .required(false)
-        .takes_value(true)
-        .value_parser(value_parser!(std::string::String));
-
-    let app = App::new("zkwasm")
-        .setting(AppSettings::SubcommandRequired)
-        .version("v1.0-beta")
-        .subcommand(
-            SubCommand::with_name("run")
-            .about("Run your function from your wasm program with inputs.\nType 'cli run --help' for more information\nOnly support I32 type now")
-                .arg(wasm_file_arg)
-                .arg(public_value_arg)
-                .arg(private_value_arg)
-                .arg(fn_name_arg)
-                .arg(output_path),
-        )
-        .get_matches();
-
-    match app.subcommand() {
-        Some(("run", m)) => {
-            let wasm_file: &str = m.value_of("wasm_file").unwrap();
-            let fn_name: &str = m.value_of("function_name").unwrap();
-            let public_inputs: Vec<&str> = match m.values_of("public_args") {
-                Some(x) => x.collect(),
-                None => vec![],
-            };
-            let private_inputs: Vec<&str> = match m.values_of("private_args") {
-                Some(x) => x.collect(),
-                None => vec![],
-            };
-            let output_path : String = match m.value_of("output_path") {
-                Some (v) => v.to_string(),
-                None => format!("output_{}", Uuid::new_v4())
-            };
-            run::exec(
-                wasm_file,
-                fn_name,
-                public_inputs,
-                private_inputs,
-                &output_path[..],
-            )
-            .unwrap();
-        }
-        _ => unimplemented!(),
-    };
+    SampleApp::exec(app)
 }
