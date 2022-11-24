@@ -73,8 +73,18 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             }
         }
 
-        let mut rest_mops_cell: Option<Cell> = None;
-        let mut rest_jops_cell: Option<Cell> = None;
+        let rest_mops_cell = ctx.region.assign_advice(
+            || "rest mops",
+            self.state,
+            EventTableCommonRangeColumnRotation::RestMOps as usize,
+            || Ok(F::from(0u64)),
+        )?;
+        let rest_jops_cell = ctx.region.assign_advice(
+            || "rest mops",
+            self.state,
+            EventTableCommonRangeColumnRotation::RestJOps as usize,
+            || Ok(F::from(0u64)),
+        )?;
 
         let mut mops = vec![];
         let mut jops = vec![];
@@ -123,6 +133,13 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         let mut mops_in_total = 0;
         let mut jops_in_total = 0;
 
+        assign_constant!(
+            self.state,
+            EventTableCommonRangeColumnRotation::InputIndex,
+            "input index",
+            F::zero()
+        );
+
         for (index, entry) in etable.entries().iter().enumerate() {
             let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
 
@@ -143,14 +160,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             mops_in_total += mops.last().unwrap();
             jops_in_total += jops.last().unwrap();
 
-            if index == 0 {
-                assign_constant!(
-                    self.state,
-                    EventTableCommonRangeColumnRotation::InputIndex,
-                    "input index",
-                    F::zero()
-                );
-            } else {
+            if index != 0 {
                 assign_advice!(
                     self.state,
                     EventTableCommonRangeColumnRotation::InputIndex,
@@ -206,25 +216,19 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 assign_advice!(self.opcode_bits, op_lvl2, "opcode level 2", 1);
             }
 
-            let cell = assign_advice!(
+            assign_advice!(
                 self.state,
                 EventTableCommonRangeColumnRotation::RestMOps,
                 "rest mops",
                 rest_mops.next().unwrap()
             );
-            if rest_mops_cell.is_none() {
-                rest_mops_cell = Some(cell.cell());
-            }
 
-            let cell = assign_advice!(
+            assign_advice!(
                 self.state,
                 EventTableCommonRangeColumnRotation::RestJOps,
                 "rest jops",
                 rest_jops.next().unwrap()
             );
-            if rest_jops_cell.is_none() {
-                rest_jops_cell = Some(cell.cell());
-            }
 
             assign_advice!(
                 self.state,
@@ -298,6 +302,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             );
         }
 
-        Ok((rest_mops_cell, rest_jops_cell))
+        Ok((Some(rest_mops_cell.cell()), Some(rest_jops_cell.cell())))
     }
 }

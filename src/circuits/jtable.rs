@@ -67,9 +67,20 @@ impl<F: FieldExt> JumpTableChip<F> {
             }
         }
 
+        let cell = ctx.region.assign_advice(
+            || "jtable rest",
+            self.config.data,
+            JtableOffset::JtableOffsetRest as usize,
+            || Ok(F::from(0)),
+        )?;
+        if let Some(etable_rest_jops_cell) = etable_rest_jops_cell {
+            ctx.region
+                .constrain_equal(cell.cell(), etable_rest_jops_cell)?;
+        }
+
         let entries: Vec<&JumpTableEntry> = entries.into_iter().filter(|e| e.eid != 0).collect();
         let mut rest = entries.len() as u64 * 2;
-        for (i, entry) in entries.iter().enumerate() {
+        for entry in entries.iter() {
             let rest_f = rest.into();
             let entry_f = bn_to_field(&entry.encode());
 
@@ -81,18 +92,13 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let cell = ctx.region.assign_advice(
+            ctx.region.assign_advice(
                 || "jtable rest",
                 self.config.data,
                 ctx.offset,
                 || Ok(rest_f),
             )?;
             ctx.next();
-
-            if i == 0 && etable_rest_jops_cell.is_some() {
-                ctx.region
-                    .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
-            }
 
             ctx.region.assign_advice(
                 || "jtable entry",
@@ -114,18 +120,13 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let cell = ctx.region.assign_advice(
+            ctx.region.assign_advice(
                 || "jtable rest",
                 self.config.data,
                 ctx.offset,
                 || Ok(F::zero()),
             )?;
             ctx.next();
-
-            if ctx.offset == 0 && etable_rest_jops_cell.is_some() {
-                ctx.region
-                    .constrain_equal(cell.cell(), etable_rest_jops_cell.unwrap())?;
-            }
 
             ctx.region.assign_advice(
                 || "jtable entry",
