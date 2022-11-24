@@ -133,6 +133,17 @@ impl<F: FieldExt> MemoryTableChip<F> {
             }
         }
 
+        let rest_mops_cell = ctx.region.assign_advice(
+            || "rest mops",
+            self.config.aux,
+            RotationOfAuxColumn::RestMops as usize,
+            || Ok(F::from(0u64)),
+        )?;
+        if let Some(etable_rest_mops_cell) = etable_rest_mops_cell {
+            ctx.region
+                .constrain_equal(rest_mops_cell.cell(), etable_rest_mops_cell)?;
+        }
+
         let mut mops = mtable.entries().iter().fold(0, |acc, e| {
             acc + if e.atype == AccessType::Init { 0 } else { 1 }
         });
@@ -278,16 +289,12 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     aux,
                     F::from(entry.atype as u64)
                 );
-                let cell = assign_advice!(
+                assign_advice!(
                     "rest mops",
                     RotationOfAuxColumn::RestMops,
                     aux,
                     F::from(mops)
                 );
-                if index == 0 && etable_rest_mops_cell.is_some() {
-                    ctx.region
-                        .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
-                }
             }
 
             // bytes column
