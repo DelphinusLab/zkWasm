@@ -2,6 +2,8 @@ use clap::{App, AppSettings};
 use log::info;
 use std::{fs, path::PathBuf};
 
+use crate::circuits::config::set_zkwasm_k;
+
 use super::{
     command::CommandBuilder,
     exec::{
@@ -48,6 +50,7 @@ pub trait AppBuilder: CommandBuilder {
 
     fn exec(command: App) {
         env_logger::init();
+        set_zkwasm_k(Self::ZKWASM_K);
 
         let top_matches = command.get_matches();
 

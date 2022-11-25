@@ -1,3 +1,5 @@
+use crate::circuits::config::max_etable_rows;
+
 use super::*;
 
 impl<F: FieldExt> EventTableCommonConfig<F> {
@@ -10,7 +12,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         let mut status_entries = Vec::with_capacity(etable.entries().len() + 1);
 
         // Step 1: fill fixed columns
-        for i in 0..MAX_ETABLE_ROWS {
+        for i in 0..max_etable_rows() as usize {
             ctx.region
                 .assign_fixed(|| "etable common sel", self.sel, i, || Ok(F::one()))?;
 
