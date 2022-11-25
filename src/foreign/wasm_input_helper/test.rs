@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        circuits::{config::K, TestCircuit},
+        circuits::{config::zkwasm_k, TestCircuit},
         foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
         runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
     };
@@ -46,7 +46,7 @@ mod tests {
         let circuit = TestCircuit::<Fp>::new(compiled_module.tables, execution_log.tables);
 
         let prover = MockProver::run(
-            K,
+            zkwasm_k(),
             &circuit,
             vec![public_inputs.into_iter().map(|v| Fp::from(v)).collect()],
         )
@@ -102,7 +102,7 @@ mod tests {
         let circuit = TestCircuit::<Fp>::new(compiled_module.tables, execution_log.tables);
 
         let prover = MockProver::run(
-            K,
+            zkwasm_k(),
             &circuit,
             vec![public_inputs.into_iter().map(|v| Fp::from(v)).collect()],
         )

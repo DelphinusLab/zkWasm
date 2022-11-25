@@ -1,5 +1,5 @@
 use self::configure::MemoryTableConstriants;
-use super::config::MAX_MATBLE_ROWS;
+use super::config::max_mtable_rows;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::row_diff::RowDiffConfig;
@@ -20,7 +20,9 @@ use specs::mtable::MemoryTableEntry;
 use specs::mtable::VarType;
 use std::marker::PhantomData;
 
-const MTABLE_ROWS: usize = MAX_MATBLE_ROWS / STEP_SIZE as usize * STEP_SIZE as usize;
+fn mtable_rows() -> usize {
+    max_mtable_rows() as usize / STEP_SIZE as usize * STEP_SIZE as usize
+}
 
 pub mod configure;
 pub(crate) mod encode;
@@ -108,9 +110,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
         mtable: &MTable,
         etable_rest_mops_cell: Option<Cell>,
     ) -> Result<(), Error> {
-        assert_eq!(MTABLE_ROWS % (STEP_SIZE as usize), 0);
+        assert_eq!(mtable_rows() % (STEP_SIZE as usize), 0);
 
-        for i in 0..MTABLE_ROWS {
+        for i in 0..mtable_rows() {
             ctx.region
                 .assign_fixed(|| "mtable sel", self.config.sel, i, || Ok(F::one()))?;
 
@@ -346,7 +348,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
             }
         }
 
-        for i in ctx.offset..MAX_MATBLE_ROWS {
+        for i in ctx.offset..max_mtable_rows() as usize {
             self.config
                 .index
                 .assign(ctx, Some(i), F::zero(), F::zero())?;

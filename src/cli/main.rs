@@ -1,8 +1,5 @@
 use clap::{arg, value_parser, Arg, ArgMatches};
-use delphinus_zkwasm::{
-    circuits::config::K,
-    cli::{app_builder::AppBuilder, args::ArgBuilder, command::CommandBuilder},
-};
+use delphinus_zkwasm::cli::{app_builder::AppBuilder, args::ArgBuilder, command::CommandBuilder};
 
 fn parse_args(values: Vec<&str>) -> Vec<u64> {
     values
@@ -111,7 +108,7 @@ impl AppBuilder for SampleApp {
     const NAME: &'static str = "zkwasm";
     const VERSION: &'static str = "v1.0-beta";
 
-    const ZKWASM_K: u32 = K;
+    const ZKWASM_K: u32 = 18;
     const AGGREGATE_K: u32 = 23;
     const MAX_PUBLIC_INPUT_SIZE: usize = 1;
 

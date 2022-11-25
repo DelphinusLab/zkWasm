@@ -1,5 +1,5 @@
 use self::configure::JTableConstraint;
-use super::config::MAX_JATBLE_ROWS;
+use super::config::max_jtable_rows;
 use super::rtable::RangeTableConfig;
 use super::utils::bn_to_field;
 use super::utils::Context;
@@ -23,8 +23,10 @@ pub enum JtableOffset {
     JtableOffsetMax = 3,
 }
 
-const JTABLE_ROWS: usize = MAX_JATBLE_ROWS / JtableOffset::JtableOffsetMax as usize
-    * JtableOffset::JtableOffsetMax as usize;
+fn jtable_rows() -> usize {
+    max_jtable_rows() as usize / JtableOffset::JtableOffsetMax as usize
+        * JtableOffset::JtableOffsetMax as usize
+}
 
 #[derive(Clone)]
 pub struct JumpTableConfig<F: FieldExt> {
@@ -60,7 +62,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         entries: &Vec<JumpTableEntry>,
         etable_rest_jops_cell: Option<Cell>,
     ) -> Result<(), Error> {
-        for i in 0..JTABLE_ROWS {
+        for i in 0..jtable_rows() {
             if (i as u32) % (JtableOffset::JtableOffsetMax as u32) == 0 {
                 ctx.region
                     .assign_fixed(|| "jtable sel", self.config.sel, i, || Ok(F::one()))?;

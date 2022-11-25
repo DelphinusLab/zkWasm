@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::circuits::config::K;
+use crate::circuits::config::zkwasm_k;
 use crate::circuits::TestCircuit;
 use crate::runtime::{WasmInterpreter, WasmRuntime};
 use halo2_proofs::pairing::bn256::Fr as Fp;
@@ -35,7 +35,7 @@ pub fn run_test_circuit<F: FieldExt>(
 
     let circuit = TestCircuit::<F>::new(compile_table, execution_table);
 
-    let prover = MockProver::run(K, &circuit, vec![public_inputs])?;
+    let prover = MockProver::run(zkwasm_k(), &circuit, vec![public_inputs])?;
     assert_eq!(prover.verify(), Ok(()));
 
     Ok(())

@@ -1,6 +1,5 @@
 use self::op_configure::EventTableOpcodeConfig;
 use super::*;
-use crate::circuits::config::MAX_ETABLE_ROWS;
 use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_bin_bit::BinBitConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_bin_shift::BinShiftConfigBuilder;

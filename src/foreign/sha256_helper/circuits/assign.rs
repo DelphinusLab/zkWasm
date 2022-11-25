@@ -1,5 +1,5 @@
-use super::{Sha256HelperTableConfig, Sha2HelperEncode, BLOCK_LINES, ENABLE_LINES, OP_ARGS_NUM};
-use crate::foreign::sha256_helper::Sha256HelperOp;
+use super::{Sha256HelperTableConfig, Sha2HelperEncode, BLOCK_LINES, OP_ARGS_NUM};
+use crate::{circuits::config::max_sha256_rows, foreign::sha256_helper::Sha256HelperOp};
 use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
 use specs::{etable::EventTableEntry, host_function::HostPlugin, step::StepInfo};
 
@@ -19,7 +19,7 @@ impl<F: FieldExt> Sha256HelperTableChip<F> {
         layouter.assign_region(
             || "sha256 helper assign",
             |mut region| {
-                for i in 0..ENABLE_LINES {
+                for i in 0..max_sha256_rows() as usize {
                     region.assign_fixed(
                         || "sha256 helper sel",
                         self.config.sel,

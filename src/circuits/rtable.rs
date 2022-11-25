@@ -1,4 +1,4 @@
-use super::config::K;
+use super::config::zkwasm_k;
 use super::config::POW_TABLE_LIMIT;
 use super::utils::bn_to_field;
 use crate::constant_from;
@@ -173,7 +173,7 @@ impl<F: FieldExt> RangeTableChip<F> {
         layouter.assign_table(
             || "common range table",
             |mut table| {
-                for i in 0..(1 << (K - 1)) {
+                for i in 0..(1 << (zkwasm_k() - 1)) {
                     table.assign_cell(
                         || "range table",
                         self.config.u16_col,

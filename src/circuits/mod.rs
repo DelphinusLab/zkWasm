@@ -6,7 +6,7 @@ use self::{
 };
 use crate::{
     circuits::{
-        config::K,
+        config::zkwasm_k,
         imtable::{InitMemoryTableConfig, MInitTableChip},
         itable::{InstructionTableChip, InstructionTableConfig},
         rtable::{RangeTableChip, RangeTableConfig},
@@ -289,8 +289,8 @@ impl ZkWasmCircuitBuilder {
             Params::<G1Affine>::read(Cursor::new(buf)).unwrap()
         } else {
             // Initialize the polynomial commitment parameters
-            let timer = start_timer!(|| format!("build params with K = {}", K));
-            let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+            let timer = start_timer!(|| format!("build params with K = {}", zkwasm_k()));
+            let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(zkwasm_k());
             end_timer!(timer);
 
             let mut fd = File::create(path.as_path()).unwrap();
@@ -302,8 +302,8 @@ impl ZkWasmCircuitBuilder {
 
     fn create_params(&self) -> Params<G1Affine> {
         // Initialize the polynomial commitment parameters
-        let timer = start_timer!(|| format!("build params with K = {}", K));
-        let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
+        let timer = start_timer!(|| format!("build params with K = {}", zkwasm_k()));
+        let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(zkwasm_k());
         end_timer!(timer);
 
         params
