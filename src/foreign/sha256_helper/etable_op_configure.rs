@@ -114,7 +114,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableSha256HelperTa
                 Sha2HelperEncode::encode_opcode_expr(
                     op,
                     vec![a.expr(meta), b.expr(meta), c.expr(meta)],
-                    res.expr(meta)
+                    res.expr(meta),
                 )
             }),
         );
@@ -191,7 +191,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
             MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
                 common_config.eid(meta),
                 constant_from!(1),
-                common_config.sp(meta) + constant_from!(1),
+                common_config.sp(meta)
+                    + constant_from!(1)
+                    + is_four_mops.clone() * constant_from!(2),
                 constant_from!(VarType::I32),
                 self.a.expr(meta),
             )),
@@ -210,7 +212,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                     * MemoryTableLookupEncode::encode_stack_read(
                         common_config.eid(meta),
                         constant_from!(3),
-                        common_config.sp(meta) + constant_from!(3),
+                        common_config.sp(meta) + constant_from!(1),
                         constant_from!(VarType::I32),
                         self.c.expr(meta),
                     ),
@@ -286,7 +288,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                         &MemoryTableLookupEncode::encode_stack_read(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(1 + i as u64),
-                            BigUint::from(step_info.current.sp + 1 + i as u64),
+                            BigUint::from(step_info.current.sp + args.len() as u64 - i as u64),
                             BigUint::from(VarType::I32 as u64),
                             BigUint::from(*v),
                         ),

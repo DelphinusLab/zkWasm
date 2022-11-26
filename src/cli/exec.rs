@@ -16,13 +16,13 @@ use halo2aggregator_s::{
     transcript::{poseidon::PoseidonRead, sha256::ShaRead},
 };
 use log::info;
-use specs::ExecutionTable;
+use specs::{write_json, ExecutionTable};
 use wasmi::ImportsBuilder;
 
 use crate::{
     circuits::{TestCircuit, ZkWasmCircuitBuilder},
     foreign::{
-        sha256_helper::runtime::register_sha256_foreign,
+        require_helper::register_require_foreign, sha256_helper::runtime::register_sha256_foreign,
         wasm_input_helper::runtime::register_wasm_input_foreign,
     },
     runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
@@ -34,6 +34,7 @@ fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
     let mut env = HostEnv::new();
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, vec![], vec![]);
+    register_require_foreign(&mut env);
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();
@@ -58,6 +59,7 @@ fn build_circuit_with_witness(
     let mut env = HostEnv::new();
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+    register_require_foreign(&mut env);
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();
@@ -156,6 +158,8 @@ pub fn exec_create_proof(
 
     if true {
         info!("Mock test...");
+
+        write_json(&circuit.compile_tables, &circuit.execution_tables);
 
         let prover = MockProver::run(
             zkwasm_k,
