@@ -392,7 +392,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         StepInfo::Call { index: _ } => {
             vec![]
         }
-        // TODO: complete me
         StepInfo::CallHost {
             args,
             ret_val,
@@ -402,12 +401,12 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let mut mops = vec![];
             let mut sp = sp_before_execution;
 
-            for (ty, val) in signature.params.iter().zip(args.iter()) {
+            for (i, (ty, val)) in signature.params.iter().zip(args.iter()).enumerate() {
                 mops.push(MemoryTableEntry {
                     eid,
                     emid: *emid,
                     mmid: 0,
-                    offset: sp + 1,
+                    offset: sp_before_execution + args.len() as u64 - i as u64,
                     ltype: LocationType::Stack,
                     atype: AccessType::Read,
                     vtype: (*ty).into(),
@@ -416,8 +415,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 });
 
                 *emid = (*emid).checked_add(1).unwrap();
-                sp = sp + 1;
             }
+
+            sp = sp + args.len() as u64;
 
             if let Some(ty) = signature.return_type {
                 mops.push(MemoryTableEntry {
