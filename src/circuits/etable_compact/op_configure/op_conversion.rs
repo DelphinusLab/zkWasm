@@ -183,8 +183,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig {
                 let flag_u8_rem_diff = 0x7f - flag_u8_rem;
 
                 self.flag_bit.assign(ctx, flag_bit == 1)?;
-                self.flag_u8_rem.assign(ctx, flag_u8_rem as u16)?;
-                self.flag_u8_rem_diff.assign(ctx, flag_u8_rem_diff as u16)?;
+                self.flag_u8_rem.assign(ctx, F::from(flag_u8_rem as u64))?;
+                self.flag_u8_rem_diff
+                    .assign(ctx, F::from(flag_u8_rem_diff as u64))?;
 
                 (
                     value as u32 as u64,
@@ -198,8 +199,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig {
 
         self.value.assign(ctx, value)?;
         self.res.assign(ctx, result)?;
-        self.value_type.assign(ctx, value_type as u16)?;
-        self.res_type.assign(ctx, result_type as u16)?;
+        self.value_type.assign(ctx, F::from(value_type as u64))?;
+        self.res_type.assign(ctx, F::from(result_type as u64))?;
 
         self.lookup_stack_read.assign(
             ctx,

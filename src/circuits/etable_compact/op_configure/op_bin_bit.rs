@@ -142,7 +142,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
             _ => unreachable!(),
         };
 
-        self.vtype.assign(ctx, vtype as u16)?;
+        self.vtype.assign(ctx, F::from(vtype as u64))?;
         self.lhs.assign(ctx, left)?;
         self.rhs.assign(ctx, right)?;
         self.res.assign(ctx, value)?;

@@ -108,14 +108,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig {
                     ),
                 )?;
 
-                self.drop.assign(ctx, drop)?;
+                self.drop.assign(ctx, F::from(drop as u64))?;
 
                 if keep.len() > 0 {
                     let keep_type: VarType = keep[0].into();
 
                     self.keep.assign(ctx, true)?;
                     self.keep_value.assign(ctx, keep_values[0])?;
-                    self.keep_type.assign(ctx, keep_type as u16)?;
+                    self.keep_type.assign(ctx, F::from(keep_type as u64))?;
 
                     if *condition == 0 {
                         self.lookup_stack_read_return_value.assign(
@@ -147,7 +147,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig {
                     .assign(ctx, F::from(cond).invert().unwrap_or(F::zero()))?;
                 self.cond_is_zero.assign(ctx, cond == 0)?;
 
-                self.dst_pc.assign(ctx, (*dst_pc).try_into().unwrap())?;
+                self.dst_pc.assign(ctx, F::from((*dst_pc) as u64))?;
             }
             _ => unreachable!(),
         }

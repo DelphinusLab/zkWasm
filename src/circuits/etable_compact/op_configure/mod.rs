@@ -183,12 +183,12 @@ pub struct CommonRangeCell {
 }
 
 impl CommonRangeCell {
-    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: u16) -> Result<(), Error> {
+    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
         ctx.region.assign_advice(
             || "common range cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
-            || Ok(F::from(value as u64)),
+            || Ok(value),
         )?;
         Ok(())
     }
