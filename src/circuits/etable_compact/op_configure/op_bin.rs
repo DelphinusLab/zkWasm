@@ -407,14 +407,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
 
                 self.lhs_flag.assign(ctx, left_flag)?;
                 self.lhs_flag_helper
-                    .assign(ctx, ((left >> (shift - 4)) & 7) as u16)?;
+                    .assign(ctx, F::from((left >> (shift - 4)) & 7))?;
                 self.lhs_flag_helper_diff
-                    .assign(ctx, (7 - (left >> (shift - 4)) & 7) as u16)?;
+                    .assign(ctx, F::from(7 - (left >> (shift - 4)) & 7))?;
                 self.rhs_flag.assign(ctx, right_flag)?;
                 self.rhs_flag_helper
-                    .assign(ctx, ((right >> (shift - 4)) & 7) as u16)?;
+                    .assign(ctx, F::from((right >> (shift - 4)) & 7))?;
                 self.rhs_flag_helper_diff
-                    .assign(ctx, (7 - (right >> (shift - 4)) & 7) as u16)?;
+                    .assign(ctx, F::from(7 - (right >> (shift - 4)) & 7))?;
 
                 let mask = if shift == 32 {
                     u32::MAX as u64
@@ -433,9 +433,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 self.d_flag_helper_diff.assign(
                     ctx,
                     if d_leading_u4 > 7 {
-                        0
+                        F::from(0)
                     } else {
-                        7 - d_leading_u4
+                        F::from(7 - d_leading_u4 as u64)
                     },
                 )?;
                 self.d.assign(ctx, d)?;

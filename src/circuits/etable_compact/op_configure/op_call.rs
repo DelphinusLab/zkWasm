@@ -38,7 +38,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig {
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::Call { index } => {
-                self.index.assign(ctx, *index)?;
+                self.index.assign(ctx, F::from(*index as u64))?;
 
                 Ok(())
             }

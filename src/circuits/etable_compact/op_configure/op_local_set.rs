@@ -68,9 +68,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalSetConfig {
                 depth,
                 value,
             } => {
-                self.vtype.assign(ctx, *vtype as u16)?;
+                self.vtype.assign(ctx, F::from(*vtype as u64))?;
                 self.value.assign(ctx, *value)?;
-                self.offset.assign(ctx, *depth as u16)?;
+                self.offset.assign(ctx, F::from(*depth as u64))?;
 
                 self.lookup_stack_read.assign(
                     ctx,

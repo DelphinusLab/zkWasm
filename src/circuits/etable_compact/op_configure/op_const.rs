@@ -59,7 +59,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
         match &entry.step_info {
             specs::step::StepInfo::I32Const { value } => {
                 self.value.assign(ctx, *value as u32 as u64)?;
-                self.vtype.assign(ctx, VarType::I32 as u16)?;
+                self.vtype.assign(ctx, F::from(VarType::I32 as u64))?;
 
                 self.lookup_stack_write.assign(
                     ctx,
@@ -76,7 +76,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
             }
             specs::step::StepInfo::I64Const { value } => {
                 self.value.assign(ctx, *value as u64)?;
-                self.vtype.assign(ctx, VarType::I64 as u16)?;
+                self.vtype.assign(ctx, F::from(VarType::I64 as u64))?;
 
                 self.lookup_stack_write.assign(
                     ctx,

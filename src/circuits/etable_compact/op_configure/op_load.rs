@@ -311,7 +311,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 mmid,
             } => {
                 self.opcode_load_offset
-                    .assign(ctx, offset.try_into().unwrap())?;
+                    .assign(ctx, F::from(offset as u64))?;
 
                 let len = load_size.byte_size();
                 let start_byte_index = effective_address as u64;
@@ -367,7 +367,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_eight_bytes.assign(ctx, len == 8)?;
                 self.is_sign.assign(ctx, load_size.is_sign())?;
                 self.is_i64.assign(ctx, vtype == VarType::I64)?;
-                self.vtype.assign(ctx, vtype as u16)?;
+                self.vtype.assign(ctx, F::from(vtype as u64))?;
 
                 self.lookup_stack_read.assign(
                     ctx,

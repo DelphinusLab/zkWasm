@@ -359,15 +359,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         };
 
         self.lhs.assign(ctx, left)?;
-        let flag_u4 = (left >> (size - 4)) as u16;
+        let flag_u4 = (left >> (size - 4)) as u64;
         let flag_bit = flag_u4 >> 3;
         self.flag_bit.assign(ctx, flag_bit == 1)?;
-        self.flag_u4_rem.assign(ctx, flag_u4 & 7)?;
-        self.flag_u4_rem_diff.assign(ctx, 7 - (flag_u4 & 7))?;
+        self.flag_u4_rem.assign(ctx, F::from(flag_u4 & 7))?;
+        self.flag_u4_rem_diff
+            .assign(ctx, F::from(7 - (flag_u4 & 7)))?;
         self.rhs.assign(ctx, right)?;
-        self.rhs_round.assign(ctx, (right & 0xff) as u16 / size)?;
-        self.rhs_rem.assign(ctx, power as u16)?;
-        self.rhs_rem_diff.assign(ctx, size - 1 - power as u16)?;
+        self.rhs_round.assign(ctx, F::from((right & 0xff) / size))?;
+        self.rhs_rem.assign(ctx, F::from(power))?;
+        self.rhs_rem_diff.assign(ctx, F::from(size - 1 - power))?;
         self.modulus.assign(ctx, 1 << power)?;
         self.lookup_pow.assign(ctx, power)?;
         self.is_eight_bytes.assign(ctx, is_eight_bytes)?;
@@ -377,7 +378,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
             ShiftOp::Shl => {
                 self.is_shl.assign(ctx, true)?;
                 if power != 0 {
-                    self.round.assign(ctx, left >> (size - power as u16))?;
+                    self.round.assign(ctx, left >> (size - power))?;
                 } else {
                     self.round.assign(ctx, 0)?;
                 }
@@ -400,15 +401,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 self.diff.assign(ctx, (1u64 << power) - 1 - rem)?;
 
                 if flag_bit == 1 && power != 0 {
-                    self.pad
-                        .assign(ctx, ((1 << power) - 1) << (size - power as u16))?;
+                    self.pad.assign(ctx, ((1 << power) - 1) << (size - power))?;
                 }
             }
             ShiftOp::Rotl => {
                 // same as shl
                 self.is_rotl.assign(ctx, true)?;
                 if power != 0 {
-                    self.round.assign(ctx, left >> (size - power as u16))?;
+                    self.round.assign(ctx, left >> (size - power))?;
                 } else {
                     self.round.assign(ctx, 0)?;
                 }
