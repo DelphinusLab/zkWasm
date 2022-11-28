@@ -16,8 +16,44 @@ wasm code
 ## Runtime input:
 input of wasm function and the top level function must be main.
 
-## Proving target
+## Proving target:
 simulation of wasm execution of target wasm bytecode with particular inputs are correct.
+
+# Command line:
+## Setup via WASM image:
+```
+cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> setup [OPTIONS]
+```
+
+## Single prove and verify:
+```
+cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-prove [OPTIONS]
+cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-verify [OPTIONS] --proof <PROOF_PATH>
+```
+with OPTIONS:
+```
+    -o, --output [<OUTPUT_PATH>...]
+            Path of the output files.
+            The md5 of the wasm binary file is the default path if not supplied.
+
+        --private [<PRIVATE_INPUT>...]
+            Private arguments of your wasm program arguments of format value:type where
+            type=i64|bytes|bytes-packed, multiple values should be separated with ','
+
+        --public [<PUBLIC_INPUT>...]
+            Public arguments of your wasm program arguments of format value:type where
+            type=i64|bytes|bytes-packed, multiple values should be separated with ','
+```
+## Batch prove and verify:
+```
+cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> aggregate-prove [OPTIONS]
+cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> aggregate-verify --proof <PROOF_PATH> --instances <AGGREGATE_INSTANCE_PATH>
+```
+
+## Generate verify contract:
+```
+cargo run --release --function <FUNCTION_NAME> --wasm <WASM_BINARY> solidity-aggregate-verifier --proof <PROOF_PATH> --instances <AGGREGATE_INSTANCE_PATH>
+```
 
 # Static Data：
 
