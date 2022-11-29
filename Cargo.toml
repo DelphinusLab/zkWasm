@@ -24,6 +24,7 @@ wabt = "0.10.0"
 wasmi = { path = "./wasmi" }
 lazy_static = "1.4.0"
 rand = "0.8.4"
+rusty-fork = "0.3.0"
 sha2 = "0.10.6"
 specs = { path = "./specs" }
 strum = "0.24.1"
