@@ -52,7 +52,7 @@ struct SampleApp;
 
 impl ArgBuilder for SampleApp {
     fn single_public_arg<'a>() -> Arg<'a> {
-        arg!(--public [PUBLIC_INPUT] "Public arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
+        arg!(--public <PUBLIC_INPUT>... "Public arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
             .use_value_delimiter(true)
             .min_values(0)
             .value_parser(value_parser!(String))
@@ -78,7 +78,7 @@ impl ArgBuilder for SampleApp {
     }
 
     fn single_private_arg<'a>() -> Arg<'a> {
-        arg!(--private [PRIVATE_INPUT] "Private arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
+        arg!(--private <PRIVATE_INPUT>... "Private arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
             .use_value_delimiter(true)
             .min_values(0)
             .value_parser(value_parser!(String))
@@ -110,7 +110,7 @@ impl AppBuilder for SampleApp {
 
     const ZKWASM_K: u32 = 18;
     const AGGREGATE_K: u32 = 23;
-    const MAX_PUBLIC_INPUT_SIZE: usize = 1;
+    const MAX_PUBLIC_INPUT_SIZE: usize = 64;
 
     const N_PROOFS: usize = 1;
 }
