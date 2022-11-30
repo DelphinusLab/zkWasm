@@ -1,4 +1,4 @@
-use clap::{arg, value_parser, Arg, ArgMatches};
+use clap::{value_parser, Arg, ArgMatches, ArgAction};
 use delphinus_zkwasm::cli::{app_builder::AppBuilder, args::ArgBuilder, command::CommandBuilder};
 
 fn parse_args(values: Vec<&str>) -> Vec<u64> {
@@ -52,10 +52,12 @@ struct SampleApp;
 
 impl ArgBuilder for SampleApp {
     fn single_public_arg<'a>() -> Arg<'a> {
-        arg!(--public <PUBLIC_INPUT>... "Public arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
-            .use_value_delimiter(true)
-            .min_values(0)
+        Arg::new("public")
+            .long("public")
             .value_parser(value_parser!(String))
+            .action(ArgAction::Append)
+            .help("Public arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed")
+            .min_values(0)
     }
     fn parse_single_public_arg(matches: &ArgMatches) -> Vec<u64> {
         let inputs: Vec<&str> = matches
@@ -78,10 +80,12 @@ impl ArgBuilder for SampleApp {
     }
 
     fn single_private_arg<'a>() -> Arg<'a> {
-        arg!(--private <PRIVATE_INPUT>... "Private arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed, multiple values should be separated with ','")
-            .use_value_delimiter(true)
-            .min_values(0)
+        Arg::new("private")
+            .long("private")
             .value_parser(value_parser!(String))
+            .action(ArgAction::Append)
+            .help("Private arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed")
+            .min_values(0)
     }
     fn parse_single_private_arg(matches: &ArgMatches) -> Vec<u64> {
         let inputs: Vec<&str> = matches
