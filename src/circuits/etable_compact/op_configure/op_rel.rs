@@ -32,10 +32,12 @@ pub struct RelConfig {
     res_is_gt: BitCell,
     res: UnlimitedCell,
 
-    _lhs_leading_bit: BitCell,
-    _rhs_leading_bit: BitCell,
-    _lhs_rem_value: CommonRangeCell,
-    _rhs_rem_value: CommonRangeCell,
+    lhs_leading_bit: BitCell,
+    rhs_leading_bit: BitCell,
+    lhs_rem_value: CommonRangeCell,
+    lhs_rem_diff: CommonRangeCell,
+    rhs_rem_value: CommonRangeCell,
+    rhs_rem_diff: CommonRangeCell,
 
     op_is_eq: BitCell,
     op_is_ne: BitCell,
@@ -49,6 +51,11 @@ pub struct RelConfig {
     lookup_stack_read_rhs: MTableLookupCell,
     lookup_stack_write_res: MTableLookupCell,
 }
+
+const REM_SHIFT: usize = 3usize;
+const REM_MASK: u64 = (1u64 << REM_SHIFT) - 1u64;
+const I64_REM_SHIFT: usize = 60usize;
+const I32_REM_SHIFT: usize = 28usize;
 
 pub struct RelConfigBuilder {}
 
@@ -201,10 +208,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             op_is_ge,
             op_is_sign,
             is_eight_bytes,
-            _lhs_leading_bit: lhs_leading_bit,
-            _rhs_leading_bit: rhs_leading_bit,
-            _lhs_rem_value: lhs_rem_value,
-            _rhs_rem_value: rhs_rem_value,
+            lhs_leading_bit,
+            rhs_leading_bit,
+            lhs_rem_value,
+            lhs_rem_diff,
+            rhs_rem_value,
+            rhs_rem_diff,
         })
     }
 }
@@ -253,6 +262,34 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                     &(BigUint::from(RelOp::UnsignedLe as u64) << OPCODE_ARG0_SHIFT)
                 ))
         };
+        let subop_gt_s = |meta: &mut VirtualCells<F>| {
+            self.op_is_gt.expr(meta)
+                * self.op_is_sign.expr(meta)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::SignedGt as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_ge_s = |meta: &mut VirtualCells<F>| {
+            self.op_is_ge.expr(meta)
+                * self.op_is_sign.expr(meta)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::SignedGe as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_lt_s = |meta: &mut VirtualCells<F>| {
+            self.op_is_lt.expr(meta)
+                * self.op_is_sign.expr(meta)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::SignedLt as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
+        let subop_le_s = |meta: &mut VirtualCells<F>| {
+            self.op_is_le.expr(meta)
+                * self.op_is_sign.expr(meta)
+                * constant!(bn_to_field(
+                    &(BigUint::from(RelOp::SignedLe as u64) << OPCODE_ARG0_SHIFT)
+                ))
+        };
 
         let subop = |meta: &mut VirtualCells<F>| {
             subop_eq(meta)
@@ -261,6 +298,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 + subop_gt_u(meta)
                 + subop_le_u(meta)
                 + subop_lt_u(meta)
+                + subop_ge_s(meta)
+                + subop_gt_s(meta)
+                + subop_le_s(meta)
+                + subop_lt_s(meta)
         };
 
         constant!(bn_to_field(
@@ -311,6 +352,19 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             self.is_eight_bytes.assign(ctx, true)?;
         }
 
+        if vec![RelOp::SignedGt, RelOp::SignedGe, RelOp::SignedLt, RelOp::SignedLe].contains(&class) {
+            let shift: usize = if vtype == VarType::I64 {I64_REM_SHIFT} else {I32_REM_SHIFT};
+            self.op_is_sign.assign(ctx, true)?;
+            let left_leading_u4: u64 = lhs >> shift;
+            let right_leading_u4: u64 = rhs >> shift;
+            self.lhs_leading_bit.assign(ctx, left_leading_u4 >> REM_SHIFT != 0)?;
+            self.rhs_leading_bit.assign(ctx, right_leading_u4 >> REM_SHIFT != 0)?;
+            self.lhs_rem_value.assign(ctx, F::from(left_leading_u4 & REM_MASK))?;
+            self.lhs_rem_diff.assign(ctx, F::from((left_leading_u4 & REM_MASK) ^ REM_MASK))?;
+            self.rhs_rem_value.assign(ctx, F::from(right_leading_u4 & REM_MASK))?;
+            self.rhs_rem_diff.assign(ctx, F::from((right_leading_u4 & REM_MASK) ^ REM_MASK))?;
+        }
+            
         self.lhs.assign(ctx, lhs)?;
         self.rhs.assign(ctx, rhs)?;
         self.diff.assign(ctx, diff)?;
@@ -330,16 +384,26 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             RelOp::Ne => {
                 self.op_is_ne.assign(ctx, true)?;
             }
-            RelOp::SignedGt => todo!(),
+            RelOp::SignedGt => {
+                self.op_is_gt.assign(ctx, true)?;
+            }
             RelOp::UnsignedGt => {
                 self.op_is_gt.assign(ctx, true)?;
             }
-            RelOp::SignedGe => todo!(),
+            RelOp::SignedGe => {
+                self.op_is_ge.assign(ctx, true)?;
+            }
             RelOp::UnsignedGe => {
                 self.op_is_ge.assign(ctx, true)?;
             }
+            RelOp::SignedLt => {
+                self.op_is_lt.assign(ctx, true)?;
+            }
             RelOp::UnsignedLt => {
                 self.op_is_lt.assign(ctx, true)?;
+            }
+            RelOp::SignedLe => {
+                self.op_is_le.assign(ctx, true)?;
             }
             RelOp::UnsignedLe => {
                 self.op_is_le.assign(ctx, true)?;
@@ -642,6 +706,310 @@ mod tests {
     }
 
     #[test]
+    fn test_i64_lt_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 0)
+                      (i64.const 1)
+                      (i64.lt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_ge_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 1)
+                      (i64.ge_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_gt_u_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 0)
+                      (i64.const 0)
+                      (i64.gt_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const 0)
+                      (i32.gt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt_s_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.gt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_gt_s_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const -1)
+                      (i32.gt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.ge_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_s_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.ge_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_ge_s_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const -1)
+                      (i32.ge_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.le_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_s_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.le_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_le_s_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const -1)
+                      (i32.le_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_lt_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 0)
+                      (i32.lt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_lt_s_2_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 1)
+                      (i32.const 1)
+                      (i32.lt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i32_lt_s_3_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 0)
+                      (i32.const -1)
+                      (i32.lt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_le_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const -1)
+                      (i64.const 0)
+                      (i64.le_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_lt_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const -1)
+                      (i64.const -1)
+                      (i64.lt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_ge_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const -1)
+                      (i64.ge_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_gt_s_1_ok() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 0)
+                      (i64.gt_s)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
     fn test_i32_eq_1() {
         let textual_repr = r#"
                 (module
@@ -697,6 +1065,38 @@ mod tests {
                       (i32.const 0)
                       (i32.const 0)
                       (i32.ne)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_eq_1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 0)
+                      (i64.eq)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_i64_ne_1() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i64.const 1)
+                      (i64.const 0)
+                      (i64.ne)
                       (drop)
                     )
                    )

@@ -114,7 +114,7 @@ impl BitOp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, PartialEq)]
 pub enum RelOp {
     Eq,
     Ne,
@@ -122,7 +122,9 @@ pub enum RelOp {
     UnsignedGt,
     SignedGe,
     UnsignedGe,
+    SignedLt,
     UnsignedLt,
+    SignedLe,
     UnsignedLe,
 }
 
