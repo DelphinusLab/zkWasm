@@ -819,6 +819,20 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             &[*right as u64, *left as u64],
             &[*value as u32 as u64],
         ),
+        StepInfo::UnaryOp {
+            vtype,
+            operand,
+            result,
+            ..
+        } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            *vtype,
+            *vtype,
+            &[*operand],
+            &[*result],
+        ),
 
         StepInfo::Test {
             vtype,

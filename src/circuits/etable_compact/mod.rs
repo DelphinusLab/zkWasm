@@ -21,6 +21,7 @@ use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilde
 use crate::circuits::etable_compact::op_configure::op_select::SelectConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_store::StoreConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_test::TestConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_unary::UnaryConfigBuilder;
 use crate::circuits::etable_compact::op_configure::ConstraintBuilder;
 use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
 use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
@@ -438,6 +439,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Bin, BinConfigBuilder);
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
         configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
+        configure!(OpcodeClass::Unary, UnaryConfigBuilder);
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Store, StoreConfigBuilder);

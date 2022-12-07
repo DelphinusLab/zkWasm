@@ -22,6 +22,7 @@ pub(super) mod op_local_tee;
 pub(super) mod op_rel;
 pub(super) mod op_return;
 pub(crate) mod op_select;
+pub(crate) mod op_unary;
 pub(super) mod op_store;
 pub(super) mod op_test;
 

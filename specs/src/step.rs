@@ -1,6 +1,6 @@
 use crate::{
     host_function::{HostPlugin, Signature},
-    itable::{BinOp, BitOp, RelOp, ShiftOp},
+    itable::{BinOp, BitOp, RelOp, ShiftOp, UnaryOp},
     mtable::{MemoryReadSize, MemoryStoreSize, VarType},
     types::ValueType,
 };
@@ -155,6 +155,13 @@ pub enum StepInfo {
         left: i64,
         right: i64,
         value: i64,
+    },
+
+    UnaryOp {
+        class: UnaryOp,
+        vtype: VarType,
+        operand: u64,
+        result: u64,
     },
 
     Test {
