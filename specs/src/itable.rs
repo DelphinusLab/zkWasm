@@ -22,6 +22,7 @@ pub enum OpcodeClass {
     Select,
     Return,
     Bin,
+    Unary,
     BinShift,
     BinBit,
     Test,
@@ -51,6 +52,7 @@ impl OpcodeClass {
             OpcodeClass::Bin => 3,
             OpcodeClass::BinShift => 3,
             OpcodeClass::BinBit => 3,
+            OpcodeClass::Unary => 2,
             OpcodeClass::Test => 2,
             OpcodeClass::Rel => 3,
             OpcodeClass::Br => 0,
@@ -76,6 +78,13 @@ impl OpcodeClass {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct OpcodeClassPlain(pub usize);
+
+#[derive(Copy, Clone, Debug, Serialize)]
+pub enum UnaryOp {
+    Ctz,
+    Clz,
+    Popcnt,
+}
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub enum BinOp {
@@ -180,6 +189,10 @@ pub enum Opcode {
     },
     BinBit {
         class: BitOp,
+        vtype: VarType,
+    },
+    Unary {
+        class: UnaryOp,
         vtype: VarType,
     },
     Test {
@@ -303,6 +316,11 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
             }
+            Opcode::Unary { class, vtype } => {
+                (BigUint::from(OpcodeClass::Unary as u64) << OPCODE_CLASS_SHIFT)
+                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+            }
             Opcode::Test { class, vtype } => {
                 (BigUint::from(OpcodeClass::Test as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
@@ -390,6 +408,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Bin { .. } => OpcodeClass::Bin,
             Opcode::BinShift { .. } => OpcodeClass::BinShift,
             Opcode::BinBit { .. } => OpcodeClass::BinBit,
+            Opcode::Unary { .. } => OpcodeClass::Unary,
             Opcode::Test { .. } => OpcodeClass::Test,
             Opcode::Rel { .. } => OpcodeClass::Rel,
             Opcode::Br { .. } => OpcodeClass::Br,

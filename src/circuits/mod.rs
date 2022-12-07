@@ -124,6 +124,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClassPlain(OpcodeClass::Bin as usize),
             OpcodeClassPlain(OpcodeClass::BinBit as usize),
             OpcodeClassPlain(OpcodeClass::BinShift as usize),
+            OpcodeClassPlain(OpcodeClass::Unary as usize),
             OpcodeClassPlain(OpcodeClass::BrIf as usize),
             OpcodeClassPlain(OpcodeClass::Load as usize),
             OpcodeClassPlain(OpcodeClass::Store as usize),
