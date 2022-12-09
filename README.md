@@ -7,8 +7,18 @@
 </p>
 
 # Overview：
-## Circuit Details:
+
+The mission of DelphiusLab is to provide Web2 developpers a consise toolset to leverage the power of Web3 in their applications. The ZKWASM (ZKSNARK virtual machine that supports Web Assembly) is a crucial part which served as a trustless trustless adopter between rich applilcation running on WASM runtime and smart contracts on various blockchains.
+
+WASM (or WebAssembly) is an open standard binary code format close to assembly. Its initial objective is to provide an alternative to java-script with better performance in the current web ecosystems. Benefiting from its platform independence, front-end flexibility (can be compiled from the majority of languages including C, C++, assembly script, rust, etc.), good isolated runtime and speed that is close to native binary, its usage starts to arise in the distributed cloud and edge computing. Recently it has become a popular binary format for users to run customized functions on AWS Lambda, Open Yurt, AZURE, etc.
+
+The idea of ZKWASM, is derived from ZKSNARK (Zero-Knowledge Succinct Non-Interactive Argument of Knowledge) which is a combination of SNARG (Succinct non-interactive arguments) and zero-knowledge proof. In general, the adoption of ZKSNARK usually requires implementing a program in arithmetic circuits or circuit-friendly languages (Pinocchio, TinyRAM, Buffet/Pequin, Geppetto, xJsnark framework, ZoKrates) that forms a barrier for existing programs to leverage the power of it. An alternative way is that instead of applying ZKSNARK, on the source code, we apply it on the bytecode level of a virtual machine and implement a zksnark-backed virtual machine. In this work, we take the approach of writing the whole WASM virtual machine in ZKSNARK circuits so that existing WASM applications can benefit from ZKSNARK by simply running on the ZKWASM, without any modification. Therefore, the cloud service provider can prove to any user that the computation result is computed honestly and no private information is leaked.
+
+
+# Circuit Details:
 https://jhc.sjtu.edu.cn/~hongfeifu/manuscriptb.pdf
+
+# Quick start with ZKWASM command line
 
 ## Setup input:
 wasm code
@@ -54,107 +64,6 @@ cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> aggregate
 ```
 cargo run --release --function <FUNCTION_NAME> --wasm <WASM_BINARY> solidity-aggregate-verifier --proof <PROOF_PATH> --instances <AGGREGATE_INSTANCE_PATH>
 ```
-
-# Static Data：
-
-## Instruction Table
-Instruction Table[ITable] is a [FIXED] map reprensents the wasm code image.
-**ITable**: address $\mapsto$ opcode
-
-## Initial Memory Table
-Initial Memory Table[MTable] is [FIXED] and represents the heap memory of wasm.
-**IMTable**: heap memory index $\mapsto$ data[u64] where data is indexed by u64.
-
-## Execution Trace Table:
-Exexution Trace Table [ETable] is used to verifying that the execution sequence enforces the semantics of each instruction's bytecode.
-**ETable**: eid  execution $\mapsto$ data
-
-## Jump table
-(eid, return address, last jump eid）
-
-## Memory Trace Table
-((eid+empty, stack + heap) -> memory access log
-empty for heap memory initialization
-(verifies data access)
-
-## Extra
-public inputs for top level functions
-(index $\mapsto$ data)
-
-# Prerequisite
-
-## Memory Access Log
-Memory access log is used to describe how memory is used.
-
-* MemoryAccessLog = ((Init + Write + Read), (i32/64+f32/64), data) 
-
-## Sujective map
-
-Suppose that A, B are tables, A = ($a_i$) where $a_i$ values of columns $A_i$ and 
-B = ($b_i$) where $b_i$ values of columns $B_i$.
-
-Polynomial lookup can prove $\forall {a_i} \in A, f(a_i) \in g(b_i)$ by a map $l$. But can not prove $\forall {b_i} \in B$, there exists ${a_i} \in A$ such that $f(a_i) \in g(b_i)$. To prove $l$ is sujective, we need to either
-* find l' from ${b_i}$ to ${a_i}$.
-* compare row numbers of $A$ and $B$ and make sure ${a_i}$ are unique and $f(a_i) \neq f(a_j)$ when $a_i \neq a_j$.
-
-# Circuits
-
-## Static Table:
-ITable + IMTable
-
-## Dynamic Table:
-ETable, MTable, JTable
-
-
-
- 
-## Instruction Table (ITable)
-Instruction encodes the static predefined wasm image and is abstracted as a table of pair **(InstructionAddress, Instruction)**.
-
-* InstructionAddress = (ModuleId, FunctionId, InstructionId)
-* Opcode = (OpcodeClass + InnerParameters)
-* MemoryAddress = (Stack + Heap, ModuleId, offset)
-    * for stack memory, its ModuleId always equals 0.
-    * for heap memory, its Module Id start from 1.
-    * offset: start from 0.
-
-## Init memory table (IMTable)
-Init memory table describes the initial data of heap before execution and is abstracted as a table of pair **IMTable = (HeapMemoryIndex, data)**
-
-
-## Execution table (ETable):
-Execution table represents the execution sequence and it needs to match the semantic of each opcode in the sequence.
-
-**ETable [$T_e$] = (EId, Instruction, SP，restMops, lastJumpEId, RestJops)**
-
-* $eid$ starts from 1 and inc one after each instruction in the ETable.
-* $\forall e \in \mathbb{T_e}$ there exists $e'\in \mathbb{T_i}$ such that $e.instruction = e'.instruction$. This constraint proves that each executed bytecode exists in the instruction table.
-* $\forall e_k, e_{k+1} \in T_e$
-    * $e_k.eid + 1= e_{k+1}.eid$
-    * $e1.next(e1.address) = e2.address$.
-* lookup(EID, Instruction, SP) --> mtable
-    * ($eid$, $i$, $sp$) is unique
-    * map from etable to mtable is identical mapping
-    * It remains to show two table has same number of memory rw rows:
-        * Suppose that $e$ is the last element of $\mathbb{T_e}$, then $e.restMops = 0$.
-* sp -> stack memory log [emid] is in mtable
-    * mtable log = init + execution
-
-
-* Example
-
-  | EID | OP | accessType | Address | value|
-  | --- |----|-------|---------|------|
-  | eid | op | write | address | data |
-  | ... | .. | ....  | .....   | ...  |
-  | eid | op | read  | address | data |
-
-
-## Memory Access Table (MTable)
-**MTable [$T_m$] = ( eid, emid, address, accessType, type, data)**
-
-* Suppose that $r_k$ and $r_{k+1}$ in **MTable** and $r_{k}.accessType = write$ and $r_{k+1}$.accessType = Read$ Then $r_{k+1}.data = r_k.data$
-* Suppose that $r_k$ and $r_{k+1}$ in Mtable, addressCode(r_k) <= addressCode(r_{k+1}) where addressCode(r_k) = address << 2 + emid
 
 # Operations Spec [WIP]
 We uses z3 (https://github.com/Z3Prover/z3) to check that all operation are compiled to zkp circuits correctly.
