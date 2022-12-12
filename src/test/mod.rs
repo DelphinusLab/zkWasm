@@ -31,7 +31,7 @@ pub fn run_test_circuit<F: FieldExt>(
     execution_table: ExecutionTable,
     public_inputs: Vec<F>,
 ) -> Result<(), Error> {
-    write_json(&compile_table, &execution_table);
+    write_json(&compile_table, &execution_table, None);
 
     let circuit = TestCircuit::<F>::new(compile_table, execution_table);
 

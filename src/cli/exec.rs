@@ -159,7 +159,11 @@ pub fn exec_create_proof(
     if true {
         info!("Mock test...");
 
-        write_json(&circuit.compile_tables, &circuit.execution_tables);
+        write_json(
+            &circuit.compile_tables,
+            &circuit.execution_tables,
+            Some(output_dir.clone()),
+        );
 
         let prover = MockProver::run(
             zkwasm_k,

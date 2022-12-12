@@ -60,14 +60,18 @@ fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
     fd.write(buf.as_bytes()).unwrap();
 }
 
-pub fn write_json(compile_table: &CompileTable, execution_table: &ExecutionTable) {
+pub fn write_json(
+    compile_table: &CompileTable,
+    execution_table: &ExecutionTable,
+    dir: Option<PathBuf>,
+) {
     let itable = serde_json::to_string(&compile_table.itable).unwrap();
     let imtable = serde_json::to_string(&compile_table.imtable).unwrap();
     let etable = serde_json::to_string(&execution_table.etable).unwrap();
     let mtable = serde_json::to_string(&execution_table.mtable).unwrap();
     let jtable = serde_json::to_string(&execution_table.jtable).unwrap();
 
-    let dir = env::current_dir().unwrap();
+    let dir = dir.unwrap_or(env::current_dir().unwrap());
     write_file(&dir, "itable.json", &itable);
     write_file(&dir, "imtable.json", &imtable);
     write_file(&dir, "etable.json", &etable);
