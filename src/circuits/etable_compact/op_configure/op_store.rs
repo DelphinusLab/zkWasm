@@ -576,7 +576,42 @@ mod tests {
         test_circuit_noexternal(textual_repr).unwrap();
     }
 
-    // TODO: support store wrap
+    #[test]
+    fn test_all_store() {
+        let textual_repr = r#"
+                (module
+                    (memory $0 1)
+                    (data (i32.const 0) "\ff\00\00\00\fe\00\00\00")
+                    (func (export "test")
+                      (i32.const 0)
+                      (i64.const 0)
+                      (i64.store offset=0)
+                      (i32.const 0)
+                      (i64.const 0)
+                      (i64.store32 offset=0)
+                      (i32.const 0)
+                      (i64.const 0)
+                      (i64.store16 offset=0)
+                      (i32.const 0)
+                      (i64.const 0)
+                      (i64.store8 offset=0)
+
+                      (i32.const 0)
+                      (i32.const 0)
+                      (i32.store offset=0)
+                      (i32.const 0)
+                      (i32.const 0)
+                      (i32.store16 offset=0)
+                      (i32.const 0)
+                      (i32.const 0)
+                      (i32.store8 offset=0)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
     #[test]
     fn test_store_32_wrap() {
         let textual_repr = r#"
