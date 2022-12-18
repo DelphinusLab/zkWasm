@@ -11,6 +11,7 @@ pub(super) mod op_br_if;
 pub(super) mod op_br_if_eqz;
 pub(crate) mod op_br_table;
 pub(super) mod op_call;
+pub(super) mod op_call_indirect;
 pub(super) mod op_const;
 pub(super) mod op_conversion;
 pub(super) mod op_drop;
@@ -23,9 +24,9 @@ pub(super) mod op_local_tee;
 pub(super) mod op_rel;
 pub(super) mod op_return;
 pub(crate) mod op_select;
-pub(crate) mod op_unary;
 pub(super) mod op_store;
 pub(super) mod op_test;
+pub(crate) mod op_unary;
 
 // TODO: replace repeated code with macro
 

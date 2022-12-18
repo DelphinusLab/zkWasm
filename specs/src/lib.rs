@@ -4,6 +4,7 @@
 
 use std::{env, io::Write, path::PathBuf};
 
+use brtable::ElemTable;
 use etable::EventTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
@@ -30,6 +31,7 @@ pub mod types;
 pub struct CompileTable {
     pub itable: InstructionTable,
     pub imtable: InitMemoryTable,
+    pub elem_table: ElemTable,
 }
 
 impl CompileTable {

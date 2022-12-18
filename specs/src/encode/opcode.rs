@@ -28,6 +28,11 @@ pub fn encode_call<T: FromBn>(function_index: T) -> T {
         + function_index * T::from_bn(&OPCODE_ARG0_SHIFT)
 }
 
+pub fn encode_call_indirect<T: FromBn>(type_index: T) -> T {
+    T::from_bn(&(BigUint::from(OpcodeClass::CallIndirect as u64))) * T::from_bn(&OPCODE_CLASS_SHIFT)
+        + type_index * T::from_bn(&OPCODE_ARG0_SHIFT)
+}
+
 pub fn encode_br<T: FromBn>(drop: T, keep: T, dst_pc: T) -> T {
     T::from_bn(&(BigUint::from(OpcodeClass::Br as u64))) * T::from_bn(&OPCODE_CLASS_SHIFT)
         + drop * T::from_bn(&OPCODE_ARG0_SHIFT)

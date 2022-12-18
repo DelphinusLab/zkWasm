@@ -54,6 +54,12 @@ pub enum StepInfo {
     Call {
         index: u16,
     },
+    CallIndirect {
+        table_index: u32,
+        type_index: u32,
+        offset: u32,
+        func_index: u16,
+    },
     CallHost {
         plugin: HostPlugin,
         host_function_idx: usize,
