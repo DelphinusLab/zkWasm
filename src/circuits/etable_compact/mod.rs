@@ -8,6 +8,7 @@ use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_if_eqz::BrIfEqzConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_br_table::BrTableConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_call::CallConfigBuilder;
+use crate::circuits::etable_compact::op_configure::op_call_indirect::CallIndirectConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
 use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
@@ -440,6 +441,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder);
         configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
         configure!(OpcodeClass::Call, CallConfigBuilder);
+        configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
         configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);

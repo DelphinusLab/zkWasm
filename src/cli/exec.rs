@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use halo2_proofs::{
     dev::MockProver,
     pairing::bn256::{Bn256, Fr, G1Affine},
@@ -17,6 +15,7 @@ use halo2aggregator_s::{
 };
 use log::info;
 use specs::{write_json, ExecutionTable};
+use std::path::PathBuf;
 use wasmi::ImportsBuilder;
 
 use crate::{

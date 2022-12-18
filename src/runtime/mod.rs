@@ -462,6 +462,22 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         StepInfo::Call { index: _ } => {
             vec![]
         }
+        StepInfo::CallIndirect { offset, .. } => {
+            let stack_read = MemoryTableEntry {
+                eid,
+                emid: *emid,
+                mmid: 0,
+                offset: sp_before_execution + 1,
+                ltype: LocationType::Stack,
+                atype: AccessType::Read,
+                vtype: VarType::I32,
+                is_mutable: true,
+                value: *offset as u64,
+            };
+            *emid = (*emid).checked_add(1).unwrap();
+
+            vec![stack_read]
+        }
         StepInfo::CallHost {
             args,
             ret_val,

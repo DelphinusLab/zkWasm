@@ -68,10 +68,15 @@ impl WasmRuntime for WasmiRuntime {
                 .map(|imentry| imentry.clone().into())
                 .collect(),
         );
+        let elem_table = tracer.borrow().elem_table.clone();
 
         Ok(CompileOutcome {
             module,
-            tables: CompileTable { itable, imtable },
+            tables: CompileTable {
+                itable,
+                imtable,
+                elem_table,
+            },
             instance,
             tracer,
         })

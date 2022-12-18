@@ -2,7 +2,8 @@ use super::mtable::VarType;
 use crate::{
     brtable::{BrTable, BrTableEntry},
     encode::opcode::{
-        encode_br_if_eqz, encode_br_table, encode_call, encode_global_get, encode_global_set,
+        encode_br_if_eqz, encode_br_table, encode_call, encode_call_indirect, encode_global_get,
+        encode_global_set,
     },
     host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
@@ -36,6 +37,7 @@ pub enum OpcodeClass {
     BrTable,
     Unreachable,
     Call,
+    CallIndirect,
     Load,
     Store,
     Conversion,
@@ -65,6 +67,7 @@ impl OpcodeClass {
             OpcodeClass::BrTable => 1,
             OpcodeClass::Unreachable => todo!(),
             OpcodeClass::Call => 0,
+            OpcodeClass::CallIndirect => 1,
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
             OpcodeClass::Conversion => 2,
@@ -76,6 +79,7 @@ impl OpcodeClass {
         match self {
             OpcodeClass::Return => 1,
             OpcodeClass::Call => 1,
+            OpcodeClass::CallIndirect => 1,
             _ => 0,
         }
     }
@@ -237,6 +241,9 @@ pub enum Opcode {
     Call {
         index: u16,
     },
+    CallIndirect {
+        type_idx: u32,
+    },
     CallHost {
         plugin: HostPlugin,
         function_index: usize,
@@ -371,6 +378,9 @@ impl Into<BigUint> for Opcode {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }
             Opcode::Call { index } => encode_call(BigUint::from(index as u64)),
+            Opcode::CallIndirect { type_idx } => {
+                encode_call_indirect(BigUint::from(type_idx as u64))
+            }
             Opcode::CallHost {
                 op_index_in_plugin, ..
             } => {
@@ -434,6 +444,7 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::BrTable { .. } => OpcodeClass::BrTable,
             Opcode::Unreachable => OpcodeClass::Unreachable,
             Opcode::Call { .. } => OpcodeClass::Call,
+            Opcode::CallIndirect { .. } => OpcodeClass::CallIndirect,
             Opcode::CallHost { .. } => OpcodeClass::ForeignPluginStart,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
