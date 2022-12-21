@@ -1,0 +1,9 @@
+version: "3.7"
+services:
+  vm:
+    image: zkwasm
+    ports:
+      - "2022:22"
+    volumes:
+      - $PWD:/home/zkwasm/volume
+    restart: unless-stopped

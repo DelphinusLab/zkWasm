@@ -1,0 +1,34 @@
+# Note cargo need .git etc to determine source revision
+# .git
+# .gitignore
+# .gitattributes
+
+# Github
+.github
+/deploy/
+
+# Docker
+Dockerfile
+docker-compose.yml
+docker-compose.dev.yml
+.dockerignore
+
+# Documentation
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+
+# Node modules
+/node_modules
+
+# macOS (optional)
+.DS_Store
+
+# Visual Studio Code (optional)
+.vscode
+
+# Cargo build artifacts
+/target/
+/.cargo-home
