@@ -739,16 +739,17 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
         }
         StepInfo::Store {
             vtype,
+            store_size,
             raw_address,
             effective_address,
             value,
             mmid,
-            pre_block_value,
-            updated_block_value,
+            pre_block_value1,
+            updated_block_value1,
+            pre_block_value2,
+            updated_block_value2,
             ..
         } => {
-            // TODO: adapt store size
-
             let load_value_from_stack = MemoryTableEntry {
                 eid,
                 emid: *emid,
@@ -775,7 +776,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             };
             *emid = (*emid).checked_add(1).unwrap();
 
-            let load_value = MemoryTableEntry {
+            let load_value1 = MemoryTableEntry {
                 eid,
                 emid: *emid,
                 mmid: *mmid,
@@ -786,11 +787,11 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 vtype: VarType::I64,
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
-                value: *pre_block_value,
+                value: *pre_block_value1,
             };
             *emid = (*emid).checked_add(1).unwrap();
 
-            let write_value = MemoryTableEntry {
+            let write_value1 = MemoryTableEntry {
                 eid,
                 emid: *emid,
                 mmid: *mmid,
@@ -801,16 +802,55 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 vtype: VarType::I64,
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
-                value: *updated_block_value,
+                value: *updated_block_value1,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
-            vec![
-                load_value_from_stack,
-                load_address_from_stack,
-                load_value,
-                write_value,
-            ]
+            if *effective_address % 8 + store_size.byte_size() as u32 > 8 {
+                *emid = (*emid).checked_add(1).unwrap();
+                let load_value2 = MemoryTableEntry {
+                    eid,
+                    emid: *emid,
+                    mmid: *mmid,
+                    offset: ((*effective_address) / 8 + 1) as u64,
+                    ltype: LocationType::Heap,
+                    atype: AccessType::Read,
+                    // Load u64 from address which align with 8
+                    vtype: VarType::I64,
+                    is_mutable: true,
+                    // The value will be used to lookup within imtable, hence block_value is given here
+                    value: *pre_block_value2,
+                };
+
+                *emid = (*emid).checked_add(1).unwrap();
+                let write_value2 = MemoryTableEntry {
+                    eid,
+                    emid: *emid,
+                    mmid: *mmid,
+                    offset: ((*effective_address) / 8 + 1) as u64,
+                    ltype: LocationType::Heap,
+                    atype: AccessType::Write,
+                    // Load u64 from address which align with 8
+                    vtype: VarType::I64,
+                    is_mutable: true,
+                    // The value will be used to lookup within imtable, hence block_value is given here
+                    value: *updated_block_value2,
+                };
+                vec![
+                    load_value_from_stack,
+                    load_address_from_stack,
+                    load_value1,
+                    write_value1,
+                    load_value2,
+                    write_value2,
+                ]
+            } else {
+                vec![
+                    load_value_from_stack,
+                    load_address_from_stack,
+                    load_value1,
+                    write_value1,
+                ]
+            }
         }
 
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(
