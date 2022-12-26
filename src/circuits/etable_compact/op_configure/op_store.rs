@@ -49,9 +49,9 @@ pub struct StoreConfig {
     lookup_stack_read_pos: MTableLookupCell,
     lookup_stack_read_val: MTableLookupCell,
     lookup_heap_read1: MTableLookupCell,
-    _lookup_heap_read2: MTableLookupCell,
+    lookup_heap_read2: MTableLookupCell,
     lookup_heap_write1: MTableLookupCell,
-    _lookup_heap_write2: MTableLookupCell,
+    lookup_heap_write2: MTableLookupCell,
 
     lookup_offset_len_bits: OffsetLenBitsTableLookupCell,
     lookup_pow: PowTableLookupCell,
@@ -94,8 +94,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let lookup_stack_read_val = common.alloc_mtable_lookup();
         let lookup_stack_read_pos = common.alloc_mtable_lookup();
         let lookup_heap_read1 = common.alloc_mtable_lookup();
-        let lookup_heap_read2 = common.alloc_mtable_lookup();
         let lookup_heap_write1 = common.alloc_mtable_lookup();
+        let lookup_heap_read2 = common.alloc_mtable_lookup();
         let lookup_heap_write2 = common.alloc_mtable_lookup();
 
         let lookup_offset_len_bits = common.alloc_offset_len_bits_table_lookup();
@@ -263,10 +263,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                     acc = acc
                         + load_value2.u8_expr(meta, i)
                             * constant!(bn_to_field(&(BigUint::from(1u64) << (i * 8 + 64))))
-                            * mask_bits[i as usize + 8].expr(meta)
+                            * (constant_from!(1) - mask_bits[i as usize + 8].expr(meta))
                         - store_value2.u8_expr(meta, i)
                             * constant!(bn_to_field(&(BigUint::from(1u64) << (i * 8 + 64))))
-                            * mask_bits[i as usize + 8].expr(meta);
+                            * (constant_from!(1) - mask_bits[i as usize + 8].expr(meta));
                 }
 
                 vec![acc]
@@ -294,13 +294,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             is_eight_bytes,
             vtype,
             lookup_heap_read1,
-            _lookup_heap_read2: lookup_heap_read2,
+            lookup_heap_read2,
             lookup_offset_len_bits,
             lookup_pow,
             lookup_stack_read_pos,
             lookup_stack_read_val,
             lookup_heap_write1,
-            _lookup_heap_write2: lookup_heap_write2,
+            lookup_heap_write2,
             load_value1,
             load_value2,
         })
@@ -335,8 +335,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 offset,
                 raw_address,
                 effective_address,
-                pre_block_value,
-                updated_block_value,
+                pre_block_value1,
+                updated_block_value1,
+                pre_block_value2,
+                updated_block_value2,
                 value,
                 mmid,
             } => {
@@ -362,14 +364,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 self.store_end_block_inner_offset_helper
                     .assign(ctx, (7 - end_byte_index % 8).try_into().unwrap())?;
 
-                self.load_value1.assign(ctx, pre_block_value)?;
-                self.store_value1.assign(ctx, updated_block_value)?;
-
-                // TODO replace 0 if cross store
-                self.load_value2.assign(ctx, 0)?;
-                self.store_value2.assign(ctx, 0)?;
+                self.load_value1.assign(ctx, pre_block_value1)?;
+                self.store_value1.assign(ctx, updated_block_value1)?;
 
                 let offset = start_byte_index % 8;
+                if offset + len > 8 {
+                    self.load_value2.assign(ctx, pre_block_value2)?;
+                    self.store_value2.assign(ctx, updated_block_value2)?;
+                } else {
+                    self.load_value2.assign(ctx, 0)?;
+                    self.store_value2.assign(ctx, 0)?;
+                }
+
                 let bits = bits_of_offset_len(offset, len);
                 for i in 0..16 {
                     self.mask_bits[i].assign(ctx, (bits >> i) & 1 == 1)?;
@@ -422,7 +428,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                         BigUint::from(mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
-                        BigUint::from(pre_block_value),
+                        BigUint::from(pre_block_value1),
                     ),
                 )?;
 
@@ -434,11 +440,35 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                         BigUint::from(mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
-                        BigUint::from(updated_block_value),
+                        BigUint::from(updated_block_value1),
                     ),
                 )?;
 
-                //TODO: assign for cross store block value
+                if offset + len > 8 {
+                    self.lookup_heap_read2.assign(
+                        ctx,
+                        &MemoryTableLookupEncode::encode_memory_load(
+                            BigUint::from(step_info.current.eid),
+                            BigUint::from(5 as u64),
+                            BigUint::from(mmid),
+                            BigUint::from(end_byte_index / 8),
+                            BigUint::from(VarType::I64 as u16),
+                            BigUint::from(pre_block_value2),
+                        ),
+                    )?;
+
+                    self.lookup_heap_write2.assign(
+                        ctx,
+                        &MemoryTableLookupEncode::encode_memory_store(
+                            BigUint::from(step_info.current.eid),
+                            BigUint::from(6 as u64),
+                            BigUint::from(mmid),
+                            BigUint::from(end_byte_index / 8),
+                            BigUint::from(VarType::I64 as u16),
+                            BigUint::from(updated_block_value2),
+                        ),
+                    )?;
+                }
 
                 self.lookup_offset_len_bits.assign(ctx, offset, len)?;
                 self.lookup_pow.assign(ctx, offset * 8)?;
@@ -520,24 +550,24 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 constant_from!(VarType::I64),
                 self.load_value1.expr(meta),
             )),
-            MLookupItem::Fourth => Some(
+            MLookupItem::Fourth => Some(MemoryTableLookupEncode::encode_memory_store(
+                common_config.eid(meta),
+                constant_from!(4),
+                common_config.mmid(meta),
+                self.store_start_block_index.expr(meta),
+                constant_from!(VarType::I64),
+                self.store_value1.expr(meta),
+            )),
+            MLookupItem::Fifth => Some(
                 MemoryTableLookupEncode::encode_memory_load(
                     common_config.eid(meta),
-                    constant_from!(4),
+                    constant_from!(5),
                     common_config.mmid(meta),
                     self.store_end_block_index.expr(meta),
                     constant_from!(VarType::I64),
                     self.load_value2.expr(meta),
                 ) * cross_block.clone(),
             ),
-            MLookupItem::Fifth => Some(MemoryTableLookupEncode::encode_memory_store(
-                common_config.eid(meta),
-                constant_from!(4) + cross_block,
-                common_config.mmid(meta),
-                self.store_start_block_index.expr(meta),
-                constant_from!(VarType::I64),
-                self.store_value1.expr(meta),
-            )),
             MLookupItem::Six => Some(
                 MemoryTableLookupEncode::encode_memory_store(
                     common_config.eid(meta),
