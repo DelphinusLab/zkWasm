@@ -294,11 +294,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             curr!(meta, aux) * fixed_curr!(meta, mtable_lookup)
         });
 
-        // TODO: elegantly handle the last return
         jtable.configure_in_table(meta, "etable jtable lookup", |meta| {
-            curr!(meta, aux)
-                * nextn!(meta, aux, ETABLE_STEP_SIZE as i32)
-                * fixed_curr!(meta, jtable_lookup)
+            curr!(meta, aux) * fixed_curr!(meta, jtable_lookup)
         });
 
         rtable.configure_in_pow_set(meta, "etable pow_table lookup", |meta| {
