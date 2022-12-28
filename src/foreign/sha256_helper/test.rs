@@ -2,6 +2,7 @@
 pub(crate) mod tests {
     use crate::{
         foreign::{
+            require_helper::register_require_foreign,
             sha256_helper::runtime::register_sha256_foreign,
             wasm_input_helper::runtime::register_wasm_input_foreign,
         },
@@ -65,6 +66,36 @@ pub(crate) mod tests {
             compiled_module.tables,
             execution_log.tables,
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_sha256_v2() {
+        let mut wasm = vec![];
+
+        let path = PathBuf::from("wasm/sha256_v2.wasm");
+        let mut f = File::open(path).unwrap();
+        f.read_to_end(&mut wasm).unwrap();
+
+        let compiler = WasmInterpreter::new();
+        let mut env = HostEnv::new();
+        register_sha256_foreign(&mut env);
+        register_wasm_input_foreign(&mut env, vec![], vec![]);
+        register_require_foreign(&mut env);
+
+        let imports = ImportsBuilder::new().with_resolver("env", &env);
+        let compiled_module = compiler
+            .compile(&wasm, &imports, &env.function_plugin_lookup)
+            .unwrap();
+        let execution_log = compiler
+            .run(&mut env, &compiled_module, "zkmain", vec![], vec![])
+            .unwrap();
+        run_test_circuit::<Fp>(
+            compiled_module.tables,
+            execution_log.tables,
+            //public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
+            vec![],
         )
         .unwrap()
     }
