@@ -366,16 +366,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
 
                 self.load_value1.assign(ctx, pre_block_value1)?;
                 self.store_value1.assign(ctx, updated_block_value1)?;
+                self.load_value2.assign(ctx, pre_block_value2)?;
+                self.store_value2.assign(ctx, updated_block_value2)?;
 
                 let offset = start_byte_index % 8;
-                if offset + len > 8 {
-                    self.load_value2.assign(ctx, pre_block_value2)?;
-                    self.store_value2.assign(ctx, updated_block_value2)?;
-                } else {
-                    self.load_value2.assign(ctx, 0)?;
-                    self.store_value2.assign(ctx, 0)?;
-                }
-
                 let bits = bits_of_offset_len(offset, len);
                 for i in 0..16 {
                     self.mask_bits[i].assign(ctx, (bits >> i) & 1 == 1)?;
