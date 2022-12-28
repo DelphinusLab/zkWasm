@@ -12,7 +12,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         let mut status_entries = Vec::with_capacity(etable.entries().len() + 1);
 
         // Ensure capability, at least reserve one row for disabled entries
-        assert!(etable.entries().len() < max_etable_rows() as usize);
+        assert!(etable.entries().len() * ETABLE_STEP_SIZE < max_etable_rows() as usize);
 
         // Step 1: fill fixed columns
         for i in 0..max_etable_rows() as usize {
