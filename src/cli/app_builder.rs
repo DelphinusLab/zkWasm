@@ -145,6 +145,7 @@ pub trait AppBuilder: CommandBuilder {
             Some(("solidity-aggregate-verifier", sub_matches)) => {
                 let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
                 let instances_path: PathBuf = Self::parse_aggregate_instance(&sub_matches);
+                let aux_only: bool = Self::parse_auxonly(&sub_matches);
 
                 exec_solidity_aggregate_proof(
                     Self::ZKWASM_K,
@@ -154,6 +155,7 @@ pub trait AppBuilder: CommandBuilder {
                     &proof_path,
                     &instances_path,
                     Self::N_PROOFS,
+                    aux_only,
                 );
             }
 

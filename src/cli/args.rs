@@ -40,12 +40,21 @@ pub trait ArgBuilder {
         )
         .value_parser(value_parser!(PathBuf))
     }
+
     fn parse_proof_path_arg(matches: &ArgMatches) -> PathBuf {
         matches
             .get_one::<PathBuf>("proof")
             .expect("proof is required.")
             .clone()
     }
+
+    fn auxonly_arg<'a>() -> Arg<'a> {
+        arg!(
+            -a --auxonly "Generate aux file only."
+        )
+        .takes_value(false)
+    }
+
 
     fn single_public_arg<'a>() -> Arg<'a>;
     fn parse_single_public_arg(matches: &ArgMatches) -> Vec<u64>;
@@ -71,4 +80,10 @@ pub trait ArgBuilder {
             .expect("instances is required.")
             .clone()
     }
+    fn parse_auxonly(matches: &ArgMatches) -> bool {
+        matches
+            .get_many::<String>("auxonly")
+            .map_or(false, |_| true)
+    }
+
 }
