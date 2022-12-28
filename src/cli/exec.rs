@@ -336,6 +336,7 @@ pub fn exec_solidity_aggregate_proof(
     proof_path: &PathBuf,
     instances_path: &PathBuf,
     n_proofs: usize,
+    aux_only: bool,
 ) {
     let zkwasm_params_verifier: ParamsVerifier<Bn256> = {
         let params = load_or_build_unsafe_params::<Bn256>(
@@ -367,16 +368,18 @@ pub fn exec_solidity_aggregate_proof(
         (params_verifier, vkey, instances, proof)
     };
 
-    solidity_render(
-        "sol/templates/*",
-        "sol/contracts/AggregatorConfig.sol",
-        "AggregatorConfig.sol.tera",
-        &zkwasm_params_verifier,
-        &verifier_params_verifier,
-        &vkey,
-        &instances[0],
-        proof.clone(),
-    );
+    if !aux_only {
+        solidity_render(
+            "sol/templates/*",
+            "sol/contracts/AggregatorConfig.sol",
+            "AggregatorConfig.sol.tera",
+            &zkwasm_params_verifier,
+            &verifier_params_verifier,
+            &vkey,
+            &instances[0],
+            proof.clone(),
+        );
+    }
 
     solidity_aux_gen(
         &verifier_params_verifier,
