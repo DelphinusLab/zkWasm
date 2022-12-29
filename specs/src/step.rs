@@ -110,7 +110,8 @@ pub enum StepInfo {
         raw_address: u32,
         effective_address: u32,
         value: u64,
-        block_value: u64,
+        block_value1: u64,
+        block_value2: u64,
         mmid: u64,
     },
     Store {

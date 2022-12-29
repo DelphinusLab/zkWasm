@@ -50,7 +50,7 @@ pub struct LoadConfig {
 
     lookup_stack_read: MTableLookupCell,
     lookup_heap_read1: MTableLookupCell,
-    _lookup_heap_read2: MTableLookupCell,
+    lookup_heap_read2: MTableLookupCell,
     lookup_stack_write: MTableLookupCell,
 
     lookup_offset_len_bits: OffsetLenBitsTableLookupCell,
@@ -269,7 +269,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             vtype,
             lookup_stack_read,
             lookup_heap_read1,
-            _lookup_heap_read2: lookup_heap_read2,
+            lookup_heap_read2,
             lookup_stack_write,
             lookup_offset_len_bits,
             lookup_pow,
@@ -307,7 +307,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 raw_address,
                 effective_address,
                 value,
-                block_value,
+                block_value1,
+                block_value2,
                 mmid,
             } => {
                 self.opcode_load_offset
@@ -331,9 +332,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.load_end_block_inner_offset_helper
                     .assign(ctx, (7 - end_byte_index % 8).try_into().unwrap())?;
 
-                self.load_value1.assign(ctx, block_value)?;
-                // TODO replace 0 if cross load
-                self.load_value2.assign(ctx, 0)?;
+                self.load_value1.assign(ctx, block_value1)?;
+                self.load_value2.assign(ctx, block_value2)?;
 
                 let offset = start_byte_index % 8;
                 let bits = bits_of_offset_len(offset, len);
@@ -388,18 +388,29 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                         BigUint::from(mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
-                        BigUint::from(block_value),
+                        BigUint::from(block_value1),
                     ),
                 )?;
 
-                //TODO: assign for cross load block value
+                if offset + len > 8 {
+                    self.lookup_heap_read2.assign(
+                        ctx,
+                        &MemoryTableLookupEncode::encode_memory_load(
+                            BigUint::from(step_info.current.eid),
+                            BigUint::from(3 as u64),
+                            BigUint::from(mmid),
+                            BigUint::from(end_byte_index / 8),
+                            BigUint::from(VarType::I64 as u16),
+                            BigUint::from(block_value2),
+                        ),
+                    )?;
+                }
 
                 self.lookup_stack_write.assign(
                     ctx,
                     &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
-                        //TODO: assign 4 for cross load
-                        BigUint::from(3 as u64),
+                        BigUint::from(3 + (offset + len - 1) / 8 as u64),
                         BigUint::from(step_info.current.sp + 1),
                         BigUint::from(vtype as u16),
                         BigUint::from(value),
@@ -568,6 +579,29 @@ mod tests {
                     (func (export "test")
                       (i32.const 0)
                       (i64.load8_u offset=0)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap();
+    }
+
+    #[test]
+    fn test_load_64_cross() {
+        let textual_repr = r#"
+                (module
+                    (memory $0 1)
+                    (data (i32.const 0) "\ff\00\00\00\fe\00\00\00\fd\00\00\00\fc\00\00\00")
+                    (func (export "test")
+                      (i32.const 4)
+                      (i64.load offset=0)
+                      (drop)
+                      (i32.const 6)
+                      (i64.load32_u offset=0)
+                      (drop)
+                      (i32.const 7)
+                      (i64.load16_u offset=0)
                       (drop)
                     )
                    )
