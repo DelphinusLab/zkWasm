@@ -702,11 +702,12 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 
         StepInfo::Load {
             vtype,
-            offset: _offset,
+            load_size,
             raw_address,
             effective_address,
             value,
-            block_value,
+            block_value1,
+            block_value2,
             mmid,
             ..
         } => {
@@ -723,7 +724,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             };
             *emid = (*emid).checked_add(1).unwrap();
 
-            let load_value = MemoryTableEntry {
+            let load_value1 = MemoryTableEntry {
                 eid,
                 emid: *emid,
                 mmid: *mmid,
@@ -734,10 +735,29 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 vtype: VarType::I64,
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
-                value: *block_value,
+                value: *block_value1,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
+            let load_value2 = if *effective_address % 8 + load_size.byte_size() as u32 > 8 {
+                *emid = (*emid).checked_add(1).unwrap();
+                Some(MemoryTableEntry {
+                    eid,
+                    emid: *emid,
+                    mmid: *mmid,
+                    offset: ((*effective_address) / 8 + 1) as u64,
+                    ltype: LocationType::Heap,
+                    atype: AccessType::Read,
+                    // Load u64 from address which align with 8
+                    vtype: VarType::I64,
+                    is_mutable: true,
+                    // The value will be used to lookup within imtable, hence block_value is given here
+                    value: *block_value2,
+                })
+            } else {
+                None
+            };
+
+            *emid = (*emid).checked_add(1).unwrap();
             let push_value = MemoryTableEntry {
                 eid,
                 emid: *emid,
@@ -749,9 +769,13 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
-            vec![load_address_from_stack, load_value, push_value]
+            vec![
+                vec![load_address_from_stack, load_value1],
+                load_value2.map_or(vec![], |v| vec![v]),
+                vec![push_value],
+            ]
+            .concat()
         }
         StepInfo::Store {
             vtype,
