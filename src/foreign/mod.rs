@@ -8,8 +8,9 @@ use crate::circuits::etable_compact::op_configure::{
 };
 
 pub mod keccak_helper;
-pub mod sha256_helper;
+pub mod print_helper;
 pub mod require_helper;
+pub mod sha256_helper;
 pub mod wasm_input_helper;
 
 pub trait ForeignCallInfo {
