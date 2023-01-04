@@ -7,8 +7,8 @@ use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 struct Context;
 impl ForeignContext for Context {}
 
-pub fn register_print_foreign(env: &mut HostEnv) {
-    let foreign_print_plugin = env
+pub fn register_log_foreign(env: &mut HostEnv) {
+    let foreign_log_plugin = env
         .external_env
         .register_plugin("foreign_print", Box::new(Context));
 
@@ -23,10 +23,10 @@ pub fn register_print_foreign(env: &mut HostEnv) {
     );
 
     env.external_env.register_function(
-        "print",
+        "log",
         0,
         ExternalHostCallSignature::Argument,
-        foreign_print_plugin,
+        foreign_log_plugin,
         print,
     );
 }
