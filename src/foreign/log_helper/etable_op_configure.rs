@@ -25,21 +25,21 @@ use specs::{
 };
 use specs::{host_function::HostPlugin, mtable::VarType};
 
-pub struct PrintForeignCallInfo {}
-impl ForeignCallInfo for PrintForeignCallInfo {
+pub struct LogForeignCallInfo {}
+impl ForeignCallInfo for LogForeignCallInfo {
     fn call_id(&self) -> usize {
-        OpcodeClass::ForeignPluginStart as usize + HostPlugin::Print as usize
+        OpcodeClass::ForeignPluginStart as usize + HostPlugin::Log as usize
     }
 }
 
-pub struct ETablePrintHelperTableConfig {
+pub struct ETableLogHelperTableConfig {
     value: U64Cell,
     value_lookup: MTableLookupCell,
 }
 
-pub struct ETablePrintHelperTableConfigBuilder {}
+pub struct ETableLogHelperTableConfigBuilder {}
 
-impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETablePrintHelperTableConfigBuilder {
+impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableLogHelperTableConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
         _constraint_builder: &mut ConstraintBuilder<F>,
@@ -50,17 +50,17 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETablePrintHelperTab
 
         // No constraint
 
-        Box::new(ETablePrintHelperTableConfig {
+        Box::new(ETableLogHelperTableConfig {
             value,
             value_lookup,
         })
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for ETablePrintHelperTableConfig {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableLogHelperTableConfig {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + HostPlugin::Print as u64)
+            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + HostPlugin::Log as u64)
                 << OPCODE_CLASS_SHIFT)
         ))
     }
@@ -73,7 +73,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETablePrintHelperTableConfig {
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::CallHost { plugin, args, .. } => {
-                assert_eq!(*plugin, HostPlugin::Print);
+                assert_eq!(*plugin, HostPlugin::Log);
 
                 let value = args[0];
 

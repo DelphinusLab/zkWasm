@@ -7,8 +7,8 @@ pub mod etable_op_configure;
 struct Context;
 impl ForeignContext for Context {}
 
-pub fn register_print_foreign(env: &mut HostEnv) {
-    let print = Box::new(
+pub fn register_log_foreign(env: &mut HostEnv) {
+    let log = Box::new(
         |_context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let value: u32 = args.nth(0);
 
@@ -19,15 +19,15 @@ pub fn register_print_foreign(env: &mut HostEnv) {
     );
 
     env.register_function(
-        "print",
+        "log",
         0,
         Box::new(Context),
         specs::host_function::Signature {
             params: vec![ValueType::I32],
             return_type: None,
         },
-        print,
-        HostPlugin::Print,
+        log,
+        HostPlugin::Log,
     )
     .unwrap();
 }

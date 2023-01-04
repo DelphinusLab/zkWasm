@@ -25,5 +25,5 @@ pub enum HostPlugin {
     HostInput = 0,
     Sha256,
     Require,
-    Print,
+    Log,
 }

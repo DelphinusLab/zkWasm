@@ -146,7 +146,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClassPlain(
                 OpcodeClass::ForeignPluginStart as usize + HostPlugin::Require as usize,
             ),
-            OpcodeClassPlain(OpcodeClass::ForeignPluginStart as usize + HostPlugin::Print as usize),
+            OpcodeClassPlain(OpcodeClass::ForeignPluginStart as usize + HostPlugin::Log as usize),
         ]);
 
         let constants = meta.fixed_column();

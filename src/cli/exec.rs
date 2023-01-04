@@ -21,7 +21,7 @@ use wasmi::ImportsBuilder;
 use crate::{
     circuits::{TestCircuit, ZkWasmCircuitBuilder},
     foreign::{
-        print_helper::register_print_foreign, require_helper::register_require_foreign,
+        log_helper::register_log_foreign, require_helper::register_require_foreign,
         sha256_helper::runtime::register_sha256_foreign,
         wasm_input_helper::runtime::register_wasm_input_foreign,
     },
@@ -35,7 +35,7 @@ fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, vec![], vec![]);
     register_require_foreign(&mut env);
-    register_print_foreign(&mut env);
+    register_log_foreign(&mut env);
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();
@@ -61,7 +61,7 @@ fn build_circuit_with_witness(
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     register_require_foreign(&mut env);
-    register_print_foreign(&mut env);
+    register_log_foreign(&mut env);
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();

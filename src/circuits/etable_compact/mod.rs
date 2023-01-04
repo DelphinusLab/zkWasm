@@ -33,8 +33,8 @@ use crate::circuits::utils::bn_to_field;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
-use crate::foreign::print_helper::etable_op_configure::ETablePrintHelperTableConfigBuilder;
-use crate::foreign::print_helper::etable_op_configure::PrintForeignCallInfo;
+use crate::foreign::log_helper::etable_op_configure::ETableLogHelperTableConfigBuilder;
+use crate::foreign::log_helper::etable_op_configure::LogForeignCallInfo;
 use crate::foreign::require_helper::etable_op_configure::ETableRequireHelperTableConfigBuilder;
 use crate::foreign::require_helper::etable_op_configure::RequireForeignCallInfo;
 use crate::foreign::sha256_helper::etable_op_configure::ETableSha256HelperTableConfigBuilder;
@@ -476,9 +476,9 @@ impl<F: FieldExt> EventTableConfig<F> {
             RequireForeignCallInfo
         );
         configure_foreign!(
-            HostPlugin::Print,
-            ETablePrintHelperTableConfigBuilder,
-            PrintForeignCallInfo
+            HostPlugin::Log,
+            ETableLogHelperTableConfigBuilder,
+            LogForeignCallInfo
         );
 
         meta.create_gate("enable seq", |meta| {
