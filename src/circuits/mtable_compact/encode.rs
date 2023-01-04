@@ -76,7 +76,7 @@ impl MemoryTableLookupEncode {
             T::zero(),
             sp,
             T::from_bn(&BigUint::from(LocationType::Stack as u64)),
-            T::from_bn(&BigUint::from(AccessType::Read as u64)),
+            T::from_bn(&BigUint::from(AccessType::Read.into_index())),
             vtype,
             value,
         )
@@ -95,7 +95,7 @@ impl MemoryTableLookupEncode {
             T::zero(),
             sp,
             T::from_bn(&BigUint::from(LocationType::Stack as u64)),
-            T::from_bn(&BigUint::from(AccessType::Write as u64)),
+            T::from_bn(&BigUint::from(AccessType::Write.into_index())),
             vtype,
             value,
         )
@@ -115,7 +115,7 @@ impl MemoryTableLookupEncode {
             mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Heap as u64)),
-            T::from_bn(&BigUint::from(AccessType::Read as u64)),
+            T::from_bn(&BigUint::from(AccessType::Read.into_index())),
             vtype,
             block_value,
         )
@@ -135,7 +135,7 @@ impl MemoryTableLookupEncode {
             mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Heap as u64)),
-            T::from_bn(&BigUint::from(AccessType::Write as u64)),
+            T::from_bn(&BigUint::from(AccessType::Write.into_index())),
             vtype,
             block_value,
         )
@@ -155,7 +155,7 @@ impl MemoryTableLookupEncode {
             mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Global as u64)),
-            T::from_bn(&BigUint::from(AccessType::Read as u64)),
+            T::from_bn(&BigUint::from(AccessType::Read.into_index())),
             vtype,
             value,
         )
@@ -175,7 +175,7 @@ impl MemoryTableLookupEncode {
             mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Global as u64)),
-            T::from_bn(&BigUint::from(AccessType::Write as u64)),
+            T::from_bn(&BigUint::from(AccessType::Write.into_index())),
             vtype,
             value,
         )

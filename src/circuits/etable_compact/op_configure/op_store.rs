@@ -13,6 +13,7 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use specs::{
+    configure_table::WASM_PAGE_SIZE,
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
 };
@@ -55,6 +56,8 @@ pub struct StoreConfig {
 
     lookup_offset_len_bits: OffsetLenBitsTableLookupCell,
     lookup_pow: PowTableLookupCell,
+
+    address_within_allocated_pages_helper: CommonRangeCell,
 }
 
 pub struct StoreConfigBuilder {}
@@ -100,6 +103,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
 
         let lookup_offset_len_bits = common.alloc_offset_len_bits_table_lookup();
         let lookup_pow = common.alloc_pow_table_lookup();
+
+        let current_memory_page_size = common.allocated_memory_pages_cell();
+        let address_within_allocated_pages_helper = common.alloc_common_range_value();
 
         constraint_builder.push(
             "op_store start end offset range",
@@ -273,6 +279,24 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             }),
         );
 
+        constraint_builder.push(
+            "op_store allocated address",
+            Box::new(move |meta| {
+                let len = constant_from!(1)
+                    + is_two_bytes.expr(meta) * constant_from!(1)
+                    + is_four_bytes.expr(meta) * constant_from!(3)
+                    + is_eight_bytes.expr(meta) * constant_from!(7);
+
+                vec![
+                    (store_base.expr(meta)
+                        + opcode_store_offset.expr(meta)
+                        + len
+                        + address_within_allocated_pages_helper.expr(meta)
+                        - current_memory_page_size.expr(meta) * constant_from!(WASM_PAGE_SIZE)),
+                ]
+            }),
+        );
+
         Box::new(StoreConfig {
             opcode_store_offset,
             store_start_block_index,
@@ -303,6 +327,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             lookup_heap_write2,
             load_value1,
             load_value2,
+            address_within_allocated_pages_helper,
         })
     }
 }
@@ -463,6 +488,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                         ),
                     )?;
                 }
+
+                self.address_within_allocated_pages_helper.assign(
+                    ctx,
+                    F::from(
+                        step_info.current.allocated_memory_pages as u64 * WASM_PAGE_SIZE
+                            - (effective_address as u64 + len),
+                    ),
+                )?;
 
                 self.lookup_offset_len_bits.assign(ctx, offset, len)?;
                 self.lookup_pow.assign(ctx, offset * 8)?;

@@ -13,6 +13,7 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use specs::{
+    configure_table::WASM_PAGE_SIZE,
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
 };
@@ -55,6 +56,8 @@ pub struct LoadConfig {
 
     lookup_offset_len_bits: OffsetLenBitsTableLookupCell,
     lookup_pow: PowTableLookupCell,
+
+    address_within_allocated_pages_helper: CommonRangeCell,
 }
 
 pub struct LoadConfigBuilder {}
@@ -99,6 +102,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
 
         let lookup_offset_len_bits = common.alloc_offset_len_bits_table_lookup();
         let lookup_pow = common.alloc_pow_table_lookup();
+
+        let current_memory_page_size = common.allocated_memory_pages_cell();
+        let address_within_allocated_pages_helper = common.alloc_common_range_value();
 
         constraint_builder.push(
             "op_load start end offset <= 7",
@@ -244,6 +250,24 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             Box::new(move |meta| vec![is_i64.expr(meta) + constant_from!(1) - vtype.expr(meta)]),
         );
 
+        constraint_builder.push(
+            "op_load allocated address",
+            Box::new(move |meta| {
+                let len = constant_from!(1)
+                    + is_two_bytes.expr(meta) * constant_from!(1)
+                    + is_four_bytes.expr(meta) * constant_from!(3)
+                    + is_eight_bytes.expr(meta) * constant_from!(7);
+
+                vec![
+                    (load_base.expr(meta)
+                        + opcode_load_offset.expr(meta)
+                        + len
+                        + address_within_allocated_pages_helper.expr(meta)
+                        - current_memory_page_size.expr(meta) * constant_from!(WASM_PAGE_SIZE)),
+                ]
+            }),
+        );
+
         Box::new(LoadConfig {
             opcode_load_offset,
             load_start_block_index,
@@ -273,6 +297,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             lookup_stack_write,
             lookup_offset_len_bits,
             lookup_pow,
+            address_within_allocated_pages_helper,
         })
     }
 }
@@ -414,6 +439,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                         BigUint::from(step_info.current.sp + 1),
                         BigUint::from(vtype as u16),
                         BigUint::from(value),
+                    ),
+                )?;
+
+                self.address_within_allocated_pages_helper.assign(
+                    ctx,
+                    F::from(
+                        step_info.current.allocated_memory_pages as u64 * WASM_PAGE_SIZE
+                            - (effective_address as u64 + len),
                     ),
                 )?;
 

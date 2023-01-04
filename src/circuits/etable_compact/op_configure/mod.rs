@@ -21,6 +21,8 @@ pub(super) mod op_load;
 pub(super) mod op_local_get;
 pub(super) mod op_local_set;
 pub(super) mod op_local_tee;
+pub(super) mod op_memory_grow;
+pub(super) mod op_memory_size;
 pub(super) mod op_rel;
 pub(super) mod op_return;
 pub(crate) mod op_select;
@@ -518,6 +520,13 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
             rot: EventTableCommonRangeColumnRotation::MOID as i32,
         }
     }
+
+    pub fn allocated_memory_pages_cell(&self) -> CommonRangeCell {
+        CommonRangeCell {
+            col: self.config.state.clone(),
+            rot: EventTableCommonRangeColumnRotation::AllocatedMemoryPages as i32,
+        }
+    }
 }
 
 pub struct ConstraintBuilder<'a, F: FieldExt> {
@@ -624,6 +633,13 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        None
+    }
+
+    fn allocated_memory_pages_diff(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+    ) -> Option<Expression<F>> {
         None
     }
 

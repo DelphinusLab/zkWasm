@@ -8,6 +8,7 @@ use super::itable::InstructionTableEntry;
 pub struct EventTableEntry {
     pub eid: u64,
     pub sp: u64,
+    pub allocated_memory_pages: usize,
     pub last_jump_eid: u64,
     pub inst: InstructionTableEntry,
     pub step_info: StepInfo,

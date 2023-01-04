@@ -8,11 +8,12 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         ctx: &mut Context<'_, F>,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         etable: &EventTable,
+        configure: ConfigureTable,
     ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         let mut status_entries = Vec::with_capacity(etable.entries().len() + 1);
 
         // Ensure capability, at least reserve one row for disabled entries
-        assert!(etable.entries().len() * ETABLE_STEP_SIZE < max_etable_rows() as usize);
+        assert!((etable.entries().len() + 1) * ETABLE_STEP_SIZE <= max_etable_rows() as usize);
 
         // Step 1: fill fixed columns
         for i in 0..max_etable_rows() as usize {
@@ -100,6 +101,13 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             || Ok(F::from(0u64)),
         )?;
 
+        ctx.region.assign_advice_from_constant(
+            || "init current memory",
+            self.state,
+            EventTableCommonRangeColumnRotation::AllocatedMemoryPages as usize,
+            F::from(configure.init_memory_pages as u64),
+        )?;
+
         let mut mops = vec![];
         let mut jops = vec![];
         let mut host_public_inputs = 0u64;
@@ -131,6 +139,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 mmid: entry.inst.mmid,
                 sp: entry.sp,
                 last_jump_eid: entry.last_jump_eid,
+                allocated_memory_pages: entry.allocated_memory_pages as u16,
             });
         }
 
@@ -142,6 +151,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             mmid: 0,
             sp: 0,
             last_jump_eid: 0,
+            allocated_memory_pages: 0,
         });
 
         let mut mops_in_total = 0;
@@ -160,6 +170,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             let step_status = StepStatus {
                 current: &status_entries[index],
                 next: &status_entries[index + 1],
+                configure,
             };
 
             let config = op_configs.get(&opcode).unwrap();
@@ -213,7 +224,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
         // Step: fill Status for each eentry
 
-        for entry in etable.entries().iter() {
+        for (index, entry) in etable.entries().iter().enumerate() {
             let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
 
             assign_advice!(
@@ -292,6 +303,17 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 "last jump eid",
                 entry.last_jump_eid
             );
+
+            if index == 0 {
+                assert_eq!(entry.allocated_memory_pages, configure.init_memory_pages);
+            } else {
+                assign_advice!(
+                    self.state,
+                    EventTableCommonRangeColumnRotation::AllocatedMemoryPages,
+                    "current memory",
+                    entry.allocated_memory_pages as u64
+                );
+            }
 
             ctx.region.assign_advice(
                 || "itable lookup entry",

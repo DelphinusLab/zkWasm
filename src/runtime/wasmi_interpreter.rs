@@ -69,6 +69,7 @@ impl WasmRuntime for WasmiRuntime {
                 .collect(),
         );
         let elem_table = tracer.borrow().elem_table.clone();
+        let configure_table = tracer.borrow().configure_table.clone();
 
         Ok(CompileOutcome {
             module,
@@ -76,6 +77,7 @@ impl WasmRuntime for WasmiRuntime {
                 itable,
                 imtable,
                 elem_table,
+                configure_table,
             },
             instance,
             tracer,
