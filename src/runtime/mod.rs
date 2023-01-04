@@ -893,6 +893,25 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             }
         }
 
+        StepInfo::MemorySize => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            VarType::I32,
+            VarType::I32,
+            &[],
+            &[event.allocated_memory_pages as u32 as u64],
+        ),
+        StepInfo::MemoryGrow { grow_size, result } => mem_op_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            emid,
+            VarType::I32,
+            VarType::I32,
+            &[*grow_size as u32 as u64],
+            &[*result as u32 as u64],
+        ),
+
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,

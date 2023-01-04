@@ -1,4 +1,5 @@
 use self::configure::MemoryTableConstriants;
+use super::CircuitConfigure;
 use super::config::max_mtable_rows;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
@@ -14,6 +15,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use specs::mtable::AccessType;
+use specs::mtable::InitType;
 use specs::mtable::LocationType;
 use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
@@ -45,6 +47,7 @@ pub enum RotationOfAuxColumn {
     SameEid,
     Atype,
     RestMops,
+    RangeInLazyInitDiff,
 }
 
 pub enum RotationOfBitColumn {
@@ -52,6 +55,7 @@ pub enum RotationOfBitColumn {
     Is64Bit,
     IsStack,
     IsMutable,
+    IsLazyInit,
     // To support multiple imtable columns,
     // the seletors is a bit filter for an imtable lookup.
     IMTableSelectorStart,
@@ -83,10 +87,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         cols: &mut impl Iterator<Item = Column<Advice>>,
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
+        configure: &CircuitConfigure,
     ) -> Self {
         let mtconfig = Self::new(meta, cols);
         meta.enable_equality(mtconfig.aux);
-        mtconfig.configure(meta, rtable, imtable);
+        mtconfig.configure(meta, rtable, imtable, configure);
         mtconfig
     }
 }
@@ -109,6 +114,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         mtable: &MTable,
         etable_rest_mops_cell: Option<Cell>,
+        consecutive_zero_offset: u64,
     ) -> Result<(), Error> {
         assert_eq!(mtable_rows() % (STEP_SIZE as usize), 0);
 
@@ -146,9 +152,10 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 .constrain_equal(rest_mops_cell.cell(), etable_rest_mops_cell)?;
         }
 
-        let mut mops = mtable.entries().iter().fold(0, |acc, e| {
-            acc + if e.atype == AccessType::Init { 0 } else { 1 }
-        });
+        let mut mops = mtable
+            .entries()
+            .iter()
+            .fold(0, |acc, e| acc + if e.atype.is_init() { 0 } else { 1 });
 
         let mut last_entry: Option<&MemoryTableEntry> = None;
         for (index, entry) in mtable.entries().iter().enumerate() {
@@ -211,7 +218,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 );
 
                 if (entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global)
-                    && entry.atype == AccessType::Init
+                    && entry.atype.is_init()
                 {
                     assign_advice!(
                         "vtype imtable selector",
@@ -289,7 +296,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     "atype",
                     RotationOfAuxColumn::Atype,
                     aux,
-                    F::from(entry.atype as u64)
+                    F::from(entry.atype.into_index())
                 );
                 assign_advice!(
                     "rest mops",
@@ -297,6 +304,24 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     aux,
                     F::from(mops)
                 );
+
+                if let AccessType::Init(InitType::Lazy) = entry.atype {
+                    assert!(entry.offset >= consecutive_zero_offset);
+
+                    assign_advice!(
+                        "lazy init helper",
+                        RotationOfAuxColumn::RangeInLazyInitDiff,
+                        aux,
+                        F::from(entry.offset - consecutive_zero_offset)
+                    );
+
+                    assign_advice!(
+                        "lazy init helper",
+                        RotationOfBitColumn::IsLazyInit,
+                        bit,
+                        F::from(1)
+                    );
+                }
             }
 
             // bytes column
@@ -308,7 +333,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 }
             }
 
-            if entry.atype != AccessType::Init {
+            if !entry.atype.is_init() {
                 mops -= 1;
             }
 

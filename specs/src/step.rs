@@ -128,6 +128,12 @@ pub enum StepInfo {
         mmid: u64,
     },
 
+    MemorySize,
+    MemoryGrow {
+        grow_size: i32,
+        result: i32,
+    },
+
     I32Const {
         value: i32,
     },

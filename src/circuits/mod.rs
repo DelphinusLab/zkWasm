@@ -68,6 +68,16 @@ pub(crate) trait FromBn {
     fn from_bn(bn: &BigUint) -> Self;
 }
 
+#[derive(Copy, Clone)]
+pub struct CircuitConfigure {
+    pub initial_memory_pages: u64,
+    pub maximal_memory_pages: u64,
+    pub first_consecutive_zero_memory_offset: u64,
+}
+
+#[thread_local]
+static mut CIRCUIT_CONFIGURE: Option<CircuitConfigure> = None;
+
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
@@ -90,6 +100,16 @@ pub struct TestCircuit<F: FieldExt> {
 
 impl<F: FieldExt> TestCircuit<F> {
     pub fn new(compile_tables: CompileTable, execution_tables: ExecutionTable) -> Self {
+        unsafe {
+            CIRCUIT_CONFIGURE = Some(CircuitConfigure {
+                first_consecutive_zero_memory_offset: compile_tables
+                    .imtable
+                    .first_consecutive_zero_memory(),
+                initial_memory_pages: compile_tables.configure_table.init_memory_pages as u64,
+                maximal_memory_pages: compile_tables.configure_table.maximal_memory_pages as u64,
+            });
+        }
+
         TestCircuit {
             compile_tables,
             execution_tables,
@@ -112,6 +132,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        let circuit_configure = unsafe { CIRCUIT_CONFIGURE.unwrap() };
+
         let opcode_set = BTreeSet::from([
             OpcodeClassPlain(OpcodeClass::Br as usize),
             OpcodeClassPlain(OpcodeClass::BrIfEqz as usize),
@@ -133,6 +155,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             OpcodeClassPlain(OpcodeClass::BrIf as usize),
             OpcodeClassPlain(OpcodeClass::Load as usize),
             OpcodeClassPlain(OpcodeClass::Store as usize),
+            OpcodeClassPlain(OpcodeClass::MemorySize as usize),
+            OpcodeClassPlain(OpcodeClass::MemoryGrow as usize),
             OpcodeClassPlain(OpcodeClass::Rel as usize),
             OpcodeClassPlain(OpcodeClass::Select as usize),
             OpcodeClassPlain(OpcodeClass::Test as usize),
@@ -159,7 +183,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let imtable = InitMemoryTableConfig::configure(
             [0; IMTABLE_COLOMNS].map(|_| meta.lookup_table_column()),
         );
-        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
+        let mtable =
+            MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable, &circuit_configure);
         let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
         let brtable = BrTableConfig::configure(meta.lookup_table_column());
 
@@ -179,6 +204,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let etable = EventTableConfig::configure(
             meta,
             &mut cols,
+            &circuit_configure,
             &rtable,
             &itable,
             &mtable,
@@ -250,11 +276,21 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                let (rest_mops_cell, rest_jops_cell) =
-                    { echip.assign(&mut ctx, &self.execution_tables.etable)? };
+                let (rest_mops_cell, rest_jops_cell) = {
+                    echip.assign(
+                        &mut ctx,
+                        &self.execution_tables.etable,
+                        self.compile_tables.configure_table,
+                    )?
+                };
 
                 ctx.reset();
-                mchip.assign(&mut ctx, &self.execution_tables.mtable, rest_mops_cell)?;
+                mchip.assign(
+                    &mut ctx,
+                    &self.execution_tables.mtable,
+                    rest_mops_cell,
+                    self.compile_tables.imtable.first_consecutive_zero_memory(),
+                )?;
 
                 ctx.reset();
                 jchip.assign(&mut ctx, &self.execution_tables.jtable, rest_jops_cell)?;

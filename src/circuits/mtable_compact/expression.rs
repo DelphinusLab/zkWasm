@@ -10,8 +10,7 @@ use halo2_proofs::plonk::VirtualCells;
 
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(super) fn is_enabled_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        curr!(meta, self.bit)
-            * fixed_curr!(meta, self.block_first_line_sel)
+        curr!(meta, self.bit) * fixed_curr!(meta, self.block_first_line_sel)
     }
 
     pub(super) fn is_enabled_following_block(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -132,6 +131,14 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         )
     }
 
+    pub(super) fn range_in_lazy_init_diff(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.aux,
+            RotationOfAuxColumn::RangeInLazyInitDiff as i32
+        )
+    }
+
     pub(super) fn byte(&self, meta: &mut VirtualCells<F>, index: i32) -> Expression<F> {
         nextn!(meta, self.bytes, index)
     }
@@ -141,7 +148,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn prev_is_i64(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, RotationOfBitColumn::Is64Bit as i32 - STEP_SIZE)
+        nextn!(
+            meta,
+            self.bit,
+            RotationOfBitColumn::Is64Bit as i32 - STEP_SIZE
+        )
     }
 
     pub(super) fn is_mutable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
@@ -149,15 +160,27 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 
     pub(super) fn prev_is_mutable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.bit, RotationOfBitColumn::IsMutable as i32 - STEP_SIZE)
+        nextn!(
+            meta,
+            self.bit,
+            RotationOfBitColumn::IsMutable as i32 - STEP_SIZE
+        )
     }
 
     pub(super) fn is_stack(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.bit, RotationOfBitColumn::IsStack as i32)
     }
 
+    pub(super) fn is_lazy_init(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(meta, self.bit, RotationOfBitColumn::IsLazyInit as i32)
+    }
+
     pub(super) fn imtable_selector(&self, meta: &mut VirtualCells<F>, i: u32) -> Expression<F> {
         assert!((i as u32 + RotationOfBitColumn::IMTableSelectorStart as u32) < STEP_SIZE as u32);
-        nextn!(meta, self.bit, RotationOfBitColumn::IMTableSelectorStart as i32 + i as i32)
+        nextn!(
+            meta,
+            self.bit,
+            RotationOfBitColumn::IMTableSelectorStart as i32 + i as i32
+        )
     }
 }

@@ -189,6 +189,23 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         )
     }
 
+    pub fn allocated_memory_pages(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.state,
+            EventTableCommonRangeColumnRotation::AllocatedMemoryPages as i32
+        )
+    }
+
+    pub fn next_allocated_memory_pages(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.state,
+            EventTableCommonRangeColumnRotation::AllocatedMemoryPages as i32
+                + ETABLE_STEP_SIZE as i32
+        )
+    }
+
     pub fn itable_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,

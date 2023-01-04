@@ -1,6 +1,7 @@
 use super::encode::MemoryTableLookupEncode;
 use super::*;
 use crate::circuits::config::IMTABLE_COLOMNS;
+use crate::circuits::CircuitConfigure;
 use crate::circuits::Lookup;
 use crate::constant_from;
 use crate::curr;
@@ -21,6 +22,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
+        configure: &CircuitConfigure,
     ) {
         self.configure_enable_as_bit(meta, rtable);
         self.configure_rest_mops_decrease(meta, rtable);
@@ -33,6 +35,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
 
         self.configure_index_sort(meta, rtable);
         self.configure_heap_init_in_imtable(meta, rtable, imtable);
+        self.configure_heap_init_lazy(meta, rtable, configure);
         self.configure_tvalue_bytes(meta, rtable);
         self.configure_encode_range(meta, rtable);
     }
@@ -61,6 +64,12 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
+    );
+    fn configure_heap_init_lazy(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        rtable: &RangeTableConfig<F>,
+        configure: &CircuitConfigure,
     );
 }
 
@@ -133,7 +142,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             |meta| {
                 vec![
                     (self.prev_rest_mops(meta) - self.rest_mops(meta) - constant_from!(1))
-                        * (self.prev_atype(meta) - constant_from!(AccessType::Init)),
+                        * (self.prev_atype(meta) - constant_from!(AccessType::init_index())),
                 ]
                 .into_iter()
                 .map(|e| e * self.is_enabled_following_block(meta))
@@ -146,8 +155,8 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             |meta| {
                 vec![
                     (self.prev_rest_mops(meta) - self.rest_mops(meta))
-                        * (self.prev_atype(meta) - constant_from!(AccessType::Write))
-                        * (self.prev_atype(meta) - constant_from!(AccessType::Read)),
+                        * (self.prev_atype(meta) - constant_from!(AccessType::Write.into_index()))
+                        * (self.prev_atype(meta) - constant_from!(AccessType::Read.into_index())),
                 ]
                 .into_iter()
                 .map(|e| e * self.is_enabled_following_block(meta))
@@ -176,8 +185,8 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     ) {
         meta.create_gate("mtable configure_read_nochange value", |meta| {
             vec![
-                (self.atype(meta) - constant_from!(AccessType::Write))
-                    * (self.atype(meta) - constant_from!(AccessType::Init))
+                (self.atype(meta) - constant_from!(AccessType::Write.into_index()))
+                    * (self.atype(meta) - constant_from!(AccessType::init_index()))
                     * self.same_offset(meta)
                     * (self.prev_value(meta) - self.value(meta)),
             ]
@@ -188,8 +197,8 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
 
         meta.create_gate("mtable configure_read_nochange vtype", |meta| {
             vec![
-                (self.atype(meta) - constant_from!(AccessType::Write))
-                    * (self.atype(meta) - constant_from!(AccessType::Init))
+                (self.atype(meta) - constant_from!(AccessType::Write.into_index()))
+                    * (self.atype(meta) - constant_from!(AccessType::init_index()))
                     * self.same_offset(meta)
                     * (self.prev_vtype(meta) - self.vtype(meta)),
             ]
@@ -223,9 +232,9 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     fn configure_atype_rules(&self, meta: &mut ConstraintSystem<F>, _rtable: &RangeTableConfig<F>) {
         meta.create_gate("mtable atype validation", |meta| {
             vec![
-                (self.atype(meta) - constant_from!(AccessType::Init))
-                    * (self.atype(meta) - constant_from!(AccessType::Write))
-                    * (self.atype(meta) - constant_from!(AccessType::Read)),
+                (self.atype(meta) - constant_from!(AccessType::init_index()))
+                    * (self.atype(meta) - constant_from!(AccessType::Write.into_index()))
+                    * (self.atype(meta) - constant_from!(AccessType::Read.into_index())),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
@@ -236,7 +245,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             vec![
                 (self.ltype(meta) - constant_from!(LocationType::Stack))
                     * (constant_from!(1) - self.same_offset(meta))
-                    * (self.atype(meta) - constant_from!(AccessType::Init)),
+                    * (self.atype(meta) - constant_from!(AccessType::init_index())),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
@@ -248,7 +257,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 (self.ltype(meta) - constant_from!(LocationType::Heap))
                     * (self.ltype(meta) - constant_from!(LocationType::Global))
                     * (constant_from!(1) - self.same_offset(meta))
-                    * (self.atype(meta) - constant_from!(AccessType::Write)),
+                    * (self.atype(meta) - constant_from!(AccessType::Write.into_index())),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
@@ -258,8 +267,8 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         meta.create_gate("mtable non-first line must be write or read", |meta| {
             vec![
                 self.same_offset(meta)
-                    * (self.atype(meta) - constant_from!(AccessType::Write))
-                    * (self.atype(meta) - constant_from!(AccessType::Read)),
+                    * (self.atype(meta) - constant_from!(AccessType::Write.into_index()))
+                    * (self.atype(meta) - constant_from!(AccessType::Read.into_index())),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_following_block(meta))
@@ -275,8 +284,8 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         meta.create_gate("mtable write only on mutable", |meta| {
             vec![
                 (constant_from!(1) - self.is_mutable(meta))
-                    * (self.atype(meta) - constant_from!(AccessType::Read))
-                    * (self.atype(meta) - constant_from!(AccessType::Init)),
+                    * (self.atype(meta) - constant_from!(AccessType::Read.into_index()))
+                    * (self.atype(meta) - constant_from!(AccessType::init_index())),
             ]
             .into_iter()
             .map(|e| e * self.is_enabled_block(meta))
@@ -346,6 +355,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 |meta| {
                     (constant_from!(1) - self.same_offset(meta))
                         * (constant_from!(1) - self.is_stack(meta))
+                        * (constant_from!(1) - self.is_lazy_init(meta))
                         * imtable.encode(
                             self.is_mutable(meta),
                             self.ltype(meta),
@@ -359,6 +369,35 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 i,
             );
         }
+    }
+
+    fn configure_heap_init_lazy(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        _rtable: &RangeTableConfig<F>,
+        configure: &CircuitConfigure,
+    ) {
+        meta.create_gate("mtable lazy init", |meta| {
+            vec![
+                (constant_from!(1) - self.same_offset(meta))
+                    * self.is_lazy_init(meta)
+                    * (self.offset(meta)
+                        - self.range_in_lazy_init_diff(meta)
+                        - constant_from!(configure.first_consecutive_zero_memory_offset))
+                    * self.is_enabled_block(meta),
+                /*
+                 * lazy init value must be 0
+                 */
+                (constant_from!(1) - self.same_offset(meta))
+                    * self.is_lazy_init(meta)
+                    * self.value(meta)
+                    * self.is_enabled_block(meta),
+                (constant_from!(1) - self.same_offset(meta))
+                    * self.is_lazy_init(meta)
+                    * (self.ltype(meta) - constant_from!(LocationType::Heap))
+                    * self.is_enabled_block(meta),
+            ]
+        });
     }
 }
 

@@ -5,6 +5,7 @@
 use std::{env, io::Write, path::PathBuf};
 
 use brtable::ElemTable;
+use configure_table::ConfigureTable;
 use etable::EventTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
@@ -17,6 +18,7 @@ use self::jtable::JumpTableEntry;
 extern crate lazy_static;
 
 pub mod brtable;
+pub mod configure_table;
 pub mod encode;
 pub mod etable;
 pub mod host_function;
@@ -32,6 +34,7 @@ pub struct CompileTable {
     pub itable: InstructionTable,
     pub imtable: InitMemoryTable,
     pub elem_table: ElemTable,
+    pub configure_table: ConfigureTable,
 }
 
 impl CompileTable {

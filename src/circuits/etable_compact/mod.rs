@@ -1,63 +1,55 @@
 use self::op_configure::EventTableOpcodeConfig;
 use super::*;
-use crate::circuits::etable_compact::op_configure::op_bin::BinConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_bin_bit::BinBitConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_bin_shift::BinShiftConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_br::BrConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_br_if::BrIfConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_br_if_eqz::BrIfEqzConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_br_table::BrTableConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_call::CallConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_call_indirect::CallIndirectConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_const::ConstConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_conversion::ConversionConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_drop::DropConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_global_get::GlobalGetConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_global_set::GlobalSetConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_load::LoadConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_local_get::LocalGetConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_local_set::LocalSetConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_local_tee::LocalTeeConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_rel::RelConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_return::ReturnConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_select::SelectConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_store::StoreConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_test::TestConfigBuilder;
-use crate::circuits::etable_compact::op_configure::op_unary::UnaryConfigBuilder;
-use crate::circuits::etable_compact::op_configure::ConstraintBuilder;
-use crate::circuits::etable_compact::op_configure::EventTableCellAllocator;
-use crate::circuits::etable_compact::op_configure::EventTableOpcodeConfigBuilder;
-use crate::circuits::itable::encode_inst_expr;
-use crate::circuits::itable::Encode;
-use crate::circuits::utils::bn_to_field;
-use crate::constant_from;
-use crate::curr;
-use crate::fixed_curr;
-use crate::foreign::require_helper::etable_op_configure::ETableRequireHelperTableConfigBuilder;
-use crate::foreign::require_helper::etable_op_configure::RequireForeignCallInfo;
-use crate::foreign::sha256_helper::etable_op_configure::ETableSha256HelperTableConfigBuilder;
-use crate::foreign::sha256_helper::etable_op_configure::Sha256ForeignCallInfo;
-use crate::foreign::wasm_input_helper::etable_op_configure::ETableWasmInputHelperTableConfigBuilder;
-use crate::foreign::wasm_input_helper::etable_op_configure::WasmInputForeignCallInfo;
-use crate::foreign::EventTableForeignCallConfigBuilder;
-use crate::foreign::ForeignTableConfig;
-use crate::nextn;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Cell;
-use halo2_proofs::plonk::Advice;
-use halo2_proofs::plonk::Column;
-use halo2_proofs::plonk::ConstraintSystem;
-use halo2_proofs::plonk::Error;
-use halo2_proofs::plonk::Expression;
-use halo2_proofs::plonk::Fixed;
-use halo2_proofs::plonk::VirtualCells;
-use specs::etable::EventTable;
-use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-use std::marker::PhantomData;
-use std::rc::Rc;
+use crate::circuits::{
+    etable_compact::op_configure::{
+        op_bin::BinConfigBuilder, op_bin_bit::BinBitConfigBuilder,
+        op_bin_shift::BinShiftConfigBuilder, op_br::BrConfigBuilder, op_br_if::BrIfConfigBuilder,
+        op_br_if_eqz::BrIfEqzConfigBuilder, op_br_table::BrTableConfigBuilder,
+        op_call::CallConfigBuilder, op_call_indirect::CallIndirectConfigBuilder,
+        op_const::ConstConfigBuilder, op_conversion::ConversionConfigBuilder,
+        op_drop::DropConfigBuilder, op_global_get::GlobalGetConfigBuilder,
+        op_global_set::GlobalSetConfigBuilder, op_load::LoadConfigBuilder,
+        op_local_get::LocalGetConfigBuilder, op_local_set::LocalSetConfigBuilder,
+        op_local_tee::LocalTeeConfigBuilder, op_memory_grow::MemoryGrowConfigBuilder,
+        op_memory_size::MemorySizeConfigBuilder, op_rel::RelConfigBuilder,
+        op_return::ReturnConfigBuilder, op_select::SelectConfigBuilder,
+        op_store::StoreConfigBuilder, op_test::TestConfigBuilder, op_unary::UnaryConfigBuilder,
+        ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfigBuilder,
+    },
+    itable::{encode_inst_expr, Encode},
+    utils::bn_to_field,
+};
+use crate::{
+    constant_from, curr, fixed_curr,
+    foreign::{
+        require_helper::etable_op_configure::{
+            ETableRequireHelperTableConfigBuilder, RequireForeignCallInfo,
+        },
+        sha256_helper::etable_op_configure::{
+            ETableSha256HelperTableConfigBuilder, Sha256ForeignCallInfo,
+        },
+        wasm_input_helper::etable_op_configure::{
+            ETableWasmInputHelperTableConfigBuilder, WasmInputForeignCallInfo,
+        },
+        EventTableForeignCallConfigBuilder, ForeignTableConfig,
+    },
+    nextn,
+};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    circuit::Cell,
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
+};
+use specs::{
+    configure_table::ConfigureTable,
+    etable::{EventTable, EventTableEntry},
+    itable::OpcodeClass,
+};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    marker::PhantomData,
+    rc::Rc,
+};
 
 pub mod assign;
 pub mod expression;
@@ -103,6 +95,7 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
     MMID,
     SP,
     LastJumpEid,
+    AllocatedMemoryPages,
     Max,
 }
 
@@ -148,11 +141,13 @@ pub struct Status {
     pub mmid: u16,
     pub sp: u64,
     pub last_jump_eid: u64,
+    pub allocated_memory_pages: u16,
 }
 
 pub struct StepStatus<'a> {
     pub current: &'a Status,
     pub next: &'a Status,
+    pub configure: ConfigureTable,
 }
 
 impl TryFrom<u32> for MLookupItem {
@@ -168,6 +163,9 @@ impl TryFrom<u32> for MLookupItem {
         }
     }
 }
+
+#[derive(Clone)]
+pub struct ConstantCell(pub Column<Fixed>);
 
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F> {
@@ -194,6 +192,8 @@ pub struct EventTableCommonConfig<F> {
     pub u4_shared: [Column<Advice>; U4_COLUMNS],
     pub u8_shared: [Column<Advice>; U8_COLUMNS],
 
+    pub circuit_configure: CircuitConfigure,
+
     _mark: PhantomData<F>,
 }
 
@@ -208,6 +208,7 @@ impl<F: FieldExt> EventTableConfig<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
+        circuit_configure: &CircuitConfigure,
         rtable: &RangeTableConfig<F>,
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
@@ -376,6 +377,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             u4_shared,
             u8_shared,
             u4_bop,
+            circuit_configure: circuit_configure.clone(),
             _mark: PhantomData,
         };
 
@@ -453,6 +455,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Store, StoreConfigBuilder);
+        configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
+        configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder);
         configure!(OpcodeClass::Rel, RelConfigBuilder);
         configure!(OpcodeClass::Select, SelectConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
@@ -496,6 +500,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             let mut sp_acc = common_config.next_sp(meta) - common_config.sp(meta);
             let mut last_jump_eid_acc =
                 common_config.next_last_jump_eid(meta) - common_config.last_jump_eid(meta);
+            let mut allocated_memory_pages_acc = common_config.next_allocated_memory_pages(meta)
+                - common_config.allocated_memory_pages(meta);
 
             let eid_diff =
                 common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1);
@@ -571,6 +577,14 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
+                match config.allocated_memory_pages_diff(meta) {
+                    Some(e) => {
+                        allocated_memory_pages_acc = allocated_memory_pages_acc
+                            - e * common_config.op_enabled(meta, *lvl1, *lvl2)
+                    }
+                    _ => {}
+                }
+
                 itable_lookup = itable_lookup
                     - encode_inst_expr(
                         common_config.moid(meta),
@@ -628,6 +642,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     mmid_diff,
                     sp_acc * common_config.next_enable(meta),
                     last_jump_eid_acc,
+                    allocated_memory_pages_acc * common_config.next_enable(meta),
                     itable_lookup,
                     brtable_lookup,
                     jtable_lookup,
@@ -684,9 +699,10 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         etable: &EventTable,
+        configure: ConfigureTable,
     ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         self.config
             .common_config
-            .assign(ctx, &self.config.op_configs, etable)
+            .assign(ctx, &self.config.op_configs, etable, configure)
     }
 }

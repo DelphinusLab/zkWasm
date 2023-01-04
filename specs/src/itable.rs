@@ -40,6 +40,8 @@ pub enum OpcodeClass {
     CallIndirect,
     Load,
     Store,
+    MemorySize,
+    MemoryGrow,
     Conversion,
     ForeignPluginStart,
 }
@@ -70,6 +72,8 @@ impl OpcodeClass {
             OpcodeClass::CallIndirect => 1,
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
+            OpcodeClass::MemorySize => 1,
+            OpcodeClass::MemoryGrow => 2,
             OpcodeClass::Conversion => 2,
             OpcodeClass::ForeignPluginStart => 0,
         }
@@ -185,6 +189,8 @@ pub enum Opcode {
     GlobalSet {
         idx: u64,
     },
+    MemorySize,
+    MemoryGrow,
     Const {
         vtype: VarType,
         value: u64,
@@ -410,6 +416,12 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(size as u64) << OPCODE_ARG1_SHIFT)
                     + offset
             }
+            Opcode::MemorySize => {
+                BigUint::from(OpcodeClass::MemorySize as u64) << OPCODE_CLASS_SHIFT
+            }
+            Opcode::MemoryGrow => {
+                BigUint::from(OpcodeClass::MemoryGrow as u64) << OPCODE_CLASS_SHIFT
+            }
             Opcode::Conversion { class } => {
                 (BigUint::from(OpcodeClass::Conversion as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
@@ -448,6 +460,8 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::CallHost { .. } => OpcodeClass::ForeignPluginStart,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
+            Opcode::MemorySize => OpcodeClass::MemorySize,
+            Opcode::MemoryGrow => OpcodeClass::MemoryGrow,
             Opcode::Conversion { .. } => OpcodeClass::Conversion,
         }
     }
