@@ -101,10 +101,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
         }
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::LocalGet
-    }
-
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant!(-F::one()))
     }

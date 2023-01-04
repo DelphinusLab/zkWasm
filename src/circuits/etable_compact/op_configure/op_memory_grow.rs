@@ -167,10 +167,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig {
     fn allocated_memory_pages_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(self.success.expr(meta) * self.grow_size.expr(meta))
     }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        todo!()
-    }
 }
 
 #[cfg(test)]

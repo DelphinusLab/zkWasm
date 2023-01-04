@@ -7,10 +7,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::{
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
-};
+use specs::{etable::EventTableEntry, itable::OPCODE_CLASS_SHIFT};
 
 pub struct DropConfig {}
 
@@ -42,10 +39,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for DropConfig {
             specs::step::StepInfo::Drop => Ok(()),
             _ => unreachable!(),
         }
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Drop
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

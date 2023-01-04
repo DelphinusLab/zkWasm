@@ -6,7 +6,7 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use specs::step::StepInfo;
-use specs::{encode::opcode::encode_call, etable::EventTableEntry, itable::OpcodeClass};
+use specs::{encode::opcode::encode_call, etable::EventTableEntry};
 
 pub struct CallConfig {
     index: CommonRangeCell,
@@ -45,10 +45,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig {
 
             _ => unreachable!(),
         }
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Call
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

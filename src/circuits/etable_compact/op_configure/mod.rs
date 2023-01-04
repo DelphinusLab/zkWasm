@@ -614,7 +614,6 @@ pub trait EventTableForeignOpcodeConfigBuilder<F: FieldExt> {
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
-    fn opcode_class(&self) -> OpcodeClass;
 
     fn assign(
         &self,

@@ -96,10 +96,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemorySizeConfig {
             _ => None,
         }
     }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        todo!()
-    }
 }
 
 #[cfg(test)]

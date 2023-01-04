@@ -210,10 +210,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig {
         Ok(())
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::BinBit
-    }
-
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(3))
     }

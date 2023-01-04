@@ -460,10 +460,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
         }
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Load
-    }
-
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(
             constant_from!(3) + self.load_end_block_index.expr(meta)

@@ -101,10 +101,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
         }
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::LocalTee
-    }
-
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(2))
     }

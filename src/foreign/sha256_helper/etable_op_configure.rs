@@ -151,10 +151,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
         constant_from_bn!(&(BigUint::from(self.foreign_call_id) << OPCODE_CLASS_SHIFT)) + pick_one
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        unreachable!()
-    }
-
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         let is_four_mops = self.is_ch.expr(meta) + self.is_maj.expr(meta);
         Some(constant_from!(2) * is_four_mops + constant_from!(2))

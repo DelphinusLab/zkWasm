@@ -12,7 +12,7 @@ use halo2_proofs::{
 };
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
+    itable::{OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::VarType,
 };
 
@@ -93,10 +93,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig {
             }
             _ => unreachable!(),
         }
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Const
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
