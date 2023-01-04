@@ -352,19 +352,36 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
             self.is_eight_bytes.assign(ctx, true)?;
         }
 
-        if vec![RelOp::SignedGt, RelOp::SignedGe, RelOp::SignedLt, RelOp::SignedLe].contains(&class) {
-            let shift: usize = if vtype == VarType::I64 {I64_REM_SHIFT} else {I32_REM_SHIFT};
+        if vec![
+            RelOp::SignedGt,
+            RelOp::SignedGe,
+            RelOp::SignedLt,
+            RelOp::SignedLe,
+        ]
+        .contains(&class)
+        {
+            let shift: usize = if vtype == VarType::I64 {
+                I64_REM_SHIFT
+            } else {
+                I32_REM_SHIFT
+            };
             self.op_is_sign.assign(ctx, true)?;
             let left_leading_u4: u64 = lhs >> shift;
             let right_leading_u4: u64 = rhs >> shift;
-            self.lhs_leading_bit.assign(ctx, left_leading_u4 >> REM_SHIFT != 0)?;
-            self.rhs_leading_bit.assign(ctx, right_leading_u4 >> REM_SHIFT != 0)?;
-            self.lhs_rem_value.assign(ctx, F::from(left_leading_u4 & REM_MASK))?;
-            self.lhs_rem_diff.assign(ctx, F::from((left_leading_u4 & REM_MASK) ^ REM_MASK))?;
-            self.rhs_rem_value.assign(ctx, F::from(right_leading_u4 & REM_MASK))?;
-            self.rhs_rem_diff.assign(ctx, F::from((right_leading_u4 & REM_MASK) ^ REM_MASK))?;
+            self.lhs_leading_bit
+                .assign(ctx, left_leading_u4 >> REM_SHIFT != 0)?;
+            self.rhs_leading_bit
+                .assign(ctx, right_leading_u4 >> REM_SHIFT != 0)?;
+            self.lhs_rem_value
+                .assign(ctx, F::from(left_leading_u4 & REM_MASK))?;
+            self.lhs_rem_diff
+                .assign(ctx, F::from((left_leading_u4 & REM_MASK) ^ REM_MASK))?;
+            self.rhs_rem_value
+                .assign(ctx, F::from(right_leading_u4 & REM_MASK))?;
+            self.rhs_rem_diff
+                .assign(ctx, F::from((right_leading_u4 & REM_MASK) ^ REM_MASK))?;
         }
-            
+
         self.lhs.assign(ctx, lhs)?;
         self.rhs.assign(ctx, rhs)?;
         self.diff.assign(ctx, diff)?;
@@ -444,10 +461,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
         )?;
 
         Ok(())
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Rel
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

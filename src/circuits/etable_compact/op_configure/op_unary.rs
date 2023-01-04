@@ -281,10 +281,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig {
         Ok(())
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        unreachable!()
-    }
-
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(2))
     }

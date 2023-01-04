@@ -8,12 +8,12 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
+use specs::etable::EventTableEntry;
 use specs::{
     encode::{opcode::encode_call_indirect, table::encode_elem_entry},
     mtable::VarType,
     step::StepInfo,
 };
-use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct CallIndirectConfig {
     type_index: CommonRangeCell,
@@ -106,10 +106,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig {
 
             _ => unreachable!(),
         }
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::CallIndirect
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

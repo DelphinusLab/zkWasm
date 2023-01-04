@@ -6,10 +6,7 @@ use halo2_proofs::{
 };
 use specs::step::StepInfo;
 use specs::{encode::opcode::encode_conversion, mtable::VarType};
-use specs::{
-    etable::EventTableEntry,
-    itable::{ConversionOp, OpcodeClass},
-};
+use specs::{etable::EventTableEntry, itable::ConversionOp};
 
 pub struct ConversionConfig {
     value: U64OnU8Cell,
@@ -225,10 +222,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig {
         )?;
 
         Ok(())
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Conversion
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

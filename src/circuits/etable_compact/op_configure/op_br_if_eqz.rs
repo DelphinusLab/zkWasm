@@ -5,9 +5,9 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use specs::encode::opcode::encode_br_if_eqz;
+use specs::etable::EventTableEntry;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
-use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct BrIfEqzConfig {
     cond: U64Cell,
@@ -153,10 +153,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig {
         }
 
         Ok(())
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::BrIf
     }
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

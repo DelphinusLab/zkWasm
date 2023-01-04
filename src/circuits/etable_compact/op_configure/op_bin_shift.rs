@@ -16,7 +16,7 @@ use specs::mtable::VarType;
 use specs::step::StepInfo;
 use specs::{
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
+    itable::{OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
 };
 
 pub struct BinShiftConfig {
@@ -460,10 +460,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         )?;
 
         Ok(())
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::BinShift
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

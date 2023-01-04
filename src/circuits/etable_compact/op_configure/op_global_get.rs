@@ -7,8 +7,8 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
+use specs::etable::EventTableEntry;
 use specs::{encode::opcode::encode_global_get, step::StepInfo};
-use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct GlobalGetConfig {
     origin_moid: CommonRangeCell,
@@ -117,11 +117,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
 
             _ => unreachable!(),
         }
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        // Delete opcode_class
-        OpcodeClass::GlobalGet
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

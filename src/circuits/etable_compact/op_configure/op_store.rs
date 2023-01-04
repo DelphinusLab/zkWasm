@@ -511,10 +511,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
         Some(constant_from!(2))
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Store
-    }
-
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         let cross_block =
             self.store_end_block_index.expr(meta) - self.store_start_block_index.expr(meta);

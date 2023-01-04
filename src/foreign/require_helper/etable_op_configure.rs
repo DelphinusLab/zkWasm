@@ -137,8 +137,4 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableRequireHelperTableConfig {
             _ => None,
         }
     }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        unreachable!()
-    }
 }

@@ -5,9 +5,9 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use specs::encode::{opcode::encode_br_table, table::encode_br_table_entry};
+use specs::etable::EventTableEntry;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
-use specs::{etable::EventTableEntry, itable::OpcodeClass};
 
 pub struct BrTableConfig {
     keep: BitCell,
@@ -244,10 +244,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
             }
             _ => unreachable!(),
         }
-    }
-
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::BrTable
     }
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

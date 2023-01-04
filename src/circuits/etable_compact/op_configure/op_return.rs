@@ -135,10 +135,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         }
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Return
-    }
-
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(self.drop.expr(meta))
     }

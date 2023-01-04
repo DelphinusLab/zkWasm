@@ -118,10 +118,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig {
         Ok(())
     }
 
-    fn opcode_class(&self) -> OpcodeClass {
-        OpcodeClass::Test
-    }
-
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(2))
     }
