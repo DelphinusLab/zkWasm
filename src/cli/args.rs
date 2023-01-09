@@ -48,6 +48,20 @@ pub trait ArgBuilder {
             .clone()
     }
 
+    fn template_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            -t --template <PROOF_PATH> "Path of solidity template."
+        )
+        .value_parser(value_parser!(PathBuf))
+    }
+
+    fn parse_template_path_arg(matches: &ArgMatches) -> Option<PathBuf> {
+        matches
+            .get_one::<PathBuf>("template")
+            .map_or(None, |x| Some (x.clone()))
+    }
+
+
     fn auxonly_arg<'a>() -> Arg<'a> {
         arg!(
             -a --auxonly "Generate aux file only."

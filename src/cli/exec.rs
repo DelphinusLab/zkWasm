@@ -328,12 +328,15 @@ pub fn exec_verify_aggregate_proof(
     info!("Verifing Aggregate Proof Passed.")
 }
 
+const SOLIDITY_VERIFY_STEPS: usize = 2;
+
 pub fn exec_solidity_aggregate_proof(
     zkwasm_k: u32,
     aggregate_k: u32,
     max_public_inputs_size: usize,
     output_dir: &PathBuf,
     proof_path: &PathBuf,
+    template_path: String,
     instances_path: &PathBuf,
     n_proofs: usize,
     aux_only: bool,
@@ -370,9 +373,16 @@ pub fn exec_solidity_aggregate_proof(
 
     if !aux_only {
         solidity_render(
-            "sol/templates/*",
-            "sol/contracts/AggregatorConfig.sol",
-            "AggregatorConfig.sol.tera",
+            (template_path.clone() + "sol/templates/*").as_str(),
+            (template_path + "sol/contracts").as_str(),
+            vec![
+                vec!["AggregatorConfig.sol.tera".to_owned()],
+                (0..SOLIDITY_VERIFY_STEPS)
+                    .map(|i| format!("AggregatorVerifierStep{}.sol.tera", i + 1))
+                    .into_iter()
+                    .collect::<Vec<String>>(),
+            ]
+            .concat(),
             &zkwasm_params_verifier,
             &verifier_params_verifier,
             &vkey,
