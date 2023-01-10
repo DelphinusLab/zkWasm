@@ -696,7 +696,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git#69c9db2fa2440f2f5170ea295723efb5505a9d15"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?rev=0b8911393a151cf314c4e41e6ef8c086ca2c013d#0b8911393a151cf314c4e41e6ef8c086ca2c013d"
 dependencies = [
  "ark-std",
  "blake2b_simd",
