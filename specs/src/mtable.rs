@@ -51,6 +51,14 @@ impl AccessType {
             false
         }
     }
+
+    pub fn is_positive_init(&self) -> bool {
+        if let AccessType::Init(InitType::Positive) = self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]

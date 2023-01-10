@@ -343,6 +343,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             vec![
                 (constant_from!(1) - self.same_offset(meta))
                     * (constant_from!(1) - self.is_stack(meta))
+                    * (constant_from!(1) - self.is_lazy_init(meta))
                     * acc
                     * self.is_enabled_block(meta),
             ]
@@ -355,7 +356,6 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                 |meta| {
                     (constant_from!(1) - self.same_offset(meta))
                         * (constant_from!(1) - self.is_stack(meta))
-                        * (constant_from!(1) - self.is_lazy_init(meta))
                         * imtable.encode(
                             self.is_mutable(meta),
                             self.ltype(meta),
