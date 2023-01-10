@@ -39,11 +39,7 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::{
-    host_function::HostPlugin,
-    itable::{OpcodeClass, OpcodeClassPlain},
-    CompileTable, ExecutionTable,
-};
+use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, CompileTable, ExecutionTable};
 use std::{
     borrow::BorrowMut,
     collections::{BTreeMap, BTreeSet},
@@ -68,11 +64,12 @@ pub(crate) trait FromBn {
     fn from_bn(bn: &BigUint) -> Self;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct CircuitConfigure {
     pub initial_memory_pages: u64,
     pub maximal_memory_pages: u64,
     pub first_consecutive_zero_memory_offset: u64,
+    pub opcode_selector: BTreeSet<OpcodeClassPlain>,
 }
 
 #[thread_local]
@@ -107,6 +104,7 @@ impl<F: FieldExt> TestCircuit<F> {
                     .first_consecutive_zero_memory(),
                 initial_memory_pages: compile_tables.configure_table.init_memory_pages as u64,
                 maximal_memory_pages: compile_tables.configure_table.maximal_memory_pages as u64,
+                opcode_selector: compile_tables.itable.opcode_class(),
             });
         }
 
@@ -132,45 +130,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let circuit_configure = unsafe { CIRCUIT_CONFIGURE.unwrap() };
-
-        let opcode_set = BTreeSet::from([
-            OpcodeClassPlain(OpcodeClass::Br as usize),
-            OpcodeClassPlain(OpcodeClass::BrIfEqz as usize),
-            OpcodeClassPlain(OpcodeClass::BrTable as usize),
-            OpcodeClassPlain(OpcodeClass::Return as usize),
-            OpcodeClassPlain(OpcodeClass::Drop as usize),
-            OpcodeClassPlain(OpcodeClass::Call as usize),
-            OpcodeClassPlain(OpcodeClass::CallIndirect as usize),
-            OpcodeClassPlain(OpcodeClass::Const as usize),
-            OpcodeClassPlain(OpcodeClass::LocalGet as usize),
-            OpcodeClassPlain(OpcodeClass::LocalSet as usize),
-            OpcodeClassPlain(OpcodeClass::LocalTee as usize),
-            OpcodeClassPlain(OpcodeClass::GlobalGet as usize),
-            OpcodeClassPlain(OpcodeClass::GlobalSet as usize),
-            OpcodeClassPlain(OpcodeClass::Bin as usize),
-            OpcodeClassPlain(OpcodeClass::BinBit as usize),
-            OpcodeClassPlain(OpcodeClass::BinShift as usize),
-            OpcodeClassPlain(OpcodeClass::Unary as usize),
-            OpcodeClassPlain(OpcodeClass::BrIf as usize),
-            OpcodeClassPlain(OpcodeClass::Load as usize),
-            OpcodeClassPlain(OpcodeClass::Store as usize),
-            OpcodeClassPlain(OpcodeClass::MemorySize as usize),
-            OpcodeClassPlain(OpcodeClass::MemoryGrow as usize),
-            OpcodeClassPlain(OpcodeClass::Rel as usize),
-            OpcodeClassPlain(OpcodeClass::Select as usize),
-            OpcodeClassPlain(OpcodeClass::Test as usize),
-            OpcodeClassPlain(OpcodeClass::Conversion as usize),
-            OpcodeClassPlain(
-                OpcodeClass::ForeignPluginStart as usize + HostPlugin::HostInput as usize,
-            ),
-            OpcodeClassPlain(
-                OpcodeClass::ForeignPluginStart as usize + HostPlugin::Sha256 as usize,
-            ),
-            OpcodeClassPlain(
-                OpcodeClass::ForeignPluginStart as usize + HostPlugin::Require as usize,
-            ),
-        ]);
+        let circuit_configure = unsafe { CIRCUIT_CONFIGURE.clone().unwrap() };
 
         let constants = meta.fixed_column();
         meta.enable_constant(constants);
@@ -211,7 +171,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &jtable,
             &brtable,
             &foreign_tables,
-            &opcode_set,
+            &circuit_configure.opcode_selector,
         );
 
         Self::Config {

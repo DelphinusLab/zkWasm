@@ -11,7 +11,7 @@ use crate::{
 };
 use num_bigint::BigUint;
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use strum_macros::EnumIter;
 
 #[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -539,12 +539,14 @@ impl InstructionTable {
 
         BrTable::new(entries.concat())
     }
-}
 
-pub fn collect_opcodeclass(ientries: &Vec<InstructionTableEntry>) -> HashSet<OpcodeClassPlain> {
-    let mut opcodeclass: HashSet<OpcodeClassPlain> = HashSet::new();
-    ientries.iter().for_each(|entry| {
-        opcodeclass.insert(entry.opcode.clone().into());
-    });
-    opcodeclass
+    pub fn opcode_class(&self) -> BTreeSet<OpcodeClassPlain> {
+        let mut opcodeclass: BTreeSet<OpcodeClassPlain> = BTreeSet::new();
+
+        self.entries().iter().for_each(|entry| {
+            opcodeclass.insert(entry.opcode.clone().into());
+        });
+
+        opcodeclass
+    }
 }
