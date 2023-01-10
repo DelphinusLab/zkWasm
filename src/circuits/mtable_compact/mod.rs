@@ -1,10 +1,10 @@
 use self::configure::MemoryTableConstriants;
-use super::CircuitConfigure;
 use super::config::max_mtable_rows;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::utils::row_diff::RowDiffConfig;
 use super::utils::Context;
+use super::CircuitConfigure;
 use crate::circuits::mtable_compact::configure::STEP_SIZE;
 use crate::circuits::IMTABLE_COLOMNS;
 use halo2_proofs::arithmetic::FieldExt;
@@ -218,7 +218,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 );
 
                 if (entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global)
-                    && entry.atype.is_init()
+                    && entry.atype.is_positive_init()
                 {
                     assign_advice!(
                         "vtype imtable selector",
