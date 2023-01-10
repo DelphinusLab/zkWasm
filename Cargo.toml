@@ -13,7 +13,7 @@ path = "src/cli/main.rs"
 ark-std = { version = "0.3.0", features = ["print-trace"] }
 downcast-rs = "1.2.0"
 env_logger = "0.9.3"
-halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git" }
+halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", rev = "0b8911393a151cf314c4e41e6ef8c086ca2c013d" }
 halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true }
 log = "0.4.17"
 md5 = "0.7.0"
