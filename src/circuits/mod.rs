@@ -122,11 +122,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit {
-            compile_tables: self.compile_tables.clone(),
-            execution_tables: ExecutionTable::default(),
-            _data: PhantomData,
-        }
+        TestCircuit::new(self.compile_tables.clone(), ExecutionTable::default())
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
