@@ -7,8 +7,8 @@ use crate::circuits::config::set_zkwasm_k;
 use super::{
     command::CommandBuilder,
     exec::{
-        exec_aggregate_create_proof, exec_create_proof, exec_setup, exec_solidity_aggregate_proof,
-        exec_verify_aggregate_proof, exec_verify_proof,
+        build_circuit_without_witness, exec_aggregate_create_proof, exec_create_proof, exec_setup,
+        exec_solidity_aggregate_proof, exec_verify_aggregate_proof, exec_verify_proof,
     },
 };
 
@@ -56,6 +56,11 @@ pub trait AppBuilder: CommandBuilder {
 
         let wasm_file_path = Self::parse_zkwasm_file_arg(&top_matches);
         let wasm_binary = fs::read(&wasm_file_path).unwrap();
+
+        /*
+         * FIXME: trigger CIRCUIT_CONFIGURE initialization.
+         */
+        build_circuit_without_witness(&wasm_binary);
 
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
 

@@ -29,7 +29,7 @@ use crate::{
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
-fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
+pub fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
     let mut env = HostEnv::new();
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, vec![], vec![]);
