@@ -3,6 +3,16 @@ use std::path::PathBuf;
 use clap::{arg, value_parser, Arg, ArgMatches};
 
 pub trait ArgBuilder {
+    fn zkwasm_k_arg<'a>() -> Arg<'a> {
+        arg!(
+            -k [K] "Circuit Size K"
+        )
+        .value_parser(value_parser!(u32))
+    }
+    fn parse_zkwasm_k_arg(matches: &ArgMatches) -> Option<u32> {
+        matches.get_one("K").clone().map(|v| *v)
+    }
+
     fn zkwasm_file_arg<'a>() -> Arg<'a> {
         arg!(
             -w --wasm <WASM_BINARY> "Path of the Wasm binary file"
@@ -55,7 +65,6 @@ pub trait ArgBuilder {
         .takes_value(false)
     }
 
-
     fn single_public_arg<'a>() -> Arg<'a>;
     fn parse_single_public_arg(matches: &ArgMatches) -> Vec<u64>;
 
@@ -85,5 +94,4 @@ pub trait ArgBuilder {
             .get_many::<String>("auxonly")
             .map_or(false, |_| true)
     }
-
 }
