@@ -2,7 +2,7 @@ use clap::{App, AppSettings};
 use log::info;
 use std::{fs, path::PathBuf};
 
-use crate::circuits::config::set_zkwasm_k;
+use crate::circuits::config::{set_zkwasm_k, MIN_K};
 
 use super::{
     command::CommandBuilder,
@@ -25,7 +25,6 @@ fn load_or_generate_output_path(wasm_md5: &String, path: Option<&PathBuf>) -> Pa
 pub trait AppBuilder: CommandBuilder {
     const NAME: &'static str;
     const VERSION: &'static str;
-    const ZKWASM_K: u32;
     const AGGREGATE_K: u32;
     const N_PROOFS: usize;
     const MAX_PUBLIC_INPUT_SIZE: usize;
@@ -34,6 +33,7 @@ pub trait AppBuilder: CommandBuilder {
         let app = App::new(Self::NAME)
             .version(Self::VERSION)
             .setting(AppSettings::SubcommandRequired)
+            .arg(Self::zkwasm_k_arg())
             .arg(Self::output_path_arg())
             .arg(Self::function_name_arg())
             .arg(Self::zkwasm_file_arg());
@@ -50,9 +50,11 @@ pub trait AppBuilder: CommandBuilder {
 
     fn exec(command: App) {
         env_logger::init();
-        set_zkwasm_k(Self::ZKWASM_K);
 
         let top_matches = command.get_matches();
+
+        let zkwasm_k = Self::parse_zkwasm_k_arg(&top_matches).unwrap_or(MIN_K);
+        set_zkwasm_k(zkwasm_k);
 
         let wasm_file_path = Self::parse_zkwasm_file_arg(&top_matches);
         let wasm_binary = fs::read(&wasm_file_path).unwrap();
@@ -73,7 +75,7 @@ pub trait AppBuilder: CommandBuilder {
         match top_matches.subcommand() {
             Some(("setup", _)) => {
                 exec_setup(
-                    Self::ZKWASM_K,
+                    zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
                     &wasm_binary,
@@ -88,7 +90,7 @@ pub trait AppBuilder: CommandBuilder {
 
                 exec_create_proof(
                     Self::NAME,
-                    Self::ZKWASM_K,
+                    zkwasm_k,
                     &wasm_binary,
                     &function_name,
                     &output_dir,
@@ -104,7 +106,7 @@ pub trait AppBuilder: CommandBuilder {
 
                 exec_verify_proof(
                     Self::NAME,
-                    Self::ZKWASM_K,
+                    zkwasm_k,
                     &output_dir,
                     &proof_path,
                     &public_inputs,
@@ -123,7 +125,7 @@ pub trait AppBuilder: CommandBuilder {
                 assert_eq!(private_inputs.len(), Self::N_PROOFS);
 
                 exec_aggregate_create_proof(
-                    Self::ZKWASM_K,
+                    zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
                     &wasm_binary,
@@ -155,7 +157,7 @@ pub trait AppBuilder: CommandBuilder {
                     .map_or("".to_string(), |x| x.into_os_string().into_string().unwrap());
 
                 exec_solidity_aggregate_proof(
-                    Self::ZKWASM_K,
+                    zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::MAX_PUBLIC_INPUT_SIZE,
                     &output_dir,
