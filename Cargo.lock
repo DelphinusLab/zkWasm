@@ -696,7 +696,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?rev=0b8911393a151cf314c4e41e6ef8c086ca2c013d#0b8911393a151cf314c4e41e6ef8c086ca2c013d"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?rev=922f265c5990a69fcbaa9f5ffc94cd3d644cb84f#922f265c5990a69fcbaa9f5ffc94cd3d644cb84f"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -711,8 +711,8 @@ dependencies = [
 
 [[package]]
 name = "halo2ecc-s"
-version = "0.1.0"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=0.1.0#79e12c8909dc46b63528e81c908296adabc077a5"
+version = "0.2.0"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=0.2.0#0c89ba02b990417cd51d4b201f638f874cb2a31a"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
