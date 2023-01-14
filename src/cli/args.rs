@@ -58,19 +58,18 @@ pub trait ArgBuilder {
             .clone()
     }
 
-    fn template_path_arg<'a>() -> Arg<'a> {
+    fn sol_dir_arg<'a>() -> Arg<'a> {
         arg!(
-            -t --template <PROOF_PATH> "Path of solidity template."
+            -s --sol_dir [SOL_DIRECTORY] "Path of solidity directory."
         )
         .value_parser(value_parser!(PathBuf))
     }
 
-    fn parse_template_path_arg(matches: &ArgMatches) -> Option<PathBuf> {
+    fn parse_sol_dir_arg(matches: &ArgMatches) -> PathBuf {
         matches
-            .get_one::<PathBuf>("template")
-            .map_or(None, |x| Some (x.clone()))
+            .get_one::<PathBuf>("sol_dir")
+            .map_or(PathBuf::from("sol"), |x| x.clone())
     }
-
 
     fn auxonly_arg<'a>() -> Arg<'a> {
         arg!(
