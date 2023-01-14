@@ -44,7 +44,7 @@ pub trait CommandBuilder: ArgBuilder {
 
     fn append_generate_solidity_verifier(app: App) -> App {
         let command = Command::new("solidity-aggregate-verifier")
-            .arg(Self::template_path_arg())
+            .arg(Self::sol_dir_arg())
             .arg(Self::proof_path_arg())
             .arg(Self::auxonly_arg())
             .arg(Self::instances_path_arg());

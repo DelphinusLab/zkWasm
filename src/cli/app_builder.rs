@@ -153,8 +153,7 @@ pub trait AppBuilder: CommandBuilder {
                 let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
                 let instances_path: PathBuf = Self::parse_aggregate_instance(&sub_matches);
                 let aux_only: bool = Self::parse_auxonly(&sub_matches);
-                let template_path: String = Self::parse_template_path_arg(&sub_matches)
-                    .map_or("".to_string(), |x| x.into_os_string().into_string().unwrap());
+                let sol_path: PathBuf = Self::parse_sol_dir_arg(&sub_matches);
 
                 exec_solidity_aggregate_proof(
                     zkwasm_k,
@@ -162,7 +161,7 @@ pub trait AppBuilder: CommandBuilder {
                     Self::MAX_PUBLIC_INPUT_SIZE,
                     &output_dir,
                     &proof_path,
-                    template_path,
+                    &sol_path,
                     &instances_path,
                     Self::N_PROOFS,
                     aux_only,

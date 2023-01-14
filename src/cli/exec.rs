@@ -336,7 +336,7 @@ pub fn exec_solidity_aggregate_proof(
     max_public_inputs_size: usize,
     output_dir: &PathBuf,
     proof_path: &PathBuf,
-    template_path: String,
+    sol_path: &PathBuf,
     instances_path: &PathBuf,
     n_proofs: usize,
     aux_only: bool,
@@ -372,9 +372,19 @@ pub fn exec_solidity_aggregate_proof(
     };
 
     if !aux_only {
+        let path_in = {
+            let mut path = sol_path.clone();
+            path.push("templates");
+            path
+        };
+        let path_out = {
+            let mut path = sol_path.clone();
+            path.push("contracts");
+            path
+        };
         solidity_render(
-            (template_path.clone() + "sol/templates/*").as_str(),
-            (template_path + "sol/contracts").as_str(),
+            &(path_in.to_str().unwrap().to_owned() + "/*"),
+            path_out.to_str().unwrap(),
             vec![
                 vec!["AggregatorConfig.sol.tera".to_owned()],
                 (0..SOLIDITY_VERIFY_STEPS)
