@@ -198,7 +198,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
                 self.expect_index.assign(ctx, F::from(index))?;
                 self.effective_index.assign(ctx, F::from(effective_index))?;
                 self.out_of_bound.assign(ctx, index != effective_index)?;
-                println!("out: {}", index != effective_index);
                 self.diff.assign(
                     ctx,
                     if index < targets_len {
