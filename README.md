@@ -71,7 +71,12 @@ We uses z3 (https://github.com/Z3Prover/z3) to check that all operation are comp
 [This is a WIP project, only sample code are provided here. Please contact xgao@zoyoe.com for state circuit customization and application integration. 
 
 # Issue tracking:
-chore: non-feature requirements such as CI/CD, building script or work flow enhancement.
-feat: feature need, we could use feat(circuit), feat(lang), feat(CLI) to categorize features
-bug: bug report, we also could use bug(circuit), bug(lang) to categorize bugs
-doc: documents related issues.
+* chore: non-feature requirements such as CI/CD, building script or work flow enhancement.
+* feat: feature need, we could use feat(circuit), feat(lang), feat(CLI) to categorize features
+* bug: bug report, we also could use bug(circuit), bug(lang) to categorize bugs
+* doc: documents related issues.
+
+# Project Bootstrap:
+* C project: There is a project template for compiling C to wasm with limited host functions (foreign circuits). (see https://github.com/DelphinusLab/zkWasm-C)
+* Rust project: WIP
+* Browser based project: See https://github.com/ZhenXunGe/g1024 for how to utilizing zkWASM in javascript, how to generate proofs using PAAS service and verify it on chain (contact xgao@zoyoe.com for details about PAAS testnet).
