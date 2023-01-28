@@ -166,23 +166,23 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
                         * (res.expr(meta)
                             - l_neg_r_pos.clone()
                             - l_pos_r_pos.clone() * res_is_lt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)),
+                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)),
                     op_is_le.expr(meta)
                         * (res.expr(meta)
                             - l_neg_r_pos.clone()
                             - l_pos_r_pos.clone() * res_is_lt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)
+                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)
                             - res_is_eq.expr(meta)),
                     op_is_gt.expr(meta)
                         * (res.expr(meta)
                             - l_pos_r_neg.clone()
                             - l_pos_r_pos.clone() * res_is_gt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)),
+                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)),
                     op_is_ge.expr(meta)
                         * (res.expr(meta)
                             - l_pos_r_neg.clone()
                             - l_pos_r_pos.clone() * res_is_gt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)
+                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)
                             - res_is_eq.expr(meta)),
                 ]
             }),
@@ -508,613 +508,58 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use crate::test::test_circuit_noexternal;
 
     #[test]
-    fn test_i32_gt_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.gt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_gt_u_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.gt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_gt_u_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 1)
-                      (i32.gt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ge_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.ge_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ge_u_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.ge_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ge_u_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 1)
-                      (i32.ge_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_le_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.le_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_le_u_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.le_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_le_u_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 1)
-                      (i32.le_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_lt_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.lt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_lt_u_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.lt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_lt_u_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 1)
-                      (i32.lt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_le_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 1)
-                      (i64.const 0)
-                      (i64.le_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_lt_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 0)
-                      (i64.const 1)
-                      (i64.lt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_ge_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 1)
-                      (i64.const 1)
-                      (i64.ge_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_gt_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 0)
-                      (i64.const 0)
-                      (i64.gt_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_gt_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 0)
-                      (i32.gt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_gt_s_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.gt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_gt_s_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const -1)
-                      (i32.gt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ge_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.ge_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ge_s_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.ge_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ge_s_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const -1)
-                      (i32.ge_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_le_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.le_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_le_s_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.le_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_le_s_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const -1)
-                      (i32.le_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_lt_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.lt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_lt_s_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 1)
-                      (i32.lt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_lt_s_3_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const -1)
-                      (i32.lt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_le_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const -1)
-                      (i64.const 0)
-                      (i64.le_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_lt_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const -1)
-                      (i64.const -1)
-                      (i64.lt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_ge_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 1)
-                      (i64.const -1)
-                      (i64.ge_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_gt_s_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 1)
-                      (i64.const 0)
-                      (i64.gt_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_eq_1() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.eq)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_eq_2() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 0)
-                      (i32.eq)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ne_1() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 1)
-                      (i32.const 0)
-                      (i32.ne)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_ne_2() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 0)
-                      (i32.ne)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_eq_1() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 1)
-                      (i64.const 0)
-                      (i64.eq)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_ne_1() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 1)
-                      (i64.const 0)
-                      (i64.ne)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
+    fn test_op_rel_ok() {
+        let tys = vec![
+            ("i32", vec!["0", "1", "2", "-1", "-2", "0x80000000"]),
+            (
+                "i64",
+                vec![
+                    "0",
+                    "1",
+                    "2",
+                    "-1",
+                    "-2",
+                    "-0x100000001",
+                    "-0x100000002",
+                    "0x100000001",
+                    "0x100000002",
+                    "0x8000000000000000"
+                ],
+            ),
+        ];
+        let ops = vec![
+            "gt_u", "ge_u", "lt_u", "le_u", "eq", "ne", "gt_s", "ge_s", "lt_s", "le_s",
+        ];
+
+        let mut textual_repr = r#"
+            (module
+                (func (export "test")"#
+            .to_owned();
+
+        for (t, values) in tys {
+            for op in ops.iter() {
+                for l in values.iter() {
+                    for r in values.iter() {
+                        textual_repr = format!(
+                            r#"{}
+                            ({}.const {})
+                            ({}.const {})
+                            ({}.{})
+                            (drop)
+                            "#,
+                            textual_repr, t, l, t, r, t, op
+                        );
+                    }
+                }
+            }
+        }
+
+        textual_repr = format!("{}))", textual_repr);
+        test_circuit_noexternal(&textual_repr).unwrap()
     }
 }
