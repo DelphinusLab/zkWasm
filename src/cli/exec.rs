@@ -1,3 +1,4 @@
+use anyhow::Result;
 use halo2_proofs::{
     dev::MockProver,
     pairing::bn256::{Bn256, Fr, G1Affine},
@@ -14,7 +15,7 @@ use halo2aggregator_s::{
     transcript::{poseidon::PoseidonRead, sha256::ShaRead},
 };
 use log::info;
-use specs::{write_json, ExecutionTable};
+use specs::{ExecutionTable, Tables};
 use std::path::PathBuf;
 use wasmi::ImportsBuilder;
 
@@ -24,7 +25,7 @@ use crate::{
         require_helper::register_require_foreign, sha256_helper::runtime::register_sha256_foreign,
         wasm_input_helper::runtime::register_wasm_input_foreign,
     },
-    runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+    runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
 };
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
@@ -42,8 +43,10 @@ pub fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
         .expect("file cannot be complied");
 
     let builder = ZkWasmCircuitBuilder {
-        compile_tables: compiled_module.tables,
-        execution_tables: ExecutionTable::default(),
+        tables: Tables {
+            compilation_tables: compiled_module.tables,
+            execution_tables: ExecutionTable::default(),
+        },
     };
 
     builder.build_circuit::<Fr>()
@@ -54,7 +57,7 @@ fn build_circuit_with_witness(
     function_name: &str,
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
-) -> TestCircuit<Fr> {
+) -> Result<TestCircuit<Fr>> {
     let mut env = HostEnv::new();
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
@@ -66,22 +69,13 @@ fn build_circuit_with_witness(
         .compile(&wasm_binary, &imports, &env.function_plugin_lookup)
         .expect("file cannot be complied");
 
-    let execution_log = compiler
-        .run(
-            &mut env,
-            &compiled_module,
-            function_name,
-            public_inputs.clone(),
-            private_inputs.clone(),
-        )
-        .unwrap();
+    let execution_result = compiled_module.run(&mut env, function_name)?;
 
     let builder = ZkWasmCircuitBuilder {
-        compile_tables: compiled_module.tables,
-        execution_tables: execution_log.tables,
+        tables: execution_result.tables,
     };
 
-    builder.build_circuit()
+    Ok(builder.build_circuit())
 }
 
 pub fn exec_setup(
@@ -146,9 +140,9 @@ pub fn exec_create_proof(
     output_dir: &PathBuf,
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
-) {
+) -> Result<()> {
     let circuit =
-        build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs);
+        build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs)?;
     let instances = vec![public_inputs
         .iter()
         .map(|v| Fr::from(*v))
@@ -158,18 +152,14 @@ pub fn exec_create_proof(
     if true {
         info!("Mock test...");
 
-        write_json(
-            &circuit.compile_tables,
-            &circuit.execution_tables,
-            Some(output_dir.clone()),
-        );
+        circuit.tables.write_json(Some(output_dir.clone()));
 
         let prover = MockProver::run(
             zkwasm_k,
             &circuit,
             vec![public_inputs.into_iter().map(|v| Fr::from(*v)).collect()],
-        )
-        .unwrap();
+        )?;
+
         assert_eq!(prover.verify(), Ok(()));
 
         info!("Mock test passed");
@@ -195,7 +185,9 @@ pub fn exec_create_proof(
         false,
     );
 
-    info!("Proof has been created.")
+    info!("Proof has been created.");
+
+    Ok(())
 }
 
 pub fn exec_verify_proof(
@@ -256,7 +248,8 @@ pub fn exec_aggregate_create_proof(
         (vec![], vec![]),
         |(mut circuits, mut instances), (public, private)| {
             let circuit =
-                build_circuit_with_witness(&wasm_binary, &function_name, &public, &private);
+                build_circuit_with_witness(&wasm_binary, &function_name, &public, &private)
+                    .unwrap();
             let instance = vec![public.iter().map(|v| Fr::from(*v)).collect()];
 
             circuits.push(circuit);

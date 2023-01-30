@@ -1,16 +1,14 @@
 use crate::{
     foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{host::HostEnv, CompileOutcome, ExecutionOutcome, WasmInterpreter, WasmRuntime},
+    runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
 };
 
+use anyhow::Result;
+use specs::Tables;
 use std::{fs::File, io::Read, path::PathBuf};
-use wasmi::{tracer::Tracer, ImportsBuilder, Module, ModuleRef};
+use wasmi::ImportsBuilder;
 
-pub fn build_test() -> (
-    CompileOutcome<Module, ModuleRef, Tracer>,
-    ExecutionOutcome,
-    Vec<u64>,
-) {
+pub fn build_test() -> Result<(Tables, Vec<u64>)> {
     let public_inputs = vec![3];
 
     let mut binary = vec![];
@@ -28,17 +26,9 @@ pub fn build_test() -> (
     let compiled_module = compiler
         .compile(&binary, &imports, &env.function_plugin_lookup)
         .unwrap();
-    let execution_log = compiler
-        .run(
-            &mut env,
-            &compiled_module,
-            "bsearch",
-            public_inputs.clone(),
-            vec![],
-        )
-        .unwrap();
+    let execution_result = compiled_module.run(&mut env, "bsearch")?;
 
-    (compiled_module, execution_log, public_inputs)
+    Ok((execution_result.tables, public_inputs))
 }
 
 mod tests {
@@ -48,11 +38,10 @@ mod tests {
 
     #[test]
     fn test_binary_search() {
-        let (compiled_module, execution_log, public_inputs) = build_test();
+        let (tables, public_inputs) = build_test().unwrap();
 
         run_test_circuit(
-            compiled_module.tables,
-            execution_log.tables,
+            tables,
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap();

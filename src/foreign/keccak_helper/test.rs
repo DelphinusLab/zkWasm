@@ -2,7 +2,7 @@
 pub(crate) mod tests {
     use crate::{
         foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+        runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
         test::run_test_circuit,
     };
 
@@ -54,19 +54,15 @@ pub(crate) mod tests {
             let compiled_module = compiler
                 .compile(&wasm, &imports, &env.function_plugin_lookup)
                 .unwrap();
-            let execution_log = compiler
+            let execution_result = compiled_module
                 .run(
                     &mut env,
-                    &compiled_module,
                     "keccak_digest",
-                    public_inputs.clone(),
-                    private_inputs,
                 )
                 .unwrap();
             set_zkwasm_k(19);
             run_test_circuit::<Fp>(
-                compiled_module.tables,
-                execution_log.tables,
+                execution_result.tables,
                 public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
             )
             .unwrap()

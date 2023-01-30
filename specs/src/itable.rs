@@ -549,4 +549,15 @@ impl InstructionTable {
 
         opcodeclass
     }
+
+    pub fn push(&mut self, moid: u16, fid: u16, iid: u16, opcode: Opcode) {
+        self.0.push(InstructionTableEntry {
+            moid,
+            // Only support one memory instance for now.
+            mmid: moid,
+            fid,
+            iid,
+            opcode,
+        })
+    }
 }

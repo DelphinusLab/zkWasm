@@ -24,3 +24,16 @@ impl JumpTableEntry {
         bn
     }
 }
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct JumpTable(Vec<JumpTableEntry>);
+
+impl JumpTable {
+    pub fn entries(&self) -> &Vec<JumpTableEntry> {
+        &self.0
+    }
+
+    pub fn push(&mut self, entry: JumpTableEntry) {
+        self.0.push(entry)
+    }
+}

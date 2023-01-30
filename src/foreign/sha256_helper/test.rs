@@ -6,7 +6,7 @@ pub(crate) mod tests {
             sha256_helper::runtime::register_sha256_foreign,
             wasm_input_helper::runtime::register_wasm_input_foreign,
         },
-        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+        runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
         test::run_test_circuit,
     };
 
@@ -53,18 +53,9 @@ pub(crate) mod tests {
         let compiled_module = compiler
             .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
-        let execution_log = compiler
-            .run(
-                &mut env,
-                &compiled_module,
-                "sha256_digest",
-                public_inputs.clone(),
-                private_inputs,
-            )
-            .unwrap();
+        let execution_result = compiled_module.run(&mut env, "sha256_digest").unwrap();
         run_test_circuit::<Fp>(
-            compiled_module.tables,
-            execution_log.tables,
+            execution_result.tables,
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap()
@@ -88,15 +79,7 @@ pub(crate) mod tests {
         let compiled_module = compiler
             .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
-        let execution_log = compiler
-            .run(&mut env, &compiled_module, "zkmain", vec![], vec![])
-            .unwrap();
-        run_test_circuit::<Fp>(
-            compiled_module.tables,
-            execution_log.tables,
-            //public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
-            vec![],
-        )
-        .unwrap()
+        let execution_result = compiled_module.run(&mut env, "zkmain").unwrap();
+        run_test_circuit::<Fp>(execution_result.tables, vec![]).unwrap()
     }
 }

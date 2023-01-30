@@ -13,13 +13,17 @@ pub struct InitMemoryTableEntry {
 }
 
 #[derive(Serialize, Default, Debug, Clone)]
-pub struct InitMemoryTable(pub Vec<InitMemoryTableEntry>);
+pub struct InitMemoryTable(Vec<InitMemoryTableEntry>);
 
 impl InitMemoryTable {
     pub fn new(entries: Vec<InitMemoryTableEntry>) -> Self {
         let mut imtable = Self(entries);
         imtable.sort();
         imtable
+    }
+
+    pub fn entries(&self) -> &Vec<InitMemoryTableEntry> {
+        &self.0
     }
 
     pub fn to_string(&self) -> String {

@@ -3,7 +3,7 @@ mod tests {
     use crate::{
         circuits::{config::zkwasm_k, TestCircuit},
         foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+        runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
     };
 
     use halo2_proofs::{dev::MockProver, pairing::bn256::Fr as Fp};
@@ -33,17 +33,9 @@ mod tests {
         let compiled_module = compiler
             .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
-        let execution_log = compiler
-            .run(
-                &mut env,
-                &compiled_module,
-                "main",
-                public_inputs.clone(),
-                vec![],
-            )
-            .unwrap();
+        let execution_result = compiled_module.run(&mut env, "main").unwrap();
 
-        let circuit = TestCircuit::<Fp>::new(compiled_module.tables, execution_log.tables);
+        let circuit = TestCircuit::<Fp>::new(execution_result.tables);
 
         let prover = MockProver::run(
             zkwasm_k(),
@@ -89,17 +81,9 @@ mod tests {
         let compiled_module = compiler
             .compile(&wasm, &imports, &env.function_plugin_lookup)
             .unwrap();
-        let execution_log = compiler
-            .run(
-                &mut env,
-                &compiled_module,
-                "main",
-                public_inputs.clone(),
-                private_inputs,
-            )
-            .unwrap();
+        let execution_result = compiled_module.run(&mut env, "main").unwrap();
 
-        let circuit = TestCircuit::<Fp>::new(compiled_module.tables, execution_log.tables);
+        let circuit = TestCircuit::<Fp>::new(execution_result.tables);
 
         let prover = MockProver::run(
             zkwasm_k(),
@@ -107,6 +91,7 @@ mod tests {
             vec![public_inputs.into_iter().map(|v| Fp::from(v)).collect()],
         )
         .unwrap();
+
         assert_eq!(prover.verify(), Ok(()));
     }
 }

@@ -6,7 +6,7 @@ mod tests {
             sha256_helper::{runtime::register_sha256_foreign, test::tests::prepare_inputs},
             wasm_input_helper::runtime::register_wasm_input_foreign,
         },
-        runtime::{host::HostEnv, WasmInterpreter, WasmRuntime},
+        runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
     };
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use std::{fs::File, io::Read, path::PathBuf};
@@ -32,19 +32,10 @@ mod tests {
         let compiled_module = compiler
             .compile(&binary, &imports, &env.function_plugin_lookup)
             .unwrap();
-        let execution_log = compiler
-            .run(
-                &mut env,
-                &compiled_module,
-                "sha256_digest",
-                public_inputs.clone(),
-                private_inputs,
-            )
-            .unwrap();
+        let execution_result = compiled_module.run(&mut env, "sha256_digest").unwrap();
 
         let builder = ZkWasmCircuitBuilder {
-            compile_tables: compiled_module.tables,
-            execution_tables: execution_log.tables,
+            tables: execution_result.tables,
         };
 
         builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())

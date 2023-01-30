@@ -96,7 +96,8 @@ pub trait AppBuilder: CommandBuilder {
                     &output_dir,
                     &public_inputs,
                     &private_inputs,
-                );
+                )
+                .unwrap();
             }
             Some(("single-verify", sub_matches)) => {
                 let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
