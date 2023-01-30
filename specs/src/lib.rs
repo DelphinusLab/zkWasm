@@ -9,10 +9,9 @@ use configure_table::ConfigureTable;
 use etable::EventTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
+use jtable::JumpTable;
 use mtable::MTable;
 use serde::Serialize;
-
-use self::jtable::JumpTableEntry;
 
 #[macro_use]
 extern crate lazy_static;
@@ -30,14 +29,14 @@ pub mod step;
 pub mod types;
 
 #[derive(Default, Serialize, Debug, Clone)]
-pub struct CompileTable {
+pub struct CompilationTable {
     pub itable: InstructionTable,
     pub imtable: InitMemoryTable,
     pub elem_table: ElemTable,
     pub configure_table: ConfigureTable,
 }
 
-impl CompileTable {
+impl CompilationTable {
     pub fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
     }
@@ -47,7 +46,7 @@ impl CompileTable {
 pub struct ExecutionTable {
     pub etable: EventTable,
     pub mtable: MTable,
-    pub jtable: Vec<JumpTableEntry>,
+    pub jtable: JumpTable,
 }
 
 impl ExecutionTable {
@@ -56,30 +55,34 @@ impl ExecutionTable {
     }
 }
 
-fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
-    let mut folder = folder.clone();
-    folder.push(filename);
-    let mut fd = std::fs::File::create(folder.as_path()).unwrap();
-    folder.pop();
-
-    fd.write(buf.as_bytes()).unwrap();
+#[derive(Default, Clone)]
+pub struct Tables {
+    pub compilation_tables: CompilationTable,
+    pub execution_tables: ExecutionTable,
 }
 
-pub fn write_json(
-    compile_table: &CompileTable,
-    execution_table: &ExecutionTable,
-    dir: Option<PathBuf>,
-) {
-    let itable = serde_json::to_string(&compile_table.itable).unwrap();
-    let imtable = serde_json::to_string(&compile_table.imtable).unwrap();
-    let etable = serde_json::to_string(&execution_table.etable).unwrap();
-    let mtable = serde_json::to_string(&execution_table.mtable).unwrap();
-    let jtable = serde_json::to_string(&execution_table.jtable).unwrap();
+impl Tables {
+    pub fn write_json(&self, dir: Option<PathBuf>) {
+        fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
+            let mut folder = folder.clone();
+            folder.push(filename);
+            let mut fd = std::fs::File::create(folder.as_path()).unwrap();
+            folder.pop();
 
-    let dir = dir.unwrap_or(env::current_dir().unwrap());
-    write_file(&dir, "itable.json", &itable);
-    write_file(&dir, "imtable.json", &imtable);
-    write_file(&dir, "etable.json", &etable);
-    write_file(&dir, "mtable.json", &mtable);
-    write_file(&dir, "jtable.json", &jtable);
+            fd.write(buf.as_bytes()).unwrap();
+        }
+
+        let itable = serde_json::to_string(&self.compilation_tables.itable).unwrap();
+        let imtable = serde_json::to_string(&self.compilation_tables.imtable).unwrap();
+        let etable = serde_json::to_string(&self.execution_tables.etable).unwrap();
+        let mtable = serde_json::to_string(&self.execution_tables.mtable).unwrap();
+        let jtable = serde_json::to_string(&self.execution_tables.jtable).unwrap();
+
+        let dir = dir.unwrap_or(env::current_dir().unwrap());
+        write_file(&dir, "itable.json", &itable);
+        write_file(&dir, "imtable.json", &imtable);
+        write_file(&dir, "etable.json", &etable);
+        write_file(&dir, "mtable.json", &mtable);
+        write_file(&dir, "jtable.json", &jtable);
+    }
 }

@@ -39,7 +39,7 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, CompileTable, ExecutionTable};
+use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, ExecutionTable, Tables};
 use std::{
     borrow::BorrowMut,
     collections::{BTreeMap, BTreeSet},
@@ -90,27 +90,28 @@ pub struct TestCircuitConfig<F: FieldExt> {
 
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
-    pub compile_tables: CompileTable,
-    pub execution_tables: ExecutionTable,
+    pub tables: Tables,
     _data: PhantomData<F>,
 }
 
 impl<F: FieldExt> TestCircuit<F> {
-    pub fn new(compile_tables: CompileTable, execution_tables: ExecutionTable) -> Self {
+    pub fn new(tables: Tables) -> Self {
         unsafe {
             CIRCUIT_CONFIGURE = Some(CircuitConfigure {
-                first_consecutive_zero_memory_offset: compile_tables
+                first_consecutive_zero_memory_offset: tables
+                    .compilation_tables
                     .imtable
                     .first_consecutive_zero_memory(),
-                initial_memory_pages: compile_tables.configure_table.init_memory_pages as u64,
-                maximal_memory_pages: compile_tables.configure_table.maximal_memory_pages as u64,
-                opcode_selector: compile_tables.itable.opcode_class(),
+                initial_memory_pages: tables.compilation_tables.configure_table.init_memory_pages
+                    as u64,
+                maximal_memory_pages: tables.compilation_tables.configure_table.maximal_memory_pages
+                    as u64,
+                opcode_selector: tables.compilation_tables.itable.opcode_class(),
             });
         }
 
         TestCircuit {
-            compile_tables,
-            execution_tables,
+            tables,
             _data: PhantomData,
         }
     }
@@ -122,7 +123,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit::new(self.compile_tables.clone(), ExecutionTable::default())
+        TestCircuit::new(Tables {
+            compilation_tables: self.tables.compilation_tables.clone(),
+            execution_tables: ExecutionTable::default(),
+        })
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -205,6 +209,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         sha256chip.assign(
             &mut layouter,
             &self
+                .tables
                 .execution_tables
                 .etable
                 .filter_foreign_entries(HostPlugin::Sha256),
@@ -212,19 +217,20 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         wasm_input_chip.assign(
             &mut layouter,
             &self
+                .tables
                 .execution_tables
                 .etable
                 .filter_foreign_entries(HostPlugin::HostInput),
         )?;
 
-        ichip.assign(&mut layouter, &self.compile_tables.itable)?;
+        ichip.assign(&mut layouter, &self.tables.compilation_tables.itable)?;
         brchip.assign(
             &mut layouter,
-            &self.compile_tables.itable.create_brtable(),
-            &self.compile_tables.elem_table,
+            &self.tables.compilation_tables.itable.create_brtable(),
+            &self.tables.compilation_tables.elem_table,
         )?;
-        if self.compile_tables.imtable.0.len() > 0 {
-            imchip.assign(&mut layouter, &self.compile_tables.imtable)?;
+        if self.tables.compilation_tables.imtable.entries().len() > 0 {
+            imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?;
         }
 
         layouter.assign_region(
@@ -235,21 +241,28 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 let (rest_mops_cell, rest_jops_cell) = {
                     echip.assign(
                         &mut ctx,
-                        &self.execution_tables.etable,
-                        self.compile_tables.configure_table,
+                        &self.tables.execution_tables.etable,
+                        self.tables.compilation_tables.configure_table,
                     )?
                 };
 
                 ctx.reset();
                 mchip.assign(
                     &mut ctx,
-                    &self.execution_tables.mtable,
+                    &self.tables.execution_tables.mtable,
                     rest_mops_cell,
-                    self.compile_tables.imtable.first_consecutive_zero_memory(),
+                    self.tables
+                        .compilation_tables
+                        .imtable
+                        .first_consecutive_zero_memory(),
                 )?;
 
                 ctx.reset();
-                jchip.assign(&mut ctx, &self.execution_tables.jtable, rest_jops_cell)?;
+                jchip.assign(
+                    &mut ctx,
+                    &self.tables.execution_tables.jtable,
+                    rest_jops_cell,
+                )?;
 
                 Ok(())
             },
@@ -277,15 +290,14 @@ pub(self) trait Lookup<F: FieldExt> {
 }
 
 pub struct ZkWasmCircuitBuilder {
-    pub compile_tables: CompileTable,
-    pub execution_tables: ExecutionTable,
+    pub tables: Tables,
 }
 
 const PARAMS: &str = "param.data";
 
 impl ZkWasmCircuitBuilder {
     pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-        TestCircuit::new(self.compile_tables.clone(), self.execution_tables.clone())
+        TestCircuit::new(self.tables.clone())
     }
 
     fn prepare_param(&self) -> Params<G1Affine> {

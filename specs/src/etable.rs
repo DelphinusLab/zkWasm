@@ -38,7 +38,7 @@ impl Iterator for RestJops {
     }
 }
 
-#[derive(Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct EventTable(Vec<EventTableEntry>);
 
 impl EventTable {
@@ -48,6 +48,10 @@ impl EventTable {
 
     pub fn entries(&self) -> &Vec<EventTableEntry> {
         &self.0
+    }
+
+    pub fn entries_mut(&mut self) -> &mut Vec<EventTableEntry> {
+        &mut self.0
     }
 
     pub fn filter_foreign_entries(&self, foreign: HostPlugin) -> Vec<EventTableEntry> {

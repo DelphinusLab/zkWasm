@@ -186,13 +186,16 @@ impl MTable {
         serde_json::to_string(self).unwrap()
     }
 
-    pub fn new(entries: Vec<MemoryTableEntry>) -> Self {
+    pub fn new(entries: Vec<MemoryTableEntry>, imtable: &InitMemoryTable) -> Self {
         let mut mtable = MTable(entries);
+
+        mtable.push_accessed_memory_initialization(imtable);
         mtable.sort();
+
         mtable
     }
 
-    pub fn push_accessed_memory_initialization(&mut self, imtable: &InitMemoryTable) {
+    fn push_accessed_memory_initialization(&mut self, imtable: &InitMemoryTable) {
         let mut set = HashSet::<MemoryTableEntry>::default();
 
         self.0.iter().for_each(|entry| {
@@ -220,7 +223,6 @@ impl MTable {
         let mut entries = set.into_iter().collect();
 
         self.0.append(&mut entries);
-        self.sort()
     }
 
     fn sort(&mut self) {

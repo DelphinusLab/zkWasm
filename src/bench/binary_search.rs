@@ -6,11 +6,10 @@ mod tests {
 
     #[test]
     fn test_binary_search() {
-        let (compiled_module, execution_log, public_inputs) = build_test();
+        let (execution_result, public_inputs) = build_test().unwrap();
 
         let builder = ZkWasmCircuitBuilder {
-            compile_tables: compiled_module.tables,
-            execution_tables: execution_log.tables,
+            tables: execution_result,
         };
 
         builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())

@@ -1,7 +1,6 @@
 #![deny(unused_imports)]
 #![deny(dead_code)]
 #![deny(unused_variables)]
-
 #![feature(thread_local)]
 
 pub mod bench;

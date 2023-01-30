@@ -1,29 +1,30 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use anyhow::Result;
 use specs::{
     etable::EventTableEntry,
     host_function::HostFunctionDesc,
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
     step::StepInfo,
-    types::{CompileError, ExecutionError},
-    CompileTable, ExecutionTable,
+    CompilationTable, Tables,
 };
-use wasmi::{Externals, ImportResolver};
+use wasmi::ImportResolver;
 
 use self::wasmi_interpreter::WasmiRuntime;
 
 pub(crate) mod host;
 pub mod wasmi_interpreter;
 
-pub struct CompileOutcome<M, I, T> {
+pub struct CompiledImage<M, I, T> {
     pub module: M,
-    pub tables: CompileTable,
+    pub tables: CompilationTable,
     pub instance: I,
     pub tracer: Rc<RefCell<T>>,
 }
 
-pub struct ExecutionOutcome {
-    pub tables: ExecutionTable,
+pub struct ExecutionResult<R> {
+    pub tables: Tables,
+    pub result: Option<R>,
 }
 
 pub trait WasmRuntime {
@@ -32,26 +33,13 @@ pub trait WasmRuntime {
     type Instance;
 
     fn new() -> Self;
-    fn compile_from_wast<I: ImportResolver>(
-        &self,
-        module: wast::core::Module,
-        imports: &I,
-        host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
-    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
+
     fn compile<I: ImportResolver>(
         &self,
         textual_repr: &Vec<u8>,
         imports: &I,
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
-    ) -> Result<CompileOutcome<Self::Module, Self::Instance, Self::Tracer>, CompileError>;
-    fn run<E: Externals>(
-        &self,
-        externals: &mut E,
-        compile_outcome: &CompileOutcome<Self::Module, Self::Instance, Self::Tracer>,
-        function_name: &str,
-        public_inputs: Vec<u64>,
-        private_inputs: Vec<u64>,
-    ) -> Result<ExecutionOutcome, ExecutionError>;
+    ) -> Result<CompiledImage<Self::Module, Self::Instance, Self::Tracer>>;
 }
 
 // TODO: use feature

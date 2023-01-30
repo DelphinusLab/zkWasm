@@ -1,8 +1,11 @@
 use crate::{
     foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{host::HostEnv, CompileOutcome, ExecutionOutcome, WasmInterpreter, WasmRuntime},
+    runtime::{
+        host::HostEnv, wasmi_interpreter::Execution, ExecutionResult, WasmInterpreter, WasmRuntime,
+    },
 };
-use wasmi::{tracer::Tracer, ImportsBuilder, Module, ModuleRef};
+use anyhow::Result;
+use wasmi::{ImportsBuilder, RuntimeValue};
 
 /*
    unsigned long long wasm_input(int);
@@ -19,11 +22,7 @@ use wasmi::{tracer::Tracer, ImportsBuilder, Module, ModuleRef};
        return fib(input);
    }
 */
-pub fn build_test() -> (
-    CompileOutcome<Module, ModuleRef, Tracer>,
-    ExecutionOutcome,
-    Vec<u64>,
-) {
+pub fn build_test() -> Result<(ExecutionResult<RuntimeValue>, Vec<u64>, i32)> {
     let textual_repr = r#"
     (module
         (import "env" "wasm_input" (func $wasm_input (param i32) (result i64)))
@@ -82,17 +81,10 @@ pub fn build_test() -> (
     let compiled_module = compiler
         .compile(&wasm, &imports, &env.function_plugin_lookup)
         .unwrap();
-    let execution_log = compiler
-        .run(
-            &mut env,
-            &compiled_module,
-            "test",
-            public_inputs.clone(),
-            vec![],
-        )
-        .unwrap();
 
-    (compiled_module, execution_log, public_inputs)
+    let execution_result = compiled_module.run(&mut env, "test")?;
+
+    Ok((execution_result, public_inputs, 233))
 }
 
 mod tests {
@@ -102,11 +94,15 @@ mod tests {
 
     #[test]
     fn test_fibonacci() {
-        let (compiled_module, execution_log, public_inputs) = build_test();
+        let (execution_result, public_inputs, expected_value) = build_test().unwrap();
+
+        assert_eq!(
+            execution_result.result.unwrap(),
+            RuntimeValue::I32(expected_value)
+        );
 
         run_test_circuit(
-            compiled_module.tables,
-            execution_log.tables,
+            execution_result.tables,
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap();
