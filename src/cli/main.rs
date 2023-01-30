@@ -35,7 +35,12 @@ fn parse_args(values: Vec<&str>) -> Vec<u64> {
                     let bytes = bytes.chunks(8);
                     bytes
                         .into_iter()
-                        .map(|x| u64::from_le_bytes(x.try_into().unwrap()))
+                        .map(|x| {
+                            let mut data = [0u8; 8];
+                            data[..x.len()].copy_from_slice(x);
+
+                            u64::from_le_bytes(data)
+                        })
                         .collect::<Vec<u64>>()
                 }
 
