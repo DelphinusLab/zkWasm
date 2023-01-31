@@ -56,6 +56,7 @@ pub mod itable;
 pub mod jtable;
 pub mod mtable_compact;
 pub mod rtable;
+mod traits;
 pub mod utils;
 
 pub(crate) trait FromBn {
