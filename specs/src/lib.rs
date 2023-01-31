@@ -36,23 +36,11 @@ pub struct CompilationTable {
     pub configure_table: ConfigureTable,
 }
 
-impl CompilationTable {
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
-}
-
 #[derive(Default, Serialize, Clone)]
 pub struct ExecutionTable {
     pub etable: EventTable,
     pub mtable: MTable,
     pub jtable: JumpTable,
-}
-
-impl ExecutionTable {
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
 }
 
 #[derive(Default, Clone)]

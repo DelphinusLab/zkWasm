@@ -51,9 +51,7 @@ impl<F: FieldExt> InputTableConfig<F> {
     }
 
     pub fn configure(meta: &mut ConstraintSystem<F>) -> Self {
-        let config = Self::new(meta);
-
-        config
+        Self::new(meta)
     }
 
     pub fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {

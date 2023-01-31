@@ -132,7 +132,6 @@ impl<F: FieldExt> RangeTableConfig<F> {
 
 pub struct RangeTableChip<F: FieldExt> {
     config: RangeTableConfig<F>,
-    _phantom: PhantomData<F>,
 }
 
 pub fn pow_table_encode<F: FieldExt>(
@@ -163,10 +162,7 @@ pub fn offset_len_bits_encode_expr<F: FieldExt>(
 
 impl<F: FieldExt> RangeTableChip<F> {
     pub fn new(config: RangeTableConfig<F>) -> Self {
-        RangeTableChip {
-            config,
-            _phantom: PhantomData,
-        }
+        RangeTableChip { config }
     }
 
     pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {

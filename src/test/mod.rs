@@ -10,8 +10,10 @@ use std::collections::HashMap;
 use wasmi::{ImportsBuilder, NopExternals};
 
 mod spec;
-pub mod test_binary_search;
-pub mod test_fibonacci;
+mod test_binary_search;
+mod test_fibonacci;
+mod test_return;
+mod test_sha256;
 
 pub fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");

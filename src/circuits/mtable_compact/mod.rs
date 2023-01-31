@@ -1,26 +1,18 @@
 use self::configure::MemoryTableConstriants;
-use super::config::max_mtable_rows;
-use super::imtable::InitMemoryTableConfig;
-use super::rtable::RangeTableConfig;
-use super::utils::row_diff::RowDiffConfig;
-use super::utils::Context;
-use super::CircuitConfigure;
-use crate::circuits::mtable_compact::configure::STEP_SIZE;
-use crate::circuits::IMTABLE_COLOMNS;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Cell;
-use halo2_proofs::plonk::Advice;
-use halo2_proofs::plonk::Column;
-use halo2_proofs::plonk::ConstraintSystem;
-use halo2_proofs::plonk::Error;
-use halo2_proofs::plonk::Fixed;
-use specs::mtable::AccessType;
-use specs::mtable::InitType;
-use specs::mtable::LocationType;
-use specs::mtable::MTable;
-use specs::mtable::MemoryTableEntry;
-use specs::mtable::VarType;
-use std::marker::PhantomData;
+use super::{
+    config::max_mtable_rows,
+    imtable::InitMemoryTableConfig,
+    rtable::RangeTableConfig,
+    utils::{row_diff::RowDiffConfig, Context},
+    CircuitConfigure,
+};
+use crate::circuits::{mtable_compact::configure::STEP_SIZE, IMTABLE_COLOMNS};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    circuit::Cell,
+    plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
+};
+use specs::mtable::{AccessType, InitType, LocationType, MTable, MemoryTableEntry, VarType};
 
 fn mtable_rows() -> usize {
     max_mtable_rows() as usize / STEP_SIZE as usize * STEP_SIZE as usize
@@ -98,15 +90,11 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
 pub struct MemoryTableChip<F: FieldExt> {
     config: MemoryTableConfig<F>,
-    _phantom: PhantomData<F>,
 }
 
 impl<F: FieldExt> MemoryTableChip<F> {
     pub fn new(config: MemoryTableConfig<F>) -> Self {
-        MemoryTableChip {
-            config,
-            _phantom: PhantomData,
-        }
+        MemoryTableChip { config }
     }
 
     pub fn assign(
@@ -341,36 +329,27 @@ impl<F: FieldExt> MemoryTableChip<F> {
             ctx.offset += STEP_SIZE as usize;
         }
 
-        match last_entry {
-            None => {}
-            Some(last_entry) => {
-                self.config.index.assign(
-                    ctx,
-                    None,
-                    F::zero(),
-                    -F::from(last_entry.ltype as u64),
-                )?;
-                ctx.offset += 1;
-                self.config
-                    .index
-                    .assign(ctx, None, F::zero(), -F::from(last_entry.mmid as u64))?;
-                ctx.offset += 1;
-                self.config.index.assign(
-                    ctx,
-                    None,
-                    F::zero(),
-                    -F::from(last_entry.offset as u64),
-                )?;
-                ctx.offset += 1;
-                self.config
-                    .index
-                    .assign(ctx, None, F::zero(), -F::from(last_entry.eid as u64))?;
-                ctx.offset += 1;
-                self.config
-                    .index
-                    .assign(ctx, None, F::zero(), -F::from(last_entry.emid as u64))?;
-                ctx.offset += 1;
-            }
+        if let Some(last_entry) = last_entry {
+            self.config
+                .index
+                .assign(ctx, None, F::zero(), -F::from(last_entry.ltype as u64))?;
+            ctx.offset += 1;
+            self.config
+                .index
+                .assign(ctx, None, F::zero(), -F::from(last_entry.mmid as u64))?;
+            ctx.offset += 1;
+            self.config
+                .index
+                .assign(ctx, None, F::zero(), -F::from(last_entry.offset as u64))?;
+            ctx.offset += 1;
+            self.config
+                .index
+                .assign(ctx, None, F::zero(), -F::from(last_entry.eid as u64))?;
+            ctx.offset += 1;
+            self.config
+                .index
+                .assign(ctx, None, F::zero(), -F::from(last_entry.emid as u64))?;
+            ctx.offset += 1;
         }
 
         for i in ctx.offset..max_mtable_rows() as usize {

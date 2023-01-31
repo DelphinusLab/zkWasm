@@ -201,7 +201,6 @@ pub struct EventTableCommonConfig<F> {
 pub struct EventTableConfig<F: FieldExt> {
     common_config: EventTableCommonConfig<F>,
     op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
-    _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> EventTableConfig<F> {
@@ -677,22 +676,17 @@ impl<F: FieldExt> EventTableConfig<F> {
         Self {
             common_config,
             op_configs,
-            _mark: PhantomData,
         }
     }
 }
 
 pub struct EventTableChip<F: FieldExt> {
     config: EventTableConfig<F>,
-    _phantom: PhantomData<F>,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
     pub fn new(config: EventTableConfig<F>) -> Self {
-        EventTableChip {
-            config,
-            _phantom: PhantomData,
-        }
+        EventTableChip { config }
     }
 
     pub(super) fn assign(

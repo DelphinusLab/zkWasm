@@ -10,7 +10,7 @@ mod tests {
     };
 
     #[test]
-    fn test_trivial_return_bench() {
+    fn test_return_full() {
         let textual_repr = r#"
         (module
             (func (export "test")
