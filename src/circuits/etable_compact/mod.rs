@@ -17,6 +17,7 @@ use crate::circuits::{
         ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfigBuilder,
     },
     itable::{encode_inst_expr, Encode},
+    traits::ConfigureLookupTable,
     utils::bn_to_field,
 };
 use crate::{
