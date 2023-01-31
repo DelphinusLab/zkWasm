@@ -53,9 +53,3 @@ pub enum FunctionType {
         op_index_in_plugin: usize,
     },
 }
-
-#[derive(Debug)]
-pub enum CompileError {}
-
-#[derive(Debug)]
-pub enum ExecutionError {}

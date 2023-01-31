@@ -22,7 +22,7 @@ use wasmi::{ImportsBuilder, RuntimeValue};
        return fib(input);
    }
 */
-pub fn build_test() -> Result<(ExecutionResult<RuntimeValue>, Vec<u64>, i32)> {
+fn build_test() -> Result<(ExecutionResult<RuntimeValue>, Vec<u64>, i32)> {
     let textual_repr = r#"
     (module
         (import "env" "wasm_input" (func $wasm_input (param i32) (result i64)))
@@ -89,11 +89,11 @@ pub fn build_test() -> Result<(ExecutionResult<RuntimeValue>, Vec<u64>, i32)> {
 
 mod tests {
     use super::*;
-    use crate::test::run_test_circuit;
+    use crate::{circuits::ZkWasmCircuitBuilder, test::run_test_circuit};
     use halo2_proofs::pairing::bn256::Fr as Fp;
 
     #[test]
-    fn test_fibonacci() {
+    fn test_fibonacci_mock() {
         let (execution_result, public_inputs, expected_value) = build_test().unwrap();
 
         assert_eq!(
@@ -106,5 +106,21 @@ mod tests {
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_fibonacci_full() {
+        let (execution_result, public_inputs, expected_value) = build_test().unwrap();
+
+        assert_eq!(
+            execution_result.result.unwrap(),
+            RuntimeValue::I32(expected_value)
+        );
+
+        let builder = ZkWasmCircuitBuilder {
+            tables: execution_result.tables,
+        };
+
+        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
     }
 }

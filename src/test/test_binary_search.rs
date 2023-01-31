@@ -8,7 +8,7 @@ use specs::Tables;
 use std::{fs::File, io::Read, path::PathBuf};
 use wasmi::ImportsBuilder;
 
-pub fn build_test() -> Result<(Tables, Vec<u64>)> {
+fn build_test() -> Result<(Tables, Vec<u64>)> {
     let public_inputs = vec![3];
 
     let mut binary = vec![];
@@ -33,11 +33,11 @@ pub fn build_test() -> Result<(Tables, Vec<u64>)> {
 
 mod tests {
     use super::*;
-    use crate::test::run_test_circuit;
+    use crate::{circuits::ZkWasmCircuitBuilder, test::run_test_circuit};
     use halo2_proofs::pairing::bn256::Fr as Fp;
 
     #[test]
-    fn test_binary_search() {
+    fn test_binary_search_mock() {
         let (tables, public_inputs) = build_test().unwrap();
 
         run_test_circuit(
@@ -45,5 +45,16 @@ mod tests {
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_binary_search_full() {
+        let (execution_result, public_inputs) = build_test().unwrap();
+
+        let builder = ZkWasmCircuitBuilder {
+            tables: execution_result,
+        };
+
+        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
     }
 }

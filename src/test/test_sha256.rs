@@ -13,7 +13,7 @@ mod tests {
     use wasmi::ImportsBuilder;
 
     #[test]
-    fn test_sha256() {
+    fn test_sha256_full() {
         let (public_inputs, private_inputs) = prepare_inputs();
 
         let mut binary = vec![];

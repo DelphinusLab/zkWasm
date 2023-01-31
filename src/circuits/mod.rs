@@ -41,7 +41,6 @@ use num_bigint::BigUint;
 use rand::rngs::OsRng;
 use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, ExecutionTable, Tables};
 use std::{
-    borrow::BorrowMut,
     collections::{BTreeMap, BTreeSet},
     fs::File,
     io::{Cursor, Read},
@@ -104,8 +103,10 @@ impl<F: FieldExt> TestCircuit<F> {
                     .first_consecutive_zero_memory(),
                 initial_memory_pages: tables.compilation_tables.configure_table.init_memory_pages
                     as u64,
-                maximal_memory_pages: tables.compilation_tables.configure_table.maximal_memory_pages
-                    as u64,
+                maximal_memory_pages: tables
+                    .compilation_tables
+                    .configure_table
+                    .maximal_memory_pages as u64,
                 opcode_selector: tables.compilation_tables.itable.opcode_class(),
             });
         }
@@ -132,9 +133,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let circuit_configure = unsafe { CIRCUIT_CONFIGURE.clone().unwrap() };
 
-        let constants = meta.fixed_column();
-        meta.enable_constant(constants);
-        meta.enable_equality(constants);
+        /*
+         * Allocate a column to enable assign_advice_from_constant.
+         */
+        {
+            let constants = meta.fixed_column();
+            meta.enable_constant(constants);
+            meta.enable_equality(constants);
+        }
 
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
@@ -322,15 +328,6 @@ impl ZkWasmCircuitBuilder {
         }
     }
 
-    fn create_params(&self) -> Params<G1Affine> {
-        // Initialize the polynomial commitment parameters
-        let timer = start_timer!(|| format!("build params with K = {}", zkwasm_k()));
-        let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(zkwasm_k());
-        end_timer!(timer);
-
-        params
-    }
-
     fn prepare_vk(
         &self,
         circuit: &TestCircuit<Fr>,
@@ -376,9 +373,7 @@ impl ZkWasmCircuitBuilder {
         .expect("proof generation should not fail");
         end_timer!(timer);
 
-        let proof = transcript.finalize();
-
-        proof
+        transcript.finalize()
     }
 
     fn verify_check(
@@ -418,23 +413,5 @@ impl ZkWasmCircuitBuilder {
         let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
 
         self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
-    }
-
-    pub fn bench_with_result(&self, public_inputs: Vec<Fr>) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
-        let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
-
-        let mut params_buffer: Vec<u8> = vec![];
-        let params = self.create_params();
-        params.write::<Vec<u8>>(params_buffer.borrow_mut()).unwrap();
-        let vk = self.prepare_vk(&circuit, &params);
-
-        let mut vk_buffer: Vec<u8> = vec![];
-        vk.write::<Vec<u8>>(vk_buffer.borrow_mut()).unwrap();
-        let pk = self.prepare_pk(&circuit, &params, vk);
-
-        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
-        self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
-
-        (params_buffer, vk_buffer, proof)
     }
 }
