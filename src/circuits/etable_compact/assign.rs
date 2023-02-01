@@ -1,3 +1,5 @@
+use specs::step::StepInfo;
+
 use crate::circuits::config::max_etable_rows;
 
 use super::*;
@@ -42,6 +44,17 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 ctx.region.assign_fixed(
                     || "brtable lookup",
                     self.brtable_lookup,
+                    i,
+                    || Ok(F::one()),
+                )?;
+            }
+
+            if i % ETABLE_STEP_SIZE
+                == EventTableUnlimitColumnRotation::ExternalHostCallLookup as usize
+            {
+                ctx.region.assign_fixed(
+                    || "external host call lookup",
+                    self.external_host_call_table_lookup,
                     i,
                     || Ok(F::one()),
                 )?;
@@ -111,6 +124,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         let mut mops = vec![];
         let mut jops = vec![];
         let mut host_public_inputs = 0u64;
+        let mut external_host_call_call_index = 1usize;
 
         macro_rules! assign_advice {
             ($c:expr, $o:expr, $k:expr, $v:expr) => {
@@ -164,12 +178,20 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             F::zero()
         );
 
+        assign_constant!(
+            self.state,
+            EventTableCommonRangeColumnRotation::ExternalHostCallIndex,
+            "external host call index",
+            F::one()
+        );
+
         for (index, entry) in etable.entries().iter().enumerate() {
             let opcode: OpcodeClassPlain = entry.inst.opcode.clone().into();
 
             let step_status = StepStatus {
                 current: &status_entries[index],
                 next: &status_entries[index + 1],
+                current_external_host_call_index: external_host_call_call_index,
                 configure,
             };
 
@@ -192,10 +214,20 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                     "input index",
                     host_public_inputs
                 );
+
+                assign_advice!(
+                    self.state,
+                    EventTableCommonRangeColumnRotation::ExternalHostCallIndex,
+                    "external host call index",
+                    external_host_call_call_index as u64
+                );
             }
 
             if config.is_host_public_input(&step_status, entry) {
                 host_public_inputs += 1;
+            }
+            if let StepInfo::ExternalHostCall { .. } = entry.step_info {
+                external_host_call_call_index += 1;
             }
 
             for _ in 0..ETABLE_STEP_SIZE {

@@ -11,6 +11,7 @@ pub(super) mod op_br_if;
 pub(super) mod op_br_if_eqz;
 pub(crate) mod op_br_table;
 pub(super) mod op_call;
+pub(super) mod op_call_host_foreign_circuit;
 pub(super) mod op_call_indirect;
 pub(super) mod op_const;
 pub(super) mod op_conversion;
@@ -146,6 +147,32 @@ impl BrTableLookupCell {
     ) -> Result<(), Error> {
         ctx.region.assign_advice(
             || "brlookup cell",
+            self.col,
+            (ctx.offset as i32 + self.rot) as usize,
+            || Ok(bn_to_field(value)),
+        )?;
+        Ok(())
+    }
+
+    pub fn expr<F: FieldExt>(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(meta, self.col, self.rot)
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct ExternalHostCallTableLookupCell {
+    pub col: Column<Advice>,
+    pub rot: i32,
+}
+
+impl ExternalHostCallTableLookupCell {
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: &BigUint,
+    ) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "foreign call lookup cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
             || Ok(bn_to_field(value)),
@@ -363,6 +390,7 @@ pub struct EventTableCellAllocator<'a, F> {
     pub u64_index: i32,
     pub u64_on_u8_index: i32,
     pub brtable_lookup_index: i32,
+    pub external_host_call_table_lookup_index: i32,
     pub mtable_lookup_index: i32,
     pub jtable_lookup_index: i32,
     pub pow_table_lookup_index: i32,
@@ -374,13 +402,15 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         Self {
             config,
             bit_index: EventTableBitColumnRotation::Max as i32,
-            common_range_index: EventTableCommonRangeColumnRotation::Max as i32,
+            common_range_index: 0,
             unlimited_index: 0,
             u4_bop_index: 0,
             u64_index: 0,
             u64_on_u8_index: 0,
             pow_table_lookup_index: EventTableUnlimitColumnRotation::PowTableLookup as i32,
             brtable_lookup_index: EventTableUnlimitColumnRotation::BrTableLookup as i32,
+            external_host_call_table_lookup_index:
+                EventTableUnlimitColumnRotation::ExternalHostCallLookup as i32,
             mtable_lookup_index: EventTableUnlimitColumnRotation::MTableLookupStart as i32,
             jtable_lookup_index: EventTableUnlimitColumnRotation::JTableLookup as i32,
             offset_len_bits_lookup_index: EventTableUnlimitColumnRotation::OffsetLenBitsTableLookup
@@ -403,7 +433,7 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         let allocated_index = self.common_range_index;
         self.common_range_index += 1;
         CommonRangeCell {
-            col: self.config.state,
+            col: self.config.common_range,
             rot: allocated_index,
         }
     }
@@ -488,10 +518,26 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
     }
 
     pub fn alloc_brtable_lookup(&mut self) -> BrTableLookupCell {
-        assert!(self.brtable_lookup_index < EventTableUnlimitColumnRotation::JTableLookup as i32);
+        assert!(
+            self.brtable_lookup_index
+                < EventTableUnlimitColumnRotation::ExternalHostCallLookup as i32
+        );
         let allocated_index = self.brtable_lookup_index;
         self.brtable_lookup_index += 1;
         BrTableLookupCell {
+            col: self.config.aux,
+            rot: allocated_index,
+        }
+    }
+
+    pub fn alloc_external_host_call_table_lookup(&mut self) -> ExternalHostCallTableLookupCell {
+        assert!(
+            self.external_host_call_table_lookup_index
+                < EventTableUnlimitColumnRotation::JTableLookup as i32
+        );
+        let allocated_index = self.external_host_call_table_lookup_index;
+        self.external_host_call_table_lookup_index += 1;
+        ExternalHostCallTableLookupCell {
             col: self.config.aux,
             rot: allocated_index,
         }
@@ -507,10 +553,17 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         }
     }
 
-    pub fn input_index_cell(&self) -> UnlimitedCell {
-        UnlimitedCell {
+    pub fn input_index_cell(&self) -> CommonRangeCell {
+        CommonRangeCell {
             col: self.config.state.clone(),
             rot: EventTableCommonRangeColumnRotation::InputIndex as i32,
+        }
+    }
+
+    pub fn external_host_index_cell(&self) -> CommonRangeCell {
+        CommonRangeCell {
+            col: self.config.state.clone(),
+            rot: EventTableCommonRangeColumnRotation::ExternalHostCallIndex as i32,
         }
     }
 
@@ -713,6 +766,14 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         None
     }
     fn is_host_public_input(&self, _step: &StepStatus, _entry: &EventTableEntry) -> bool {
+        false
+    }
+
+    fn external_host_call_index_increase(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> bool {
         false
     }
 }

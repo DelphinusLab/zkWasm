@@ -1,6 +1,6 @@
 use std::{env, sync::Mutex};
 
-pub const VAR_COLUMNS: usize = 19;
+pub const VAR_COLUMNS: usize = 20;
 pub const IMTABLE_COLOMNS: usize = 2;
 
 pub const POW_TABLE_LIMIT: u64 = 128;
@@ -10,13 +10,15 @@ pub const MIN_K: u32 = 18;
 lazy_static! {
     static ref ZKWASM_K: Mutex<u32> =
         Mutex::new(env::var("ZKWASM_K").map_or(MIN_K, |k| k.parse().unwrap()));
-    static ref ZKWASM_TABLE_DENOMINATOR: u32 =
+    pub(super) static ref ZKWASM_TABLE_DENOMINATOR: u32 =
         env::var("ZKWASM_TABLE_DENOMINATOR").map_or(8, |k| k.parse().unwrap());
     static ref ZKWASM_ETABLE_RATIO: u32 =
         env::var("ZKWASM_ETABLE_RATIO").map_or(6, |k| k.parse().unwrap());
     static ref ZKWASM_MTABLE_RATIO: u32 =
         env::var("ZKWASM_MTABLE_RATIO").map_or(7, |k| k.parse().unwrap());
     static ref ZKWASM_JTABLE_RATIO: u32 =
+        env::var("ZKWASM_JTABLE_RATIO").map_or(6, |k| k.parse().unwrap());
+    pub(super) static ref ZKWASM_FOREIGN_CALL_TABLE_RATIO: u32 =
         env::var("ZKWASM_JTABLE_RATIO").map_or(6, |k| k.parse().unwrap());
     static ref ZKWASM_SHA256_RATIO: u32 =
         env::var("ZKWASM_SHA256_RATIO").map_or(6, |k| k.parse().unwrap());

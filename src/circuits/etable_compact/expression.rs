@@ -206,6 +206,23 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         )
     }
 
+    pub fn external_host_call_index(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.state,
+            EventTableCommonRangeColumnRotation::ExternalHostCallIndex as i32
+        )
+    }
+
+    pub fn next_external_host_call_index(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.state,
+            EventTableCommonRangeColumnRotation::ExternalHostCallIndex as i32
+                + ETABLE_STEP_SIZE as i32
+        )
+    }
+
     pub fn itable_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,
@@ -235,6 +252,14 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             meta,
             self.aux,
             EventTableUnlimitColumnRotation::MTableLookupStart as i32 + i
+        )
+    }
+
+    pub fn external_host_call_table_lookup(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.aux,
+            EventTableUnlimitColumnRotation::ExternalHostCallLookup as i32
         )
     }
 }

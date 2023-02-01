@@ -1,6 +1,8 @@
+use std::rc::Rc;
+
 use specs::{host_function::HostPlugin, types::ValueType};
 
-use crate::runtime::host::{ForeignContext, HostEnv};
+use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 
 struct Context {
     public_inputs: Vec<u64>,
@@ -32,7 +34,7 @@ pub fn register_wasm_input_foreign(
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
 ) {
-    let wasm_input = Box::new(
+    let wasm_input = Rc::new(
         |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
 
@@ -49,16 +51,19 @@ pub fn register_wasm_input_foreign(
         },
     );
 
-    env.register_function(
-        "wasm_input",
-        0,
+    env.internal_env.register_plugin(
+        HostPlugin::HostInput,
         Box::new(Context::new(public_inputs, private_inputs)),
+    );
+
+    env.internal_env.register_function(
+        "wasm_input",
         specs::host_function::Signature {
             params: vec![ValueType::I32],
             return_type: Some(specs::types::ValueType::I64),
         },
-        wasm_input,
         HostPlugin::HostInput,
-    )
-    .unwrap();
+        0,
+        wasm_input,
+    );
 }

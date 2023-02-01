@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use specs::{host_function::HostPlugin, types::ValueType};
 use wasmi::{RuntimeArgs, RuntimeValue};
 
-use crate::runtime::host::{ForeignContext, HostEnv};
+use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 
 use super::{
     Sha256HelperOp, SHA256_FOREIGN_FUNCTION_NAME_CH, SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0,
@@ -53,81 +55,72 @@ fn maj(args: RuntimeArgs) -> Option<RuntimeValue> {
 }
 
 pub fn register_sha256_foreign(env: &mut HostEnv) {
-    env.register_function(
+    env.internal_env
+        .register_plugin(HostPlugin::Sha256, Box::new(Context {}));
+
+    env.internal_env.register_function(
         SHA256_FOREIGN_FUNCTION_NAME_CH,
+        specs::host_function::Signature {
+            params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        HostPlugin::Sha256,
         Sha256HelperOp::Ch as usize,
-        Box::new(Context {}),
-        specs::host_function::Signature {
-            params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
-            return_type: Some(specs::types::ValueType::I32),
-        },
-        Box::new(|_, args| ch(args)),
-        HostPlugin::Sha256,
-    )
-    .unwrap();
+        Rc::new(|_, args| ch(args)),
+    );
 
-    env.register_function(
+    env.internal_env.register_function(
         SHA256_FOREIGN_FUNCTION_NAME_MAJ,
-        Sha256HelperOp::Maj as usize,
-        Box::new(Context {}),
         specs::host_function::Signature {
             params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
             return_type: Some(specs::types::ValueType::I32),
         },
-        Box::new(|_, args| maj(args)),
         HostPlugin::Sha256,
-    )
-    .unwrap();
+        Sha256HelperOp::Maj as usize,
+        Rc::new(|_, args| maj(args)),
+    );
 
-    env.register_function(
+    env.internal_env.register_function(
         SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0,
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        HostPlugin::Sha256,
         Sha256HelperOp::LSigma0 as usize,
-        Box::new(Context {}),
-        specs::host_function::Signature {
-            params: vec![ValueType::I32],
-            return_type: Some(specs::types::ValueType::I32),
-        },
-        Box::new(|_, args| lsigma0(args)),
-        HostPlugin::Sha256,
-    )
-    .unwrap();
+        Rc::new(|_, args| lsigma0(args)),
+    );
 
-    env.register_function(
+    env.internal_env.register_function(
         SHA256_FOREIGN_FUNCTION_NAME_LSIGMA1,
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        HostPlugin::Sha256,
         Sha256HelperOp::LSigma1 as usize,
-        Box::new(Context {}),
-        specs::host_function::Signature {
-            params: vec![ValueType::I32],
-            return_type: Some(specs::types::ValueType::I32),
-        },
-        Box::new(|_, args| lsigma1(args)),
-        HostPlugin::Sha256,
-    )
-    .unwrap();
+        Rc::new(|_, args| lsigma1(args)),
+    );
 
-    env.register_function(
+    env.internal_env.register_function(
         SHA256_FOREIGN_FUNCTION_NAME_SSIGMA0,
+        specs::host_function::Signature {
+            params: vec![ValueType::I32],
+            return_type: Some(specs::types::ValueType::I32),
+        },
+        HostPlugin::Sha256,
         Sha256HelperOp::SSigma0 as usize,
-        Box::new(Context {}),
-        specs::host_function::Signature {
-            params: vec![ValueType::I32],
-            return_type: Some(specs::types::ValueType::I32),
-        },
-        Box::new(|_, args| ssigma0(args)),
-        HostPlugin::Sha256,
-    )
-    .unwrap();
+        Rc::new(|_, args| ssigma0(args)),
+    );
 
-    env.register_function(
+    env.internal_env.register_function(
         SHA256_FOREIGN_FUNCTION_NAME_SSIGMA1,
-        Sha256HelperOp::SSigma1 as usize,
-        Box::new(Context {}),
         specs::host_function::Signature {
             params: vec![ValueType::I32],
             return_type: Some(specs::types::ValueType::I32),
         },
-        Box::new(|_, args| ssigma1(args)),
         HostPlugin::Sha256,
-    )
-    .unwrap();
+        Sha256HelperOp::SSigma1 as usize,
+        Rc::new(|_, args| ssigma1(args)),
+    );
 }
