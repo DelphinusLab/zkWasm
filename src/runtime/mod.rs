@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use anyhow::Result;
 use specs::{
     etable::EventTableEntry,
+    external_host_call_table::ExternalHostCallSignature,
     host_function::HostFunctionDesc,
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
     step::StepInfo,
@@ -12,7 +13,7 @@ use wasmi::ImportResolver;
 
 use self::wasmi_interpreter::WasmiRuntime;
 
-pub(crate) mod host;
+pub mod host;
 pub mod wasmi_interpreter;
 
 pub struct CompiledImage<M, I, T> {
@@ -511,6 +512,40 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 
             mops
         }
+        StepInfo::ExternalHostCall { value, sig, .. } => match sig {
+            ExternalHostCallSignature::Argument => {
+                let stack_read = MemoryTableEntry {
+                    eid,
+                    emid: *emid,
+                    mmid: 0,
+                    offset: sp_before_execution + 1,
+                    ltype: LocationType::Stack,
+                    atype: AccessType::Read,
+                    vtype: VarType::I64,
+                    is_mutable: true,
+                    value: value.unwrap(),
+                };
+                *emid = (*emid).checked_add(1).unwrap();
+
+                vec![stack_read]
+            }
+            ExternalHostCallSignature::Return => {
+                let stack_write = MemoryTableEntry {
+                    eid,
+                    emid: *emid,
+                    mmid: 0,
+                    offset: sp_before_execution,
+                    ltype: LocationType::Stack,
+                    atype: AccessType::Write,
+                    vtype: VarType::I64,
+                    is_mutable: true,
+                    value: value.unwrap(),
+                };
+                *emid = (*emid).checked_add(1).unwrap();
+
+                vec![stack_write]
+            }
+        },
 
         StepInfo::GetLocal {
             vtype,

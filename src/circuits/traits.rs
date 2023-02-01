@@ -11,3 +11,7 @@ pub(super) trait ConfigureLookupTable<F: FieldExt> {
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     );
 }
+
+pub(super) trait TableSize {
+    fn max_available_size(&self) -> usize;
+}

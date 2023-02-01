@@ -25,7 +25,9 @@ use crate::{
         require_helper::register_require_foreign, sha256_helper::runtime::register_sha256_foreign,
         wasm_input_helper::runtime::register_wasm_input_foreign,
     },
-    runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
+    runtime::{
+        host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime,
+    },
 };
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
@@ -35,11 +37,12 @@ pub fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, vec![], vec![]);
     register_require_foreign(&mut env);
+    env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();
     let compiled_module = compiler
-        .compile(&wasm_binary, &imports, &env.function_plugin_lookup)
+        .compile(&wasm_binary, &imports, &env.function_description_table())
         .expect("file cannot be complied");
 
     let builder = ZkWasmCircuitBuilder {
@@ -66,7 +69,7 @@ fn build_circuit_with_witness(
 
     let compiler = WasmInterpreter::new();
     let compiled_module = compiler
-        .compile(&wasm_binary, &imports, &env.function_plugin_lookup)
+        .compile(&wasm_binary, &imports, &env.function_description_table())
         .expect("file cannot be complied");
 
     let execution_result = compiled_module.run(&mut env, function_name)?;

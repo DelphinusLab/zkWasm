@@ -6,7 +6,9 @@ pub(crate) mod tests {
             sha256_helper::runtime::register_sha256_foreign,
             wasm_input_helper::runtime::register_wasm_input_foreign,
         },
-        runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
+        runtime::{
+            host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime,
+        },
         test::run_test_circuit,
     };
 
@@ -48,10 +50,11 @@ pub(crate) mod tests {
         let mut env = HostEnv::new();
         register_sha256_foreign(&mut env);
         register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+        env.finalize();
 
         let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler
-            .compile(&wasm, &imports, &env.function_plugin_lookup)
+            .compile(&wasm, &imports, &env.function_description_table())
             .unwrap();
         let execution_result = compiled_module.run(&mut env, "sha256_digest").unwrap();
         run_test_circuit::<Fp>(
@@ -74,10 +77,11 @@ pub(crate) mod tests {
         register_sha256_foreign(&mut env);
         register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
+        env.finalize();
 
         let imports = ImportsBuilder::new().with_resolver("env", &env);
         let compiled_module = compiler
-            .compile(&wasm, &imports, &env.function_plugin_lookup)
+            .compile(&wasm, &imports, &env.function_description_table())
             .unwrap();
         let execution_result = compiled_module.run(&mut env, "zkmain").unwrap();
         run_test_circuit::<Fp>(execution_result.tables, vec![]).unwrap()

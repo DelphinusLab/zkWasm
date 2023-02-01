@@ -2,9 +2,10 @@ use super::mtable::VarType;
 use crate::{
     brtable::{BrTable, BrTableEntry},
     encode::opcode::{
-        encode_br_if_eqz, encode_br_table, encode_call, encode_call_indirect, encode_global_get,
-        encode_global_set,
+        encode_br_if_eqz, encode_br_table, encode_call, encode_call_host, encode_call_indirect,
+        encode_global_get, encode_global_set,
     },
+    external_host_call_table::ExternalHostCallSignature,
     host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
     types::ValueType,
@@ -37,6 +38,7 @@ pub enum OpcodeClass {
     BrTable,
     Unreachable,
     Call,
+    CallHost,
     CallIndirect,
     Load,
     Store,
@@ -69,6 +71,7 @@ impl OpcodeClass {
             OpcodeClass::BrTable => 1,
             OpcodeClass::Unreachable => todo!(),
             OpcodeClass::Call => 0,
+            OpcodeClass::CallHost => 1, // Push or pop
             OpcodeClass::CallIndirect => 1,
             OpcodeClass::Store => 4, // Load value from stack, load address from stack, read raw value, write value
             OpcodeClass::Load => 3,  // pop address, load memory, push stack
@@ -250,11 +253,15 @@ pub enum Opcode {
     CallIndirect {
         type_idx: u32,
     },
-    CallHost {
+    InternalHostCall {
         plugin: HostPlugin,
         function_index: usize,
         function_name: String,
         op_index_in_plugin: usize,
+    },
+    ExternalHostCall {
+        op: usize,
+        sig: ExternalHostCallSignature,
     },
     Load {
         offset: u32,
@@ -387,13 +394,16 @@ impl Into<BigUint> for Opcode {
             Opcode::CallIndirect { type_idx } => {
                 encode_call_indirect(BigUint::from(type_idx as u64))
             }
-            Opcode::CallHost {
+            Opcode::InternalHostCall {
                 op_index_in_plugin, ..
             } => {
                 let opcode_class_plain: OpcodeClassPlain = self.into();
 
                 (BigUint::from(opcode_class_plain.0) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(op_index_in_plugin as u64))
+            }
+            Opcode::ExternalHostCall { op, sig } => {
+                encode_call_host(BigUint::from(op as u64), BigUint::from(sig.is_ret() as u64))
             }
 
             Opcode::Load {
@@ -457,7 +467,8 @@ impl Into<OpcodeClass> for Opcode {
             Opcode::Unreachable => OpcodeClass::Unreachable,
             Opcode::Call { .. } => OpcodeClass::Call,
             Opcode::CallIndirect { .. } => OpcodeClass::CallIndirect,
-            Opcode::CallHost { .. } => OpcodeClass::ForeignPluginStart,
+            Opcode::InternalHostCall { .. } => OpcodeClass::ForeignPluginStart,
+            Opcode::ExternalHostCall { .. } => OpcodeClass::CallHost,
             Opcode::Load { .. } => OpcodeClass::Load,
             Opcode::Store { .. } => OpcodeClass::Store,
             Opcode::MemorySize => OpcodeClass::MemorySize,
@@ -471,7 +482,7 @@ impl Into<OpcodeClassPlain> for Opcode {
     fn into(self) -> OpcodeClassPlain {
         let class: OpcodeClass = self.clone().into();
 
-        if let Opcode::CallHost { plugin, .. } = self {
+        if let Opcode::InternalHostCall { plugin, .. } = self {
             OpcodeClassPlain(class as usize + plugin as usize)
         } else {
             OpcodeClassPlain(class as usize)

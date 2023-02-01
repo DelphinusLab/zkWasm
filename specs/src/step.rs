@@ -1,4 +1,5 @@
 use crate::{
+    external_host_call_table::ExternalHostCallSignature,
     host_function::{HostPlugin, Signature},
     itable::{BinOp, BitOp, RelOp, ShiftOp, UnaryOp},
     mtable::{MemoryReadSize, MemoryStoreSize, VarType},
@@ -68,6 +69,11 @@ pub enum StepInfo {
         args: Vec<u64>,
         ret_val: Option<u64>,
         op_index_in_plugin: usize,
+    },
+    ExternalHostCall {
+        op: usize,
+        value: Option<u64>,
+        sig: ExternalHostCallSignature,
     },
 
     GetLocal {

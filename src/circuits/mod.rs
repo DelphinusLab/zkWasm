@@ -2,6 +2,7 @@ use self::{
     brtable::{BrTableChip, BrTableConfig},
     config::{IMTABLE_COLOMNS, VAR_COLUMNS},
     etable_compact::{EventTableChip, EventTableConfig},
+    external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
 };
@@ -51,6 +52,7 @@ use std::{
 pub mod brtable;
 pub mod config;
 pub mod etable_compact;
+mod external_host_call_table;
 pub mod imtable;
 pub mod itable;
 pub mod jtable;
@@ -84,6 +86,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
     brtable: BrTableConfig<F>,
+    external_host_call_table: ExternalHostCallTableConfig<F>,
     wasm_input_helper_table: WasmInputHelperTableConfig<F>,
     sha256_helper_table: Sha256HelperTableConfig<F>,
 }
@@ -154,6 +157,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable, &circuit_configure);
         let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
         let brtable = BrTableConfig::configure(meta.lookup_table_column());
+        let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
 
         let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
         let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);
@@ -177,6 +181,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &mtable,
             &jtable,
             &brtable,
+            &external_host_call_table,
             &foreign_tables,
             &circuit_configure.opcode_selector,
         );
@@ -189,6 +194,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             jtable,
             etable,
             brtable,
+            external_host_call_table,
             wasm_input_helper_table,
             sha256_helper_table,
         }
@@ -206,6 +212,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let jchip = JumpTableChip::new(config.jtable);
         let echip = EventTableChip::new(config.etable);
         let brchip = BrTableChip::new(config.brtable);
+        let external_host_call_chip = ExternalHostCallChip::new(config.external_host_call_table);
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
         let sha256chip = Sha256HelperTableChip::new(config.sha256_helper_table);
 
@@ -239,6 +246,15 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         if self.tables.compilation_tables.imtable.entries().len() > 0 {
             imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?;
         }
+
+        external_host_call_chip.assign(
+            &mut layouter,
+            &self
+                .tables
+                .execution_tables
+                .etable
+                .filter_external_host_call_table(),
+        )?;
 
         layouter.assign_region(
             || "jtable mtable etable",

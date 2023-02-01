@@ -20,6 +20,7 @@ pub mod brtable;
 pub mod configure_table;
 pub mod encode;
 pub mod etable;
+pub mod external_host_call_table;
 pub mod host_function;
 pub mod imtable;
 pub mod itable;

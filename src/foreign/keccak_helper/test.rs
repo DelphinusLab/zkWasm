@@ -2,7 +2,9 @@
 pub(crate) mod tests {
     use crate::{
         foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-        runtime::{host::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime},
+        runtime::{
+            host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime,
+        },
         test::run_test_circuit,
     };
 
@@ -49,10 +51,11 @@ pub(crate) mod tests {
             let compiler = WasmInterpreter::new();
             let mut env = HostEnv::new();
             register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+            env.finalize();
 
             let imports = ImportsBuilder::new().with_resolver("env", &env);
             let compiled_module = compiler
-                .compile(&wasm, &imports, &env.function_plugin_lookup)
+                .compile(&wasm, &imports, &env.function_description_table())
                 .unwrap();
             let execution_result = compiled_module
                 .run(

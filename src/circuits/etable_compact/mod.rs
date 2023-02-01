@@ -5,14 +5,15 @@ use crate::circuits::{
         op_bin::BinConfigBuilder, op_bin_bit::BinBitConfigBuilder,
         op_bin_shift::BinShiftConfigBuilder, op_br::BrConfigBuilder, op_br_if::BrIfConfigBuilder,
         op_br_if_eqz::BrIfEqzConfigBuilder, op_br_table::BrTableConfigBuilder,
-        op_call::CallConfigBuilder, op_call_indirect::CallIndirectConfigBuilder,
-        op_const::ConstConfigBuilder, op_conversion::ConversionConfigBuilder,
-        op_drop::DropConfigBuilder, op_global_get::GlobalGetConfigBuilder,
-        op_global_set::GlobalSetConfigBuilder, op_load::LoadConfigBuilder,
-        op_local_get::LocalGetConfigBuilder, op_local_set::LocalSetConfigBuilder,
-        op_local_tee::LocalTeeConfigBuilder, op_memory_grow::MemoryGrowConfigBuilder,
-        op_memory_size::MemorySizeConfigBuilder, op_rel::RelConfigBuilder,
-        op_return::ReturnConfigBuilder, op_select::SelectConfigBuilder,
+        op_call::CallConfigBuilder,
+        op_call_host_foreign_circuit::ExternalCallHostCircuitConfigBuilder,
+        op_call_indirect::CallIndirectConfigBuilder, op_const::ConstConfigBuilder,
+        op_conversion::ConversionConfigBuilder, op_drop::DropConfigBuilder,
+        op_global_get::GlobalGetConfigBuilder, op_global_set::GlobalSetConfigBuilder,
+        op_load::LoadConfigBuilder, op_local_get::LocalGetConfigBuilder,
+        op_local_set::LocalSetConfigBuilder, op_local_tee::LocalTeeConfigBuilder,
+        op_memory_grow::MemoryGrowConfigBuilder, op_memory_size::MemorySizeConfigBuilder,
+        op_rel::RelConfigBuilder, op_return::ReturnConfigBuilder, op_select::SelectConfigBuilder,
         op_store::StoreConfigBuilder, op_test::TestConfigBuilder, op_unary::UnaryConfigBuilder,
         ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfigBuilder,
     },
@@ -97,17 +98,18 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
     SP,
     LastJumpEid,
     AllocatedMemoryPages,
-    Max,
+    ExternalHostCallIndex,
 }
 
 pub(crate) enum EventTableUnlimitColumnRotation {
     ITableLookup = 0,
     BrTableLookup = 1,
-    JTableLookup = 2,
-    PowTableLookup = 3,
-    OffsetLenBitsTableLookup = 4,
-    MTableLookupStart = 5,
-    U64Start = 6 + MTABLE_LOOKUPS_SIZE as isize,
+    ExternalHostCallLookup = 2,
+    JTableLookup = 3,
+    PowTableLookup = 4,
+    OffsetLenBitsTableLookup = 5,
+    MTableLookupStart = 6,
+    U64Start = 7 + MTABLE_LOOKUPS_SIZE as isize,
 }
 
 pub enum MLookupItem {
@@ -148,6 +150,7 @@ pub struct Status {
 pub struct StepStatus<'a> {
     pub current: &'a Status,
     pub next: &'a Status,
+    pub current_external_host_call_index: usize,
     pub configure: ConfigureTable,
 }
 
@@ -177,6 +180,7 @@ pub struct EventTableCommonConfig<F> {
     pub opcode_bits: Column<Advice>,
 
     pub state: Column<Advice>,
+    pub common_range: Column<Advice>,
 
     pub unlimited: Column<Advice>,
 
@@ -186,6 +190,7 @@ pub struct EventTableCommonConfig<F> {
     pub mtable_lookup: Column<Fixed>,
     pub pow_table_lookup: Column<Fixed>,
     pub offset_len_bits_table_lookup: Column<Fixed>,
+    pub external_host_call_table_lookup: Column<Fixed>,
 
     pub aux: Column<Advice>,
 
@@ -214,6 +219,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
         brtable: &BrTableConfig<F>,
+        external_host_call_table: &ExternalHostCallTableConfig<F>,
         foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
         opcode_set: &BTreeSet<OpcodeClassPlain>,
     ) -> Self {
@@ -223,11 +229,13 @@ impl<F: FieldExt> EventTableConfig<F> {
         let opcode_bits = cols.next().unwrap();
 
         let state = cols.next().unwrap();
+        let common_range = cols.next().unwrap();
         let aux = cols.next().unwrap();
         let unlimited = cols.next().unwrap();
 
         let itable_lookup = meta.fixed_column();
         let brtable_lookup = meta.fixed_column();
+        let external_host_call_table_lookup = meta.fixed_column();
         let jtable_lookup = meta.fixed_column();
         let mtable_lookup = meta.fixed_column();
         let pow_table_lookup = meta.fixed_column();
@@ -267,8 +275,11 @@ impl<F: FieldExt> EventTableConfig<F> {
             )
         });
 
-        rtable.configure_in_common_range(meta, "etable aux in common", |meta| {
+        rtable.configure_in_common_range(meta, "etable state in common", |meta| {
             curr!(meta, state) * fixed_curr!(meta, sel)
+        });
+        rtable.configure_in_common_range(meta, "etable common range", |meta| {
+            curr!(meta, common_range) * fixed_curr!(meta, sel)
         });
 
         for i in 0..U4_COLUMNS {
@@ -290,6 +301,12 @@ impl<F: FieldExt> EventTableConfig<F> {
         brtable.configure_in_table(meta, "etable brtable lookup", |meta| {
             curr!(meta, aux) * fixed_curr!(meta, brtable_lookup)
         });
+
+        external_host_call_table.configure_in_table(
+            meta,
+            "etable foreign call table lookup",
+            |meta| curr!(meta, aux) * fixed_curr!(meta, external_host_call_table_lookup),
+        );
 
         mtable.configure_in_table(meta, "etable mtable lookup", |meta| {
             curr!(meta, aux) * fixed_curr!(meta, mtable_lookup)
@@ -366,9 +383,11 @@ impl<F: FieldExt> EventTableConfig<F> {
             shared_bits,
             opcode_bits,
             state,
+            common_range,
             unlimited,
             itable_lookup,
             brtable_lookup,
+            external_host_call_table_lookup,
             jtable_lookup,
             mtable_lookup,
             pow_table_lookup,
@@ -441,6 +460,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
         configure!(OpcodeClass::Call, CallConfigBuilder);
         configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder);
+        configure!(OpcodeClass::CallHost, ExternalCallHostCircuitConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
         configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
@@ -493,6 +513,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.next_rest_jops(meta) - common_config.rest_jops(meta);
             let mut input_index_acc =
                 common_config.input_index(meta) - common_config.next_input_index(meta);
+            let mut external_host_call_index_acc = common_config.external_host_call_index(meta)
+                - common_config.next_external_host_call_index(meta);
             let mut moid_acc = common_config.next_moid(meta) - common_config.moid(meta);
             let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
             let mut iid_acc =
@@ -618,6 +640,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
+                if config.external_host_call_index_increase(meta, &common_config) {
+                    external_host_call_index_acc =
+                        external_host_call_index_acc + common_config.op_enabled(meta, *lvl1, *lvl2)
+                }
+
                 for i in 0..MTABLE_LOOKUPS_SIZE {
                     match config.mtable_lookup(meta, i.try_into().unwrap(), &common_config) {
                         Some(e) => {
@@ -647,6 +674,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     brtable_lookup,
                     jtable_lookup,
                     input_index_acc * common_config.next_enable(meta),
+                    external_host_call_index_acc * common_config.next_enable(meta),
                 ],
                 mtable_lookup,
             ]

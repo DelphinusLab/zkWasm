@@ -1,6 +1,8 @@
 use serde::Serialize;
 
-use crate::{host_function::HostPlugin, mtable::VarType};
+use crate::{
+    external_host_call_table::ExternalHostCallSignature, host_function::HostPlugin, mtable::VarType,
+};
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 pub enum ValueType {
@@ -51,5 +53,10 @@ pub enum FunctionType {
         function_index: usize,
         function_name: String,
         op_index_in_plugin: usize,
+    },
+    HostFunctionExternal {
+        function_name: String,
+        op: usize,
+        sig: ExternalHostCallSignature,
     },
 }
