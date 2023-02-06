@@ -509,39 +509,7 @@ mod tests {
     use crate::test::test_circuit_noexternal;
 
     #[test]
-    fn test_i32_shr_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 12)
-                      (i32.const 3)
-                      (i32.shr_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shr_u_2_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 12)
-                      (i32.const 35)
-                      (i32.shr_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_bin_shift_rhs_0_ok() {
+    fn test_bin_shift_shl() {
         let textual_repr = r#"
                 (module
                     (func (export "test")
@@ -549,322 +517,31 @@ mod tests {
                       (i32.const 0)
                       (i32.shl)
                       (drop)
-                      (i32.const 12)
-                      (i32.const 0)
-                      (i32.shr_u)
-                      (drop)
-                      (i32.const 12)
-                      (i32.const 0)
-                      (i32.shr_s)
-                      (drop)
-                      (i32.const 12)
-                      (i32.const 0)
-                      (i32.rotl)
-                      (drop)
-                      (i32.const 12)
-                      (i32.const 0)
-                      (i32.rotr)
-                      (drop)
-
-                      (i64.const 12)
-                      (i64.const 0)
-                      (i64.shl)
-                      (drop)
-                      (i64.const 12)
-                      (i64.const 0)
-                      (i64.shr_u)
-                      (drop)
-                      (i64.const 12)
-                      (i64.const 0)
-                      (i64.shr_s)
-                      (drop)
-                      (i64.const 12)
-                      (i64.const 0)
-                      (i64.rotl)
-                      (drop)
-                      (i64.const 12)
-                      (i64.const 0)
-                      (i64.rotr)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shl_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i32.const 12)
                       (i32.const 1)
                       (i32.shl)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shl_rhs_overflow_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i32.const 12)
                       (i32.const 33)
                       (i32.shl)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shl_res_overflow_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i32.const 4294967295)
                       (i32.const 1)
                       (i32.shl)
                       (drop)
-                    )
-                   )
-                "#;
 
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shr_s_positive() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 23)
-                      (i32.const 2)
-                      (i32.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shr_s_positive_rhs_overflow() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 23)
-                      (i32.const 35)
-                      (i32.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shr_s_negative() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const -23)
-                      (i32.const 5)
-                      (i32.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_shr_s_negative_rhs_overflow() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const -23)
-                      (i32.const 35)
-                      (i32.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-    #[test]
-    fn test_i32_shr_s_zero() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 0)
-                      (i32.const 5)
-                      (i32.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-    #[test]
-    fn test_i32_shr_s_res_overflow() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const -1)
-                      (i32.const 5)
-                      (i32.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-    #[test]
-    fn test_i32_rotl() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 23)
-                      (i32.const 5)
-                      (i32.rotl)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-    #[test]
-    fn test_i32_rotl2() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 2863311530)
-                      (i32.const 5)
-                      (i32.rotl)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i32_rotr() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i32.const 23)
-                      (i32.const 5)
-                      (i32.rotr)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shr_u_1_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 12)
-                      (i64.const 3)
-                      (i64.shr_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shr_u_rhs_overflow_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 12)
-                      (i64.const 68)
-                      (i64.shr_u)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_rhs_zero_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i64.const 12)
                       (i64.const 0)
                       (i64.shl)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shl_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i64.const 12)
                       (i64.const 1)
                       (i64.shl)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shl_rhs_overflow_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i64.const 12)
                       (i64.const 67)
                       (i64.shl)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shl_res_overflow_ok() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i64.const 0xffffffffffffffff)
                       (i64.const 1)
                       (i64.shl)
@@ -877,90 +554,99 @@ mod tests {
     }
 
     #[test]
-    fn test_i64_shr_s_positive() {
+    fn test_bin_shift_shr_u() {
         let textual_repr = r#"
                 (module
                     (func (export "test")
+                      (i32.const 12)
+                      (i32.const 0)
+                      (i32.shr_u)
+                      (drop)
+                      (i32.const 12)
+                      (i32.const 3)
+                      (i32.shr_u)
+                      (drop)
+                      (i32.const 12)
+                      (i32.const 35)
+                      (i32.shr_u)
+                      (drop)
+
+                      (i64.const 12)
+                      (i64.const 3)
+                      (i64.shr_u)
+                      (drop)
+                      (i64.const 12)
+                      (i64.const 0)
+                      (i64.shr_u)
+                      (drop)
+                      (i64.const 12)
+                      (i64.const 68)
+                      (i64.shr_u)
+                      (drop)
+                    )
+                   )
+                "#;
+
+        test_circuit_noexternal(textual_repr).unwrap()
+    }
+
+    #[test]
+    fn test_bin_shift_shr_s() {
+        let textual_repr = r#"
+                (module
+                    (func (export "test")
+                      (i32.const 12)
+                      (i32.const 0)
+                      (i32.shr_s)
+                      (drop)
+                      (i32.const 23)
+                      (i32.const 2)
+                      (i32.shr_s)
+                      (drop)
+                      (i32.const -23)
+                      (i32.const 5)
+                      (i32.shr_s)
+                      (drop)
+                      (i32.const 0)
+                      (i32.const 5)
+                      (i32.shr_s)
+                      (drop)
+                      (i32.const 23)
+                      (i32.const 35)
+                      (i32.shr_s)
+                      (drop)
+                      (i32.const -23)
+                      (i32.const 35)
+                      (i32.shr_s)
+                      (drop)
+                      (i32.const -1)
+                      (i32.const 5)
+                      (i32.shr_s)
+                      (drop)
+
                       (i64.const 23)
                       (i64.const 2)
                       (i64.shr_s)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shr_s_positive_rhs_overflow() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const 23)
-                      (i64.const 68)
-                      (i64.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shr_s_negative() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i64.const -23)
                       (i64.const 5)
                       (i64.shr_s)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-
-    #[test]
-    fn test_i64_shr_s_negative_rhs_overflow() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
-                      (i64.const -23)
-                      (i64.const 68)
-                      (i64.shr_s)
-                      (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-    #[test]
-    fn test_i64_shr_s_zero() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
                       (i64.const 0)
                       (i64.const 5)
                       (i64.shr_s)
                       (drop)
-                    )
-                   )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-    #[test]
-    fn test_i64_rotl() {
-        let textual_repr = r#"
-                (module
-                    (func (export "test")
+                      (i64.const 12)
+                      (i64.const 0)
+                      (i64.shr_s)
+                      (drop)
                       (i64.const 23)
-                      (i64.const 5)
-                      (i64.rotl)
+                      (i64.const 68)
+                      (i64.shr_s)
+                      (drop)
+                      (i64.const -23)
+                      (i64.const 68)
+                      (i64.shr_s)
                       (drop)
                     )
                    )
@@ -968,11 +654,33 @@ mod tests {
 
         test_circuit_noexternal(textual_repr).unwrap()
     }
+
     #[test]
-    fn test_i64_rotl2() {
+    fn test_bin_shift_rotl() {
         let textual_repr = r#"
                 (module
                     (func (export "test")
+                      (i32.const 12)
+                      (i32.const 0)
+                      (i32.rotl)
+                      (drop)
+                      (i32.const 23)
+                      (i32.const 5)
+                      (i32.rotl)
+                      (drop)
+                      (i32.const 2863311530)
+                      (i32.const 5)
+                      (i32.rotl)
+                      (drop)
+
+                      (i64.const 12)
+                      (i64.const 0)
+                      (i64.rotl)
+                      (drop)
+                      (i64.const 23)
+                      (i64.const 5)
+                      (i64.rotl)
+                      (drop)
                       (i64.const 2863311530)
                       (i64.const 5)
                       (i64.rotl)
@@ -985,10 +693,23 @@ mod tests {
     }
 
     #[test]
-    fn test_i64_rotr() {
+    fn test_bin_shift_rotr() {
         let textual_repr = r#"
                 (module
                     (func (export "test")
+                      (i32.const 12)
+                      (i32.const 0)
+                      (i32.rotr)
+                      (drop)
+                      (i32.const 23)
+                      (i32.const 5)
+                      (i32.rotr)
+                      (drop)
+
+                      (i64.const 12)
+                      (i64.const 0)
+                      (i64.rotr)
+                      (drop)
                       (i64.const 23)
                       (i64.const 5)
                       (i64.rotr)
