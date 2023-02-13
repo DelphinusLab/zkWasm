@@ -65,6 +65,7 @@ fn build_circuit_with_witness(
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     register_require_foreign(&mut env);
+    env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();
