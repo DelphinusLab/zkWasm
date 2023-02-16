@@ -8,7 +8,8 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::etable::EventTableEntry;
+use num_bigint::ToBigUint;
+use specs::{encode::table::encode_frame_table_entry, etable::EventTableEntry};
 use specs::{
     encode::{opcode::encode_call_indirect, table::encode_elem_entry},
     mtable::VarType,
@@ -22,6 +23,7 @@ pub struct CallIndirectConfig {
     table_index: CommonRangeCell,
     stack_read_lookup: MTableLookupCell,
     elem_lookup: BrTableLookupCell,
+    frame_table_lookup: JTableLookupCell,
 }
 
 pub struct CallIndirectConfigBuilder {}
@@ -37,8 +39,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
         let func_index = common.alloc_common_range_value();
 
         let elem_lookup = common.alloc_brtable_lookup();
-
         let stack_read_lookup = common.alloc_mtable_lookup();
+        let frame_table_lookup = common.alloc_jtable_lookup();
 
         // Wasmi only support one table.
         constraint_builder.push(
@@ -53,6 +55,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
             table_index,
             elem_lookup,
             stack_read_lookup,
+            frame_table_lookup,
         })
     }
 }
@@ -98,6 +101,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig {
                         BigUint::from(step_info.current.sp + 1),
                         BigUint::from(VarType::I32 as u16),
                         BigUint::from(*offset),
+                    ),
+                )?;
+
+                self.frame_table_lookup.assign(
+                    ctx,
+                    &encode_frame_table_entry(
+                        step_info.current.eid.to_biguint().unwrap(),
+                        step_info.current.last_jump_eid.to_biguint().unwrap(),
+                        (*func_index).to_biguint().unwrap(),
+                        step_info.current.fid.to_biguint().unwrap(),
+                        (step_info.current.iid + 1).to_biguint().unwrap(),
                     ),
                 )?;
 
@@ -173,6 +187,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig {
         _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         Some(constant_from!(0))
+    }
+
+    fn jtable_lookup(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(encode_frame_table_entry(
+            common_config.eid(meta),
+            common_config.last_jump_eid(meta),
+            self.func_index.expr(meta),
+            common_config.fid(meta),
+            common_config.iid(meta) + constant_from!(1),
+        ))
     }
 }
 

@@ -3,34 +3,28 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::runtime::memory_event_of_step;
 use anyhow::Result;
 use specs::{
-    host_function::HostFunctionDesc, mtable::MTable, CompilationTable, ExecutionTable, Tables,
+    host_function::HostFunctionDesc, jtable::StaticFrameEntry, mtable::MTable, CompilationTable,
+    ExecutionTable, Tables,
 };
 use wasmi::{Externals, ImportResolver, ModuleInstance, RuntimeValue};
 
-use super::{CompiledImage, ExecutionResult, WasmRuntime};
+use super::{CompiledImage, ExecutionResult};
 
 pub trait Execution<R> {
-    fn run<E: Externals>(
-        &self,
-        externals: &mut E,
-        function_name: &str,
-    ) -> Result<ExecutionResult<R>>;
+    fn run<E: Externals>(self, externals: &mut E) -> Result<ExecutionResult<R>>;
 }
 
 impl Execution<RuntimeValue>
-    for CompiledImage<wasmi::Module, wasmi::ModuleRef, wasmi::tracer::Tracer>
+    for CompiledImage<wasmi::NotStartedModuleRef<'_>, wasmi::tracer::Tracer>
 {
-    fn run<E: Externals>(
-        &self,
-        externals: &mut E,
-        function_name: &str,
-    ) -> Result<ExecutionResult<RuntimeValue>> {
-        let result = self.instance.invoke_export_trace(
-            function_name,
-            &[],
-            externals,
-            self.tracer.clone(),
-        )?;
+    fn run<E: Externals>(self, externals: &mut E) -> Result<ExecutionResult<RuntimeValue>> {
+        let instance = self
+            .instance
+            .run_start_tracer(externals, self.tracer.clone())
+            .unwrap();
+
+        let result =
+            instance.invoke_export_trace(&self.entry, &[], externals, self.tracer.clone())?;
 
         let execution_tables = {
             let tracer = self.tracer.borrow();
@@ -66,41 +60,68 @@ impl Execution<RuntimeValue>
 
 pub struct WasmiRuntime;
 
-impl WasmRuntime for WasmiRuntime {
-    type Module = wasmi::Module;
-    type Tracer = wasmi::tracer::Tracer;
-    type Instance = wasmi::ModuleRef;
-
-    fn new() -> Self {
+impl WasmiRuntime {
+    pub fn new() -> Self {
         WasmiRuntime
     }
 
-    fn compile<I: ImportResolver>(
+    pub fn compile<'a, I: ImportResolver>(
         &self,
-        wasm: &Vec<u8>,
+        module: &'a wasmi::Module,
         imports: &I,
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
-    ) -> Result<CompiledImage<Self::Module, Self::Instance, Self::Tracer>> {
-        let module = wasmi::Module::from_buffer(wasm).expect("failed to load wasm");
+        entry: &str,
+    ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
         let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone());
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
-            .expect("failed to instantiate wasm module")
-            .assert_no_start();
+            .expect("failed to instantiate wasm module");
+
+        {
+            let idx_of_entry = instance.lookup_function_by_name(tracer.clone(), entry);
+
+            if instance.has_start() {
+                tracer
+                    .clone()
+                    .borrow_mut()
+                    .static_jtable_entries
+                    .push(StaticFrameEntry {
+                        frame_id: 0,
+                        next_frame_id: 0,
+                        callee_fid: 0, // the fid of start function is always 0
+                        fid: idx_of_entry,
+                        iid: 0,
+                    });
+            }
+
+            tracer
+                .clone()
+                .borrow_mut()
+                .static_jtable_entries
+                .push(StaticFrameEntry {
+                    frame_id: 0,
+                    next_frame_id: 0,
+                    callee_fid: idx_of_entry,
+                    fid: 0,
+                    iid: 0,
+                });
+        }
 
         let itable = tracer.borrow().itable.clone();
         let imtable = tracer.borrow().imtable.finalized();
         let elem_table = tracer.borrow().elem_table.clone();
         let configure_table = tracer.borrow().configure_table.clone();
+        let static_jtable = tracer.borrow().static_jtable_entries.clone();
 
         Ok(CompiledImage {
-            module,
+            entry: entry.to_owned(),
             tables: CompilationTable {
                 itable,
                 imtable,
                 elem_table,
                 configure_table,
+                static_jtable,
             },
             instance,
             tracer,

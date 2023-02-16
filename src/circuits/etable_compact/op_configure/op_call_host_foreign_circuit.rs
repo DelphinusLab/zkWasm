@@ -176,18 +176,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig {
 #[cfg(test)]
 
 mod tests {
-    use halo2_proofs::pairing::bn256::Fr as Fp;
     use specs::external_host_call_table::ExternalHostCallSignature;
     use std::rc::Rc;
-    use wasmi::ImportsBuilder;
 
     use crate::{
-        runtime::{
-            host::{host_env::HostEnv, ForeignContext},
-            wasmi_interpreter::Execution,
-            WasmInterpreter, WasmRuntime,
-        },
-        test::run_test_circuit,
+        runtime::host::{host_env::HostEnv, ForeignContext},
+        test::test_circuit_with_env,
     };
 
     #[derive(Default)]
@@ -217,10 +211,7 @@ mod tests {
             (export "test" (func 2)))
         "#;
 
-        let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
-
-        let compiler = WasmInterpreter::new();
-        let mut env = {
+        let env = {
             let mut env = HostEnv::new();
 
             let foreign_playground_plugin = env
@@ -261,11 +252,7 @@ mod tests {
             env
         };
 
-        let imports = ImportsBuilder::new().with_resolver("env", &env);
-        let compiled_module = compiler
-            .compile(&wasm, &imports, &env.function_description_table())
-            .unwrap();
-        let execution_result = compiled_module.run(&mut env, "test").unwrap();
-        run_test_circuit::<Fp>(execution_result.tables, vec![]).unwrap()
+        let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+        test_circuit_with_env(env, wasm, "test", vec![]).unwrap();
     }
 }

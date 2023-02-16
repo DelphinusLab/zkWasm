@@ -155,7 +155,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         );
         let mtable =
             MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable, &circuit_configure);
-        let jtable = JumpTableConfig::configure(meta, &mut cols, &rtable);
+        let jtable = JumpTableConfig::configure(meta, &mut cols);
         let brtable = BrTableConfig::configure(meta.lookup_table_column());
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
 
@@ -285,6 +285,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     &mut ctx,
                     &self.tables.execution_tables.jtable,
                     rest_jops_cell,
+                    &self.tables.compilation_tables.static_jtable,
                 )?;
 
                 Ok(())

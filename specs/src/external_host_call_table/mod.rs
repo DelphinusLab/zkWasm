@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{ser::SerializeStruct, Serialize};
 
 use crate::{host_function::Signature, types::ValueType};
 
@@ -38,6 +38,20 @@ pub struct ExternalHostCallEntry {
     pub sig: ExternalHostCallSignature,
 }
 
+impl Serialize for ExternalHostCallEntry {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("ExternalHostCallEntry", 3)?;
+        s.serialize_field("op", &self.op)?;
+        s.serialize_field("value", &self.value)?;
+        s.serialize_field("is_ret", &self.sig.is_ret())?;
+        s.end()
+    }
+}
+
+#[derive(Serialize)]
 pub struct ExternalHostCallTable(Vec<ExternalHostCallEntry>);
 
 impl ExternalHostCallTable {
