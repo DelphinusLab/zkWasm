@@ -1,7 +1,6 @@
 use super::*;
-use crate::circuits::jtable::expression::{
-    JtableLookupEntryEncode, EID_SHIFT, FID_SHIFT, LAST_JUMP_EID_SHIFT,
-};
+
+use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::mtable_compact::encode::MemoryTableLookupEncode;
 use crate::{
     circuits::utils::{bn_to_field, Context},
@@ -12,6 +11,7 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
+use specs::encode::table::encode_frame_table_entry;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
 use specs::{
@@ -115,18 +115,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
                     )?;
                 }
 
-                {
-                    let one = BigUint::from(1u64);
-
-                    let value: BigUint = step.current.last_jump_eid.to_biguint().unwrap()
-                        * (&one << EID_SHIFT)
-                        + step.next.last_jump_eid.to_biguint().unwrap()
-                            * (&one << LAST_JUMP_EID_SHIFT)
-                        + step.next.fid.to_biguint().unwrap() * (&one << FID_SHIFT)
-                        + step.next.iid.to_biguint().unwrap();
-
-                    self.return_lookup.assign(ctx, &value)?;
-                }
+                self.return_lookup.assign(
+                    ctx,
+                    &encode_frame_table_entry(
+                        step.current.last_jump_eid.to_biguint().unwrap(),
+                        step.next.last_jump_eid.to_biguint().unwrap(),
+                        step.current.fid.to_biguint().unwrap(),
+                        step.next.fid.to_biguint().unwrap(),
+                        step.next.iid.to_biguint().unwrap(),
+                    ),
+                )?;
 
                 Ok(())
             }
@@ -197,6 +195,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         Some(JumpTableConfig::encode_lookup(
             common_config.last_jump_eid(meta),
             common_config.next_last_jump_eid(meta),
+            common_config.fid(meta),
             common_config.next_fid(meta),
             common_config.next_iid(meta),
         ))

@@ -1,36 +1,30 @@
 use crate::{
     foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{
-        host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime,
-    },
+    runtime::host::host_env::HostEnv,
 };
 
 use anyhow::Result;
+use halo2_proofs::pairing::bn256::Fr as Fp;
 use specs::Tables;
-use std::{fs::File, io::Read, path::PathBuf};
-use wasmi::ImportsBuilder;
+use std::fs::{self};
+
+use super::test_circuit_with_env;
 
 fn build_test() -> Result<(Tables, Vec<u64>)> {
     let public_inputs = vec![3];
 
-    let mut binary = vec![];
-
-    let path = PathBuf::from("wasm/bsearch_64.wasm");
-    let mut f = File::open(path).unwrap();
-    f.read_to_end(&mut binary).unwrap();
-
-    let compiler = WasmInterpreter::new();
+    let wasm = fs::read("wasm/bsearch_64.wasm").unwrap();
 
     let mut env = HostEnv::new();
     register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
     env.finalize();
 
-    let imports = ImportsBuilder::new().with_resolver("env", &env);
-
-    let compiled_module = compiler
-        .compile(&binary, &imports, &env.function_description_table())
-        .unwrap();
-    let execution_result = compiled_module.run(&mut env, "bsearch")?;
+    let execution_result = test_circuit_with_env(
+        env,
+        wasm,
+        "bsearch",
+        public_inputs.iter().map(|v| Fp::from(*v)).collect(),
+    )?;
 
     Ok((execution_result.tables, public_inputs))
 }

@@ -1,23 +1,20 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
-use anyhow::Result;
 use specs::{
     etable::EventTableEntry,
     external_host_call_table::ExternalHostCallSignature,
-    host_function::HostFunctionDesc,
     mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
     step::StepInfo,
     CompilationTable, Tables,
 };
-use wasmi::ImportResolver;
 
 use self::wasmi_interpreter::WasmiRuntime;
 
 pub mod host;
 pub mod wasmi_interpreter;
 
-pub struct CompiledImage<M, I, T> {
-    pub module: M,
+pub struct CompiledImage<I, T> {
+    pub entry: String,
     pub tables: CompilationTable,
     pub instance: I,
     pub tracer: Rc<RefCell<T>>,
@@ -26,21 +23,6 @@ pub struct CompiledImage<M, I, T> {
 pub struct ExecutionResult<R> {
     pub tables: Tables,
     pub result: Option<R>,
-}
-
-pub trait WasmRuntime {
-    type Module;
-    type Tracer;
-    type Instance;
-
-    fn new() -> Self;
-
-    fn compile<I: ImportResolver>(
-        &self,
-        textual_repr: &Vec<u8>,
-        imports: &I,
-        host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
-    ) -> Result<CompiledImage<Self::Module, Self::Instance, Self::Tracer>>;
 }
 
 // TODO: use feature

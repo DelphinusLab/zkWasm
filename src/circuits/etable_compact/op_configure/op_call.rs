@@ -5,11 +5,13 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::step::StepInfo;
+use num_bigint::ToBigUint;
 use specs::{encode::opcode::encode_call, etable::EventTableEntry};
+use specs::{encode::table::encode_frame_table_entry, step::StepInfo};
 
 pub struct CallConfig {
     index: CommonRangeCell,
+    frame_table_lookup: JTableLookupCell,
 }
 
 pub struct CallConfigBuilder {}
@@ -20,8 +22,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
         _constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let index = common.alloc_common_range_value();
+        let frame_table_lookup = common.alloc_jtable_lookup();
 
-        Box::new(CallConfig { index })
+        Box::new(CallConfig {
+            index,
+            frame_table_lookup,
+        })
     }
 }
 
@@ -33,13 +39,22 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        _step_info: &StepStatus,
+        step_info: &StepStatus,
         entry: &EventTableEntry,
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::Call { index } => {
                 self.index.assign(ctx, F::from(*index as u64))?;
-
+                self.frame_table_lookup.assign(
+                    ctx,
+                    &encode_frame_table_entry(
+                        step_info.current.eid.to_biguint().unwrap(),
+                        step_info.current.last_jump_eid.to_biguint().unwrap(),
+                        (*index).to_biguint().unwrap(),
+                        step_info.current.fid.to_biguint().unwrap(),
+                        (step_info.current.iid + 1).to_biguint().unwrap(),
+                    ),
+                )?;
                 Ok(())
             }
 
@@ -77,6 +92,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig {
         _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         Some(constant_from!(0))
+    }
+
+    fn jtable_lookup(
+        &self,
+        meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(encode_frame_table_entry(
+            common_config.eid(meta),
+            common_config.last_jump_eid(meta),
+            self.index.expr(meta),
+            common_config.fid(meta),
+            common_config.iid(meta) + constant_from!(1),
+        ))
     }
 }
 

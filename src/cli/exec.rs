@@ -25,14 +25,17 @@ use crate::{
         require_helper::register_require_foreign, sha256_helper::runtime::register_sha256_foreign,
         wasm_input_helper::runtime::register_wasm_input_foreign,
     },
-    runtime::{
-        host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime,
-    },
+    runtime::{host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter},
 };
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
-pub fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
+pub fn build_circuit_without_witness(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+) -> TestCircuit<Fr> {
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
     let mut env = HostEnv::new();
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, vec![], vec![]);
@@ -42,7 +45,12 @@ pub fn build_circuit_without_witness(wasm_binary: &Vec<u8>) -> TestCircuit<Fr> {
 
     let compiler = WasmInterpreter::new();
     let compiled_module = compiler
-        .compile(&wasm_binary, &imports, &env.function_description_table())
+        .compile(
+            &module,
+            &imports,
+            &env.function_description_table(),
+            function_name,
+        )
         .expect("file cannot be complied");
 
     let builder = ZkWasmCircuitBuilder {
@@ -61,6 +69,8 @@ fn build_circuit_with_witness(
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
 ) -> Result<TestCircuit<Fr>> {
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
     let mut env = HostEnv::new();
     register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
@@ -70,10 +80,15 @@ fn build_circuit_with_witness(
 
     let compiler = WasmInterpreter::new();
     let compiled_module = compiler
-        .compile(&wasm_binary, &imports, &env.function_description_table())
+        .compile(
+            &module,
+            &imports,
+            &env.function_description_table(),
+            function_name,
+        )
         .expect("file cannot be complied");
 
-    let execution_result = compiled_module.run(&mut env, function_name)?;
+    let execution_result = compiled_module.run(&mut env)?;
 
     let builder = ZkWasmCircuitBuilder {
         tables: execution_result.tables,
@@ -87,9 +102,10 @@ pub fn exec_setup(
     aggregate_k: u32,
     prefix: &'static str,
     wasm_binary: &Vec<u8>,
+    entry: &str,
     output_dir: &PathBuf,
 ) {
-    let circuit = build_circuit_without_witness(wasm_binary);
+    let circuit = build_circuit_without_witness(wasm_binary, entry);
 
     info!("Setup Params and VerifyingKey");
 

@@ -1,7 +1,7 @@
 use crate::brtable::{BrTableEntry, ElemEntry, IndirectClass};
 
 use super::FromBn;
-use num_bigint::BigUint;
+use num_bigint::{BigUint, ToBigUint};
 
 lazy_static! {
     static ref INDIRECT_CLASS_SHIFT: BigUint = BigUint::from(1u64) << 192;
@@ -55,4 +55,23 @@ impl ElemEntry {
             BigUint::from(self.func_idx),
         )
     }
+}
+
+pub fn encode_frame_table_entry<T: FromBn>(
+    frame_id: T,
+    last_frame_id: T,
+    callee_fid: T,
+    fid: T,
+    iid: T,
+) -> T {
+    const EID_SHIFT: usize = 128;
+    const LAST_JUMP_EID_SHIFT: usize = 96;
+    const CALLEE_FID: usize = 64;
+    const FID_SHIFT: usize = 32;
+
+    frame_id * T::from_bn(&(1u64.to_biguint().unwrap() << EID_SHIFT))
+        + last_frame_id * T::from_bn(&(1u64.to_biguint().unwrap() << LAST_JUMP_EID_SHIFT))
+        + callee_fid * T::from_bn(&(1u64.to_biguint().unwrap() << CALLEE_FID))
+        + fid * T::from_bn(&(1u64.to_biguint().unwrap() << FID_SHIFT))
+        + iid
 }

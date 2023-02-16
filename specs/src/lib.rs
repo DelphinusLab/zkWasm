@@ -9,7 +9,7 @@ use configure_table::ConfigureTable;
 use etable::EventTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
-use jtable::JumpTable;
+use jtable::{JumpTable, StaticFrameEntry};
 use mtable::MTable;
 use serde::Serialize;
 
@@ -35,6 +35,7 @@ pub struct CompilationTable {
     pub imtable: InitMemoryTable,
     pub elem_table: ElemTable,
     pub configure_table: ConfigureTable,
+    pub static_jtable: Vec<StaticFrameEntry>,
 }
 
 #[derive(Default, Serialize, Clone)]
@@ -64,6 +65,13 @@ impl Tables {
         let itable = serde_json::to_string(&self.compilation_tables.itable).unwrap();
         let imtable = serde_json::to_string(&self.compilation_tables.imtable).unwrap();
         let etable = serde_json::to_string(&self.execution_tables.etable).unwrap();
+        let external_host_call_table = serde_json::to_string(
+            &self
+                .execution_tables
+                .etable
+                .filter_external_host_call_table(),
+        )
+        .unwrap();
         let mtable = serde_json::to_string(&self.execution_tables.mtable).unwrap();
         let jtable = serde_json::to_string(&self.execution_tables.jtable).unwrap();
 
@@ -73,5 +81,6 @@ impl Tables {
         write_file(&dir, "etable.json", &etable);
         write_file(&dir, "mtable.json", &mtable);
         write_file(&dir, "jtable.json", &jtable);
+        write_file(&dir, "external_host_table.json", &external_host_call_table);
     }
 }

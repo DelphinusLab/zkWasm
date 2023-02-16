@@ -2,17 +2,13 @@
 pub(crate) mod tests {
     use crate::{
         foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-        runtime::{
-            host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter, WasmRuntime,
-        },
-        test::run_test_circuit,
+        runtime::host::host_env::HostEnv, test::test_circuit_with_env,
     };
 
     use crate::circuits::config::set_zkwasm_k;
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use rusty_fork::rusty_fork_test;
-    use std::{fs::File, io::Read, path::PathBuf};
-    use wasmi::ImportsBuilder;
+    use std::fs;
 
     pub(crate) fn prepare_inputs() -> (Vec<u64>, Vec<u64>) {
         let msg = "abcdef";
@@ -40,35 +36,18 @@ pub(crate) mod tests {
     rusty_fork_test! {
         #[test]
         fn test_keccak() {
+            set_zkwasm_k(19);
+
             let (public_inputs, private_inputs) = prepare_inputs();
 
-            let mut wasm = vec![];
+            let wasm = fs::read("wasm/keccak.wasm").unwrap();
 
-            let path = PathBuf::from("wasm/keccak.wasm");
-            let mut f = File::open(path).unwrap();
-            f.read_to_end(&mut wasm).unwrap();
-
-            let compiler = WasmInterpreter::new();
             let mut env = HostEnv::new();
             register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
             env.finalize();
 
-            let imports = ImportsBuilder::new().with_resolver("env", &env);
-            let compiled_module = compiler
-                .compile(&wasm, &imports, &env.function_description_table())
-                .unwrap();
-            let execution_result = compiled_module
-                .run(
-                    &mut env,
-                    "keccak_digest",
-                )
-                .unwrap();
-            set_zkwasm_k(19);
-            run_test_circuit::<Fp>(
-                execution_result.tables,
-                public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
-            )
-            .unwrap()
+
+            test_circuit_with_env(env, wasm, "keccak_digest", public_inputs.into_iter().map(|v| Fp::from(v)).collect()).unwrap();
         }
     }
 }

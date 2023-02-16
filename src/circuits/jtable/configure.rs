@@ -1,30 +1,22 @@
 use super::JumpTableConfig;
-use crate::{
-    circuits::{rtable::RangeTableConfig, Lookup},
-    constant_from, fixed_curr,
-};
+use crate::{circuits::Lookup, constant_from, fixed_curr};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
 };
 
 pub trait JTableConstraint<F: FieldExt> {
-    fn configure(&self, meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) {
+    fn configure(&self, meta: &mut ConstraintSystem<F>) {
         self.enable_is_bit(meta);
         self.enable_rest_jops_permutation(meta);
         self.configure_rest_jops_decrease(meta);
-        // self.disabled_block_should_be_empty(meta);
-        self.configure_rest_jops_in_u16_range(meta, rtable);
+        self.disabled_block_should_be_empty(meta);
     }
 
     fn enable_rest_jops_permutation(&self, meta: &mut ConstraintSystem<F>);
     fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>);
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>);
-    fn configure_rest_jops_in_u16_range(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
-    );
+    fn disabled_block_should_be_empty(&self, meta: &mut ConstraintSystem<F>);
 }
 
 impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
@@ -43,9 +35,10 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
     }
 
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>) {
-        meta.create_gate("jtable rest decrease", |meta| {
+        meta.create_gate("c3. jtable rest decrease", |meta| {
             vec![
-                (self.rest(meta) - self.next_rest(meta) - constant_from!(2))
+                (self.rest(meta) - self.next_rest(meta) - constant_from!(2)
+                    + self.static_bit(meta))
                     * self.enable(meta)
                     * fixed_curr!(meta, self.sel),
                 (self.rest(meta) - self.next_rest(meta))
@@ -55,18 +48,19 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
         });
     }
 
-    fn configure_rest_jops_in_u16_range(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        rtable: &RangeTableConfig<F>,
-    ) {
-        rtable.configure_in_common_range(meta, "jtable rest in common range", |meta| {
-            self.rest(meta) * fixed_curr!(meta, self.sel)
+    fn disabled_block_should_be_empty(&self, meta: &mut ConstraintSystem<F>) {
+        meta.create_gate("c5. jtable ends up", |meta| {
+            vec![
+                (constant_from!(1) - self.enable(meta))
+                    * self.rest(meta)
+                    * fixed_curr!(meta, self.sel),
+            ]
         });
     }
 }
 
 impl<F: FieldExt> Lookup<F> for JumpTableConfig<F> {
+    /// Frame Table Constraint 4. Etable step's call/return record can be found on jtable_entry
     fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -92,10 +86,12 @@ impl<F: FieldExt> JumpTableConfig<F> {
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let sel = meta.fixed_column();
+        let static_bit = meta.fixed_column();
         let data = cols.next().unwrap();
 
         JumpTableConfig {
             sel,
+            static_bit,
             data,
             _m: std::marker::PhantomData,
         }

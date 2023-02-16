@@ -239,8 +239,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             mops_in_total -= t;
         });
 
-        // Ignore the last return
-        jops_in_total -= 1;
         jops.iter_mut().for_each(|x| {
             let t = *x;
             *x = jops_in_total;

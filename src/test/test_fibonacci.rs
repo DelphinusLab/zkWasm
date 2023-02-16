@@ -1,12 +1,12 @@
 use crate::{
     foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{
-        host::host_env::HostEnv, wasmi_interpreter::Execution, ExecutionResult, WasmInterpreter,
-        WasmRuntime,
-    },
+    runtime::{host::host_env::HostEnv, ExecutionResult},
 };
 use anyhow::Result;
-use wasmi::{ImportsBuilder, RuntimeValue};
+use halo2_proofs::pairing::bn256::Fr as Fp;
+use wasmi::RuntimeValue;
+
+use super::test_circuit_with_env;
 
 /*
    unsigned long long wasm_input(int);
@@ -72,19 +72,19 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, Vec<u64>, i32)> {
     "#;
 
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+
     let public_inputs = vec![13];
 
-    let compiler = WasmInterpreter::new();
     let mut env = HostEnv::new();
     register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
     env.finalize();
 
-    let imports = ImportsBuilder::new().with_resolver("env", &env);
-    let compiled_module = compiler
-        .compile(&wasm, &imports, &env.function_description_table())
-        .unwrap();
-
-    let execution_result = compiled_module.run(&mut env, "test")?;
+    let execution_result = test_circuit_with_env(
+        env,
+        wasm,
+        "test",
+        public_inputs.iter().map(|v| Fp::from(*v)).collect(),
+    )?;
 
     Ok((execution_result, public_inputs, 233))
 }

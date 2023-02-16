@@ -59,18 +59,18 @@ pub trait AppBuilder: CommandBuilder {
         let wasm_file_path = Self::parse_zkwasm_file_arg(&top_matches);
         let wasm_binary = fs::read(&wasm_file_path).unwrap();
 
+        let function_name = Self::parse_function_name(&top_matches);
+
         /*
          * FIXME: trigger CIRCUIT_CONFIGURE initialization.
          */
-        build_circuit_without_witness(&wasm_binary);
+        build_circuit_without_witness(&wasm_binary, &function_name);
 
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
 
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
         fs::create_dir_all(&output_dir).unwrap();
-
-        let function_name = Self::parse_function_name(&top_matches);
 
         match top_matches.subcommand() {
             Some(("setup", _)) => {
@@ -79,6 +79,7 @@ pub trait AppBuilder: CommandBuilder {
                     Self::AGGREGATE_K,
                     Self::NAME,
                     &wasm_binary,
+                    &function_name,
                     &output_dir,
                 );
             }
