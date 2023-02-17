@@ -365,7 +365,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 pre_block_value2,
                 updated_block_value2,
                 value,
-                mmid,
             } => {
                 self.opcode_store_offset
                     .assign(ctx, F::from(offset as u64))?;
@@ -444,7 +443,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                     &MemoryTableLookupEncode::encode_memory_load(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(3 as u64),
-                        BigUint::from(mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
                         BigUint::from(pre_block_value1),
@@ -456,7 +454,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                     &MemoryTableLookupEncode::encode_memory_store(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(4 as u64),
-                        BigUint::from(mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
                         BigUint::from(updated_block_value1),
@@ -469,7 +466,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                         &MemoryTableLookupEncode::encode_memory_load(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(5 as u64),
-                            BigUint::from(mmid),
                             BigUint::from(end_byte_index / 8),
                             BigUint::from(VarType::I64 as u16),
                             BigUint::from(pre_block_value2),
@@ -481,7 +477,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                         &MemoryTableLookupEncode::encode_memory_store(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(6 as u64),
-                            BigUint::from(mmid),
                             BigUint::from(end_byte_index / 8),
                             BigUint::from(VarType::I64 as u16),
                             BigUint::from(updated_block_value2),
@@ -568,7 +563,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
             MLookupItem::Third => Some(MemoryTableLookupEncode::encode_memory_load(
                 common_config.eid(meta),
                 constant_from!(3),
-                common_config.mmid(meta),
                 self.store_start_block_index.expr(meta),
                 constant_from!(VarType::I64),
                 self.load_value1.expr(meta),
@@ -576,7 +570,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
             MLookupItem::Fourth => Some(MemoryTableLookupEncode::encode_memory_store(
                 common_config.eid(meta),
                 constant_from!(4),
-                common_config.mmid(meta),
                 self.store_start_block_index.expr(meta),
                 constant_from!(VarType::I64),
                 self.store_value1.expr(meta),
@@ -585,7 +578,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 MemoryTableLookupEncode::encode_memory_load(
                     common_config.eid(meta),
                     constant_from!(5),
-                    common_config.mmid(meta),
                     self.store_end_block_index.expr(meta),
                     constant_from!(VarType::I64),
                     self.load_value2.expr(meta),
@@ -595,7 +587,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 MemoryTableLookupEncode::encode_memory_store(
                     common_config.eid(meta),
                     constant_from!(6),
-                    common_config.mmid(meta),
                     self.store_end_block_index.expr(meta),
                     constant_from!(VarType::I64),
                     self.store_value2.expr(meta),

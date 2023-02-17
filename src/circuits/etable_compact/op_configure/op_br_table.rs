@@ -111,7 +111,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         Some(encode_br_table_entry(
-            common_config.moid(meta),
             common_config.fid(meta),
             common_config.iid(meta),
             self.effective_index.expr(meta),
@@ -210,7 +209,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
                 self.br_table_lookup.assign(
                     ctx,
                     &encode_br_table_entry(
-                        BigUint::from(step_info.current.moid),
                         BigUint::from(step_info.current.fid),
                         BigUint::from(step_info.current.iid),
                         BigUint::from(effective_index),

@@ -30,10 +30,6 @@ impl Encode for InstructionTableEntry {
 
     fn encode_addr(&self) -> BigUint {
         let mut bn = BigUint::zero();
-        bn += self.moid;
-        bn <<= 16u8;
-        bn += self.mmid;
-        bn <<= 16u8;
         bn += self.fid;
         bn <<= 16u8;
         bn += self.iid;
@@ -42,8 +38,6 @@ impl Encode for InstructionTableEntry {
 }
 
 pub fn encode_inst_expr<F: FieldExt>(
-    moid: Expression<F>,
-    mmid: Expression<F>,
     fid: Expression<F>,
     iid: Expression<F>,
     opcode: Expression<F>,
@@ -54,10 +48,6 @@ pub fn encode_inst_expr<F: FieldExt>(
     acc = acc + iid * constant!(bn_to_field(&bn));
     bn <<= 16u8;
     acc = acc + fid * constant!(bn_to_field(&bn));
-    bn <<= 16u8;
-    acc = acc + mmid * constant!(bn_to_field(&bn));
-    bn <<= 16u8;
-    acc = acc + moid * constant!(bn_to_field(&bn));
 
     acc
 }

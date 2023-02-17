@@ -567,13 +567,6 @@ impl<'a, F: FieldExt> EventTableCellAllocator<'a, F> {
         }
     }
 
-    pub fn moid_cell(&self) -> UnlimitedCell {
-        UnlimitedCell {
-            col: self.config.state.clone(),
-            rot: EventTableCommonRangeColumnRotation::MOID as i32,
-        }
-    }
-
     pub fn allocated_memory_pages_cell(&self) -> CommonRangeCell {
         CommonRangeCell {
             col: self.config.state.clone(),
@@ -702,13 +695,6 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         None
     }
     fn next_last_jump_eid(
-        &self,
-        _meta: &mut VirtualCells<'_, F>,
-        _common_config: &EventTableCommonConfig<F>,
-    ) -> Option<Expression<F>> {
-        None
-    }
-    fn next_moid(
         &self,
         _meta: &mut VirtualCells<'_, F>,
         _common_config: &EventTableCommonConfig<F>,

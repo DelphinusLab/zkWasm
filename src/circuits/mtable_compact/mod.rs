@@ -24,7 +24,6 @@ pub mod expression;
 
 enum RotationOfIndexColumn {
     LTYPE = 0,
-    MMID,
     OFFSET,
     EID,
     EMID,
@@ -34,7 +33,6 @@ enum RotationOfIndexColumn {
 pub enum RotationOfAuxColumn {
     ConstantOne = 0,
     SameLtype,
-    SameMmid,
     SameOffset,
     SameEid,
     Atype,
@@ -221,7 +219,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
             // index column
             {
                 assign_row_diff!(RotationOfIndexColumn::LTYPE, ltype);
-                assign_row_diff!(RotationOfIndexColumn::MMID, mmid);
                 assign_row_diff!(RotationOfIndexColumn::OFFSET, offset);
                 assign_row_diff!(RotationOfIndexColumn::EID, eid);
                 assign_row_diff!(RotationOfIndexColumn::EMID, emid);
@@ -239,14 +236,12 @@ impl<F: FieldExt> MemoryTableChip<F> {
             // aux column
             {
                 let mut same_ltype = false;
-                let mut same_mmid = false;
                 let mut same_offset = false;
                 let mut same_eid = false;
 
                 if let Some(last_entry) = last_entry {
                     same_ltype = last_entry.ltype == entry.ltype;
-                    same_mmid = last_entry.mmid == entry.mmid && same_ltype;
-                    same_offset = last_entry.offset == entry.offset && same_mmid;
+                    same_offset = last_entry.offset == entry.offset && same_ltype;
                     same_eid = last_entry.eid == entry.eid && same_offset;
                 }
 
@@ -261,12 +256,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     RotationOfAuxColumn::SameLtype,
                     aux,
                     F::from(same_ltype as u64)
-                );
-                assign_advice!(
-                    "same mmid",
-                    RotationOfAuxColumn::SameMmid,
-                    aux,
-                    F::from(same_mmid as u64)
                 );
                 assign_advice!(
                     "same offset",
@@ -333,10 +322,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
             self.config
                 .index
                 .assign(ctx, None, F::zero(), -F::from(last_entry.ltype as u64))?;
-            ctx.offset += 1;
-            self.config
-                .index
-                .assign(ctx, None, F::zero(), -F::from(last_entry.mmid as u64))?;
             ctx.offset += 1;
             self.config
                 .index

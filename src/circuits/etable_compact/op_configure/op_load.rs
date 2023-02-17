@@ -334,7 +334,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 value,
                 block_value1,
                 block_value2,
-                mmid,
             } => {
                 self.opcode_load_offset
                     .assign(ctx, F::from(offset as u64))?;
@@ -410,7 +409,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                     &MemoryTableLookupEncode::encode_memory_load(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(2 as u64),
-                        BigUint::from(mmid),
                         BigUint::from(start_byte_index / 8),
                         BigUint::from(VarType::I64 as u16),
                         BigUint::from(block_value1),
@@ -423,7 +421,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                         &MemoryTableLookupEncode::encode_memory_load(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(3 as u64),
-                            BigUint::from(mmid),
                             BigUint::from(end_byte_index / 8),
                             BigUint::from(VarType::I64 as u16),
                             BigUint::from(block_value2),
@@ -511,7 +508,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
             MLookupItem::Second => Some(MemoryTableLookupEncode::encode_memory_load(
                 common_config.eid(meta),
                 constant_from!(2),
-                common_config.mmid(meta),
                 self.load_start_block_index.expr(meta),
                 constant_from!(VarType::I64),
                 self.load_value1.expr(meta),
@@ -520,7 +516,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 MemoryTableLookupEncode::encode_memory_load(
                     common_config.eid(meta),
                     constant_from!(3),
-                    common_config.mmid(meta),
                     self.load_end_block_index.expr(meta),
                     constant_from!(VarType::I64),
                     self.load_value2.expr(meta),

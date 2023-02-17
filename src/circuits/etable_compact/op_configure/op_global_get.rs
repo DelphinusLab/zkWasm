@@ -11,8 +11,6 @@ use specs::etable::EventTableEntry;
 use specs::{encode::opcode::encode_global_get, step::StepInfo};
 
 pub struct GlobalGetConfig {
-    origin_moid: CommonRangeCell,
-    origin_idx: CommonRangeCell,
     idx: CommonRangeCell,
     vtype: CommonRangeCell,
     value: U64Cell,
@@ -25,11 +23,8 @@ pub struct GlobalGetConfigBuilder {}
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalGetConfigBuilder {
     fn configure(
         common: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
+        _constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let origin_moid = common.alloc_common_range_value();
-        let origin_idx = common.alloc_common_range_value();
-        let moid = common.moid_cell();
         let idx = common.alloc_common_range_value();
 
         let vtype = common.alloc_common_range_value();
@@ -38,21 +33,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalGetConfigBuilder {
         let lookup_global_read = common.alloc_mtable_lookup();
         let lookup_stack_write = common.alloc_mtable_lookup();
 
-        // TODO: constraints
-        // build relation between (origin_moid, origin_idx) and (module, idx) when support import
-        constraint_builder.push(
-            "op_global_get idx constraints",
-            Box::new(move |meta| {
-                vec![
-                    origin_moid.expr(meta) - moid.expr(meta),
-                    origin_idx.expr(meta) - idx.expr(meta),
-                ]
-            }),
-        );
-
         Box::new(GlobalGetConfig {
-            origin_moid,
-            origin_idx,
             idx,
             vtype,
             value,
@@ -75,17 +56,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::GetGlobal {
-                idx,
-                origin_module,
-                origin_idx,
-                vtype,
-                value,
-                ..
+                idx, vtype, value, ..
             } => {
                 self.idx.assign(ctx, F::from(*idx as u64))?;
-                self.origin_idx.assign(ctx, F::from(*origin_idx as u64))?;
-                self.origin_moid
-                    .assign(ctx, F::from(*origin_module as u64))?;
                 self.vtype.assign(ctx, F::from(*vtype as u64))?;
                 self.value.assign(ctx, *value)?;
 
@@ -94,8 +67,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
                     &MemoryTableLookupEncode::encode_global_get(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
-                        BigUint::from(*origin_module as u64),
-                        BigUint::from(*origin_idx as u64),
+                        BigUint::from(*idx as u64),
                         BigUint::from(*vtype as u64),
                         BigUint::from(*value),
                     ),
@@ -137,8 +109,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
             MLookupItem::First => Some(MemoryTableLookupEncode::encode_global_get(
                 common_config.eid(meta),
                 constant_from!(1),
-                self.origin_moid.expr(meta),
-                self.origin_idx.expr(meta),
+                self.idx.expr(meta),
                 self.vtype.expr(meta),
                 self.value.expr(meta),
             )),

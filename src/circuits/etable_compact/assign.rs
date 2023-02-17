@@ -147,10 +147,8 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         for entry in etable.entries().iter() {
             status_entries.push(Status {
                 eid: entry.eid,
-                moid: entry.inst.moid,
                 fid: entry.inst.fid,
                 iid: entry.inst.iid,
-                mmid: entry.inst.mmid,
                 sp: entry.sp,
                 last_jump_eid: entry.last_jump_eid,
                 allocated_memory_pages: entry.allocated_memory_pages as u16,
@@ -159,10 +157,8 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
         status_entries.push(Status {
             eid: 0,
-            moid: 0,
             fid: 0,
             iid: 0,
-            mmid: 0,
             sp: 0,
             last_jump_eid: 0,
             allocated_memory_pages: 0,
@@ -296,13 +292,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
 
             assign_advice!(
                 self.state,
-                EventTableCommonRangeColumnRotation::MOID,
-                "moid",
-                entry.inst.moid as u64
-            );
-
-            assign_advice!(
-                self.state,
                 EventTableCommonRangeColumnRotation::FID,
                 "fid",
                 entry.inst.fid as u64
@@ -313,13 +302,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 EventTableCommonRangeColumnRotation::IID,
                 "iid",
                 entry.inst.iid as u64
-            );
-
-            assign_advice!(
-                self.state,
-                EventTableCommonRangeColumnRotation::MMID,
-                "mmid",
-                entry.inst.mmid as u64
             );
 
             assign_advice!(

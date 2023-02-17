@@ -93,22 +93,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         )
     }
 
-    pub fn moid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.state,
-            EventTableCommonRangeColumnRotation::MOID as i32
-        )
-    }
-
-    pub fn next_moid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.state,
-            EventTableCommonRangeColumnRotation::MOID as i32 + ETABLE_STEP_SIZE as i32
-        )
-    }
-
     pub fn fid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(
             meta,
@@ -138,22 +122,6 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             meta,
             self.state,
             EventTableCommonRangeColumnRotation::IID as i32 + ETABLE_STEP_SIZE as i32
-        )
-    }
-
-    pub fn mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.state,
-            EventTableCommonRangeColumnRotation::MMID as i32
-        )
-    }
-
-    pub fn next_mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.state,
-            EventTableCommonRangeColumnRotation::MMID as i32 + ETABLE_STEP_SIZE as i32
         )
     }
 

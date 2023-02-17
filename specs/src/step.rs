@@ -94,16 +94,12 @@ pub enum StepInfo {
 
     GetGlobal {
         idx: u32,
-        origin_module: u16,
-        origin_idx: u16,
         vtype: VarType,
         is_mutable: bool,
         value: u64,
     },
     SetGlobal {
         idx: u32,
-        origin_module: u16,
-        origin_idx: u16,
         vtype: VarType,
         is_mutable: bool,
         value: u64,
@@ -118,7 +114,6 @@ pub enum StepInfo {
         value: u64,
         block_value1: u64,
         block_value2: u64,
-        mmid: u64,
     },
     Store {
         vtype: VarType,
@@ -131,7 +126,6 @@ pub enum StepInfo {
         pre_block_value2: u64,
         updated_block_value2: u64,
         value: u64,
-        mmid: u64,
     },
 
     MemorySize,
