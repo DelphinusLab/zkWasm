@@ -492,8 +492,6 @@ impl Into<OpcodeClassPlain> for Opcode {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct InstructionTableEntry {
-    pub moid: u16,
-    pub mmid: u16,
     pub fid: u16,
     pub iid: u16,
     pub opcode: Opcode,
@@ -506,8 +504,6 @@ impl InstructionTableEntry {
 
     pub fn encode_instruction_address(&self) -> BigUint {
         let mut bn = BigUint::from(0u64);
-        bn += self.moid;
-        bn = bn << 16;
         bn += self.fid;
         bn = bn << 16;
         bn += self.iid;
@@ -535,7 +531,6 @@ impl InstructionTable {
                     .iter()
                     .enumerate()
                     .map(|(index, target)| BrTableEntry {
-                        moid: entry.moid,
                         fid: entry.fid,
                         iid: entry.iid,
                         index: index as u16,
@@ -561,14 +556,7 @@ impl InstructionTable {
         opcodeclass
     }
 
-    pub fn push(&mut self, moid: u16, fid: u16, iid: u16, opcode: Opcode) {
-        self.0.push(InstructionTableEntry {
-            moid,
-            // Only support one memory instance for now.
-            mmid: moid,
-            fid,
-            iid,
-            opcode,
-        })
+    pub fn push(&mut self, fid: u16, iid: u16, opcode: Opcode) {
+        self.0.push(InstructionTableEntry { fid, iid, opcode })
     }
 }

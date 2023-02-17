@@ -14,9 +14,8 @@ lazy_static! {
     static ref ACCESS_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 77;
     static ref LOC_TYPE_SHIFT: BigUint = BigUint::from(1u64) << 79;
     static ref OFFSET_SHIFT: BigUint = BigUint::from(1u64) << 80;
-    static ref MMID_SHIFT: BigUint = BigUint::from(1u64) << 96;
-    static ref EMID_SHIFT: BigUint = BigUint::from(1u64) << 112;
-    static ref EID_SHIFT: BigUint = BigUint::from(1u64) << 128;
+    static ref EMID_SHIFT: BigUint = BigUint::from(1u64) << 96;
+    static ref EID_SHIFT: BigUint = BigUint::from(1u64) << 112;
 }
 pub(crate) struct MemoryTableLookupEncode {}
 
@@ -24,7 +23,6 @@ impl MemoryTableLookupEncode {
     pub(super) fn encode_for_lookup<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
         eid: T,
         emid: T,
-        mmid: T,
         offset: T,
         ltype: T,
         atype: T,
@@ -33,7 +31,6 @@ impl MemoryTableLookupEncode {
     ) -> T {
         eid * T::from_bn(&EID_SHIFT)
             + emid * T::from_bn(&EMID_SHIFT)
-            + mmid * T::from_bn(&MMID_SHIFT)
             + offset * T::from_bn(&OFFSET_SHIFT)
             + ltype * T::from_bn(&LOC_TYPE_SHIFT)
             + atype * T::from_bn(&ACCESS_TYPE_SHIFT)
@@ -73,7 +70,6 @@ impl MemoryTableLookupEncode {
         MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
-            T::zero(),
             sp,
             T::from_bn(&BigUint::from(LocationType::Stack as u64)),
             T::from_bn(&BigUint::from(AccessType::Read.into_index())),
@@ -92,7 +88,6 @@ impl MemoryTableLookupEncode {
         MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
-            T::zero(),
             sp,
             T::from_bn(&BigUint::from(LocationType::Stack as u64)),
             T::from_bn(&BigUint::from(AccessType::Write.into_index())),
@@ -104,7 +99,6 @@ impl MemoryTableLookupEncode {
     pub(crate) fn encode_memory_load<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
         eid: T,
         emid: T,
-        mmid: T,
         address: T,
         vtype: T,
         block_value: T,
@@ -112,7 +106,6 @@ impl MemoryTableLookupEncode {
         MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
-            mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Heap as u64)),
             T::from_bn(&BigUint::from(AccessType::Read.into_index())),
@@ -124,7 +117,6 @@ impl MemoryTableLookupEncode {
     pub(crate) fn encode_memory_store<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
         eid: T,
         emid: T,
-        mmid: T,
         address: T,
         vtype: T,
         block_value: T,
@@ -132,7 +124,6 @@ impl MemoryTableLookupEncode {
         MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
-            mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Heap as u64)),
             T::from_bn(&BigUint::from(AccessType::Write.into_index())),
@@ -144,7 +135,6 @@ impl MemoryTableLookupEncode {
     pub(crate) fn encode_global_get<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
         eid: T,
         emid: T,
-        mmid: T,
         address: T,
         vtype: T,
         value: T,
@@ -152,7 +142,6 @@ impl MemoryTableLookupEncode {
         MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
-            mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Global as u64)),
             T::from_bn(&BigUint::from(AccessType::Read.into_index())),
@@ -164,7 +153,6 @@ impl MemoryTableLookupEncode {
     pub(crate) fn encode_global_set<T: FromBn + Add<T, Output = T> + Mul<T, Output = T>>(
         eid: T,
         emid: T,
-        mmid: T,
         address: T,
         vtype: T,
         value: T,
@@ -172,7 +160,6 @@ impl MemoryTableLookupEncode {
         MemoryTableLookupEncode::encode_for_lookup(
             eid,
             emid,
-            mmid,
             address,
             T::from_bn(&BigUint::from(LocationType::Global as u64)),
             T::from_bn(&BigUint::from(AccessType::Write.into_index())),

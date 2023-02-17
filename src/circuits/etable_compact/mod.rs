@@ -91,10 +91,8 @@ pub(crate) enum EventTableCommonRangeColumnRotation {
     RestJOps,
     InputIndex,
     EID,
-    MOID,
     FID,
     IID,
-    MMID,
     SP,
     LastJumpEid,
     AllocatedMemoryPages,
@@ -138,10 +136,8 @@ impl From<usize> for MLookupItem {
 #[derive(Clone)]
 pub struct Status {
     pub eid: u64,
-    pub moid: u16,
     pub fid: u16,
     pub iid: u16,
-    pub mmid: u16,
     pub sp: u64,
     pub last_jump_eid: u64,
     pub allocated_memory_pages: u16,
@@ -515,7 +511,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 common_config.input_index(meta) - common_config.next_input_index(meta);
             let mut external_host_call_index_acc = common_config.external_host_call_index(meta)
                 - common_config.next_external_host_call_index(meta);
-            let mut moid_acc = common_config.next_moid(meta) - common_config.moid(meta);
             let mut fid_acc = common_config.next_fid(meta) - common_config.fid(meta);
             let mut iid_acc =
                 common_config.next_iid(meta) - common_config.iid(meta) - constant_from!(1);
@@ -527,8 +522,6 @@ impl<F: FieldExt> EventTableConfig<F> {
 
             let eid_diff =
                 common_config.next_eid(meta) - common_config.eid(meta) - constant_from!(1);
-            // MMID equals to MOID in single module version
-            let mmid_diff = common_config.mmid(meta) - common_config.moid(meta);
 
             let mut itable_lookup = common_config.itable_lookup(meta);
             let mut brtable_lookup = common_config.brtable_lookup(meta);
@@ -567,15 +560,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                     _ => {}
                 }
 
-                match config.next_moid(meta, &common_config) {
-                    Some(e) => {
-                        moid_acc = moid_acc
-                            - (e - common_config.moid(meta))
-                                * common_config.op_enabled(meta, *lvl1, *lvl2)
-                    }
-                    _ => {}
-                }
-
                 match config.next_fid(meta, &common_config) {
                     Some(e) => {
                         fid_acc = fid_acc
@@ -609,8 +593,6 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 itable_lookup = itable_lookup
                     - encode_inst_expr(
-                        common_config.moid(meta),
-                        common_config.mmid(meta),
                         common_config.fid(meta),
                         common_config.iid(meta),
                         config.opcode(meta),
@@ -663,10 +645,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                     rest_mops_acc,
                     rest_jops_acc,
                     eid_diff * common_config.next_enable(meta),
-                    moid_acc,
                     fid_acc,
                     iid_acc * common_config.next_enable(meta),
-                    mmid_diff,
                     sp_acc * common_config.next_enable(meta),
                     last_jump_eid_acc,
                     allocated_memory_pages_acc * common_config.next_enable(meta),

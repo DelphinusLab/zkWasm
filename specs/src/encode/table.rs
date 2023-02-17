@@ -8,7 +8,6 @@ lazy_static! {
 }
 
 pub fn encode_br_table_entry<T: FromBn>(
-    moid: T,
     fid: T,
     iid: T,
     index: T,
@@ -17,7 +16,6 @@ pub fn encode_br_table_entry<T: FromBn>(
     dst_pc: T,
 ) -> T {
     T::from_bn(&(BigUint::from(IndirectClass::BrTable as u64))) * T::from_bn(&INDIRECT_CLASS_SHIFT)
-        + moid * T::from_bn(&(BigUint::from(1u64) << 112))
         + fid * T::from_bn(&(BigUint::from(1u64) << 96))
         + iid * T::from_bn(&(BigUint::from(1u64) << 80))
         + index * T::from_bn(&(BigUint::from(1u64) << 64))
@@ -38,7 +36,6 @@ pub fn encode_elem_entry<T: FromBn>(table_idx: T, type_idx: T, offset: T, func_i
 impl BrTableEntry {
     pub fn encode(&self) -> BigUint {
         encode_br_table_entry(
-            BigUint::from(self.moid),
             BigUint::from(self.fid),
             BigUint::from(self.iid),
             BigUint::from(self.index),

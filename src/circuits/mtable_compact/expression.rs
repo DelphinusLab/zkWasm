@@ -27,10 +27,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         nextn!(meta, self.index.same, RotationOfIndexColumn::LTYPE as i32)
     }
 
-    pub(super) fn same_mmid_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.same, RotationOfIndexColumn::MMID as i32)
-    }
-
     pub(super) fn same_offset_single(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.index.same, RotationOfIndexColumn::OFFSET as i32)
     }
@@ -43,10 +39,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         self.same_ltype_single(meta)
     }
 
-    pub(super) fn same_mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.aux, RotationOfAuxColumn::SameMmid as i32)
-    }
-
     pub(super) fn same_offset(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.aux, RotationOfAuxColumn::SameOffset as i32)
     }
@@ -57,10 +49,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
     pub(super) fn ltype(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         nextn!(meta, self.index.data, RotationOfIndexColumn::LTYPE as i32)
-    }
-
-    pub(super) fn mmid(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.index.data, RotationOfIndexColumn::MMID as i32)
     }
 
     pub(super) fn offset(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

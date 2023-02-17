@@ -1,6 +1,6 @@
 use super::*;
 use crate::circuits::jtable::expression::{
-    JtableLookupEntryEncode, EID_SHIFT, FID_SHIFT, LAST_JUMP_EID_SHIFT, MOID_SHIFT,
+    JtableLookupEntryEncode, EID_SHIFT, FID_SHIFT, LAST_JUMP_EID_SHIFT,
 };
 use crate::circuits::mtable_compact::encode::MemoryTableLookupEncode;
 use crate::{
@@ -122,7 +122,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
                         * (&one << EID_SHIFT)
                         + step.next.last_jump_eid.to_biguint().unwrap()
                             * (&one << LAST_JUMP_EID_SHIFT)
-                        + step.next.moid.to_biguint().unwrap() * (&one << MOID_SHIFT)
                         + step.next.fid.to_biguint().unwrap() * (&one << FID_SHIFT)
                         + step.next.iid.to_biguint().unwrap();
 
@@ -174,14 +173,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         Some(common_config.next_last_jump_eid(meta))
     }
 
-    fn next_moid(
-        &self,
-        meta: &mut VirtualCells<'_, F>,
-        common_config: &EventTableCommonConfig<F>,
-    ) -> Option<Expression<F>> {
-        Some(common_config.next_moid(meta))
-    }
-
     fn next_fid(
         &self,
         meta: &mut VirtualCells<'_, F>,
@@ -206,7 +197,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
         Some(JumpTableConfig::encode_lookup(
             common_config.last_jump_eid(meta),
             common_config.next_last_jump_eid(meta),
-            common_config.next_moid(meta),
             common_config.next_fid(meta),
             common_config.next_iid(meta),
         ))

@@ -159,7 +159,6 @@ pub struct MemoryTableEntry {
        So we need emid to seq the r/w op, which is an incremental value starting from 1.
     */
     pub emid: u64,
-    pub mmid: u64,
     pub offset: u64,
     pub ltype: LocationType,
     pub atype: AccessType,
@@ -174,7 +173,7 @@ impl MemoryTableEntry {
     }
 
     pub fn is_same_location(&self, other: &MemoryTableEntry) -> bool {
-        self.mmid == other.mmid && self.offset == other.offset && self.ltype == other.ltype
+        self.offset == other.offset && self.ltype == other.ltype
     }
 }
 
@@ -200,16 +199,14 @@ impl MTable {
 
         self.0.iter().for_each(|entry| {
             if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
-                let (init_type, value) =
-                    match imtable.try_find(entry.ltype, entry.mmid, entry.offset) {
-                        Some(value) => (InitType::Positive, value),
-                        None => (InitType::Lazy, 0),
-                    };
+                let (init_type, value) = match imtable.try_find(entry.ltype, entry.offset) {
+                    Some(value) => (InitType::Positive, value),
+                    None => (InitType::Lazy, 0),
+                };
 
                 set.insert(MemoryTableEntry {
                     eid: 0,
                     emid: 0,
-                    mmid: entry.mmid,
                     offset: entry.offset,
                     ltype: entry.ltype,
                     atype: AccessType::Init(init_type),
@@ -227,7 +224,7 @@ impl MTable {
 
     fn sort(&mut self) {
         self.0
-            .sort_by_key(|item| (item.ltype, item.mmid, item.offset, item.eid, item.emid))
+            .sort_by_key(|item| (item.ltype, item.offset, item.eid, item.emid))
     }
 
     pub fn entries(&self) -> &Vec<MemoryTableEntry> {

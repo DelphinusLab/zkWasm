@@ -5,7 +5,6 @@ use serde::Serialize;
 pub struct InitMemoryTableEntry {
     pub ltype: LocationType,
     pub is_mutable: bool,
-    pub mmid: u64,
     pub offset: u64,
     pub vtype: VarType,
     /// convert from [u8; 8] via u64::from_le_bytes
@@ -30,9 +29,9 @@ impl InitMemoryTable {
         serde_json::to_string(&self.0).unwrap()
     }
 
-    pub fn try_find(&self, ltype: LocationType, mmid: u64, offset: u64) -> Option<u64> {
+    pub fn try_find(&self, ltype: LocationType, offset: u64) -> Option<u64> {
         for entry in self.0.iter() {
-            if entry.ltype == ltype && entry.mmid == mmid && entry.offset == offset {
+            if entry.ltype == ltype && entry.offset == offset {
                 return Some(entry.value);
             }
         }
@@ -41,8 +40,7 @@ impl InitMemoryTable {
     }
 
     fn sort(&mut self) {
-        self.0
-            .sort_by_key(|item| (item.ltype, item.mmid, item.offset))
+        self.0.sort_by_key(|item| (item.ltype, item.offset))
     }
 
     pub fn filter(&self, ltype: LocationType) -> Vec<&InitMemoryTableEntry> {

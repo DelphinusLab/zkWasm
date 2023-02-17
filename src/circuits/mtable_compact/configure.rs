@@ -112,8 +112,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         meta.create_gate("mtable configure_index_same", |meta| {
             vec![
                 curr!(meta, self.aux) - constant_from!(1),
-                self.same_mmid(meta) - self.same_ltype(meta) * self.same_mmid_single(meta),
-                self.same_offset(meta) - self.same_mmid(meta) * self.same_offset_single(meta),
+                self.same_offset(meta) - self.same_ltype(meta) * self.same_offset_single(meta),
                 self.same_eid(meta) - self.same_offset(meta) * self.same_eid_single(meta),
             ]
             .into_iter()
@@ -359,7 +358,6 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                         * imtable.encode(
                             self.is_mutable(meta),
                             self.ltype(meta),
-                            self.mmid(meta),
                             self.offset(meta),
                             self.value(meta),
                         )
@@ -409,7 +407,6 @@ impl<F: FieldExt> Lookup<F> for MemoryTableConfig<F> {
         MemoryTableLookupEncode::encode_for_lookup(
             self.eid(meta),
             self.emid(meta),
-            self.mmid(meta),
             self.offset(meta),
             self.ltype(meta),
             self.atype(meta),
