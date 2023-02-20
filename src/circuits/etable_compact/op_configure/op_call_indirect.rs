@@ -9,9 +9,12 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
-use specs::{encode::table::encode_frame_table_entry, etable::EventTableEntry};
 use specs::{
-    encode::{opcode::encode_call_indirect, table::encode_elem_entry},
+    encode::{
+        br_table::encode_elem_entry, frame_table::encode_frame_table_entry,
+        opcode::encode_call_indirect,
+    },
+    etable::EventTableEntry,
     mtable::VarType,
     step::StepInfo,
 };
@@ -78,10 +81,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig {
                 offset,
                 func_index,
             } => {
-                self.table_index.assign(ctx, F::from(*table_index as u64))?;
-                self.type_index.assign(ctx, F::from(*type_index as u64))?;
-                self.offset.assign(ctx, F::from(*offset as u64))?;
-                self.func_index.assign(ctx, F::from(*func_index as u64))?;
+                self.table_index.assign(ctx, *table_index)?;
+                self.type_index.assign(ctx, *type_index)?;
+                self.offset.assign(ctx, CommonRange::from(*offset))?;
+                self.func_index.assign(ctx, *func_index)?;
 
                 self.elem_lookup.assign(
                     ctx,

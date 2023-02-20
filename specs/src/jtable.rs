@@ -1,27 +1,26 @@
-use crate::encode::table::encode_frame_table_entry;
+use crate::{encode::frame_table::encode_frame_table_entry, utils::common_range::CommonRange};
 
 use super::itable::InstructionTableEntry;
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
 use serde::Serialize;
 
-// TODO: adapt common range
-#[derive(Default, Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct StaticFrameEntry {
-    pub frame_id: u16,
-    pub next_frame_id: u16,
-    pub callee_fid: u16,
-    pub fid: u16,
-    pub iid: u16,
+    pub frame_id: CommonRange,
+    pub next_frame_id: CommonRange,
+    pub callee_fid: CommonRange,
+    pub fid: CommonRange,
+    pub iid: CommonRange,
 }
 
 impl StaticFrameEntry {
     pub fn encode(&self) -> BigUint {
         encode_frame_table_entry(
-            self.frame_id.to_biguint().unwrap(),
-            self.next_frame_id.to_biguint().unwrap(),
-            self.callee_fid.to_biguint().unwrap(),
-            self.fid.to_biguint().unwrap(),
-            self.iid.to_biguint().unwrap(),
+            self.frame_id.into(),
+            self.next_frame_id.into(),
+            self.callee_fid.into(),
+            self.fid.into(),
+            self.iid.into(),
         )
     }
 }
@@ -29,9 +28,9 @@ impl StaticFrameEntry {
 #[derive(Debug, Serialize, Clone)]
 pub struct JumpTableEntry {
     // caller eid (unique)
-    pub eid: u64,
-    pub last_jump_eid: u64,
-    pub callee_fid: u64,
+    pub eid: CommonRange,
+    pub last_jump_eid: CommonRange,
+    pub callee_fid: CommonRange,
     pub inst: Box<InstructionTableEntry>,
 }
 
@@ -42,11 +41,11 @@ impl JumpTableEntry {
 
     pub fn encode(&self) -> BigUint {
         encode_frame_table_entry(
-            self.eid.to_biguint().unwrap(),
-            self.last_jump_eid.to_biguint().unwrap(),
-            self.callee_fid.to_biguint().unwrap(),
-            self.inst.fid.to_biguint().unwrap(),
-            self.inst.iid.to_biguint().unwrap(),
+            self.eid.into(),
+            self.last_jump_eid.into(),
+            self.callee_fid.into(),
+            self.inst.fid.into(),
+            self.inst.iid.into(),
         )
     }
 }

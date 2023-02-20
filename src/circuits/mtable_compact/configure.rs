@@ -1,4 +1,3 @@
-use super::encode::MemoryTableLookupEncode;
 use super::*;
 use crate::circuits::config::IMTABLE_COLOMNS;
 use crate::circuits::CircuitConfigure;
@@ -11,6 +10,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
+use specs::encode::memory_table::encode_memory_table_entry;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 
@@ -381,7 +381,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
                     * self.is_lazy_init(meta)
                     * (self.offset(meta)
                         - self.range_in_lazy_init_diff(meta)
-                        - constant_from!(configure.first_consecutive_zero_memory_offset))
+                        - constant_from!(*configure.first_consecutive_zero_memory_offset))
                     * self.is_enabled_block(meta),
                 /*
                  * lazy init value must be 0
@@ -404,7 +404,7 @@ impl<F: FieldExt> Lookup<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut halo2_proofs::plonk::VirtualCells<'_, F>,
     ) -> halo2_proofs::plonk::Expression<F> {
-        MemoryTableLookupEncode::encode_for_lookup(
+        encode_memory_table_entry(
             self.eid(meta),
             self.emid(meta),
             self.offset(meta),

@@ -58,8 +58,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig {
             StepInfo::SetGlobal {
                 idx, vtype, value, ..
             } => {
-                self.idx.assign(ctx, F::from(*idx as u64))?;
-                self.vtype.assign(ctx, F::from(*vtype as u64))?;
+                self.idx.assign(ctx, *idx)?;
+                self.vtype.assign(ctx, CommonRange::from(*vtype))?;
                 self.value.assign(ctx, *value)?;
 
                 self.lookup_stack_read.assign(
@@ -78,7 +78,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig {
                     &MemoryTableLookupEncode::encode_global_set(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(2 as u64),
-                        BigUint::from(*idx as u64),
+                        BigUint::from(*idx),
                         BigUint::from(*vtype as u64),
                         BigUint::from(*value),
                     ),

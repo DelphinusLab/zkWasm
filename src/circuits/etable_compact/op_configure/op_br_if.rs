@@ -105,7 +105,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
             } => {
                 assert!(keep.len() <= 1);
 
-                let drop: u16 = (*drop).try_into().unwrap();
                 let cond = *condition as u32 as u64;
 
                 self.lookup_stack_read_cond.assign(
@@ -119,14 +118,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                     ),
                 )?;
 
-                self.drop.assign(ctx, F::from(drop as u64))?;
+                self.drop.assign(ctx, *drop)?;
 
                 if keep.len() > 0 {
                     let keep_type: VarType = keep[0].into();
 
                     self.keep.assign(ctx, true)?;
                     self.keep_value.assign(ctx, keep_values[0])?;
-                    self.keep_type.assign(ctx, F::from(keep_type as u64))?;
+                    self.keep_type.assign(ctx, CommonRange::from(keep_type))?;
 
                     if *condition != 0 {
                         self.lookup_stack_read_return_value.assign(
@@ -145,7 +144,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                             &MemoryTableLookupEncode::encode_stack_write(
                                 BigUint::from(step_info.current.eid),
                                 BigUint::from(3 as u64),
-                                BigUint::from(step_info.current.sp + 2 + drop as u64),
+                                BigUint::from(step_info.current.sp + 2 + *drop),
                                 BigUint::from(keep_type as u16),
                                 BigUint::from(keep_values[0]),
                             ),
@@ -158,7 +157,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig {
                     .assign(ctx, F::from(cond).invert().unwrap_or(F::zero()))?;
                 self.cond_is_zero.assign(ctx, cond == 0)?;
 
-                self.dst_pc.assign(ctx, F::from((*dst_pc) as u64))?;
+                self.dst_pc.assign(ctx, *dst_pc)?;
             }
             _ => unreachable!(),
         }

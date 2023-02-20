@@ -12,7 +12,10 @@ use halo2_proofs::{
     circuit::Cell,
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed},
 };
-use specs::mtable::{AccessType, InitType, LocationType, MTable, MemoryTableEntry, VarType};
+use specs::{
+    mtable::{AccessType, InitType, LocationType, MTable, MemoryTableEntry, VarType},
+    utils::common_range::CommonRange,
+};
 
 fn mtable_rows() -> usize {
     max_mtable_rows() as usize / STEP_SIZE as usize * STEP_SIZE as usize
@@ -100,7 +103,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         mtable: &MTable,
         etable_rest_mops_cell: Option<Cell>,
-        consecutive_zero_offset: u64,
+        consecutive_zero_offset: CommonRange,
     ) -> Result<(), Error> {
         assert_eq!(mtable_rows() % (STEP_SIZE as usize), 0);
 
@@ -161,12 +164,12 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     self.config.index.assign(
                         ctx,
                         Some($offset as usize + index * STEP_SIZE as usize),
-                        (entry.$column as u64).into(),
-                        (F::from(entry.$column as u64)
+                        F::from(u32::from(entry.$column) as u64),
+                        (F::from(u32::from(entry.$column) as u64)
                             - F::from(
                                 last_entry
                                     .as_ref()
-                                    .map(|x| x.$column as u64)
+                                    .map(|x| (u32::from(x.$column)) as u64)
                                     .unwrap_or(0u64),
                             )),
                     )?;
@@ -208,8 +211,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 {
                     assign_advice!(
                         "vtype imtable selector",
-                        RotationOfBitColumn::IMTableSelectorStart as i32
-                            + entry.offset as i32 % (IMTABLE_COLOMNS as i32),
+                        RotationOfBitColumn::IMTableSelectorStart as u32
+                            + (*entry.offset) % (IMTABLE_COLOMNS as u32),
                         bit,
                         F::one()
                     );
@@ -289,7 +292,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                         "lazy init helper",
                         RotationOfAuxColumn::RangeInLazyInitDiff,
                         aux,
-                        F::from(entry.offset - consecutive_zero_offset)
+                        F::from(*(entry.offset - consecutive_zero_offset) as u64)
                     );
 
                     assign_advice!(
@@ -325,15 +328,15 @@ impl<F: FieldExt> MemoryTableChip<F> {
             ctx.offset += 1;
             self.config
                 .index
-                .assign(ctx, None, F::zero(), -F::from(last_entry.offset as u64))?;
+                .assign(ctx, None, F::zero(), -F::from(*last_entry.offset as u64))?;
             ctx.offset += 1;
             self.config
                 .index
-                .assign(ctx, None, F::zero(), -F::from(last_entry.eid as u64))?;
+                .assign(ctx, None, F::zero(), -F::from(*last_entry.eid as u64))?;
             ctx.offset += 1;
             self.config
                 .index
-                .assign(ctx, None, F::zero(), -F::from(last_entry.emid as u64))?;
+                .assign(ctx, None, F::zero(), -F::from(*last_entry.emid as u64))?;
             ctx.offset += 1;
         }
 

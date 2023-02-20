@@ -3,13 +3,19 @@ use std::collections::HashSet;
 use serde::Serialize;
 use strum_macros::EnumIter;
 
-use crate::imtable::InitMemoryTable;
+use crate::{imtable::InitMemoryTable, utils::common_range::CommonRange};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub enum LocationType {
     Stack = 1,
     Heap = 2,
     Global = 3,
+}
+
+impl From<LocationType> for u32 {
+    fn from(value: LocationType) -> Self {
+        value as u32
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Hash, Eq)]
@@ -76,6 +82,12 @@ impl VarType {
     }
 }
 
+impl From<VarType> for CommonRange {
+    fn from(value: VarType) -> Self {
+        CommonRange::from(value as u32)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
 pub enum MemoryReadSize {
     U8 = 1,
@@ -96,7 +108,7 @@ pub enum MemoryStoreSize {
 }
 
 impl MemoryStoreSize {
-    pub fn byte_size(&self) -> u64 {
+    pub fn byte_size(&self) -> u32 {
         match self {
             MemoryStoreSize::Byte8 => 1,
             MemoryStoreSize::Byte16 => 2,
@@ -126,7 +138,7 @@ impl From<crate::types::ValueType> for VarType {
 }
 
 impl MemoryReadSize {
-    pub fn byte_size(&self) -> u64 {
+    pub fn byte_size(&self) -> u32 {
         match self {
             MemoryReadSize::U8 => 1,
             MemoryReadSize::S8 => 1,
@@ -151,15 +163,15 @@ impl MemoryReadSize {
 
 #[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
 pub struct MemoryTableEntry {
-    pub eid: u64,
+    pub eid: CommonRange,
     /*
        Emid is sub memory op id of eid.
        E.g. an opcode gets a value from stack top and changes it.
        This event has two memory ops on the same memory address,
        So we need emid to seq the r/w op, which is an incremental value starting from 1.
     */
-    pub emid: u64,
-    pub offset: u64,
+    pub emid: CommonRange,
+    pub offset: CommonRange,
     pub ltype: LocationType,
     pub atype: AccessType,
     pub vtype: VarType,
@@ -205,8 +217,8 @@ impl MTable {
                 };
 
                 set.insert(MemoryTableEntry {
-                    eid: 0,
-                    emid: 0,
+                    eid: CommonRange::from(0u32),
+                    emid: CommonRange::from(0u32),
                     offset: entry.offset,
                     ltype: entry.ltype,
                     atype: AccessType::Init(init_type),

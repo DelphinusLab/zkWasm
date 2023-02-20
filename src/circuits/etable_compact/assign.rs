@@ -118,7 +118,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
             || "init current memory",
             self.state,
             EventTableCommonRangeColumnRotation::AllocatedMemoryPages as usize,
-            F::from(configure.init_memory_pages as u64),
+            F::from(*configure.init_memory_pages as u64),
         )?;
 
         let mut mops = vec![];
@@ -151,17 +151,17 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 iid: entry.inst.iid,
                 sp: entry.sp,
                 last_jump_eid: entry.last_jump_eid,
-                allocated_memory_pages: entry.allocated_memory_pages as u16,
+                allocated_memory_pages: entry.allocated_memory_pages,
             });
         }
 
         status_entries.push(Status {
-            eid: 0,
-            fid: 0,
-            iid: 0,
-            sp: 0,
-            last_jump_eid: 0,
-            allocated_memory_pages: 0,
+            eid: CommonRange::from(0u32),
+            fid: CommonRange::from(0u32),
+            iid: CommonRange::from(0u32),
+            sp: CommonRange::from(0u32),
+            last_jump_eid: CommonRange::from(0u32),
+            allocated_memory_pages: CommonRange::from(0u32),
         });
 
         let mut mops_in_total = 0;
@@ -285,35 +285,35 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 self.state,
                 EventTableCommonRangeColumnRotation::EID,
                 "eid",
-                entry.eid
+                *entry.eid as u64
             );
 
             assign_advice!(
                 self.state,
                 EventTableCommonRangeColumnRotation::FID,
                 "fid",
-                entry.inst.fid as u64
+                *entry.inst.fid as u64
             );
 
             assign_advice!(
                 self.state,
                 EventTableCommonRangeColumnRotation::IID,
                 "iid",
-                entry.inst.iid as u64
+                *entry.inst.iid as u64
             );
 
             assign_advice!(
                 self.state,
                 EventTableCommonRangeColumnRotation::SP,
                 "sp",
-                entry.sp
+                *entry.sp as u64
             );
 
             assign_advice!(
                 self.state,
                 EventTableCommonRangeColumnRotation::LastJumpEid,
                 "last jump eid",
-                entry.last_jump_eid
+                *entry.last_jump_eid as u64
             );
 
             if index == 0 {
@@ -323,7 +323,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                     self.state,
                     EventTableCommonRangeColumnRotation::AllocatedMemoryPages,
                     "current memory",
-                    entry.allocated_memory_pages as u64
+                    *entry.allocated_memory_pages as u64
                 );
             }
 

@@ -2,6 +2,7 @@ use crate::circuits::{config::POW_TABLE_LIMIT, rtable::offset_len_bits_encode};
 
 use super::*;
 use halo2_proofs::{arithmetic::FieldExt, plonk::ConstraintSystem};
+use specs::utils::common_range::CommonRange;
 
 pub(super) mod op_bin;
 pub(super) mod op_bin_bit;
@@ -240,12 +241,21 @@ pub struct CommonRangeCell {
 }
 
 impl CommonRangeCell {
-    pub fn assign<F: FieldExt>(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
+    pub fn assign<F: FieldExt>(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: CommonRange,
+    ) -> Result<(), Error> {
+        assert!(
+            *value < (1 << (zkwasm_k() - 1)),
+            "value cannot exceed common range(1 << (K - 1))."
+        );
+
         ctx.region.assign_advice(
             || "common range cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
-            || Ok(value),
+            || Ok(F::from(*value as u64)),
         )?;
         Ok(())
     }

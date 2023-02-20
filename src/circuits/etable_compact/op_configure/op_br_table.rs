@@ -4,7 +4,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::encode::{opcode::encode_br_table, table::encode_br_table_entry};
+use specs::encode::{br_table::encode_br_table_entry, opcode::encode_br_table};
 use specs::etable::EventTableEntry;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -136,9 +136,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
             } => {
                 assert!(keep.len() <= 1);
 
-                self.drop.assign(ctx, F::from(*drop as u64))?;
-                self.dst_iid.assign(ctx, F::from(*dst_pc as u64))?;
-                let index = *index as u32 as u64;
+                self.drop.assign(ctx, *drop)?;
+                self.dst_iid.assign(ctx, *dst_pc)?;
 
                 self.lookup_stack_read_index.assign(
                     ctx,
@@ -147,7 +146,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
                         BigUint::from(1 as u64),
                         BigUint::from(entry.sp + 1),
                         BigUint::from(VarType::I32 as u16),
-                        BigUint::from(index),
+                        BigUint::from(*index),
                     ),
                 )?;
 
@@ -156,7 +155,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
 
                     self.keep.assign(ctx, true)?;
                     self.keep_value.assign(ctx, keep_values[0])?;
-                    self.keep_type.assign(ctx, F::from(keep_type as u64))?;
+                    self.keep_type.assign(ctx, CommonRange::from(keep_type))?;
 
                     self.lookup_stack_read_return_value.assign(
                         ctx,
@@ -174,7 +173,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
                         &MemoryTableLookupEncode::encode_stack_write(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(3 as u64),
-                            BigUint::from(step_info.current.sp + 2 + *drop as u64),
+                            BigUint::from(step_info.current.sp + 2 + *drop),
                             BigUint::from(keep_type as u16),
                             BigUint::from(keep_values[0]),
                         ),
@@ -185,25 +184,27 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
                     specs::itable::Opcode::BrTable { targets } => targets.clone(),
                     _ => unreachable!(),
                 };
-                let targets_len = targets.len() as u64;
+                let targets_len = targets.len() as u32;
 
-                self.targets_len.assign(ctx, F::from(targets_len))?;
+                self.targets_len
+                    .assign(ctx, CommonRange::from(targets_len))?;
 
-                let effective_index = if index < targets_len {
-                    index
+                let effective_index = if *index < targets_len {
+                    *index
                 } else {
-                    targets.len() as u64 - 1
+                    targets.len() as u32 - 1
                 };
-                self.expect_index.assign(ctx, F::from(index))?;
-                self.effective_index.assign(ctx, F::from(effective_index))?;
-                self.out_of_bound.assign(ctx, index != effective_index)?;
+                self.expect_index.assign(ctx, CommonRange::from(*index))?;
+                self.effective_index
+                    .assign(ctx, CommonRange::from(effective_index))?;
+                self.out_of_bound.assign(ctx, *index != effective_index)?;
                 self.diff.assign(
                     ctx,
-                    if index < targets_len {
+                    (if *index < targets_len {
                         targets_len - index - 1
                     } else {
                         index - targets_len
-                    },
+                    }) as u64,
                 )?;
 
                 self.br_table_lookup.assign(

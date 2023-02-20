@@ -107,7 +107,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig {
                 self.cond_inv
                     .assign(ctx, F::from(*cond).invert().unwrap_or(F::zero()))?;
                 self.res.assign(ctx, *result)?;
-                self.vtype.assign(ctx, F::from(*vtype as u64))?;
+                self.vtype.assign(ctx, CommonRange::from(*vtype))?;
 
                 self.lookup_stack_read_cond.assign(
                     ctx,

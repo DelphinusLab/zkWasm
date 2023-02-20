@@ -407,14 +407,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
 
                 self.lhs_flag.assign(ctx, left_flag)?;
                 self.lhs_flag_helper
-                    .assign(ctx, F::from((left >> (shift - 4)) & 7))?;
-                self.lhs_flag_helper_diff
-                    .assign(ctx, F::from(7 - (left >> (shift - 4)) & 7))?;
+                    .assign(ctx, CommonRange::from(((left >> (shift - 4)) & 7) as u32))?;
+                self.lhs_flag_helper_diff.assign(
+                    ctx,
+                    CommonRange::from((7 - (left >> (shift - 4)) & 7) as u32),
+                )?;
                 self.rhs_flag.assign(ctx, right_flag)?;
                 self.rhs_flag_helper
-                    .assign(ctx, F::from((right >> (shift - 4)) & 7))?;
-                self.rhs_flag_helper_diff
-                    .assign(ctx, F::from(7 - (right >> (shift - 4)) & 7))?;
+                    .assign(ctx, CommonRange::from(((right >> (shift - 4)) & 7) as u32))?;
+                self.rhs_flag_helper_diff.assign(
+                    ctx,
+                    CommonRange::from((7 - (right >> (shift - 4)) & 7) as u32),
+                )?;
 
                 let mask = if shift == 32 {
                     u32::MAX as u64
@@ -429,13 +433,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig {
                 };
                 let d = normalized_lhs / normalized_rhs;
                 let rem = normalized_lhs % normalized_rhs;
-                let d_leading_u4 = (d >> (shift - 4)) as u16;
+                let d_leading_u4 = (d >> (shift - 4)) as u32;
                 self.d_flag_helper_diff.assign(
                     ctx,
                     if d_leading_u4 > 7 {
-                        F::from(0)
+                        CommonRange::from(0u32)
                     } else {
-                        F::from(7 - d_leading_u4 as u64)
+                        CommonRange::from(7 - d_leading_u4)
                     },
                 )?;
                 self.d.assign(ctx, d)?;

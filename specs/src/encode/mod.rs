@@ -3,8 +3,12 @@ use std::ops::{Add, Mul};
 use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
 use num_bigint::BigUint;
 
+pub mod br_table;
+pub mod frame_table;
+pub mod init_memory_table;
+pub mod instruction_table;
+pub mod memory_table;
 pub mod opcode;
-pub mod table;
 
 pub trait FromBn: Sized + Add<Self, Output = Self> + Mul<Self, Output = Self> {
     fn zero() -> Self;
@@ -27,7 +31,6 @@ fn bn_to_field<F: FieldExt>(bn: &BigUint) -> F {
     let mut bytes = &bytes[..];
     F::read(&mut bytes).unwrap()
 }
-
 
 impl<F: FieldExt> FromBn for Expression<F> {
     fn from_bn(bn: &BigUint) -> Self {

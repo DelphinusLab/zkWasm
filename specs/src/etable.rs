@@ -1,15 +1,15 @@
 use serde::Serialize;
 
-use crate::{host_function::HostPlugin, step::StepInfo};
+use crate::{host_function::HostPlugin, step::StepInfo, utils::common_range::CommonRange};
 
 use super::itable::InstructionTableEntry;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct EventTableEntry {
-    pub eid: u64,
-    pub sp: u64,
-    pub allocated_memory_pages: usize,
-    pub last_jump_eid: u64,
+    pub eid: CommonRange,
+    pub sp: CommonRange,
+    pub allocated_memory_pages: CommonRange,
+    pub last_jump_eid: CommonRange,
     pub inst: InstructionTableEntry,
     pub step_info: StepInfo,
 }

@@ -284,7 +284,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                         &MemoryTableLookupEncode::encode_stack_read(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(1 + i as u64),
-                            BigUint::from(step_info.current.sp + args.len() as u64 - i as u64),
+                            BigUint::from(step_info.current.sp + args.len() as u32 - i as u32),
                             BigUint::from(VarType::I32 as u64),
                             BigUint::from(*v),
                         ),
@@ -296,7 +296,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableSha256HelperTableConfig {
                     &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 + args.len() as u64),
-                        BigUint::from(step_info.current.sp + args.len() as u64),
+                        BigUint::from(step_info.current.sp + args.len() as u32),
                         BigUint::from(VarType::I32 as u64),
                         BigUint::from(ret_val.unwrap()),
                     ),

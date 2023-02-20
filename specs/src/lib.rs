@@ -28,6 +28,7 @@ pub mod jtable;
 pub mod mtable;
 pub mod step;
 pub mod types;
+pub mod utils;
 
 #[derive(Default, Serialize, Debug, Clone)]
 pub struct CompilationTable {

@@ -11,7 +11,7 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
-use specs::encode::table::encode_frame_table_entry;
+use specs::encode::frame_table::encode_frame_table_entry;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
 use specs::{
@@ -81,17 +81,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
                 ..
             } => {
                 assert!(keep.len() <= 1);
-                assert!(*drop < 1 << 16);
                 assert_eq!(keep.len(), keep_values.len());
 
-                self.drop.assign(ctx, F::from(*drop as u64))?;
+                self.drop.assign(ctx, *drop)?;
 
                 if keep_values.len() == 0 {
                     self.keep.assign(ctx, false)?;
                 } else {
                     let vtype = VarType::from(keep[0]);
                     self.keep.assign(ctx, true)?;
-                    self.vtype.assign(ctx, F::from(vtype as u64))?;
+                    self.vtype.assign(ctx, CommonRange::from(vtype))?;
                     self.value.assign(ctx, keep_values[0])?;
                     self.mtable_lookup_stack_read.assign(
                         ctx,
@@ -108,7 +107,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
                         &MemoryTableLookupEncode::encode_stack_write(
                             BigUint::from(entry.eid),
                             BigUint::from(2 as u64),
-                            BigUint::from(entry.sp + *drop as u64 + 1),
+                            BigUint::from(entry.sp + *drop + 1),
                             BigUint::from(vtype as u16),
                             BigUint::from(keep_values[0]),
                         ),

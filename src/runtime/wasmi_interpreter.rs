@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::runtime::memory_event_of_step;
 use anyhow::Result;
 use specs::{
-    host_function::HostFunctionDesc, jtable::StaticFrameEntry, mtable::MTable, CompilationTable,
-    ExecutionTable, Tables,
+    host_function::HostFunctionDesc, jtable::StaticFrameEntry, mtable::MTable,
+    utils::common_range::CommonRange, CompilationTable, ExecutionTable, Tables,
 };
 use wasmi::{Externals, ImportResolver, ModuleInstance, RuntimeValue};
 
@@ -34,7 +34,7 @@ impl Execution<RuntimeValue>
                     .etable
                     .entries()
                     .iter()
-                    .map(|eentry| memory_event_of_step(eentry, &mut 1))
+                    .map(|eentry| memory_event_of_step(eentry, &mut CommonRange::from(1u32)))
                     .collect::<Vec<Vec<_>>>()
                     .concat();
 
@@ -87,11 +87,11 @@ impl WasmiRuntime {
                     .borrow_mut()
                     .static_jtable_entries
                     .push(StaticFrameEntry {
-                        frame_id: 0,
-                        next_frame_id: 0,
-                        callee_fid: 0, // the fid of start function is always 0
-                        fid: idx_of_entry,
-                        iid: 0,
+                        frame_id: CommonRange::from(0u32),
+                        next_frame_id: CommonRange::from(0u32),
+                        callee_fid: CommonRange::from(0u32), // the fid of start function is always 0
+                        fid: CommonRange::from(idx_of_entry),
+                        iid: CommonRange::from(0u32),
                     });
             }
 
@@ -100,11 +100,11 @@ impl WasmiRuntime {
                 .borrow_mut()
                 .static_jtable_entries
                 .push(StaticFrameEntry {
-                    frame_id: 0,
-                    next_frame_id: 0,
-                    callee_fid: idx_of_entry,
-                    fid: 0,
-                    iid: 0,
+                    frame_id: CommonRange::from(0u32),
+                    next_frame_id: CommonRange::from(0u32),
+                    callee_fid: CommonRange::from(idx_of_entry),
+                    fid: CommonRange::from(0u32),
+                    iid: CommonRange::from(0u32),
                 });
         }
 

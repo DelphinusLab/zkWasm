@@ -58,7 +58,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemorySizeConfig {
                     &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp as u64),
+                        BigUint::from(step_info.current.sp),
                         BigUint::from(VarType::I32 as u16),
                         BigUint::from(step_info.current.allocated_memory_pages),
                     ),

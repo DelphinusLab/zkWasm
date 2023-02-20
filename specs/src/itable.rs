@@ -9,6 +9,7 @@ use crate::{
     host_function::HostPlugin,
     mtable::{MemoryReadSize, MemoryStoreSize},
     types::ValueType,
+    utils::common_range::{CommonRange, COMMON_RANGE_OFFSET},
 };
 use num_bigint::BigUint;
 use serde::Serialize;
@@ -167,9 +168,9 @@ pub enum ConversionOp {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct BrTarget {
-    pub drop: u32,
+    pub drop: CommonRange,
     pub keep: Vec<ValueType>,
-    pub dst_pc: u32,
+    pub dst_pc: CommonRange,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -248,7 +249,7 @@ pub enum Opcode {
     },
     Unreachable,
     Call {
-        index: u16,
+        index: u32,
     },
     CallIndirect {
         type_idx: u32,
@@ -299,8 +300,9 @@ impl Opcode {
     }
 }
 
-pub const OPCODE_CLASS_SHIFT: usize = 96;
-pub const OPCODE_ARG0_SHIFT: usize = 80;
+pub const OPCODE_BITS: u32 = OPCODE_CLASS_SHIFT as u32 + COMMON_RANGE_OFFSET;
+pub const OPCODE_CLASS_SHIFT: usize = OPCODE_ARG0_SHIFT + COMMON_RANGE_OFFSET as usize;
+pub const OPCODE_ARG0_SHIFT: usize = OPCODE_ARG1_SHIFT + COMMON_RANGE_OFFSET as usize;
 pub const OPCODE_ARG1_SHIFT: usize = 64;
 pub const OPCODE_CELL: usize = 4;
 
@@ -437,7 +439,9 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
             }
         };
-        assert!(bn < BigUint::from(1u64) << 128usize);
+
+        assert!(bn < BigUint::from(1u64) << OPCODE_BITS);
+
         bn
     }
 }
@@ -492,8 +496,8 @@ impl Into<OpcodeClassPlain> for Opcode {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct InstructionTableEntry {
-    pub fid: u16,
-    pub iid: u16,
+    pub fid: CommonRange,
+    pub iid: CommonRange,
     pub opcode: Opcode,
 }
 
@@ -501,15 +505,8 @@ impl InstructionTableEntry {
     pub fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
     }
-
-    pub fn encode_instruction_address(&self) -> BigUint {
-        let mut bn = BigUint::from(0u64);
-        bn += self.fid;
-        bn = bn << 16;
-        bn += self.iid;
-        bn
-    }
 }
+
 #[derive(Default, Serialize, Debug, Clone)]
 pub struct InstructionTable(Vec<InstructionTableEntry>);
 
@@ -533,10 +530,10 @@ impl InstructionTable {
                     .map(|(index, target)| BrTableEntry {
                         fid: entry.fid,
                         iid: entry.iid,
-                        index: index as u16,
-                        drop: target.drop as u16,
-                        keep: target.keep.len() as u16,
-                        dst_pc: target.dst_pc as u16,
+                        index: (index as u32).into(),
+                        drop: target.drop,
+                        keep: (target.keep.len() as u32).into(),
+                        dst_pc: target.dst_pc,
                     })
                     .collect(),
                 _ => vec![],
@@ -556,7 +553,7 @@ impl InstructionTable {
         opcodeclass
     }
 
-    pub fn push(&mut self, fid: u16, iid: u16, opcode: Opcode) {
+    pub fn push(&mut self, fid: CommonRange, iid: CommonRange, opcode: Opcode) {
         self.0.push(InstructionTableEntry { fid, iid, opcode })
     }
 }

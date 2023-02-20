@@ -53,7 +53,7 @@ pub struct RelConfig {
 }
 
 const REM_SHIFT: usize = 3usize;
-const REM_MASK: u64 = (1u64 << REM_SHIFT) - 1u64;
+const REM_MASK: u32 = (1u32 << REM_SHIFT) - 1;
 const I64_REM_SHIFT: usize = 60usize;
 const I32_REM_SHIFT: usize = 28usize;
 
@@ -366,20 +366,24 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig {
                 I32_REM_SHIFT
             };
             self.op_is_sign.assign(ctx, true)?;
-            let left_leading_u4: u64 = lhs >> shift;
-            let right_leading_u4: u64 = rhs >> shift;
+            let left_leading_u4: u32 = (lhs >> shift).try_into().unwrap();
+            let right_leading_u4: u32 = (rhs >> shift).try_into().unwrap();
             self.lhs_leading_bit
                 .assign(ctx, left_leading_u4 >> REM_SHIFT != 0)?;
             self.rhs_leading_bit
                 .assign(ctx, right_leading_u4 >> REM_SHIFT != 0)?;
             self.lhs_rem_value
-                .assign(ctx, F::from(left_leading_u4 & REM_MASK))?;
-            self.lhs_rem_diff
-                .assign(ctx, F::from((left_leading_u4 & REM_MASK) ^ REM_MASK))?;
+                .assign(ctx, CommonRange::from(left_leading_u4 & REM_MASK))?;
+            self.lhs_rem_diff.assign(
+                ctx,
+                CommonRange::from((left_leading_u4 & REM_MASK) ^ REM_MASK),
+            )?;
             self.rhs_rem_value
-                .assign(ctx, F::from(right_leading_u4 & REM_MASK))?;
-            self.rhs_rem_diff
-                .assign(ctx, F::from((right_leading_u4 & REM_MASK) ^ REM_MASK))?;
+                .assign(ctx, CommonRange::from(right_leading_u4 & REM_MASK))?;
+            self.rhs_rem_diff.assign(
+                ctx,
+                CommonRange::from((right_leading_u4 & REM_MASK) ^ REM_MASK),
+            )?;
         }
 
         self.lhs.assign(ctx, lhs)?;
@@ -528,7 +532,7 @@ mod tests {
                     "-0x100000002",
                     "0x100000001",
                     "0x100000002",
-                    "0x8000000000000000"
+                    "0x8000000000000000",
                 ],
             ),
         ];

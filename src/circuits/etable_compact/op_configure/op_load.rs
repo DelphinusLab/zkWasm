@@ -336,31 +336,31 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 block_value2,
             } => {
                 self.opcode_load_offset
-                    .assign(ctx, F::from(offset as u64))?;
+                    .assign(ctx, CommonRange::from(offset))?;
 
                 let len = load_size.byte_size();
-                let start_byte_index = effective_address as u64;
-                let end_byte_index = start_byte_index + len - 1;
+                let start_byte_index = effective_address;
+                let end_byte_index = start_byte_index.checked_add(len).unwrap() - 1;
 
                 self.load_start_block_index
-                    .assign(ctx, (start_byte_index / 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(start_byte_index / 8))?;
                 self.load_start_block_inner_offset
-                    .assign(ctx, (start_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(start_byte_index % 8))?;
                 self.load_start_block_inner_offset_helper
-                    .assign(ctx, (7 - start_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(7 - start_byte_index % 8))?;
 
                 self.load_end_block_index
-                    .assign(ctx, (end_byte_index / 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(end_byte_index / 8))?;
                 self.load_end_block_inner_offset
-                    .assign(ctx, (end_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(end_byte_index % 8))?;
                 self.load_end_block_inner_offset_helper
-                    .assign(ctx, (7 - end_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(7 - end_byte_index % 8))?;
 
                 self.load_value1.assign(ctx, block_value1)?;
                 self.load_value2.assign(ctx, block_value2)?;
 
                 let offset = start_byte_index % 8;
-                let bits = bits_of_offset_len(offset, len);
+                let bits = bits_of_offset_len(offset as u64, len as u64);
                 for i in 0..16 {
                     self.mask_bits[i].assign(ctx, (bits >> i) & 1 == 1)?;
                 }
@@ -382,7 +382,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
 
                 for i in 0..4 {
                     self.highest_u4[i]
-                        .assign(ctx, (value_in_heap >> 8 * len - i as u64 - 1) & 1 == 1)?;
+                        .assign(ctx, (value_in_heap >> 8 * len - i as u32 - 1) & 1 == 1)?;
                 }
 
                 self.is_one_byte.assign(ctx, len == 1)?;
@@ -391,7 +391,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                 self.is_eight_bytes.assign(ctx, len == 8)?;
                 self.is_sign.assign(ctx, load_size.is_sign())?;
                 self.is_i64.assign(ctx, vtype == VarType::I64)?;
-                self.vtype.assign(ctx, F::from(vtype as u64))?;
+                self.vtype.assign(ctx, CommonRange::from(vtype))?;
 
                 self.lookup_stack_read.assign(
                     ctx,
@@ -432,7 +432,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
                     ctx,
                     &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
-                        BigUint::from(3 + (offset + len - 1) / 8 as u64),
+                        BigUint::from(3 + (offset + len - 1) / 8),
                         BigUint::from(step_info.current.sp + 1),
                         BigUint::from(vtype as u16),
                         BigUint::from(value),
@@ -441,14 +441,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig {
 
                 self.address_within_allocated_pages_helper.assign(
                     ctx,
-                    F::from(
-                        step_info.current.allocated_memory_pages as u64 * WASM_PAGE_SIZE
-                            - (effective_address as u64 + len),
+                    CommonRange::from(
+                        *step_info.current.allocated_memory_pages * WASM_PAGE_SIZE
+                            - (effective_address + len),
                     ),
                 )?;
 
-                self.lookup_offset_len_bits.assign(ctx, offset, len)?;
-                self.lookup_pow.assign(ctx, offset * 8)?;
+                self.lookup_offset_len_bits
+                    .assign(ctx, offset as u64, len as u64)?;
+                self.lookup_pow.assign(ctx, offset as u64 * 8)?;
 
                 Ok(())
             }

@@ -1,11 +1,14 @@
-use crate::mtable::{LocationType, VarType};
+use crate::{
+    mtable::{LocationType, VarType},
+    utils::common_range::CommonRange,
+};
 use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct InitMemoryTableEntry {
     pub ltype: LocationType,
     pub is_mutable: bool,
-    pub offset: u64,
+    pub offset: CommonRange,
     pub vtype: VarType,
     /// convert from [u8; 8] via u64::from_le_bytes
     pub value: u64,
@@ -29,7 +32,7 @@ impl InitMemoryTable {
         serde_json::to_string(&self.0).unwrap()
     }
 
-    pub fn try_find(&self, ltype: LocationType, offset: u64) -> Option<u64> {
+    pub fn try_find(&self, ltype: LocationType, offset: CommonRange) -> Option<u64> {
         for entry in self.0.iter() {
             if entry.ltype == ltype && entry.offset == offset {
                 return Some(entry.value);
@@ -47,7 +50,9 @@ impl InitMemoryTable {
         self.0.iter().filter(|e| e.ltype == ltype).collect()
     }
 
-    pub fn first_consecutive_zero_memory(&self) -> u64 {
-        self.0.last().map_or(0, |entry| entry.offset + 1)
+    pub fn first_consecutive_zero_memory(&self) -> CommonRange {
+        self.0
+            .last()
+            .map_or(CommonRange::from(0u32), |entry| entry.offset + 1)
     }
 }

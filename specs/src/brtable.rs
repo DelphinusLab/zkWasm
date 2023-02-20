@@ -2,14 +2,16 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use crate::utils::common_range::CommonRange;
+
 #[derive(Serialize, Debug, Clone)]
 pub struct BrTableEntry {
-    pub fid: u16,
-    pub iid: u16,
-    pub index: u16,
-    pub drop: u16,
-    pub keep: u16,
-    pub dst_pc: u16,
+    pub fid: CommonRange,
+    pub iid: CommonRange,
+    pub index: CommonRange,
+    pub drop: CommonRange,
+    pub keep: CommonRange,
+    pub dst_pc: CommonRange,
 }
 
 #[derive(Debug)]
@@ -27,14 +29,14 @@ impl BrTable {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct ElemEntry {
-    pub table_idx: u32,
-    pub type_idx: u32,
-    pub offset: u32,
-    pub func_idx: u32,
+    pub table_idx: CommonRange,
+    pub type_idx: CommonRange,
+    pub offset: CommonRange,
+    pub func_idx: CommonRange,
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
-pub struct ElemTable(BTreeMap<(u32, u32), ElemEntry>);
+pub struct ElemTable(BTreeMap<(CommonRange, CommonRange), ElemEntry>);
 
 impl ElemTable {
     pub fn insert(&mut self, entry: ElemEntry) {

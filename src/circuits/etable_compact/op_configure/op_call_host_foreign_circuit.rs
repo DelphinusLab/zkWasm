@@ -77,14 +77,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig {
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::ExternalHostCall { op, value, sig } => {
-                self.op.assign(ctx, F::from(*op as u64))?;
+                self.op.assign(ctx, *op)?;
                 self.value.assign(ctx, value.unwrap())?;
                 self.value_is_ret.assign(ctx, sig.is_ret())?;
                 self.external_host_call_lookup.assign(
                     ctx,
                     &encode_host_call_entry(
                         BigUint::from(step_info.current_external_host_call_index),
-                        BigUint::from(*op as u64),
+                        BigUint::from(*op),
                         BigUint::from(sig.is_ret() as u64),
                         BigUint::from(value.unwrap()),
                     ),

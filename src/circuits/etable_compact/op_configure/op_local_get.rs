@@ -68,16 +68,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
                 depth,
                 value,
             } => {
-                self.vtype.assign(ctx, F::from(*vtype as u64))?;
+                self.vtype.assign(ctx, CommonRange::from(*vtype))?;
                 self.value.assign(ctx, *value)?;
-                self.offset.assign(ctx, F::from(*depth as u64))?;
+                self.offset.assign(ctx, *depth)?;
 
                 self.lookup_stack_read.assign(
                     ctx,
                     &MemoryTableLookupEncode::encode_stack_read(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp + *depth as u64),
+                        BigUint::from(step_info.current.sp + *depth),
                         BigUint::from(*vtype as u16),
                         BigUint::from(*value),
                     ),

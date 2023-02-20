@@ -314,7 +314,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                         left,
                         right,
                         value,
-                        power,
+                        power as u32,
                         is_eight_bytes,
                         is_sign,
                     )
@@ -340,7 +340,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                         left,
                         right,
                         value,
-                        power,
+                        power as u32,
                         is_eight_bytes,
                         is_sign,
                     )
@@ -351,7 +351,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
                 }
             };
 
-        let size = if is_eight_bytes { 64 } else { 32 };
+        let size: u32 = if is_eight_bytes { 64 } else { 32 };
         let size_mask = if is_eight_bytes {
             u64::MAX
         } else {
@@ -359,18 +359,21 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig {
         };
 
         self.lhs.assign(ctx, left)?;
-        let flag_u4 = (left >> (size - 4)) as u64;
+        let flag_u4: u32 = (left >> (size - 4)).try_into().unwrap();
         let flag_bit = flag_u4 >> 3;
         self.flag_bit.assign(ctx, flag_bit == 1)?;
-        self.flag_u4_rem.assign(ctx, F::from(flag_u4 & 7))?;
+        self.flag_u4_rem
+            .assign(ctx, CommonRange::from(flag_u4 & 7))?;
         self.flag_u4_rem_diff
-            .assign(ctx, F::from(7 - (flag_u4 & 7)))?;
+            .assign(ctx, CommonRange::from(7 - (flag_u4 & 7)))?;
         self.rhs.assign(ctx, right)?;
-        self.rhs_round.assign(ctx, F::from((right & 0xff) / size))?;
-        self.rhs_rem.assign(ctx, F::from(power))?;
-        self.rhs_rem_diff.assign(ctx, F::from(size - 1 - power))?;
+        self.rhs_round
+            .assign(ctx, CommonRange::from((right & 0xff) as u32 / size))?;
+        self.rhs_rem.assign(ctx, CommonRange::from(power))?;
+        self.rhs_rem_diff
+            .assign(ctx, CommonRange::from(size - 1 - power))?;
         self.modulus.assign(ctx, 1 << power)?;
-        self.lookup_pow.assign(ctx, power)?;
+        self.lookup_pow.assign(ctx, power as u64)?;
         self.is_eight_bytes.assign(ctx, is_eight_bytes)?;
         self.res.assign(ctx, F::from(value))?;
 

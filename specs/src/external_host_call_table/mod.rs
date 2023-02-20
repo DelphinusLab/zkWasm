@@ -1,6 +1,6 @@
 use serde::{ser::SerializeStruct, Serialize};
 
-use crate::{host_function::Signature, types::ValueType};
+use crate::{host_function::Signature, types::ValueType, utils::common_range::CommonRange};
 
 pub mod encode;
 mod table;
@@ -33,7 +33,7 @@ impl Into<Signature> for ExternalHostCallSignature {
 }
 
 pub struct ExternalHostCallEntry {
-    pub op: usize,
+    pub op: CommonRange,
     pub value: u64,
     pub sig: ExternalHostCallSignature,
 }

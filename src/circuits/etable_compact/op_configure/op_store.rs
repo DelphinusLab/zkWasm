@@ -367,26 +367,26 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 value,
             } => {
                 self.opcode_store_offset
-                    .assign(ctx, F::from(offset as u64))?;
+                    .assign(ctx, CommonRange::from(offset))?;
 
                 let len = store_size.byte_size();
 
-                let start_byte_index = effective_address as u64;
-                let end_byte_index = start_byte_index + len - 1;
+                let start_byte_index = effective_address;
+                let end_byte_index = start_byte_index.checked_add(len).unwrap() - 1;
 
                 self.store_start_block_index
-                    .assign(ctx, (start_byte_index / 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(start_byte_index / 8))?;
                 self.store_start_block_inner_offset
-                    .assign(ctx, (start_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(start_byte_index % 8))?;
                 self.store_start_block_inner_offset_helper
-                    .assign(ctx, (7 - start_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(7 - start_byte_index % 8))?;
 
                 self.store_end_block_index
-                    .assign(ctx, (end_byte_index / 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(end_byte_index / 8))?;
                 self.store_end_block_inner_offset
-                    .assign(ctx, (end_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(end_byte_index % 8))?;
                 self.store_end_block_inner_offset_helper
-                    .assign(ctx, (7 - end_byte_index % 8).try_into().unwrap())?;
+                    .assign(ctx, CommonRange::from(7 - end_byte_index % 8))?;
 
                 self.load_value1.assign(ctx, pre_block_value1)?;
                 self.store_value1.assign(ctx, updated_block_value1)?;
@@ -394,7 +394,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 self.store_value2.assign(ctx, updated_block_value2)?;
 
                 let offset = start_byte_index % 8;
-                let bits = bits_of_offset_len(offset, len);
+                let bits = bits_of_offset_len(offset as u64, len as u64);
                 for i in 0..16 {
                     self.mask_bits[i].assign(ctx, (bits >> i) & 1 == 1)?;
                 }
@@ -414,7 +414,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
                 self.is_two_bytes.assign(ctx, len == 2)?;
                 self.is_four_bytes.assign(ctx, len == 4)?;
                 self.is_eight_bytes.assign(ctx, len == 8)?;
-                self.vtype.assign(ctx, F::from(vtype as u64))?;
+                self.vtype.assign(ctx, CommonRange::from(vtype))?;
 
                 self.lookup_stack_read_val.assign(
                     ctx,
@@ -486,14 +486,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig {
 
                 self.address_within_allocated_pages_helper.assign(
                     ctx,
-                    F::from(
-                        step_info.current.allocated_memory_pages as u64 * WASM_PAGE_SIZE
-                            - (effective_address as u64 + len),
+                    CommonRange::from(
+                        *step_info.current.allocated_memory_pages * WASM_PAGE_SIZE
+                            - (effective_address + len),
                     ),
                 )?;
 
-                self.lookup_offset_len_bits.assign(ctx, offset, len)?;
-                self.lookup_pow.assign(ctx, offset * 8)?;
+                self.lookup_offset_len_bits
+                    .assign(ctx, offset as u64, len as u64)?;
+                self.lookup_pow.assign(ctx, offset as u64 * 8)?;
 
                 Ok(())
             }

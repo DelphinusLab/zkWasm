@@ -4,40 +4,41 @@ use crate::{
     itable::{BinOp, BitOp, RelOp, ShiftOp, UnaryOp},
     mtable::{MemoryReadSize, MemoryStoreSize, VarType},
     types::ValueType,
+    utils::common_range::CommonRange,
 };
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 pub enum StepInfo {
     Br {
-        dst_pc: u32,
-        drop: u32,
+        dst_pc: CommonRange,
+        drop: CommonRange,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
     },
     BrIfEqz {
         condition: i32,
-        dst_pc: u32,
-        drop: u32,
+        dst_pc: CommonRange,
+        drop: CommonRange,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
     },
     BrIfNez {
         condition: i32,
-        dst_pc: u32,
-        drop: u32,
+        dst_pc: CommonRange,
+        drop: CommonRange,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
     },
     BrTable {
-        index: i32,
-        dst_pc: u32,
-        drop: u32,
+        index: u32,
+        dst_pc: CommonRange,
+        drop: CommonRange,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
     },
     Return {
-        drop: u32,
+        drop: CommonRange,
         keep: Vec<ValueType>,
         drop_values: Vec<u64>,
         keep_values: Vec<u64>,
@@ -53,13 +54,13 @@ pub enum StepInfo {
     },
 
     Call {
-        index: u16,
+        index: CommonRange,
     },
     CallIndirect {
-        table_index: u32,
-        type_index: u32,
+        table_index: CommonRange,
+        type_index: CommonRange,
         offset: u32,
-        func_index: u16,
+        func_index: CommonRange,
     },
     CallHost {
         plugin: HostPlugin,
@@ -71,35 +72,35 @@ pub enum StepInfo {
         op_index_in_plugin: usize,
     },
     ExternalHostCall {
-        op: usize,
+        op: CommonRange,
         value: Option<u64>,
         sig: ExternalHostCallSignature,
     },
 
     GetLocal {
         vtype: VarType,
-        depth: u32,
+        depth: CommonRange,
         value: u64,
     },
     SetLocal {
         vtype: VarType,
-        depth: u32,
+        depth: CommonRange,
         value: u64,
     },
     TeeLocal {
         vtype: VarType,
-        depth: u32,
+        depth: CommonRange,
         value: u64,
     },
 
     GetGlobal {
-        idx: u32,
+        idx: CommonRange,
         vtype: VarType,
         is_mutable: bool,
         value: u64,
     },
     SetGlobal {
-        idx: u32,
+        idx: CommonRange,
         vtype: VarType,
         is_mutable: bool,
         value: u64,

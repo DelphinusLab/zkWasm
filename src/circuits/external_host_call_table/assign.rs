@@ -60,7 +60,7 @@ impl<F: FieldExt> ExternalHostCallChip<F> {
                             || "external host call op",
                             self.config.op,
                             offset,
-                            || Ok(F::from(entry.op as u64)),
+                            || Ok(F::from(*entry.op as u64)),
                         )?;
 
                         region.assign_advice(
