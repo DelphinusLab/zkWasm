@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+use std::{collections::BTreeMap, marker::PhantomData};
 
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -15,15 +15,20 @@ use crate::{
 
 use super::ESTEP_SIZE;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(super) struct AllocatedCell<F: FieldExt> {
     pub(super) col: Column<Advice>,
     pub(super) rot: i32,
     _mark: PhantomData<F>,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(super) struct AllocatedBitCell<F: FieldExt>(pub(super) AllocatedCell<F>);
+
+#[derive(Debug, Clone, Copy)]
 pub(super) struct AllocatedCommonRangeCell<F: FieldExt>(pub(super) AllocatedCell<F>);
+
+#[derive(Debug, Clone, Copy)]
 pub(super) struct AllocatedU16Cell<F: FieldExt>(pub(super) AllocatedCell<F>);
 
 pub(super) trait CellExpression<F: FieldExt> {
@@ -74,23 +79,25 @@ impl<F: FieldExt> CellExpression<F> for AllocatedCommonRangeCell<F> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum ETableCellType {
     Bit = 1,
     U16,
     CommonRange,
     Unlimited,
+    MTableLookup,
 }
 
 const BIT_COLUMNS: usize = 5;
 const U16_COLUMNS: usize = 2;
 const COMMON_RANGE_COLUMNS: usize = 3;
 const UNLIMITED_COLUMNS: usize = 2;
+const MTABLE_LOOKUP_COLUMNS: usize = 1;
 
 #[derive(Debug, Clone)]
 pub(super) struct CellAllocator<F: FieldExt> {
-    free_cells: HashMap<ETableCellType, (usize, u32)>,
-    all_cols: HashMap<ETableCellType, Vec<Column<Advice>>>,
+    free_cells: BTreeMap<ETableCellType, (usize, u32)>,
+    all_cols: BTreeMap<ETableCellType, Vec<Column<Advice>>>,
     _mark: PhantomData<F>,
 }
 
@@ -106,7 +113,7 @@ impl<F: FieldExt> CellAllocator<F> {
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut all_cols = HashMap::new();
+        let mut all_cols = BTreeMap::new();
         all_cols.insert(
             ETableCellType::Bit,
             [0; BIT_COLUMNS]
@@ -137,15 +144,23 @@ impl<F: FieldExt> CellAllocator<F> {
                 .into_iter()
                 .collect(),
         );
+        all_cols.insert(
+            ETableCellType::MTableLookup,
+            [0; MTABLE_LOOKUP_COLUMNS]
+                .map(|_| cols.next().unwrap())
+                .into_iter()
+                .collect(),
+        );
 
         Self {
             all_cols,
-            free_cells: HashMap::from_iter(
+            free_cells: BTreeMap::from_iter(
                 vec![
                     (ETableCellType::Bit, (0, 0)),
                     (ETableCellType::U16, (0, 0)),
                     (ETableCellType::CommonRange, (0, 0)),
                     (ETableCellType::Unlimited, (0, 0)),
+                    (ETableCellType::MTableLookup, (0, 0)),
                 ]
                 .into_iter(),
             ),
