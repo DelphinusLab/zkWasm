@@ -4,12 +4,10 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 
-pub mod bitvalue;
-pub mod bytes8;
+pub mod bit;
+pub mod common_range;
 pub mod row_diff;
 pub mod u16;
-pub mod u32;
-pub mod u64;
 pub mod u8;
 
 pub struct Context<'a, F: FieldExt> {

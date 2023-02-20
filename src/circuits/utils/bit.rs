@@ -1,5 +1,5 @@
 use super::Context;
-use crate::{circuits::rtable::RangeTableConfig, curr};
+use crate::curr;
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
@@ -7,21 +7,22 @@ use halo2_proofs::{
 use std::marker::PhantomData;
 
 #[derive(Clone)]
-pub struct U16Column<F: FieldExt> {
+pub struct BitColumn<F: FieldExt> {
     pub col: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
-impl<F: FieldExt> U16Column<F> {
+impl<F: FieldExt> BitColumn<F> {
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
-        rtable: &RangeTableConfig<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> Self {
         let col = cols.next().unwrap();
 
-        rtable.configure_in_u8_range(meta, "u16", |meta| curr!(meta, col) * enable(meta));
+        meta.create_gate("bit column", |meta| {
+            vec![curr!(meta, col.clone()) * enable(meta)]
+        });
 
         Self {
             col,
@@ -29,9 +30,13 @@ impl<F: FieldExt> U16Column<F> {
         }
     }
 
-    pub fn assign(&self, ctx: &mut Context<F>, value: u64) -> Result<(), Error> {
-        ctx.region
-            .assign_advice(|| "u16 value", self.col, ctx.offset, || Ok(value.into()))?;
+    pub fn assign(&self, ctx: &mut Context<F>, value: bool) -> Result<(), Error> {
+        ctx.region.assign_advice(
+            || "bit value",
+            self.col,
+            ctx.offset,
+            || Ok(if value { F::one() } else { F::zero() }),
+        )?;
 
         Ok(())
     }
