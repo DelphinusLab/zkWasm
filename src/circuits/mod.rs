@@ -49,16 +49,18 @@ use std::{
     path::PathBuf,
 };
 
+mod etable_v2;
+mod external_host_call_table;
+mod traits;
+
 pub mod brtable;
 pub mod config;
 pub mod etable_compact;
-mod external_host_call_table;
 pub mod imtable;
 pub mod itable;
 pub mod jtable;
 pub mod mtable_compact;
 pub mod rtable;
-mod traits;
 pub mod utils;
 
 #[derive(Clone)]
