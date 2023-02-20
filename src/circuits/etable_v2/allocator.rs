@@ -31,6 +31,9 @@ pub(super) struct AllocatedCommonRangeCell<F: FieldExt>(pub(super) AllocatedCell
 #[derive(Debug, Clone, Copy)]
 pub(super) struct AllocatedU16Cell<F: FieldExt>(pub(super) AllocatedCell<F>);
 
+#[derive(Debug, Clone, Copy)]
+pub(super) struct AllocatedUnlimitedCell<F: FieldExt>(pub(super) AllocatedCell<F>);
+
 pub(super) trait CellExpression<F: FieldExt> {
     fn curr_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn next_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
@@ -66,6 +69,20 @@ impl<F: FieldExt> CellExpression<F> for AllocatedBitCell<F> {
 }
 
 impl<F: FieldExt> CellExpression<F> for AllocatedCommonRangeCell<F> {
+    fn curr_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.curr_expr(meta)
+    }
+
+    fn next_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.next_expr(meta)
+    }
+
+    fn prev_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.prev_expr(meta)
+    }
+}
+
+impl<F: FieldExt> CellExpression<F> for AllocatedUnlimitedCell<F> {
     fn curr_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         self.0.curr_expr(meta)
     }
@@ -168,13 +185,13 @@ impl<F: FieldExt> CellAllocator<F> {
         }
     }
 
-    fn alloc(&mut self, t: &ETableCellType) -> AllocatedBitCell<F> {
+    fn alloc(&mut self, t: &ETableCellType) -> AllocatedCell<F> {
         let v = self.free_cells.get_mut(t).unwrap();
-        let res = AllocatedBitCell(AllocatedCell {
+        let res = AllocatedCell {
             col: self.all_cols.get(t).unwrap()[v.0],
             rot: v.1 as i32,
             _mark: PhantomData,
-        });
+        };
 
         assert!(v.0 < BIT_COLUMNS);
 
@@ -188,18 +205,18 @@ impl<F: FieldExt> CellAllocator<F> {
     }
 
     pub(super) fn alloc_bit_cell(&mut self) -> AllocatedBitCell<F> {
-        self.alloc(&ETableCellType::Bit)
+        AllocatedBitCell(self.alloc(&ETableCellType::Bit))
     }
 
-    pub(super) fn alloc_common_range_cell(&mut self) -> AllocatedBitCell<F> {
-        self.alloc(&ETableCellType::CommonRange)
+    pub(super) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
+        AllocatedCommonRangeCell(self.alloc(&ETableCellType::CommonRange))
     }
 
-    pub(super) fn alloc_u16_cell(&mut self) -> AllocatedBitCell<F> {
-        self.alloc(&ETableCellType::U16)
+    pub(super) fn alloc_u16_cell(&mut self) -> AllocatedU16Cell<F> {
+        AllocatedU16Cell(self.alloc(&ETableCellType::U16))
     }
 
-    pub(super) fn alloc_unlimited_cell(&mut self) -> AllocatedBitCell<F> {
-        self.alloc(&ETableCellType::Unlimited)
+    pub(super) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
+        AllocatedUnlimitedCell(self.alloc(&ETableCellType::Unlimited))
     }
 }
