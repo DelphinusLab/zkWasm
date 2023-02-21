@@ -49,8 +49,10 @@ use std::{
     path::PathBuf,
 };
 
+mod cell;
 mod etable_v2;
 mod external_host_call_table;
+mod mtable_v2;
 mod traits;
 
 pub mod brtable;

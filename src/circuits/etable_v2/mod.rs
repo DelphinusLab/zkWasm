@@ -1,6 +1,6 @@
 use self::allocator::*;
 use super::{
-    brtable::BrTableConfig, itable::InstructionTableConfig, jtable::JumpTableConfig,
+    brtable::BrTableConfig, cell::*, itable::InstructionTableConfig, jtable::JumpTableConfig,
     mtable_compact::MemoryTableConfig, rtable::RangeTableConfig, traits::ConfigureLookupTable,
     utils::Context, CircuitConfigure, Lookup,
 };
@@ -157,7 +157,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     }
 }
 
-pub struct ETableConfig<F: FieldExt> {
+pub struct EventTableConfig<F: FieldExt> {
     pub sel: Column<Fixed>,
     pub step_sel: Column<Fixed>,
     pub common_config: EventTableCommonConfig<F>,
@@ -165,7 +165,7 @@ pub struct ETableConfig<F: FieldExt> {
     op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
 }
 
-impl<F: FieldExt> ETableConfig<F> {
+impl<F: FieldExt> EventTableConfig<F> {
     pub(crate) fn configure(
         meta: &mut ConstraintSystem<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
@@ -176,12 +176,12 @@ impl<F: FieldExt> ETableConfig<F> {
         jtable: &JumpTableConfig<F>,
         brtable: &BrTableConfig<F>,
         _opcode_set: &HashSet<OpcodeClassPlain>,
-    ) -> ETableConfig<F> {
+    ) -> EventTableConfig<F> {
         let sel = meta.fixed_column();
         let step_sel = meta.fixed_column();
 
         let mut allocator = EventTableCellAllocator::new(meta, rtable, mtable, cols);
-        allocator.enable_equality(meta, &ETableCellType::CommonRange);
+        allocator.enable_equality(meta, &EventTableCellType::CommonRange);
 
         let lvl1_bits = [0; OP_LVL1_BITS].map(|_| allocator.alloc_bit_cell());
         let lvl2_bits = [0; OP_LVL2_BITS].map(|_| allocator.alloc_bit_cell());

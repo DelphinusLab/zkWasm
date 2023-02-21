@@ -13,6 +13,7 @@ use specs::{
 
 use crate::{
     circuits::{
+        cell::*,
         etable_v2::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder, StepStatus,
