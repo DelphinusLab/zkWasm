@@ -27,7 +27,7 @@ pub enum HostFunctionDesc {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HostPlugin {
     HostInput = 0,
     Sha256,

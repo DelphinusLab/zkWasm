@@ -9,6 +9,8 @@ pub mod foreign;
 pub mod runtime;
 pub mod traits;
 
+mod profile;
+
 #[cfg(test)]
 pub mod test;
 
