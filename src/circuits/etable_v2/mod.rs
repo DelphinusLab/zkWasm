@@ -9,7 +9,10 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
 };
-use specs::{configure_table::ConfigureTable, etable::EventTableEntry, itable::OpcodeClassPlain};
+use specs::{
+    configure_table::ConfigureTable, encode::instruction_table::encode_instruction_table_entry,
+    etable::EventTableEntry, itable::OpcodeClassPlain,
+};
 use std::{
     collections::{BTreeMap, HashSet},
     rc::Rc,
@@ -387,7 +390,10 @@ impl<F: FieldExt> ETableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| Some(config.opcode(meta)),
             );
-            vec![opcode + todo!()]
+            vec![
+                encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
+                    * fixed_curr!(meta, step_sel),
+            ]
         });
 
         jtable.configure_in_table(meta, "c8a. itable_lookup in itable", |meta| {
