@@ -100,7 +100,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         mtable: &MTable,
         etable_rest_mops_cell: Option<Cell>,
-        consecutive_zero_offset: u64,
+        consecutive_zero_offset: u32,
     ) -> Result<(), Error> {
         assert_eq!(mtable_rows() % (STEP_SIZE as usize), 0);
 
@@ -289,7 +289,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                         "lazy init helper",
                         RotationOfAuxColumn::RangeInLazyInitDiff,
                         aux,
-                        F::from(entry.offset - consecutive_zero_offset)
+                        F::from((entry.offset - consecutive_zero_offset) as u64)
                     );
 
                     assign_advice!(

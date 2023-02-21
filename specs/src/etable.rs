@@ -6,10 +6,10 @@ use super::itable::InstructionTableEntry;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct EventTableEntry {
-    pub eid: u64,
-    pub sp: u64,
-    pub allocated_memory_pages: usize,
-    pub last_jump_eid: u64,
+    pub eid: u32,
+    pub sp: u32,
+    pub allocated_memory_pages: u32,
+    pub last_jump_eid: u32,
     pub inst: InstructionTableEntry,
     pub step_info: StepInfo,
 }

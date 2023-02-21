@@ -61,16 +61,11 @@ pub mod rtable;
 mod traits;
 pub mod utils;
 
-pub(crate) trait FromBn {
-    fn zero() -> Self;
-    fn from_bn(bn: &BigUint) -> Self;
-}
-
 #[derive(Clone)]
 pub struct CircuitConfigure {
-    pub initial_memory_pages: u64,
-    pub maximal_memory_pages: u64,
-    pub first_consecutive_zero_memory_offset: u64,
+    pub initial_memory_pages: u32,
+    pub maximal_memory_pages: u32,
+    pub first_consecutive_zero_memory_offset: u32,
     pub opcode_selector: BTreeSet<OpcodeClassPlain>,
 }
 
@@ -105,12 +100,11 @@ impl<F: FieldExt> TestCircuit<F> {
                     .compilation_tables
                     .imtable
                     .first_consecutive_zero_memory(),
-                initial_memory_pages: tables.compilation_tables.configure_table.init_memory_pages
-                    as u64,
+                initial_memory_pages: tables.compilation_tables.configure_table.init_memory_pages,
                 maximal_memory_pages: tables
                     .compilation_tables
                     .configure_table
-                    .maximal_memory_pages as u64,
+                    .maximal_memory_pages,
                 opcode_selector: tables.compilation_tables.itable.opcode_class(),
             });
         }

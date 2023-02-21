@@ -1,30 +1,14 @@
-use super::{config::IMTABLE_COLOMNS, utils::bn_to_field, Encode};
+use super::{config::IMTABLE_COLOMNS, utils::bn_to_field};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
     plonk::{ConstraintSystem, Error, Expression, TableColumn, VirtualCells},
 };
-use num_bigint::BigUint;
-use num_traits::{One, Zero};
 use specs::{
-    imtable::{InitMemoryTable, InitMemoryTableEntry},
+    encode::init_memory_table::encode_init_memory_table_entry, imtable::InitMemoryTable,
     mtable::LocationType,
 };
 use std::marker::PhantomData;
-
-impl Encode for InitMemoryTableEntry {
-    fn encode(&self) -> BigUint {
-        let mut bn = BigUint::zero();
-        bn += self.ltype as u64;
-        bn <<= 16;
-        bn += if self.is_mutable { 1u64 } else { 0u64 };
-        bn <<= 16;
-        bn += self.offset;
-        bn <<= 64;
-        bn += self.value;
-        bn
-    }
-}
 
 #[derive(Clone)]
 pub struct InitMemoryTableConfig<F: FieldExt> {
@@ -47,10 +31,7 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
         offset: Expression<F>,
         value: Expression<F>,
     ) -> Expression<F> {
-        ltype * Expression::Constant(bn_to_field(&(BigUint::one() << 96)))
-            + is_mutable * Expression::Constant(bn_to_field(&(BigUint::one() << 80)))
-            + offset * Expression::Constant(bn_to_field(&(BigUint::one() << 64)))
-            + value
+        encode_init_memory_table_entry(ltype, is_mutable, offset, value)
     }
 
     pub fn configure_in_table(

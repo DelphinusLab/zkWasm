@@ -1,9 +1,12 @@
 use super::mtable::VarType;
 use crate::{
     brtable::{BrTable, BrTableEntry},
-    encode::opcode::{
-        encode_br_if_eqz, encode_br_table, encode_call, encode_call_host, encode_call_indirect,
-        encode_global_get, encode_global_set,
+    encode::{
+        opcode::{
+            encode_br_if_eqz, encode_br_table, encode_call, encode_call_host, encode_call_indirect,
+            encode_global_get, encode_global_set,
+        },
+        COMMON_RANGE_OFFSET,
     },
     external_host_call_table::ExternalHostCallSignature,
     host_function::HostPlugin,
@@ -248,7 +251,7 @@ pub enum Opcode {
     },
     Unreachable,
     Call {
-        index: u16,
+        index: u32,
     },
     CallIndirect {
         type_idx: u32,
@@ -299,9 +302,10 @@ impl Opcode {
     }
 }
 
-pub const OPCODE_CLASS_SHIFT: usize = 96;
-pub const OPCODE_ARG0_SHIFT: usize = 80;
-pub const OPCODE_ARG1_SHIFT: usize = 64;
+pub const OPCODE_SHIFT: u32 = OPCODE_CLASS_SHIFT + 16;
+pub const OPCODE_CLASS_SHIFT: u32 = OPCODE_ARG0_SHIFT + COMMON_RANGE_OFFSET;
+pub const OPCODE_ARG0_SHIFT: u32 = OPCODE_ARG1_SHIFT + COMMON_RANGE_OFFSET;
+pub const OPCODE_ARG1_SHIFT: u32 = 64;
 pub const OPCODE_CELL: usize = 4;
 
 impl Into<BigUint> for Opcode {
@@ -437,7 +441,7 @@ impl Into<BigUint> for Opcode {
                     + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
             }
         };
-        assert!(bn < BigUint::from(1u64) << 128usize);
+        assert!(bn < BigUint::from(1u64) << OPCODE_SHIFT);
         bn
     }
 }
@@ -492,8 +496,8 @@ impl Into<OpcodeClassPlain> for Opcode {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct InstructionTableEntry {
-    pub fid: u16,
-    pub iid: u16,
+    pub fid: u32,
+    pub iid: u32,
     pub opcode: Opcode,
 }
 
@@ -533,10 +537,10 @@ impl InstructionTable {
                     .map(|(index, target)| BrTableEntry {
                         fid: entry.fid,
                         iid: entry.iid,
-                        index: index as u16,
-                        drop: target.drop as u16,
-                        keep: target.keep.len() as u16,
-                        dst_pc: target.dst_pc as u16,
+                        index: index as u32,
+                        drop: target.drop,
+                        keep: target.keep.len() as u32,
+                        dst_pc: target.dst_pc,
                     })
                     .collect(),
                 _ => vec![],
@@ -556,7 +560,7 @@ impl InstructionTable {
         opcodeclass
     }
 
-    pub fn push(&mut self, fid: u16, iid: u16, opcode: Opcode) {
+    pub fn push(&mut self, fid: u32, iid: u32, opcode: Opcode) {
         self.0.push(InstructionTableEntry { fid, iid, opcode })
     }
 }

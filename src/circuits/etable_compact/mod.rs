@@ -17,7 +17,6 @@ use crate::circuits::{
         op_store::StoreConfigBuilder, op_test::TestConfigBuilder, op_unary::UnaryConfigBuilder,
         ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfigBuilder,
     },
-    itable::{encode_inst_expr, Encode},
     traits::ConfigureLookupTable,
     utils::bn_to_field,
 };
@@ -44,6 +43,7 @@ use halo2_proofs::{
 };
 use specs::{
     configure_table::ConfigureTable,
+    encode::instruction_table::encode_instruction_table_entry,
     etable::{EventTable, EventTableEntry},
     itable::OpcodeClass,
 };
@@ -135,12 +135,12 @@ impl From<usize> for MLookupItem {
 
 #[derive(Clone)]
 pub struct Status {
-    pub eid: u64,
-    pub fid: u16,
-    pub iid: u16,
-    pub sp: u64,
-    pub last_jump_eid: u64,
-    pub allocated_memory_pages: u16,
+    pub eid: u32,
+    pub fid: u32,
+    pub iid: u32,
+    pub sp: u32,
+    pub last_jump_eid: u32,
+    pub allocated_memory_pages: u32,
 }
 
 pub struct StepStatus<'a> {
@@ -591,7 +591,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 }
 
                 itable_lookup = itable_lookup
-                    - encode_inst_expr(
+                    - encode_instruction_table_entry(
                         common_config.fid(meta),
                         common_config.iid(meta),
                         config.opcode(meta),

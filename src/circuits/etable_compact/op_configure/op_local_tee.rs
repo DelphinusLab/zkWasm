@@ -77,7 +77,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
                     &MemoryTableLookupEncode::encode_stack_read(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp + 1 as u64),
+                        BigUint::from(step_info.current.sp + 1),
                         BigUint::from(*vtype as u16),
                         BigUint::from(*value),
                     ),
@@ -88,7 +88,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig {
                     &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(2 as u64),
-                        BigUint::from(step_info.current.sp + *depth as u64),
+                        BigUint::from(step_info.current.sp + depth),
                         BigUint::from(*vtype as u16),
                         BigUint::from(*value),
                     ),

@@ -69,9 +69,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrConfig {
             } => {
                 assert!(keep.len() <= 1);
 
-                let drop: u16 = (*drop).try_into().unwrap();
-
-                self.drop.assign(ctx, F::from(drop as u64))?;
+                self.drop.assign(ctx, F::from(*drop as u64))?;
 
                 if keep.len() > 0 {
                     let keep_type: VarType = keep[0].into();
@@ -96,7 +94,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrConfig {
                         &MemoryTableLookupEncode::encode_stack_write(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(2 as u64),
-                            BigUint::from(step_info.current.sp + 1 + drop as u64),
+                            BigUint::from(step_info.current.sp + 1 + drop),
                             BigUint::from(keep_type as u16),
                             BigUint::from(keep_values[0]),
                         ),

@@ -4,12 +4,12 @@ use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct BrTableEntry {
-    pub fid: u16,
-    pub iid: u16,
-    pub index: u16,
-    pub drop: u16,
-    pub keep: u16,
-    pub dst_pc: u16,
+    pub fid: u32,
+    pub iid: u32,
+    pub index: u32,
+    pub drop: u32,
+    pub keep: u32,
+    pub dst_pc: u32,
 }
 
 #[derive(Debug)]

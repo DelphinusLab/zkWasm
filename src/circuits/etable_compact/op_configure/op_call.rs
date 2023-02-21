@@ -6,8 +6,8 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
+use specs::{encode::frame_table::encode_frame_table_entry, step::StepInfo};
 use specs::{encode::opcode::encode_call, etable::EventTableEntry};
-use specs::{encode::table::encode_frame_table_entry, step::StepInfo};
 
 pub struct CallConfig {
     index: CommonRangeCell,
