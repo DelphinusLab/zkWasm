@@ -98,14 +98,14 @@ impl OpcodeClass {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct OpcodeClassPlain(pub usize);
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnaryOp {
     Ctz,
     Clz,
     Popcnt,
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BinOp {
     Add,
     Sub,
@@ -116,7 +116,7 @@ pub enum BinOp {
     SignedRem,
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ShiftOp {
     Shl,
     UnsignedShr,
@@ -125,7 +125,7 @@ pub enum ShiftOp {
     Rotr,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, EnumIter)]
+#[derive(Copy, Clone, Debug, Serialize, EnumIter, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BitOp {
     And = 0,
     Or = 1,
@@ -142,7 +142,7 @@ impl BitOp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RelOp {
     Eq,
     Ne,
@@ -156,26 +156,26 @@ pub enum RelOp {
     UnsignedLe,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, EnumIter)]
+#[derive(Copy, Clone, Debug, Serialize, EnumIter, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TestOp {
     Eqz,
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConversionOp {
     I32WrapI64,
     I64ExtendI32s,
     I64ExtendI32u,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BrTarget {
     pub drop: u32,
     pub keep: Vec<ValueType>,
     pub dst_pc: u32,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Opcode {
     LocalGet {
         vtype: VarType,

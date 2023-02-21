@@ -61,7 +61,7 @@ impl AccessType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, Serialize, Hash, PartialOrd, Ord)]
 pub enum VarType {
     I32 = 1,
     I64,
@@ -76,7 +76,7 @@ impl VarType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord)]
 pub enum MemoryReadSize {
     U8 = 1,
     S8,
@@ -87,7 +87,7 @@ pub enum MemoryReadSize {
     I64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord)]
 pub enum MemoryStoreSize {
     Byte8 = 1,
     Byte16,

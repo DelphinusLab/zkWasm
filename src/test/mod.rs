@@ -1,5 +1,6 @@
 use crate::{
     circuits::{config::zkwasm_k, TestCircuit},
+    profile::Profile,
     runtime::{
         host::host_env::HostEnv, wasmi_interpreter::Execution, ExecutionResult, WasmInterpreter,
     },
@@ -13,6 +14,7 @@ use wasmi::{ImportsBuilder, RuntimeValue};
 mod spec;
 mod test_binary_search;
 mod test_fibonacci;
+mod test_rlp;
 mod test_sha256;
 mod test_start;
 
@@ -70,6 +72,8 @@ pub fn test_circuit_with_env(
 
 pub fn run_test_circuit<F: FieldExt>(tables: Tables, public_inputs: Vec<F>) -> Result<()> {
     tables.write_json(None);
+
+    tables.execution_tables.etable.profile_instruction();
 
     let circuit = TestCircuit::<F>::new(tables);
 

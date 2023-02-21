@@ -4,7 +4,7 @@ use crate::{
     external_host_call_table::ExternalHostCallSignature, host_function::HostPlugin, mtable::VarType,
 };
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ValueType {
     I32,
     I64,

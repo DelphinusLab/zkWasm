@@ -5,7 +5,7 @@ use crate::{host_function::Signature, types::ValueType};
 pub mod encode;
 mod table;
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, PartialOrd, Ord)]
 pub enum ExternalHostCallSignature {
     Argument,
     Return,
