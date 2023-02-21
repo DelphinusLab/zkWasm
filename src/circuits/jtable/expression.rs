@@ -4,7 +4,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Expression, VirtualCells},
 };
-use specs::encode::table::encode_frame_table_entry;
+use specs::encode::frame_table::encode_frame_table_entry;
 
 impl<F: FieldExt> JumpTableConfig<F> {
     pub(super) fn enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {

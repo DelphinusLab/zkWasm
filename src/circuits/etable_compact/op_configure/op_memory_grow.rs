@@ -94,24 +94,28 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig {
     ) -> Result<(), Error> {
         match &entry.step_info {
             StepInfo::MemoryGrow { grow_size, result } => {
+                let success = *result != -1;
+
                 self.grow_size.assign(ctx, *grow_size as u64)?;
                 self.result.assign(ctx, *result as u32 as u64)?;
-                self.success.assign(ctx, *result != -1)?;
-                self.current_maximal_diff.assign(
-                    ctx,
-                    F::from(
-                        (step_info.configure.maximal_memory_pages as u16
-                            - (step_info.current.allocated_memory_pages + *grow_size as u16))
-                            as u64,
-                    ),
-                )?;
+                self.success.assign(ctx, success)?;
+                if success {
+                    self.current_maximal_diff.assign(
+                        ctx,
+                        F::from(
+                            (step_info.configure.maximal_memory_pages
+                                - (step_info.current.allocated_memory_pages + *grow_size as u32))
+                                as u64,
+                        ),
+                    )?;
+                }
 
                 self.lookup_stack_read.assign(
                     ctx,
                     &MemoryTableLookupEncode::encode_stack_read(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp + 1 as u64),
+                        BigUint::from(step_info.current.sp + 1),
                         BigUint::from(VarType::I32 as u16),
                         BigUint::from(*grow_size as u32),
                     ),
@@ -122,7 +126,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig {
                     &MemoryTableLookupEncode::encode_stack_write(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(2 as u64),
-                        BigUint::from(step_info.current.sp + 1 as u64),
+                        BigUint::from(step_info.current.sp + 1),
                         BigUint::from(VarType::I32 as u16),
                         BigUint::from(*result as u32),
                     ),

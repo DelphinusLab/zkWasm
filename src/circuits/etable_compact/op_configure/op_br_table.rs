@@ -4,7 +4,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use specs::encode::{opcode::encode_br_table, table::encode_br_table_entry};
+use specs::encode::{br_table::encode_br_table_entry, opcode::encode_br_table};
 use specs::etable::EventTableEntry;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -174,7 +174,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig {
                         &MemoryTableLookupEncode::encode_stack_write(
                             BigUint::from(step_info.current.eid),
                             BigUint::from(3 as u64),
-                            BigUint::from(step_info.current.sp + 2 + *drop as u64),
+                            BigUint::from(step_info.current.sp + 2 + drop),
                             BigUint::from(keep_type as u16),
                             BigUint::from(keep_values[0]),
                         ),

@@ -151,7 +151,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 iid: entry.inst.iid,
                 sp: entry.sp,
                 last_jump_eid: entry.last_jump_eid,
-                allocated_memory_pages: entry.allocated_memory_pages as u16,
+                allocated_memory_pages: entry.allocated_memory_pages,
             });
         }
 
@@ -285,7 +285,7 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 self.state,
                 EventTableCommonRangeColumnRotation::EID,
                 "eid",
-                entry.eid
+                entry.eid as u64
             );
 
             assign_advice!(
@@ -306,14 +306,14 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
                 self.state,
                 EventTableCommonRangeColumnRotation::SP,
                 "sp",
-                entry.sp
+                entry.sp as u64
             );
 
             assign_advice!(
                 self.state,
                 EventTableCommonRangeColumnRotation::LastJumpEid,
                 "last jump eid",
-                entry.last_jump_eid
+                entry.last_jump_eid as u64
             );
 
             if index == 0 {

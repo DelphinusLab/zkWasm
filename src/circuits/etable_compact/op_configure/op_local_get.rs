@@ -77,7 +77,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig {
                     &MemoryTableLookupEncode::encode_stack_read(
                         BigUint::from(step_info.current.eid),
                         BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp + *depth as u64),
+                        BigUint::from(step_info.current.sp + depth),
                         BigUint::from(*vtype as u16),
                         BigUint::from(*value),
                     ),

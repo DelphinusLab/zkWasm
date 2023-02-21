@@ -1,9 +1,11 @@
 use super::*;
 
-use crate::circuits::jtable::expression::JtableLookupEntryEncode;
-use crate::circuits::mtable_compact::encode::MemoryTableLookupEncode;
 use crate::{
-    circuits::utils::{bn_to_field, Context},
+    circuits::{
+        jtable::expression::JtableLookupEntryEncode,
+        mtable_compact::encode::MemoryTableLookupEncode,
+        utils::{bn_to_field, Context},
+    },
     constant,
 };
 use halo2_proofs::{
@@ -11,12 +13,12 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
-use specs::encode::table::encode_frame_table_entry;
-use specs::mtable::VarType;
-use specs::step::StepInfo;
 use specs::{
+    encode::frame_table::encode_frame_table_entry,
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
+    mtable::VarType,
+    step::StepInfo,
 };
 
 pub struct ReturnConfig {
@@ -108,7 +110,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig {
                         &MemoryTableLookupEncode::encode_stack_write(
                             BigUint::from(entry.eid),
                             BigUint::from(2 as u64),
-                            BigUint::from(entry.sp + *drop as u64 + 1),
+                            BigUint::from(entry.sp + drop + 1),
                             BigUint::from(vtype as u16),
                             BigUint::from(keep_values[0]),
                         ),

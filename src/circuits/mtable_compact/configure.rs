@@ -1,18 +1,16 @@
-use super::encode::MemoryTableLookupEncode;
 use super::*;
-use crate::circuits::config::IMTABLE_COLOMNS;
-use crate::circuits::CircuitConfigure;
-use crate::circuits::Lookup;
-use crate::constant_from;
-use crate::curr;
-use crate::fixed_curr;
-use crate::nextn;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::Advice;
-use halo2_proofs::plonk::Column;
-use halo2_proofs::plonk::ConstraintSystem;
-use specs::mtable::AccessType;
-use specs::mtable::LocationType;
+use crate::{
+    circuits::{config::IMTABLE_COLOMNS, CircuitConfigure, Lookup},
+    constant_from, curr, fixed_curr, nextn,
+};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    plonk::{Advice, Column, ConstraintSystem},
+};
+use specs::{
+    encode::memory_table::encode_memory_table_entry,
+    mtable::{AccessType, LocationType},
+};
 
 pub const STEP_SIZE: i32 = 8;
 
@@ -404,7 +402,7 @@ impl<F: FieldExt> Lookup<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut halo2_proofs::plonk::VirtualCells<'_, F>,
     ) -> halo2_proofs::plonk::Expression<F> {
-        MemoryTableLookupEncode::encode_for_lookup(
+        encode_memory_table_entry(
             self.eid(meta),
             self.emid(meta),
             self.offset(meta),

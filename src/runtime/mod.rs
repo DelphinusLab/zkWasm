@@ -28,7 +28,7 @@ pub struct ExecutionResult<R> {
 // TODO: use feature
 pub type WasmInterpreter = WasmiRuntime;
 
-pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<MemoryTableEntry> {
+pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<MemoryTableEntry> {
     let eid = event.eid;
     let sp_before_execution = event.sp;
 
@@ -63,7 +63,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 }
             }
 
-            sp = sp + ((*drop) as u64);
+            sp += drop;
             sp -= 1;
 
             {
@@ -134,7 +134,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 }
             }
 
-            sp = sp + ((*drop) as u64);
+            sp += drop;
             sp -= 1;
 
             {
@@ -205,7 +205,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 }
             }
 
-            sp = sp + ((*drop) as u64);
+            sp += drop;
             sp -= 1;
 
             {
@@ -272,7 +272,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 }
             }
 
-            sp = sp + ((*drop) as u64);
+            sp += drop;
             sp -= 1;
 
             {
@@ -326,7 +326,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 }
             }
 
-            sp = sp + ((*drop) as u64);
+            sp += drop;
             sp -= 1;
 
             {
@@ -444,7 +444,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 mops.push(MemoryTableEntry {
                     eid,
                     emid: *emid,
-                    offset: sp_before_execution + args.len() as u64 - i as u64,
+                    offset: sp_before_execution + args.len() as u32 - i as u32,
                     ltype: LocationType::Stack,
                     atype: AccessType::Read,
                     vtype: (*ty).into(),
@@ -455,7 +455,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 *emid = (*emid).checked_add(1).unwrap();
             }
 
-            sp = sp + args.len() as u64;
+            sp = sp + args.len() as u32;
 
             if let Some(ty) = signature.return_type {
                 mops.push(MemoryTableEntry {
@@ -515,7 +515,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let read = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: sp_before_execution + *depth as u64,
+                offset: sp_before_execution + depth,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
@@ -547,7 +547,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let read = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: sp + 1 as u64,
+                offset: sp + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: *vtype,
@@ -561,7 +561,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let write = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: sp + *depth as u64,
+                offset: sp + depth,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
@@ -593,7 +593,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let write = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: sp_before_execution + *depth as u64,
+                offset: sp_before_execution + depth,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
                 vtype: *vtype,
@@ -614,7 +614,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let global_get = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: *idx as u64,
+                offset: *idx,
                 ltype: LocationType::Global,
                 atype: AccessType::Read,
                 vtype: *vtype,
@@ -658,7 +658,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let global_set = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: *idx as u64,
+                offset: *idx,
                 ltype: LocationType::Global,
                 atype: AccessType::Write,
                 vtype: *vtype,
@@ -683,7 +683,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let load_address_from_stack = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: sp_before_execution + 1 as u64,
+                offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
                 vtype: VarType::I32,
@@ -695,7 +695,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let load_value1 = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: ((*effective_address) / 8) as u64,
+                offset: (*effective_address) / 8,
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
                 // Load u64 from address which align with 8
@@ -710,7 +710,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 Some(MemoryTableEntry {
                     eid,
                     emid: *emid,
-                    offset: ((*effective_address) / 8 + 1) as u64,
+                    offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
                     atype: AccessType::Read,
                     // Load u64 from address which align with 8
@@ -781,7 +781,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let load_value1 = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: ((*effective_address) / 8) as u64,
+                offset: effective_address / 8,
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
                 // Load u64 from address which align with 8
@@ -795,7 +795,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
             let write_value1 = MemoryTableEntry {
                 eid,
                 emid: *emid,
-                offset: ((*effective_address) / 8) as u64,
+                offset: effective_address / 8,
                 ltype: LocationType::Heap,
                 atype: AccessType::Write,
                 // Load u64 from address which align with 8
@@ -810,7 +810,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 let load_value2 = MemoryTableEntry {
                     eid,
                     emid: *emid,
-                    offset: ((*effective_address) / 8 + 1) as u64,
+                    offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
                     atype: AccessType::Read,
                     // Load u64 from address which align with 8
@@ -824,7 +824,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
                 let write_value2 = MemoryTableEntry {
                     eid,
                     emid: *emid,
-                    offset: ((*effective_address) / 8 + 1) as u64,
+                    offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
                     atype: AccessType::Write,
                     // Load u64 from address which align with 8
@@ -997,9 +997,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u64) -> Vec<Memo
 }
 
 pub(crate) fn mem_op_from_stack_only_step(
-    sp_before_execution: u64,
-    eid: u64,
-    emid: &mut u64,
+    sp_before_execution: u32,
+    eid: u32,
+    emid: &mut u32,
     inputs_type: VarType,
     outputs_type: VarType,
     pop_value: &[u64],

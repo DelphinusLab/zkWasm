@@ -9,11 +9,10 @@ use halo2_proofs::{
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::ToBigUint;
-use specs::{encode::table::encode_frame_table_entry, etable::EventTableEntry};
+use specs::{encode::opcode::encode_call_indirect, mtable::VarType, step::StepInfo};
 use specs::{
-    encode::{opcode::encode_call_indirect, table::encode_elem_entry},
-    mtable::VarType,
-    step::StepInfo,
+    encode::{br_table::encode_elem_entry, frame_table::encode_frame_table_entry},
+    etable::EventTableEntry,
 };
 
 pub struct CallIndirectConfig {
