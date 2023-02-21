@@ -65,115 +65,41 @@ impl<F: FieldExt> CellExpression<F> for AllocatedCell<F> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct AllocatedBitCell<F: FieldExt>(pub(super) AllocatedCell<F>);
-
-#[derive(Debug, Clone, Copy)]
-pub(super) struct AllocatedCommonRangeCell<F: FieldExt>(pub(super) AllocatedCell<F>);
-
-#[derive(Debug, Clone, Copy)]
-pub(super) struct AllocatedU16Cell<F: FieldExt>(pub(super) AllocatedCell<F>);
-
-#[derive(Debug, Clone, Copy)]
-pub(super) struct AllocatedUnlimitedCell<F: FieldExt>(pub(super) AllocatedCell<F>);
-
-#[derive(Debug, Clone, Copy)]
-pub(super) struct AllocatedMemoryTableLookupCell<F: FieldExt>(pub(super) AllocatedCell<F>);
-
-#[derive(Debug, Clone, Copy)]
 pub(super) struct AllocatedU64Cell<F: FieldExt> {
     pub(super) u16_cells_le: [AllocatedU16Cell<F>; 4],
     pub(super) u64_cell: AllocatedUnlimitedCell<F>,
 }
 
-impl<F: FieldExt> CellExpression<F> for AllocatedBitCell<F> {
-    fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.curr_expr(meta)
-    }
+macro_rules! define_cell {
+    ($x: ident) => {
+        #[derive(Debug, Clone, Copy)]
+        pub(super) struct $x<F: FieldExt>(pub(super) AllocatedCell<F>);
 
-    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.next_expr(meta)
-    }
+        impl<F: FieldExt> CellExpression<F> for $x<F> {
+            fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+                self.0.curr_expr(meta)
+            }
 
-    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.prev_expr(meta)
-    }
+            fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+                self.0.next_expr(meta)
+            }
 
-    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
-        self.0.assign(ctx, value)
-    }
+            fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+                self.0.prev_expr(meta)
+            }
+
+            fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
+                self.0.assign(ctx, value)
+            }
+        }
+    };
 }
 
-impl<F: FieldExt> CellExpression<F> for AllocatedU16Cell<F> {
-    fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.curr_expr(meta)
-    }
-
-    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.next_expr(meta)
-    }
-
-    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.prev_expr(meta)
-    }
-
-    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
-        self.0.assign(ctx, value)
-    }
-}
-
-impl<F: FieldExt> CellExpression<F> for AllocatedCommonRangeCell<F> {
-    fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.curr_expr(meta)
-    }
-
-    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.next_expr(meta)
-    }
-
-    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.prev_expr(meta)
-    }
-
-    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
-        self.0.assign(ctx, value)
-    }
-}
-
-impl<F: FieldExt> CellExpression<F> for AllocatedUnlimitedCell<F> {
-    fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.curr_expr(meta)
-    }
-
-    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.next_expr(meta)
-    }
-
-    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.prev_expr(meta)
-    }
-
-    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
-        self.0.assign(ctx, value)
-    }
-}
-
-impl<F: FieldExt> CellExpression<F> for AllocatedMemoryTableLookupCell<F> {
-    fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.curr_expr(meta)
-    }
-
-    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.next_expr(meta)
-    }
-
-    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.0.prev_expr(meta)
-    }
-
-    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
-        self.0.assign(ctx, value)
-    }
-}
+define_cell!(AllocatedBitCell);
+define_cell!(AllocatedCommonRangeCell);
+define_cell!(AllocatedU16Cell);
+define_cell!(AllocatedUnlimitedCell);
+define_cell!(AllocatedMemoryTableLookupCell);
 
 impl<F: FieldExt> AllocatedU64Cell<F> {
     pub(super) fn assign(&self, ctx: &mut Context<'_, F>, value: u64) -> Result<(), Error> {
