@@ -1,29 +1,43 @@
+use self::allocator::*;
+use super::{
+    brtable::BrTableConfig, itable::InstructionTableConfig, jtable::JumpTableConfig,
+    mtable_compact::MemoryTableConfig, rtable::RangeTableConfig, traits::ConfigureLookupTable,
+    utils::Context, CircuitConfigure, Lookup,
+};
+use crate::{constant_from, fixed_curr};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
+};
+use specs::{configure_table::ConfigureTable, etable::EventTableEntry, itable::OpcodeClassPlain};
 use std::{
     collections::{BTreeMap, HashSet},
     rc::Rc,
 };
 
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
-};
-use specs::{etable::EventTableEntry, itable::OpcodeClassPlain};
-
-use crate::{constant_from, fixed_curr};
-
-use self::allocator::*;
-
-use super::{
-    brtable::BrTableConfig, etable_compact::StepStatus, itable::InstructionTableConfig,
-    jtable::JumpTableConfig, mtable_compact::MemoryTableConfig, rtable::RangeTableConfig,
-    traits::ConfigureLookupTable, utils::Context, CircuitConfigure, Lookup,
-};
-
 mod allocator;
+mod op_configure;
 
 pub(crate) const ESTEP_SIZE: i32 = 4;
 pub(crate) const OP_LVL1_BITS: usize = 6;
 pub(crate) const OP_LVL2_BITS: usize = 6;
+
+#[derive(Clone)]
+pub struct Status {
+    pub eid: u64,
+    pub fid: u16,
+    pub iid: u16,
+    pub sp: u64,
+    pub last_jump_eid: u64,
+    pub allocated_memory_pages: u16,
+}
+
+pub struct StepStatus<'a> {
+    pub current: &'a Status,
+    pub next: &'a Status,
+    pub current_external_host_call_index: usize,
+    pub configure: ConfigureTable,
+}
 
 pub struct EventTableCommonConfig<F: FieldExt> {
     enabled_cell: AllocatedBitCell<F>,
@@ -44,6 +58,29 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     jtable_lookup_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
     olb_table_lookup_cell: AllocatedUnlimitedCell<F>,
+}
+
+pub(in crate::circuits::etable_v2) struct ConstraintBuilder<'a, F: FieldExt> {
+    meta: &'a mut ConstraintSystem<F>,
+    constraints: Vec<(
+        &'static str,
+        Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
+    )>,
+    lookups: BTreeMap<
+        &'static str,
+        Vec<(
+            &'static str,
+            Box<dyn Fn(&mut VirtualCells<F>) -> Expression<F>>,
+        )>,
+    >,
+}
+
+pub(in crate::circuits::etable_v2) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
+    fn configure(
+        common: &mut EventTableCommonConfig<F>,
+        allocator: &mut EventTableCellAllocator<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
+    ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
@@ -140,7 +177,7 @@ impl<F: FieldExt> ETableConfig<F> {
         let sel = meta.fixed_column();
         let step_sel = meta.fixed_column();
 
-        let mut allocator = CellAllocator::new(meta, rtable, mtable, cols);
+        let mut allocator = EventTableCellAllocator::new(meta, rtable, mtable, cols);
         allocator.enable_equality(meta, &ETableCellType::CommonRange);
 
         let lvl1_bits = [0; OP_LVL1_BITS].map(|_| allocator.alloc_bit_cell());
@@ -186,6 +223,8 @@ impl<F: FieldExt> ETableConfig<F> {
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)> = BTreeMap::new();
         let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
+
+        {}
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
