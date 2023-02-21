@@ -7,10 +7,12 @@ use halo2_proofs::{
 
 use crate::{
     circuits::{
+        mtable_compact::MemoryTableConfig,
         rtable::RangeTableConfig,
         utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
+        Lookup,
     },
-    constant_from, nextn,
+    constant_from, curr, nextn,
 };
 
 use super::ESTEP_SIZE;
@@ -34,6 +36,15 @@ pub(super) struct AllocatedU16Cell<F: FieldExt>(pub(super) AllocatedCell<F>);
 #[derive(Debug, Clone, Copy)]
 pub(super) struct AllocatedUnlimitedCell<F: FieldExt>(pub(super) AllocatedCell<F>);
 
+#[derive(Debug, Clone, Copy)]
+pub(super) struct AllocatedMemoryTableLookupCell<F: FieldExt>(pub(super) AllocatedCell<F>);
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct AllocatedU64Cell<F: FieldExt> {
+    pub(super) u16_cells_le: [AllocatedU16Cell<F>; 4],
+    pub(super) u64_cell: AllocatedUnlimitedCell<F>,
+}
+
 pub(super) trait CellExpression<F: FieldExt> {
     fn curr_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn next_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
@@ -55,6 +66,20 @@ impl<F: FieldExt> CellExpression<F> for AllocatedCell<F> {
 }
 
 impl<F: FieldExt> CellExpression<F> for AllocatedBitCell<F> {
+    fn curr_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.curr_expr(meta)
+    }
+
+    fn next_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.next_expr(meta)
+    }
+
+    fn prev_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.prev_expr(meta)
+    }
+}
+
+impl<F: FieldExt> CellExpression<F> for AllocatedU16Cell<F> {
     fn curr_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         self.0.curr_expr(meta)
     }
@@ -96,6 +121,20 @@ impl<F: FieldExt> CellExpression<F> for AllocatedUnlimitedCell<F> {
     }
 }
 
+impl<F: FieldExt> CellExpression<F> for AllocatedMemoryTableLookupCell<F> {
+    fn curr_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.curr_expr(meta)
+    }
+
+    fn next_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.next_expr(meta)
+    }
+
+    fn prev_expr(self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.0.prev_expr(meta)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum ETableCellType {
     Bit = 1,
@@ -106,15 +145,17 @@ pub(super) enum ETableCellType {
 }
 
 const BIT_COLUMNS: usize = 5;
-const U16_COLUMNS: usize = 2;
+const U16_COLUMNS: usize = 4;
 const COMMON_RANGE_COLUMNS: usize = 3;
-const UNLIMITED_COLUMNS: usize = 2;
+const UNLIMITED_COLUMNS: usize = 3;
 const MTABLE_LOOKUP_COLUMNS: usize = 1;
+const U64_CELLS: usize = 3;
 
 #[derive(Debug, Clone)]
 pub(super) struct CellAllocator<F: FieldExt> {
-    free_cells: BTreeMap<ETableCellType, (usize, u32)>,
     all_cols: BTreeMap<ETableCellType, Vec<Column<Advice>>>,
+    free_cells: BTreeMap<ETableCellType, (usize, u32)>,
+    free_u64_cells: Vec<AllocatedU64Cell<F>>,
     _mark: PhantomData<F>,
 }
 
@@ -125,9 +166,43 @@ impl<F: FieldExt> CellAllocator<F> {
         }
     }
 
+    pub(super) fn prepare_alloc_u64_cell(
+        &mut self,
+        meta: &mut ConstraintSystem<F>,
+    ) -> AllocatedU64Cell<F> {
+        let u16_cells_le = [0; 4].map(|_| self.alloc_u16_cell());
+        let u64_cell = self.alloc_unlimited_cell();
+        meta.create_gate("c9. u64 decompose", |meta| {
+            let init = u64_cell.curr_expr(meta);
+            vec![(0..4)
+                .into_iter()
+                .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
+                .fold(init, |acc, x| acc - x)]
+        });
+        AllocatedU64Cell {
+            u16_cells_le,
+            u64_cell,
+        }
+    }
+
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
+        mtable: &MemoryTableConfig<F>,
+        cols: &mut impl Iterator<Item = Column<Advice>>,
+    ) -> Self {
+        let mut allocator = Self::_new(meta, rtable, mtable, cols);
+        for _ in 0..U64_CELLS {
+            let cell = allocator.prepare_alloc_u64_cell(meta);
+            allocator.free_u64_cells.push(cell);
+        }
+        allocator
+    }
+
+    fn _new(
+        meta: &mut ConstraintSystem<F>,
+        rtable: &RangeTableConfig<F>,
+        mtable: &MemoryTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut all_cols = BTreeMap::new();
@@ -164,7 +239,13 @@ impl<F: FieldExt> CellAllocator<F> {
         all_cols.insert(
             ETableCellType::MTableLookup,
             [0; MTABLE_LOOKUP_COLUMNS]
-                .map(|_| cols.next().unwrap())
+                .map(|_| {
+                    let col = cols.next().unwrap();
+                    mtable.configure_in_table(meta, "c8e. mtable_lookup in mtable", |meta| {
+                        curr!(meta, col)
+                    });
+                    col
+                })
                 .into_iter()
                 .collect(),
         );
@@ -181,6 +262,7 @@ impl<F: FieldExt> CellAllocator<F> {
                 ]
                 .into_iter(),
             ),
+            free_u64_cells: vec![],
             _mark: PhantomData,
         }
     }
@@ -218,5 +300,13 @@ impl<F: FieldExt> CellAllocator<F> {
 
     pub(super) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell(self.alloc(&ETableCellType::Unlimited))
+    }
+
+    pub(super) fn alloc_memory_table_lookup_cell(&mut self) -> AllocatedMemoryTableLookupCell<F> {
+        AllocatedMemoryTableLookupCell(self.alloc(&ETableCellType::Unlimited))
+    }
+
+    pub(super) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {
+        self.free_u64_cells.pop().expect("no more free u64 cells")
     }
 }
