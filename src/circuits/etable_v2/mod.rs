@@ -42,7 +42,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
     jtable_lookup_cell: AllocatedUnlimitedCell<F>,
-    aux_table_lookup_cell: AllocatedUnlimitedCell<F>,
+    pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
+    olb_table_lookup_cell: AllocatedUnlimitedCell<F>,
 }
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
@@ -139,7 +140,7 @@ impl<F: FieldExt> ETableConfig<F> {
         let sel = meta.fixed_column();
         let step_sel = meta.fixed_column();
 
-        let mut allocator = CellAllocator::new(meta, rtable, cols);
+        let mut allocator = CellAllocator::new(meta, rtable, mtable, cols);
         allocator.enable_equality(meta, &ETableCellType::CommonRange);
 
         let lvl1_bits = [0; OP_LVL1_BITS].map(|_| allocator.alloc_bit_cell());
@@ -160,7 +161,8 @@ impl<F: FieldExt> ETableConfig<F> {
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
         let jtable_lookup_cell = allocator.alloc_unlimited_cell();
-        let aux_table_lookup_cell = allocator.alloc_unlimited_cell();
+        let pow_table_lookup_cell = allocator.alloc_unlimited_cell();
+        let olb_table_lookup_cell = allocator.alloc_unlimited_cell();
 
         let common_config = EventTableCommonConfig {
             enabled_cell,
@@ -177,7 +179,8 @@ impl<F: FieldExt> ETableConfig<F> {
             itable_lookup_cell,
             brtable_lookup_cell,
             jtable_lookup_cell,
-            aux_table_lookup_cell,
+            pow_table_lookup_cell,
+            olb_table_lookup_cell,
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)> = BTreeMap::new();
@@ -360,7 +363,15 @@ impl<F: FieldExt> ETableConfig<F> {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        //TODO: mtable, aux table,
+        rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {
+            pow_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
+        });
+
+        rtable.configure_in_offset_len_bits_set(
+            meta,
+            "c8e. olb_table_lookup in offset_len_bits_table",
+            |meta| olb_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
+        );
 
         Self {
             sel,
