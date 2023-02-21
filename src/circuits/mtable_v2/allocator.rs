@@ -7,36 +7,33 @@ use halo2_proofs::{
 
 use crate::{
     circuits::{
-        mtable_compact::MemoryTableConfig,
+        cell::*,
         rtable::RangeTableConfig,
-        utils::{
-            bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column,
-        },
-        Lookup, cell::*,
+        utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
     },
-    constant_from, curr, nextn,
+    constant_from, nextn,
 };
 
-use super::ESTEP_SIZE;
+use super::MSTEP_SIZE;
 
-pub(super) trait EventTableCellExpression<F: FieldExt> {
+pub(super) trait MemoryTableCellExpression<F: FieldExt> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
     fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
 }
 
-impl<F: FieldExt> EventTableCellExpression<F> for AllocatedCell<F> {
+impl<F: FieldExt> MemoryTableCellExpression<F> for AllocatedCell<F> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot + ESTEP_SIZE as i32)
+        nextn!(meta, self.col, self.rot + MSTEP_SIZE as i32)
     }
 
     fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot - ESTEP_SIZE as i32)
+        nextn!(meta, self.col, self.rot - MSTEP_SIZE as i32)
     }
 }
 
 macro_rules! impl_cell {
     ($x: ident) => {
-        impl<F: FieldExt> EventTableCellExpression<F> for $x<F> {
+        impl<F: FieldExt> MemoryTableCellExpression<F> for $x<F> {
             fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
                 self.0.next_expr(meta)
             }
@@ -55,31 +52,29 @@ impl_cell!(AllocatedUnlimitedCell);
 impl_cell!(AllocatedMemoryTableLookupCell);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) enum EventTableCellType {
+pub(super) enum MemoryTableCellType {
     Bit = 1,
     U16,
     CommonRange,
     Unlimited,
-    MTableLookup,
 }
 
-const BIT_COLUMNS: usize = 5;
-const U16_COLUMNS: usize = 4;
-const COMMON_RANGE_COLUMNS: usize = 3;
-const UNLIMITED_COLUMNS: usize = 3;
-const MTABLE_LOOKUP_COLUMNS: usize = 1;
-const U64_CELLS: usize = 3;
+const BIT_COLUMNS: usize = 3;
+const U16_COLUMNS: usize = 1;
+const COMMON_RANGE_COLUMNS: usize = 2;
+const UNLIMITED_COLUMNS: usize = 1;
+const U64_CELLS: usize = 1;
 
 #[derive(Debug, Clone)]
-pub(super) struct EventTableCellAllocator<F: FieldExt> {
-    all_cols: BTreeMap<EventTableCellType, Vec<Column<Advice>>>,
-    free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
+pub(super) struct MemoryTableCellAllocator<F: FieldExt> {
+    all_cols: BTreeMap<MemoryTableCellType, Vec<Column<Advice>>>,
+    free_cells: BTreeMap<MemoryTableCellType, (usize, u32)>,
     free_u64_cells: Vec<AllocatedU64Cell<F>>,
     _mark: PhantomData<F>,
 }
 
-impl<F: FieldExt> EventTableCellAllocator<F> {
-    pub fn enable_equality(&mut self, meta: &mut ConstraintSystem<F>, t: &EventTableCellType) {
+impl<F: FieldExt> MemoryTableCellAllocator<F> {
+    pub fn enable_equality(&mut self, meta: &mut ConstraintSystem<F>, t: &MemoryTableCellType) {
         for c in self.all_cols.get(t).unwrap() {
             meta.enable_equality(*c);
         }
@@ -107,10 +102,9 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
-        mtable: &MemoryTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, rtable, mtable, cols);
+        let mut allocator = Self::_new(meta, rtable, cols);
         for _ in 0..U64_CELLS {
             let cell = allocator.prepare_alloc_u64_cell(meta);
             allocator.free_u64_cells.push(cell);
@@ -121,26 +115,25 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     fn _new(
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
-        mtable: &MemoryTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut all_cols = BTreeMap::new();
         all_cols.insert(
-            EventTableCellType::Bit,
+            MemoryTableCellType::Bit,
             [0; BIT_COLUMNS]
                 .map(|_| BitColumn::configure(meta, cols, |_| constant_from!(1)).col)
                 .into_iter()
                 .collect(),
         );
         all_cols.insert(
-            EventTableCellType::U16,
+            MemoryTableCellType::U16,
             [0; U16_COLUMNS]
                 .map(|_| U16Column::configure(meta, cols, rtable, |_| constant_from!(1)).col)
                 .into_iter()
                 .collect(),
         );
         all_cols.insert(
-            EventTableCellType::CommonRange,
+            MemoryTableCellType::CommonRange,
             [0; COMMON_RANGE_COLUMNS]
                 .map(|_| {
                     CommonRangeColumn::configure(meta, cols, rtable, |_| constant_from!(1)).col
@@ -149,35 +142,20 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .collect(),
         );
         all_cols.insert(
-            EventTableCellType::Unlimited,
+            MemoryTableCellType::Unlimited,
             [0; UNLIMITED_COLUMNS]
                 .map(|_| cols.next().unwrap())
                 .into_iter()
                 .collect(),
         );
-        all_cols.insert(
-            EventTableCellType::MTableLookup,
-            [0; MTABLE_LOOKUP_COLUMNS]
-                .map(|_| {
-                    let col = cols.next().unwrap();
-                    mtable.configure_in_table(meta, "c8e. mtable_lookup in mtable", |meta| {
-                        curr!(meta, col)
-                    });
-                    col
-                })
-                .into_iter()
-                .collect(),
-        );
-
         Self {
             all_cols,
             free_cells: BTreeMap::from_iter(
                 vec![
-                    (EventTableCellType::Bit, (0, 0)),
-                    (EventTableCellType::U16, (0, 0)),
-                    (EventTableCellType::CommonRange, (0, 0)),
-                    (EventTableCellType::Unlimited, (0, 0)),
-                    (EventTableCellType::MTableLookup, (0, 0)),
+                    (MemoryTableCellType::Bit, (0, 0)),
+                    (MemoryTableCellType::U16, (0, 0)),
+                    (MemoryTableCellType::CommonRange, (0, 0)),
+                    (MemoryTableCellType::Unlimited, (0, 0)),
                 ]
                 .into_iter(),
             ),
@@ -186,7 +164,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
-    fn alloc(&mut self, t: &EventTableCellType) -> AllocatedCell<F> {
+    fn alloc(&mut self, t: &MemoryTableCellType) -> AllocatedCell<F> {
         let v = self.free_cells.get_mut(t).unwrap();
         let res = AllocatedCell {
             col: self.all_cols.get(t).unwrap()[v.0],
@@ -197,7 +175,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         assert!(v.0 < BIT_COLUMNS);
 
         v.1 += 1;
-        if v.1 == ESTEP_SIZE as u32 {
+        if v.1 == MSTEP_SIZE as u32 {
             v.0 += 1;
             v.1 = 0;
         }
@@ -206,23 +184,23 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     }
 
     pub(super) fn alloc_bit_cell(&mut self) -> AllocatedBitCell<F> {
-        AllocatedBitCell(self.alloc(&EventTableCellType::Bit))
+        AllocatedBitCell(self.alloc(&MemoryTableCellType::Bit))
     }
 
     pub(super) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
-        AllocatedCommonRangeCell(self.alloc(&EventTableCellType::CommonRange))
+        AllocatedCommonRangeCell(self.alloc(&MemoryTableCellType::CommonRange))
     }
 
     pub(super) fn alloc_u16_cell(&mut self) -> AllocatedU16Cell<F> {
-        AllocatedU16Cell(self.alloc(&EventTableCellType::U16))
+        AllocatedU16Cell(self.alloc(&MemoryTableCellType::U16))
     }
 
     pub(super) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
-        AllocatedUnlimitedCell(self.alloc(&EventTableCellType::Unlimited))
+        AllocatedUnlimitedCell(self.alloc(&MemoryTableCellType::Unlimited))
     }
 
     pub(super) fn alloc_memory_table_lookup_cell(&mut self) -> AllocatedMemoryTableLookupCell<F> {
-        AllocatedMemoryTableLookupCell(self.alloc(&EventTableCellType::Unlimited))
+        AllocatedMemoryTableLookupCell(self.alloc(&MemoryTableCellType::Unlimited))
     }
 
     pub(super) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {
