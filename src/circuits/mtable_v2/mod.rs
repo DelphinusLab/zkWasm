@@ -219,6 +219,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 is_i32_cell.curr_expr(meta)
                     * (value.u16_cells_le[2].curr_expr(meta)
                         + value.u16_cells_le[3].curr_expr(meta)),
+                is_global_cell.curr_expr(meta)
+                    * is_next_same_offset_cell.curr_expr(meta)
+                    * (is_i32_cell.curr_expr(meta) - is_i32_cell.next_expr(meta)),
             ]
             .into_iter()
             .map(|x| x * enabled_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel))
