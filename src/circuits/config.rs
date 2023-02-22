@@ -1,7 +1,7 @@
 use std::{env, sync::Mutex};
 
 pub const VAR_COLUMNS: usize = 20;
-pub const IMTABLE_COLOMNS: usize = 2;
+pub const IMTABLE_COLUMNS: usize = 1;
 
 pub const POW_TABLE_LIMIT: u64 = 128;
 

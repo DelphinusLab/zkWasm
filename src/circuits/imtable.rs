@@ -1,4 +1,4 @@
-use super::{config::IMTABLE_COLOMNS, utils::bn_to_field};
+use super::{config::IMTABLE_COLUMNS, utils::bn_to_field};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Layouter,
@@ -12,12 +12,12 @@ use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct InitMemoryTableConfig<F: FieldExt> {
-    col: [TableColumn; IMTABLE_COLOMNS],
+    col: [TableColumn; IMTABLE_COLUMNS],
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> InitMemoryTableConfig<F> {
-    pub fn configure(col: [TableColumn; IMTABLE_COLOMNS]) -> Self {
+    pub fn configure(col: [TableColumn; IMTABLE_COLUMNS]) -> Self {
         Self {
             col,
             _mark: PhantomData,
@@ -62,7 +62,7 @@ impl<F: FieldExt> MInitTableChip<F> {
         layouter.assign_table(
             || "minit",
             |mut table| {
-                for i in 0..IMTABLE_COLOMNS {
+                for i in 0..IMTABLE_COLUMNS {
                     table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
                 }
 
@@ -72,15 +72,15 @@ impl<F: FieldExt> MInitTableChip<F> {
                 /*
                  * Since the number of heap entries is always n * PAGE_SIZE / sizeof(u64).
                  */
-                assert_eq!(heap_entries.len() % IMTABLE_COLOMNS, 0);
+                assert_eq!(heap_entries.len() % IMTABLE_COLUMNS, 0);
 
                 let mut idx = 0;
 
                 for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
                     table.assign_cell(
                         || "minit table",
-                        self.config.col[idx % IMTABLE_COLOMNS],
-                        idx / IMTABLE_COLOMNS + 1,
+                        self.config.col[idx % IMTABLE_COLUMNS],
+                        idx / IMTABLE_COLUMNS + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),
                     )?;
 
@@ -90,12 +90,12 @@ impl<F: FieldExt> MInitTableChip<F> {
                 /*
                  * Fill blank cells in the last row to make halo2 happy.
                  */
-                if idx % IMTABLE_COLOMNS != 0 {
-                    for blank_col in (idx % IMTABLE_COLOMNS)..IMTABLE_COLOMNS {
+                if idx % IMTABLE_COLUMNS != 0 {
+                    for blank_col in (idx % IMTABLE_COLUMNS)..IMTABLE_COLUMNS {
                         table.assign_cell(
                             || "minit table",
                             self.config.col[blank_col],
-                            idx / IMTABLE_COLOMNS + 1,
+                            idx / IMTABLE_COLUMNS + 1,
                             || Ok(F::zero()),
                         )?;
                     }

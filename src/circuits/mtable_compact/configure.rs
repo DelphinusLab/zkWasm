@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    circuits::{config::IMTABLE_COLOMNS, CircuitConfigure, Lookup},
+    circuits::{config::IMTABLE_COLUMNS, CircuitConfigure, Lookup},
     constant_from, curr, fixed_curr, nextn,
 };
 use halo2_proofs::{
@@ -334,7 +334,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
     ) {
         meta.create_gate("mtable imtable selector sum", |meta| {
             let mut acc = constant_from!(1);
-            for i in 0..IMTABLE_COLOMNS {
+            for i in 0..IMTABLE_COLUMNS {
                 acc = acc - self.imtable_selector(meta, i as u32);
             }
             vec![
@@ -346,7 +346,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             ]
         });
 
-        for i in 0..IMTABLE_COLOMNS {
+        for i in 0..IMTABLE_COLUMNS {
             imtable.configure_in_table(
                 meta,
                 "mtable configure_heap_init_in_imtable",
