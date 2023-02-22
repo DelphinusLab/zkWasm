@@ -12,12 +12,12 @@ use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct InitMemoryTableConfig<F: FieldExt> {
-    col: [TableColumn; IMTABLE_COLUMNS],
+    col: TableColumn,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> InitMemoryTableConfig<F> {
-    pub fn configure(col: [TableColumn; IMTABLE_COLUMNS]) -> Self {
+    pub fn configure(col: TableColumn) -> Self {
         Self {
             col,
             _mark: PhantomData,
@@ -41,7 +41,7 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
         index: usize,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.col[index])]);
+        meta.lookup(key, |meta| vec![(expr(meta), self.col)]);
     }
 }
 
@@ -62,44 +62,46 @@ impl<F: FieldExt> MInitTableChip<F> {
         layouter.assign_table(
             || "minit",
             |mut table| {
-                for i in 0..IMTABLE_COLUMNS {
-                    table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
-                }
+                todo!();
 
-                let heap_entries = minit.filter(LocationType::Heap);
-                let global_entries = minit.filter(LocationType::Global);
+                // for i in 0..IMTABLE_COLUMNS {
+                //     table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
+                // }
 
-                /*
-                 * Since the number of heap entries is always n * PAGE_SIZE / sizeof(u64).
-                 */
-                assert_eq!(heap_entries.len() % IMTABLE_COLUMNS, 0);
+                // let heap_entries = minit.filter(LocationType::Heap);
+                // let global_entries = minit.filter(LocationType::Global);
 
-                let mut idx = 0;
+                // /*
+                //  * Since the number of heap entries is always n * PAGE_SIZE / sizeof(u64).
+                //  */
+                // assert_eq!(heap_entries.len() % IMTABLE_COLUMNS, 0);
 
-                for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
-                    table.assign_cell(
-                        || "minit table",
-                        self.config.col[idx % IMTABLE_COLUMNS],
-                        idx / IMTABLE_COLUMNS + 1,
-                        || Ok(bn_to_field::<F>(&v.encode())),
-                    )?;
+                // let mut idx = 0;
 
-                    idx += 1;
-                }
+                // for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
+                //     table.assign_cell(
+                //         || "minit table",
+                //         self.config.col[idx % IMTABLE_COLUMNS],
+                //         idx / IMTABLE_COLUMNS + 1,
+                //         || Ok(bn_to_field::<F>(&v.encode())),
+                //     )?;
 
-                /*
-                 * Fill blank cells in the last row to make halo2 happy.
-                 */
-                if idx % IMTABLE_COLUMNS != 0 {
-                    for blank_col in (idx % IMTABLE_COLUMNS)..IMTABLE_COLUMNS {
-                        table.assign_cell(
-                            || "minit table",
-                            self.config.col[blank_col],
-                            idx / IMTABLE_COLUMNS + 1,
-                            || Ok(F::zero()),
-                        )?;
-                    }
-                }
+                //     idx += 1;
+                // }
+
+                // /*
+                //  * Fill blank cells in the last row to make halo2 happy.
+                //  */
+                // if idx % IMTABLE_COLUMNS != 0 {
+                //     for blank_col in (idx % IMTABLE_COLUMNS)..IMTABLE_COLUMNS {
+                //         table.assign_cell(
+                //             || "minit table",
+                //             self.config.col[blank_col],
+                //             idx / IMTABLE_COLUMNS + 1,
+                //             || Ok(F::zero()),
+                //         )?;
+                //     }
+                // }
 
                 Ok(())
             },

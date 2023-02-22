@@ -8,6 +8,7 @@ use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Fixed};
 use specs::mtable::LocationType;
 
 mod allocator;
+mod assign;
 
 pub(crate) const MEMORY_TABLE_ENTRY_ROWS: i32 = 4;
 
@@ -285,4 +286,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             offset_diff,
         }
     }
+}
+
+struct MemoryTableChip<F: FieldExt> {
+    config: MemoryTableConfig<F>,
+    maximal_available_rows: usize,
 }
