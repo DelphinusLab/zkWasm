@@ -29,6 +29,10 @@ impl<'a, F: FieldExt> Context<'a, F> {
         self.offset += 1;
     }
 
+    pub fn step(&mut self, step: usize) {
+        self.offset += step;
+    }
+
     pub fn reset(&mut self) {
         self.offset = 0;
         self.records.clear();

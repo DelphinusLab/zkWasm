@@ -19,6 +19,7 @@ use std::{
 };
 
 mod allocator;
+mod assign;
 mod op_configure;
 
 pub(crate) const ESTEP_SIZE: i32 = 4;
@@ -27,12 +28,12 @@ pub(crate) const OP_LVL2_BITS: usize = 6;
 
 #[derive(Clone)]
 pub struct Status {
-    pub eid: u64,
-    pub fid: u16,
-    pub iid: u16,
-    pub sp: u64,
-    pub last_jump_eid: u64,
-    pub allocated_memory_pages: u16,
+    pub eid: u32,
+    pub fid: u32,
+    pub iid: u32,
+    pub sp: u32,
+    pub last_jump_eid: u32,
+    pub allocated_memory_pages: u32,
 }
 
 pub struct StepStatus<'a> {
@@ -145,7 +146,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> Option<Expression<F>> {
         None
     }
-    fn is_host_public_input(&self, _step: &StepStatus, _entry: &EventTableEntry) -> bool {
+    fn is_host_public_input(&self, _entry: &EventTableEntry) -> bool {
         false
     }
     fn external_host_call_index_increase(
@@ -154,6 +155,9 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
+    }
+    fn is_external_host_call(&self, _entry: &EventTableEntry) -> bool {
+        false
     }
 }
 
@@ -426,4 +430,11 @@ impl<F: FieldExt> EventTableConfig<F> {
             op_configs,
         }
     }
+
+    impl 
+}
+
+pub struct EventTableChip<F: FieldExt> {
+    config: EventTableConfig<F>,
+    max_available_rows: usize,
 }
