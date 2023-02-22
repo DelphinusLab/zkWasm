@@ -46,6 +46,9 @@ pub struct StepStatus<'a> {
 pub struct EventTableCommonConfig<F: FieldExt> {
     enabled_cell: AllocatedBitCell<F>,
 
+    lvl1_bits: [AllocatedBitCell<F>; 6],
+    lvl2_bits: [AllocatedBitCell<F>; 6],
+
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     rest_jops_cell: AllocatedCommonRangeCell<F>,
     input_index_cell: AllocatedCommonRangeCell<F>,
@@ -62,6 +65,23 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     jtable_lookup_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
     olb_table_lookup_cell: AllocatedUnlimitedCell<F>,
+}
+
+impl<F: FieldExt> EventTableCommonConfig<F> {
+    pub(self) fn allocate_opcode_bit_cell(
+        &self,
+        opcode_class_plain: OpcodeClassPlain,
+    ) -> (AllocatedBitCell<F>, AllocatedBitCell<F>) {
+        // OpcodeClassPlain starts from 1.
+        let idx = opcode_class_plain.0 - 1;
+
+        assert!(idx < OP_LVL1_BITS * OP_LVL2_BITS);
+
+        (
+            *self.lvl1_bits.get(idx / OP_LVL2_BITS).unwrap(),
+            *self.lvl2_bits.get(idx % OP_LVL2_BITS).unwrap(),
+        )
+    }
 }
 
 pub(in crate::circuits::etable_v2) struct ConstraintBuilder<'a, F: FieldExt> {
@@ -210,6 +230,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let common_config = EventTableCommonConfig {
             enabled_cell,
+            lvl1_bits,
+            lvl2_bits,
             rest_mops_cell,
             rest_jops_cell,
             input_index_cell,
@@ -430,8 +452,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             op_configs,
         }
     }
-
-    impl 
 }
 
 pub struct EventTableChip<F: FieldExt> {

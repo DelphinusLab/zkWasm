@@ -6,7 +6,7 @@ use super::{
     utils::{row_diff::RowDiffConfig, Context},
     CircuitConfigure,
 };
-use crate::circuits::{mtable_compact::configure::STEP_SIZE, IMTABLE_COLOMNS};
+use crate::circuits::mtable_compact::configure::STEP_SIZE;
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::Cell,
@@ -206,13 +206,13 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 if (entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global)
                     && entry.atype.is_positive_init()
                 {
-                    assign_advice!(
-                        "vtype imtable selector",
-                        RotationOfBitColumn::IMTableSelectorStart as i32
-                            + entry.offset as i32 % (IMTABLE_COLOMNS as i32),
-                        bit,
-                        F::one()
-                    );
+                    // assign_advice!(
+                    //     "vtype imtable selector",
+                    //     RotationOfBitColumn::IMTableSelectorStart as i32
+                    //         + entry.offset as i32 % (IMTABLE_COLOMNS as i32),
+                    //     bit,
+                    //     F::one()
+                    // );
                 }
             }
 
