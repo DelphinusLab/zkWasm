@@ -14,7 +14,7 @@ use crate::{
     constant_from, nextn,
 };
 
-use super::MSTEP_SIZE;
+use super::MEMORY_TABLE_ENTRY_ROWS;
 
 pub(super) trait MemoryTableCellExpression<F: FieldExt> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
@@ -23,11 +23,11 @@ pub(super) trait MemoryTableCellExpression<F: FieldExt> {
 
 impl<F: FieldExt> MemoryTableCellExpression<F> for AllocatedCell<F> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot + MSTEP_SIZE as i32)
+        nextn!(meta, self.col, self.rot + MEMORY_TABLE_ENTRY_ROWS as i32)
     }
 
     fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot - MSTEP_SIZE as i32)
+        nextn!(meta, self.col, self.rot - MEMORY_TABLE_ENTRY_ROWS as i32)
     }
 }
 
@@ -86,7 +86,7 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
     ) -> AllocatedU64Cell<F> {
         let u16_cells_le = [0; 4].map(|_| self.alloc_u16_cell());
         let u64_cell = self.alloc_unlimited_cell();
-        meta.create_gate("c9. u64 decompose", |meta| {
+        meta.create_gate("mc9. value", |meta| {
             let init = u64_cell.curr_expr(meta);
             vec![(0..4)
                 .into_iter()
@@ -175,7 +175,7 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
         assert!(v.0 < BIT_COLUMNS);
 
         v.1 += 1;
-        if v.1 == MSTEP_SIZE as u32 {
+        if v.1 == MEMORY_TABLE_ENTRY_ROWS as u32 {
             v.0 += 1;
             v.1 = 0;
         }
