@@ -35,7 +35,7 @@ mod assign;
 mod constraint_builder;
 pub(self) mod op_configure;
 
-pub(crate) const ESTEP_SIZE: i32 = 4;
+pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
 pub(crate) const OP_LVL1_BITS: usize = 6;
 pub(crate) const OP_LVL2_BITS: usize = 6;
 
@@ -518,8 +518,8 @@ impl<F: FieldExt> EventTableChip<F> {
     pub(super) fn new(config: EventTableConfig<F>) -> Self {
         Self {
             config,
-            max_available_rows: max_etable_rows() as usize / ESTEP_SIZE as usize
-                * ESTEP_SIZE as usize,
+            max_available_rows: max_etable_rows() as usize / EVENT_TABLE_ENTRY_ROWS as usize
+                * EVENT_TABLE_ENTRY_ROWS as usize,
         }
     }
 }

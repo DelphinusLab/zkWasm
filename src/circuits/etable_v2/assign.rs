@@ -2,7 +2,7 @@ use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
 use specs::{configure_table::ConfigureTable, itable::OpcodeClassPlain};
 use std::{collections::BTreeMap, rc::Rc};
 
-use super::{EventTableChip, EventTableOpcodeConfig, ESTEP_SIZE};
+use super::{EventTableChip, EventTableOpcodeConfig, EVENT_TABLE_ENTRY_ROWS};
 use crate::circuits::{
     cell::CellExpression,
     utils::{
@@ -53,7 +53,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            if index % (ESTEP_SIZE as usize) == 0 {
+            if index % (EVENT_TABLE_ENTRY_ROWS as usize) == 0 {
                 ctx.region.assign_fixed(
                     || "etable: step sel",
                     self.config.step_sel,
@@ -210,7 +210,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 external_host_call_call_index += 1;
             }
 
-            ctx.step(ESTEP_SIZE as usize);
+            ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
             index += 1;
         }
 

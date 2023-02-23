@@ -17,7 +17,7 @@ use crate::{
     constant_from, curr, fixed_curr, nextn,
 };
 
-use super::ESTEP_SIZE;
+use super::EVENT_TABLE_ENTRY_ROWS;
 
 pub(super) trait EventTableCellExpression<F: FieldExt> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
@@ -26,11 +26,11 @@ pub(super) trait EventTableCellExpression<F: FieldExt> {
 
 impl<F: FieldExt> EventTableCellExpression<F> for AllocatedCell<F> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot + ESTEP_SIZE as i32)
+        nextn!(meta, self.col, self.rot + EVENT_TABLE_ENTRY_ROWS as i32)
     }
 
     fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot - ESTEP_SIZE as i32)
+        nextn!(meta, self.col, self.rot - EVENT_TABLE_ENTRY_ROWS as i32)
     }
 }
 
@@ -203,7 +203,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         assert!(v.0 < BIT_COLUMNS);
 
         v.1 += 1;
-        if v.1 == ESTEP_SIZE as u32 {
+        if v.1 == EVENT_TABLE_ENTRY_ROWS as u32 {
             v.0 += 1;
             v.1 = 0;
         }
