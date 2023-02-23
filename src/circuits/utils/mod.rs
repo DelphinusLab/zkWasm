@@ -7,6 +7,7 @@ use num_bigint::BigUint;
 pub mod bit;
 pub mod common_range;
 pub mod row_diff;
+pub mod step_status;
 pub mod u16;
 pub mod u8;
 

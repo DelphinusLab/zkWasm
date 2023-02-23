@@ -1,18 +1,49 @@
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::{AssignedCell, Cell},
-    plonk::Error,
-};
+use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
 use specs::{configure_table::ConfigureTable, itable::OpcodeClassPlain};
 use std::{collections::BTreeMap, rc::Rc};
 
 use super::{EventTableChip, EventTableOpcodeConfig, ESTEP_SIZE};
 use crate::circuits::{
     cell::CellExpression,
-    utils::{bn_to_field, table_entry::EventTableEntryWithMemoryReadingTable, Context},
+    utils::{
+        bn_to_field,
+        step_status::{Status, StepStatus},
+        table_entry::EventTableEntryWithMemoryReadingTable,
+        Context,
+    },
 };
 
 impl<F: FieldExt> EventTableChip<F> {
+    fn compute_rest_mops_and_jops(
+        &self,
+        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        event_table: &EventTableEntryWithMemoryReadingTable,
+    ) -> Vec<(u32, u32)> {
+        let mut rest_ops = vec![];
+
+        event_table
+            .0
+            .iter()
+            .fold((0, 0), |(rest_mops_sum, rest_jops_sum), entry| {
+                let op_config = op_configs
+                    .get(&entry.eentry.inst.opcode.clone().into())
+                    .unwrap();
+
+                let acc = (
+                    rest_mops_sum + op_config.memory_writing_ops(&entry.eentry),
+                    rest_jops_sum + op_config.jops(),
+                );
+
+                rest_ops.push((acc.0, acc.1));
+
+                acc
+            });
+
+        rest_ops.reverse();
+
+        rest_ops
+    }
+
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
         for index in 0..self.max_available_rows {
             ctx.region.assign_fixed(
@@ -37,32 +68,105 @@ impl<F: FieldExt> EventTableChip<F> {
         Ok(())
     }
 
+    fn assign_rest_ops_first_step(
+        &self,
+        ctx: &mut Context<'_, F>,
+        rest_mops: u32,
+        rest_jops: u32,
+    ) -> Result<(Cell, Cell), Error> {
+        let rest_mops_cell = self
+            .config
+            .common_config
+            .rest_mops_cell
+            .assign(ctx, F::from(rest_mops as u64))?;
+
+        let rest_mops_jell = self
+            .config
+            .common_config
+            .rest_jops_cell
+            .assign(ctx, F::from(rest_jops as u64))?;
+
+        Ok((rest_mops_cell.cell(), rest_mops_jell.cell()))
+    }
+
     fn assign_advice(
         &self,
         ctx: &mut Context<'_, F>,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         event_table: &EventTableEntryWithMemoryReadingTable,
+        configure_table: &ConfigureTable,
+        rest_ops: Vec<(u32, u32)>,
     ) -> Result<(), Error> {
+        macro_rules! assign_advice {
+            ($cell:ident, $value:expr) => {
+                self.config.common_config.$cell.assign(ctx, $value)?;
+            };
+        }
+
+        macro_rules! assign_advice_cell {
+            ($cell:ident, $value:expr) => {
+                $cell.assign(ctx, $value)?;
+            };
+        }
+
+        macro_rules! assign_constant {
+            ($cell:ident, $value:expr) => {
+                ctx.region.assign_advice_from_constant(
+                    || "etable".to_owned() + stringify!($cell),
+                    self.config.common_config.$cell.0.col,
+                    ctx.offset + self.config.common_config.$cell.0.rot as usize,
+                    $value,
+                )?;
+            };
+        }
+
         let mut host_public_inputs = 0u32;
         let mut external_host_call_call_index = 1u32;
+        let mut index = 0;
 
-        for entry in &event_table.0 {
-            macro_rules! assign_advice {
-                ($cell:ident, $value:expr) => {
-                    self.config.common_config.$cell.assign(ctx, $value)?;
-                };
-            }
+        let status = {
+            let mut status = event_table
+                .0
+                .iter()
+                .map(|entry| Status {
+                    eid: entry.eentry.eid,
+                    fid: entry.eentry.inst.fid,
+                    iid: entry.eentry.inst.iid,
+                    sp: entry.eentry.sp,
+                    last_jump_eid: entry.eentry.last_jump_eid,
+                    allocated_memory_pages: entry.eentry.allocated_memory_pages,
+                })
+                .collect::<Vec<_>>();
 
-            macro_rules! assign_advice_cell {
-                ($cell:ident, $value:expr) => {
-                    ctx.region.assign_advice(
-                        || "etable".to_owned() + stringify!($cell),
-                        $cell.0.col,
-                        ctx.offset + $cell.0.rot as usize,
-                        || Ok($value),
-                    )?;
-                };
-            }
+            status.push(Status {
+                eid: 0,
+                fid: 0,
+                iid: 0,
+                sp: 0,
+                last_jump_eid: 0,
+                allocated_memory_pages: 0,
+            });
+
+            status
+        };
+
+        assign_constant!(input_index_cell, F::from(host_public_inputs as u64));
+        assign_constant!(
+            external_host_call_index_cell,
+            F::from(external_host_call_call_index as u64)
+        );
+        assign_constant!(
+            mpages_cell,
+            F::from(configure_table.init_memory_pages as u64)
+        );
+
+        for (entry, (rest_mops, rest_jops)) in event_table.0.iter().zip(rest_ops.iter()) {
+            let step_status = StepStatus {
+                current: &status[index],
+                next: &status[index + 1],
+                current_external_host_call_index: external_host_call_call_index,
+                configure_table: *configure_table,
+            };
 
             assign_advice!(enabled_cell, F::one());
 
@@ -76,8 +180,8 @@ impl<F: FieldExt> EventTableChip<F> {
                 assign_advice_cell!(op_lvl2, F::one());
             }
 
-            assign_advice!(rest_mops_cell, todo!());
-            assign_advice!(rest_jops_cell, todo!());
+            assign_advice!(rest_mops_cell, F::from(*rest_mops as u64));
+            assign_advice!(rest_jops_cell, F::from(*rest_jops as u64));
             assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
             assign_advice!(
                 external_host_call_index_cell,
@@ -97,7 +201,7 @@ impl<F: FieldExt> EventTableChip<F> {
             let op_config = op_configs
                 .get(&entry.eentry.inst.opcode.clone().into())
                 .unwrap();
-            op_config.assign(ctx, todo!(), &entry.eentry)?;
+            op_config.assign(ctx, &step_status, &entry.eentry)?;
 
             if op_config.is_host_public_input(&entry.eentry) {
                 host_public_inputs += 1;
@@ -107,6 +211,7 @@ impl<F: FieldExt> EventTableChip<F> {
             }
 
             ctx.step(ESTEP_SIZE as usize);
+            index += 1;
         }
 
         Ok(())
@@ -118,13 +223,27 @@ impl<F: FieldExt> EventTableChip<F> {
         event_table: &EventTableEntryWithMemoryReadingTable,
         configure_table: &ConfigureTable,
     ) -> Result<(Option<Cell>, Option<Cell>), Error> {
-        self.init(ctx)?;
+        let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
 
+        self.init(ctx)?;
         ctx.reset();
 
-        self.assign_advice(ctx, &self.config.op_configs, event_table)?;
+        let (rest_mops_cell, rest_jops_cell) = self.assign_rest_ops_first_step(
+            ctx,
+            rest_ops.first().unwrap().0,
+            rest_ops.first().unwrap().1,
+        )?;
+        ctx.reset();
 
-        todo!("return rest_mops, rest_jops cells");
-        Ok((None, None))
+        self.assign_advice(
+            ctx,
+            &self.config.op_configs,
+            event_table,
+            configure_table,
+            rest_ops,
+        )?;
+        ctx.reset();
+
+        Ok((Some(rest_mops_cell), Some(rest_jops_cell)))
     }
 }

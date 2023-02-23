@@ -7,6 +7,8 @@ use specs::{
 
 use crate::{circuits::config::zkwasm_k, runtime::memory_event_of_step};
 
+use super::step_status::StepStatus;
+
 #[derive(Clone)]
 pub(in crate::circuits) struct MemoryWritingEntry {
     pub(in crate::circuits) entry: MemoryTableEntry,
