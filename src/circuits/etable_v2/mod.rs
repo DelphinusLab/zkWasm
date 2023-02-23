@@ -1,11 +1,19 @@
 use self::{allocator::*, constraint_builder::ConstraintBuilder};
 use super::{
-    brtable::BrTableConfig, cell::*, config::max_etable_rows, itable::InstructionTableConfig,
-    jtable::JumpTableConfig, mtable_v2::MemoryTableConfig, rtable::RangeTableConfig,
-    traits::ConfigureLookupTable, utils::Context, CircuitConfigure, Lookup,
+    brtable::BrTableConfig,
+    cell::*,
+    config::max_etable_rows,
+    itable::InstructionTableConfig,
+    jtable::JumpTableConfig,
+    mtable_v2::MemoryTableConfig,
+    rtable::RangeTableConfig,
+    traits::ConfigureLookupTable,
+    utils::{step_status::StepStatus, Context},
+    CircuitConfigure, Lookup,
 };
 use crate::{
-    circuits::etable_v2::op_configure::op_return::ReturnConfigBuilder, constant_from, fixed_curr,
+    circuits::etable_v2::op_configure::op_return::ReturnConfigBuilder, constant_from, curr,
+    fixed_curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -30,23 +38,6 @@ pub(self) mod op_configure;
 pub(crate) const ESTEP_SIZE: i32 = 4;
 pub(crate) const OP_LVL1_BITS: usize = 6;
 pub(crate) const OP_LVL2_BITS: usize = 6;
-
-#[derive(Clone)]
-pub struct Status {
-    pub eid: u32,
-    pub fid: u32,
-    pub iid: u32,
-    pub sp: u32,
-    pub last_jump_eid: u32,
-    pub allocated_memory_pages: u32,
-}
-
-pub struct StepStatus<'a> {
-    pub current: &'a Status,
-    pub next: &'a Status,
-    pub current_external_host_call_index: usize,
-    pub configure: ConfigureTable,
-}
 
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
@@ -119,6 +110,9 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> u64 {
         0u64
     }
+    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+        0
+    }
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
@@ -128,8 +122,11 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> Option<Expression<F>> {
         None
     }
-    fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
+    }
+    fn jops(&self) -> u32 {
+        0
     }
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
@@ -350,7 +347,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 rest_jops_cell.next_expr(meta) - rest_jops_cell.curr_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops(meta),
+                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
             )]
         });
 

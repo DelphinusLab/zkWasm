@@ -16,11 +16,11 @@ use crate::{
         cell::*,
         etable_v2::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
-            EventTableOpcodeConfigBuilder, StepStatus,
+            EventTableOpcodeConfigBuilder,
         },
         jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
         mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, Context},
+        utils::{bn_to_field, step_status::StepStatus, Context},
     },
     constant, constant_from,
 };
@@ -214,8 +214,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
         }
     }
 
-    fn jops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1))
+    fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(self.jops()))
+    }
+
+    fn jops(&self) -> u32 {
+        1
     }
 
     fn next_frame_id(

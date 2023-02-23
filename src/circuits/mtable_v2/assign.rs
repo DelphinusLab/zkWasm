@@ -36,8 +36,10 @@ impl<F: FieldExt> MemoryTableChip<F> {
             .rest_mops_cell
             .assign(ctx, F::from(init_rest_mops))?;
 
-        ctx.region
-            .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
+        if etable_rest_mops_cell.is_some() {
+            ctx.region
+                .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
+        }
 
         Ok(())
     }
