@@ -125,9 +125,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     curr.entry.offset == next.entry.offset,
                     is_next_same_offset_cell
                 );
-                assign_advice!(offset_diff, F::from(offset_diff));
+                assign_advice!(offset_diff_cell, F::from(offset_diff));
                 assign_advice!(
-                    offset_diff_inv,
+                    offset_diff_inv_cell,
                     F::from(offset_diff).invert().unwrap_or(F::zero())
                 );
             }

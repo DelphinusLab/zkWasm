@@ -1,12 +1,13 @@
-use crate::{constant_from, fixed_curr};
-
 use self::allocator::*;
 use super::config::max_mtable_rows;
 use super::imtable::InitMemoryTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::{cell::*, rtable::RangeTableConfig, CircuitConfigure};
+use crate::{constant_from, fixed_curr};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells};
+use specs::encode::memory_table::encode_memory_table_entry;
+use specs::encode::memory_table::encode_memory_table_entry_v2;
 use specs::mtable::LocationType;
 
 mod allocator;
@@ -37,9 +38,10 @@ pub struct MemoryTableConfig<F: FieldExt> {
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     zero_init_proof_cell: AllocatedCommonRangeCell<F>,
     offset_cell: AllocatedCommonRangeCell<F>,
-    offset_diff: AllocatedCommonRangeCell<F>,
+    offset_diff_cell: AllocatedCommonRangeCell<F>,
 
-    offset_diff_inv: AllocatedUnlimitedCell<F>,
+    offset_diff_inv_cell: AllocatedUnlimitedCell<F>,
+    encode_cell: AllocatedUnlimitedCell<F>,
 
     value: AllocatedU64Cell<F>,
 }
@@ -76,9 +78,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let rest_mops_cell = allocator.alloc_common_range_cell();
         let zero_init_proof_cell = allocator.alloc_common_range_cell();
         let offset_cell = allocator.alloc_common_range_cell();
-        let offset_diff = allocator.alloc_common_range_cell();
+        let offset_diff_cell = allocator.alloc_common_range_cell();
 
-        let offset_diff_inv = allocator.alloc_unlimited_cell();
+        let offset_diff_inv_cell = allocator.alloc_unlimited_cell();
+        let encode_cell = allocator.alloc_unlimited_cell();
 
         let value = allocator.alloc_u64_cell();
 
@@ -130,10 +133,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             vec![
                 is_next_same_offset_cell.curr_expr(meta)
                     * (is_next_same_ltype_cell.curr_expr(meta) - constant_from!(1)),
-                is_next_same_offset_cell.curr_expr(meta) * (offset_diff.curr_expr(meta)),
+                is_next_same_offset_cell.curr_expr(meta) * (offset_diff_cell.curr_expr(meta)),
                 (is_next_same_offset_cell.curr_expr(meta) - constant_from!(1))
                     * is_next_same_ltype_cell.curr_expr(meta)
-                    * (offset_diff.curr_expr(meta) * offset_diff_inv.curr_expr(meta)
+                    * (offset_diff_cell.curr_expr(meta) * offset_diff_inv_cell.curr_expr(meta)
                         - constant_from!(1)),
             ]
             .into_iter()
@@ -143,7 +146,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         meta.create_gate("mc5. offset sort", |meta| {
             vec![
-                (offset_cell.curr_expr(meta) + offset_diff.curr_expr(meta)
+                (offset_cell.curr_expr(meta) + offset_diff_cell.curr_expr(meta)
                     - offset_cell.next_expr(meta))
                     * is_next_same_ltype_cell.curr_expr(meta),
             ]
@@ -273,6 +276,25 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
+        meta.create_gate("mc12. lookup encode", |meta| {
+            vec![
+                encode_memory_table_entry_v2(
+                    start_eid_cell.curr_expr(meta),
+                    end_eid_cell.curr_expr(meta),
+                    offset_cell.curr_expr(meta),
+                    is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
+                        + is_global_cell.curr_expr(meta)
+                            * constant_from!(LocationType::Global as u64)
+                        + is_heap_cell.curr_expr(meta) * constant_from!(LocationType::Heap),
+                    is_i32_cell.curr_expr(meta),
+                    value.u64_cell.curr_expr(meta),
+                ) - encode_cell.curr_expr(meta),
+            ]
+            .into_iter()
+            .map(|x| x * fixed_curr!(meta, entry_sel))
+            .collect::<Vec<_>>()
+        });
+
         Self {
             entry_sel,
             enabled_cell,
@@ -292,9 +314,10 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             rest_mops_cell,
             zero_init_proof_cell,
             offset_cell,
-            offset_diff,
-            offset_diff_inv,
+            offset_diff_cell,
+            offset_diff_inv_cell,
             value,
+            encode_cell,
         }
     }
 }
@@ -306,7 +329,9 @@ impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        todo!()
+        meta.lookup_any("etable mtable lookup", |meta| {
+            vec![(expr(meta), self.encode_cell.expr(meta))]
+        });
     }
 }
 
