@@ -4,10 +4,10 @@ use halo2_proofs::{
 };
 use num_bigint::{BigUint, ToBigUint};
 use specs::{
-    encode::frame_table::encode_frame_table_entry,
+    encode::{frame_table::encode_frame_table_entry, FromBn},
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::VarType,
+    mtable::{LocationType, VarType},
     step::StepInfo,
 };
 
@@ -19,7 +19,7 @@ use crate::{
             EventTableOpcodeConfigBuilder,
         },
         jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        mtable_compact::encode::MemoryTableLookupEncode,
+        mtable_v2::encode::MemoryTableLookupEncode,
         utils::{bn_to_field, step_status::StepStatus, Context},
     },
     constant, constant_from,
@@ -28,11 +28,11 @@ use crate::{
 pub struct ReturnConfig<F: FieldExt> {
     keep: AllocatedBitCell<F>,
     drop: AllocatedCommonRangeCell<F>,
-    vtype: AllocatedCommonRangeCell<F>,
+    is_i32: AllocatedBitCell<F>,
     value: AllocatedU64Cell<F>,
     frame_table_lookup: AllocatedUnlimitedCell<F>,
-    memory_table_lookup_stack_read: AllocatedMemoryTableLookupCell<F>,
-    memory_table_lookup_stack_write: AllocatedMemoryTableLookupCell<F>,
+    memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
+    memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
 pub struct ReturnConfigBuilder;
@@ -45,11 +45,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let keep = allocator.alloc_bit_cell();
         let drop = allocator.alloc_common_range_cell();
-        let vtype = allocator.alloc_common_range_cell();
+        let is_i32 = allocator.alloc_bit_cell();
         let value = allocator.alloc_u64_cell();
 
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_cell();
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_cell();
         let frame_table_lookup = common_config.jtable_lookup_cell;
 
         let fid_cell = common_config.fid_cell;
@@ -57,6 +55,27 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         let frame_id_cell = common_config.frame_id_cell;
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
+
+        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
+            "op_return stack read",
+            constraint_builder,
+            eid,
+            move |meta| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| is_i32.expr(meta),
+            move |meta| value.u64_cell.expr(meta),
+            move |meta| keep.expr(meta),
+        );
+        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
+            "op_return stack write",
+            constraint_builder,
+            eid,
+            move |meta| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + drop.expr(meta) + constant_from!(1),
+            move |meta| is_i32.expr(meta),
+            move |meta| value.u64_cell.expr(meta),
+            move |meta| keep.expr(meta),
+        );
 
         constraint_builder.constraints.push((
             "return frame table lookups",
@@ -74,36 +93,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             }),
         ));
 
-        constraint_builder.constraints.push((
-            "return memory table lookups",
-            Box::new(move |meta| {
-                vec![
-                    memory_table_lookup_stack_read.expr(meta)
-                        - keep.expr(meta)
-                            * MemoryTableLookupEncode::encode_stack_read(
-                                eid.expr(meta),
-                                constant_from!(1),
-                                sp.expr(meta) + constant_from!(1),
-                                vtype.expr(meta),
-                                value.u64_cell.expr(meta),
-                            ),
-                    memory_table_lookup_stack_write.expr(meta)
-                        - keep.expr(meta)
-                            * MemoryTableLookupEncode::encode_stack_write(
-                                eid.expr(meta),
-                                constant_from!(2),
-                                sp.expr(meta) + drop.expr(meta) + constant_from!(1),
-                                vtype.expr(meta),
-                                value.u64_cell.expr(meta),
-                            ),
-                ]
-            }),
-        ));
-
         Box::new(ReturnConfig {
             keep,
             drop,
-            vtype,
+            is_i32,
             value,
             frame_table_lookup,
             memory_table_lookup_stack_read,
@@ -112,7 +105,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
+impl<F: FieldExt + FromBn> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
@@ -120,7 +113,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + self.keep.expr(meta)
                 * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
-            + self.vtype.expr(meta)
+            + self.is_i32.expr(meta)
     }
 
     fn assign(
@@ -146,13 +139,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                     self.keep.assign(ctx, 0.into())?;
                 } else {
                     self.keep.assign(ctx, 1.into())?;
-                    let vtype = VarType::from(keep[0]);
-                    self.vtype.assign(ctx, (vtype as u64).into())?;
+                    let is_i32 = if VarType::from(keep[0]) == VarType::I32 {
+                        F::one()
+                    } else {
+                        F::zero()
+                    };
+                    self.is_i32.assign(ctx, is_i32)?;
                     self.value.assign(ctx, keep_values[0])?;
 
+                    // TODO: how to find start_eid & end_eid
+
+                    /*
                     self.memory_table_lookup_stack_read.assign_bn(
                         ctx,
-                        &MemoryTableLookupEncode::encode_stack_read(
+                        &MemoryTableLookupEncode::encode_stack(
                             BigUint::from(entry.eid),
                             BigUint::from(1 as u64),
                             BigUint::from(entry.sp + 1),
@@ -162,7 +162,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                     )?;
                     self.memory_table_lookup_stack_write.assign_bn(
                         ctx,
-                        &MemoryTableLookupEncode::encode_stack_write(
+                        &MemoryTableLookupEncode::encode_stack(
                             BigUint::from(entry.eid),
                             BigUint::from(2 as u64),
                             BigUint::from(entry.sp + *drop + 1),
@@ -170,7 +170,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                             BigUint::from(keep_values[0]),
                         ),
                     )?;
+                    */
                 }
+
                 self.frame_table_lookup.assign_bn(
                     ctx,
                     &encode_frame_table_entry(

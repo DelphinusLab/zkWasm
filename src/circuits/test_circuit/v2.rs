@@ -36,7 +36,7 @@ use crate::{
     },
 };
 
-pub const VAR_COLUMNS: usize = 24;
+pub const VAR_COLUMNS: usize = 28;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
