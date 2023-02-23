@@ -17,6 +17,7 @@ mod test_fibonacci;
 mod test_rlp;
 mod test_sha256;
 mod test_start;
+mod test_wasm_instructions;
 
 fn test_circuit(
     mut env: HostEnv,

@@ -47,6 +47,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         mtable: &MemoryWritingTable,
         init_rest_mops: u64,
+        first_consecutive_zero_memory_offset: u32,
     ) -> Result<(), Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
@@ -87,7 +88,14 @@ impl<F: FieldExt> MemoryTableChip<F> {
             };
 
             assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
-            assign_bit_if!(entry.entry.atype.is_positive_init(), is_imtable_init_cell);
+
+            if entry.entry.atype.is_positive_init() {
+                assign_bit!(is_imtable_init_cell);
+                assign_advice!(
+                    zero_init_proof_cell,
+                    F::from((entry.entry.offset - first_consecutive_zero_memory_offset) as u64)
+                );
+            }
 
             assign_advice!(start_eid_cell, F::from(entry.entry.eid as u64));
             assign_advice!(end_eid_cell, F::from(entry.end_eid as u64));
@@ -129,12 +137,13 @@ impl<F: FieldExt> MemoryTableChip<F> {
     }
 
     pub(crate) fn assign(
-        self,
+        &self,
         ctx: &mut Context<'_, F>,
         etable_rest_mops_cell: Option<Cell>,
         mtable: &MemoryWritingTable,
+        first_consecutive_zero_memory_offset: u32,
     ) -> Result<(), Error> {
-        let mut rest_mops = mtable
+        let rest_mops = mtable
             .0
             .iter()
             .fold(0, |acc, entry| acc + (!entry.entry.atype.is_init() as u64));
@@ -144,7 +153,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
         self.constraint_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
 
-        self.assign_entries(ctx, mtable, rest_mops)?;
+        self.assign_entries(ctx, mtable, rest_mops, first_consecutive_zero_memory_offset)?;
         ctx.reset();
 
         Ok(())

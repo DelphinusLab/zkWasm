@@ -1,5 +1,9 @@
-use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
-use specs::itable::OpcodeClassPlain;
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    circuit::{AssignedCell, Cell},
+    plonk::Error,
+};
+use specs::{configure_table::ConfigureTable, itable::OpcodeClassPlain};
 use std::{collections::BTreeMap, rc::Rc};
 
 use super::{EventTableChip, EventTableOpcodeConfig, ESTEP_SIZE};
@@ -109,16 +113,18 @@ impl<F: FieldExt> EventTableChip<F> {
     }
 
     pub(crate) fn assign(
-        self,
+        &self,
         ctx: &mut Context<'_, F>,
         event_table: &EventTableEntryWithMemoryReadingTable,
-    ) -> Result<(), Error> {
+        configure_table: &ConfigureTable,
+    ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         self.init(ctx)?;
 
         ctx.reset();
 
         self.assign_advice(ctx, &self.config.op_configs, event_table)?;
 
-        Ok(())
+        todo!("return rest_mops, rest_jops cells");
+        Ok((None, None))
     }
 }
