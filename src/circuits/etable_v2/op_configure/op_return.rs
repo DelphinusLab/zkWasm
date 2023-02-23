@@ -1,3 +1,15 @@
+use crate::{
+    circuits::{
+        cell::*,
+        etable_v2::{
+            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
+            EventTableOpcodeConfigBuilder,
+        },
+        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
+        utils::{bn_to_field, step_status::StepStatus, Context},
+    },
+    constant, constant_from,
+};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
@@ -9,20 +21,6 @@ use specs::{
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
     step::StepInfo,
-};
-
-use crate::{
-    circuits::{
-        cell::*,
-        etable_v2::{
-            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
-            EventTableOpcodeConfigBuilder,
-        },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        mtable_v2::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, step_status::StepStatus, Context},
-    },
-    constant, constant_from,
 };
 
 pub struct ReturnConfig<F: FieldExt> {
@@ -105,7 +103,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
     }
 }
 
-impl<F: FieldExt + FromBn> EventTableOpcodeConfig<F> for ReturnConfig<F> {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
@@ -139,12 +137,7 @@ impl<F: FieldExt + FromBn> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                     self.keep.assign(ctx, 0.into())?;
                 } else {
                     self.keep.assign(ctx, 1.into())?;
-                    let is_i32 = if VarType::from(keep[0]) == VarType::I32 {
-                        F::one()
-                    } else {
-                        F::zero()
-                    };
-                    self.is_i32.assign(ctx, is_i32)?;
+                    self.is_i32.assign(ctx,  (VarType::from(keep[0]) as u64).into())?;
                     self.value.assign(ctx, keep_values[0])?;
 
                     // TODO: how to find start_eid & end_eid

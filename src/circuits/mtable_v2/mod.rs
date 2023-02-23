@@ -6,14 +6,11 @@ use super::{cell::*, rtable::RangeTableConfig, CircuitConfigure};
 use crate::{constant_from, fixed_curr};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells};
-use specs::encode::memory_table::encode_memory_table_entry;
 use specs::encode::memory_table::encode_memory_table_entry_v2;
 use specs::mtable::LocationType;
 
 mod allocator;
 mod assign;
-
-pub(crate) mod encode;
 
 pub(crate) const MEMORY_TABLE_ENTRY_ROWS: i32 = 4;
 
