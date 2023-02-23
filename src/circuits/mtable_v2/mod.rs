@@ -35,6 +35,10 @@ pub struct MemoryTableConfig<F: FieldExt> {
     zero_init_proof_cell: AllocatedCommonRangeCell<F>,
     offset_cell: AllocatedCommonRangeCell<F>,
     offset_diff: AllocatedCommonRangeCell<F>,
+
+    offset_diff_inv: AllocatedUnlimitedCell<F>,
+
+    value: AllocatedU64Cell<F>,
 }
 
 impl<F: FieldExt> MemoryTableConfig<F> {
@@ -284,6 +288,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             zero_init_proof_cell,
             offset_cell,
             offset_diff,
+            offset_diff_inv,
+            value,
         }
     }
 }
