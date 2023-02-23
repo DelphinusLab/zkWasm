@@ -1,10 +1,11 @@
 use self::{
     brtable::{BrTableChip, BrTableConfig},
     config::VAR_COLUMNS,
-    etable_compact::{EventTableChip, EventTableConfig},
+    etable_v2::{EventTableChip, EventTableConfig},
     external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
-    mtable_compact::{MemoryTableChip, MemoryTableConfig},
+    mtable_v2::{MemoryTableChip, MemoryTableConfig},
+    utils::table_entry::{EventTableEntryWithMemoryReadingTable, MemoryWritingTable},
 };
 use crate::{
     circuits::{
@@ -42,7 +43,7 @@ use num_bigint::BigUint;
 use rand::rngs::OsRng;
 use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, ExecutionTable, Tables};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, HashSet},
     fs::File,
     io::{Cursor, Read},
     marker::PhantomData,
@@ -70,7 +71,7 @@ pub struct CircuitConfigure {
     pub initial_memory_pages: u32,
     pub maximal_memory_pages: u32,
     pub first_consecutive_zero_memory_offset: u32,
-    pub opcode_selector: BTreeSet<OpcodeClassPlain>,
+    pub opcode_selector: HashSet<OpcodeClassPlain>,
 }
 
 #[thread_local]
@@ -177,8 +178,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &mtable,
             &jtable,
             &brtable,
-            &external_host_call_table,
-            &foreign_tables,
+            // &external_host_call_table,
+            // &foreign_tables,
             &circuit_configure.opcode_selector,
         );
 
@@ -257,30 +258,40 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                let (rest_mops_cell, rest_jops_cell) = {
-                    echip.assign(
-                        &mut ctx,
-                        &self.tables.execution_tables.etable,
-                        self.tables.compilation_tables.configure_table,
-                    )?
-                };
+                let memory_writing_table: MemoryWritingTable =
+                    self.tables.execution_tables.mtable.into();
+                let event_table = EventTableEntryWithMemoryReadingTable::new(
+                    self.tables.execution_tables.etable,
+                    &memory_writing_table,
+                );
+
+                //let (rest_mops_cell, rest_jops_cell) = {
+                echip.assign(
+                    &mut ctx,
+                    &event_table,
+                    //self.tables.compilation_tables.configure_table,
+                )?;
+                //};
 
                 ctx.reset();
                 mchip.assign(
                     &mut ctx,
-                    &self.tables.execution_tables.mtable,
-                    rest_mops_cell,
+                    // rest_mops_cell,
+                    None,
+                    &self.tables.execution_tables.mtable.into(),
+                    /*
                     self.tables
                         .compilation_tables
                         .imtable
                         .first_consecutive_zero_memory(),
+                    */
                 )?;
 
                 ctx.reset();
                 jchip.assign(
                     &mut ctx,
                     &self.tables.execution_tables.jtable,
-                    rest_jops_cell,
+                    None, //rest_jops_cell,
                     &self.tables.compilation_tables.static_jtable,
                 )?;
 

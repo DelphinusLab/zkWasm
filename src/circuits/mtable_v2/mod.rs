@@ -1,6 +1,7 @@
 use crate::{constant_from, fixed_curr};
 
 use self::allocator::*;
+use super::config::max_mtable_rows;
 use super::imtable::InitMemoryTableConfig;
 use super::{cell::*, rtable::RangeTableConfig, CircuitConfigure};
 use halo2_proofs::arithmetic::FieldExt;
@@ -12,6 +13,7 @@ mod assign;
 
 pub(crate) const MEMORY_TABLE_ENTRY_ROWS: i32 = 4;
 
+#[derive(Clone)]
 pub struct MemoryTableConfig<F: FieldExt> {
     entry_sel: Column<Fixed>,
 
@@ -294,7 +296,17 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     }
 }
 
-struct MemoryTableChip<F: FieldExt> {
+pub(super) struct MemoryTableChip<F: FieldExt> {
     config: MemoryTableConfig<F>,
     maximal_available_rows: usize,
+}
+
+impl<F: FieldExt> MemoryTableChip<F> {
+    pub(super) fn new(config: MemoryTableConfig<F>) -> Self {
+        Self {
+            config,
+            maximal_available_rows: max_mtable_rows() as usize / MEMORY_TABLE_ENTRY_ROWS as usize
+                * MEMORY_TABLE_ENTRY_ROWS as usize,
+        }
+    }
 }

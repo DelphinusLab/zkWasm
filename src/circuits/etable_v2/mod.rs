@@ -1,8 +1,8 @@
 use self::allocator::*;
 use super::{
-    brtable::BrTableConfig, cell::*, itable::InstructionTableConfig, jtable::JumpTableConfig,
-    mtable_compact::MemoryTableConfig, rtable::RangeTableConfig, traits::ConfigureLookupTable,
-    utils::Context, CircuitConfigure, Lookup,
+    brtable::BrTableConfig, cell::*, config::max_etable_rows, itable::InstructionTableConfig,
+    jtable::JumpTableConfig, mtable_v2::MemoryTableConfig, rtable::RangeTableConfig,
+    traits::ConfigureLookupTable, utils::Context, CircuitConfigure, Lookup,
 };
 use crate::{constant_from, fixed_curr};
 use halo2_proofs::{
@@ -43,6 +43,7 @@ pub struct StepStatus<'a> {
     pub configure: ConfigureTable,
 }
 
+#[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
     enabled_cell: AllocatedBitCell<F>,
 
@@ -181,6 +182,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     }
 }
 
+#[derive(Clone)]
 pub struct EventTableConfig<F: FieldExt> {
     pub sel: Column<Fixed>,
     pub step_sel: Column<Fixed>,
@@ -457,4 +459,14 @@ impl<F: FieldExt> EventTableConfig<F> {
 pub struct EventTableChip<F: FieldExt> {
     config: EventTableConfig<F>,
     max_available_rows: usize,
+}
+
+impl<F: FieldExt> EventTableChip<F> {
+    pub(super) fn new(config: EventTableConfig<F>) -> Self {
+        Self {
+            config,
+            max_available_rows: max_etable_rows() as usize / ESTEP_SIZE as usize
+                * ESTEP_SIZE as usize,
+        }
+    }
 }
