@@ -3,6 +3,7 @@ use crate::{constant_from, fixed_curr};
 use self::allocator::*;
 use super::config::max_mtable_rows;
 use super::imtable::InitMemoryTableConfig;
+use super::traits::ConfigureLookupTable;
 use super::{cell::*, rtable::RangeTableConfig, CircuitConfigure};
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Fixed};
@@ -293,6 +294,19 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             offset_diff_inv,
             value,
         }
+    }
+}
+
+impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
+    fn configure_in_table(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        expr: impl FnOnce(
+            &mut halo2_proofs::plonk::VirtualCells<'_, F>,
+        ) -> halo2_proofs::plonk::Expression<F>,
+    ) {
+        todo!()
     }
 }
 

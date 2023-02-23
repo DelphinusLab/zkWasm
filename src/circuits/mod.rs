@@ -1,10 +1,10 @@
 use self::{
     brtable::{BrTableChip, BrTableConfig},
     config::VAR_COLUMNS,
-    etable_v2::{EventTableChip, EventTableConfig},
+    etable_compact::{EventTableChip, EventTableConfig},
     external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
-    mtable_v2::{MemoryTableChip, MemoryTableConfig},
+    mtable_compact::{MemoryTableChip, MemoryTableConfig},
     utils::table_entry::{EventTableEntryWithMemoryReadingTable, MemoryWritingTable},
 };
 use crate::{
@@ -64,6 +64,7 @@ pub mod itable;
 pub mod jtable;
 pub mod mtable_compact;
 pub mod rtable;
+pub mod test_circuit;
 pub mod utils;
 
 #[derive(Clone)]
@@ -178,8 +179,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &mtable,
             &jtable,
             &brtable,
-            // &external_host_call_table,
-            // &foreign_tables,
+            &external_host_call_table,
+            &foreign_tables,
             &circuit_configure.opcode_selector,
         );
 
@@ -258,33 +259,23 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                let memory_writing_table: MemoryWritingTable =
-                    self.tables.execution_tables.mtable.into();
-                let event_table = EventTableEntryWithMemoryReadingTable::new(
-                    self.tables.execution_tables.etable,
-                    &memory_writing_table,
-                );
-
-                //let (rest_mops_cell, rest_jops_cell) = {
-                echip.assign(
-                    &mut ctx,
-                    &event_table,
-                    //self.tables.compilation_tables.configure_table,
-                )?;
-                //};
+                let (rest_mops_cell, rest_jops_cell) = {
+                    echip.assign(
+                        &mut ctx,
+                        &self.tables.execution_tables.etable,
+                        self.tables.compilation_tables.configure_table,
+                    )?
+                };
 
                 ctx.reset();
                 mchip.assign(
                     &mut ctx,
-                    // rest_mops_cell,
-                    None,
-                    &self.tables.execution_tables.mtable.into(),
-                    /*
+                    &self.tables.execution_tables.mtable,
+                    rest_mops_cell,
                     self.tables
                         .compilation_tables
                         .imtable
                         .first_consecutive_zero_memory(),
-                    */
                 )?;
 
                 ctx.reset();
