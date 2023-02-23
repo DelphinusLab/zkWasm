@@ -344,6 +344,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.mops(meta),
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5b. rest_jops change", |meta| {
@@ -352,6 +355,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5c. input_index change", |meta| {
@@ -362,6 +368,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                     config.input_index_increase(meta, &common_config)
                 },
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5d. external_host_call_index change", |meta| {
@@ -373,6 +382,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                     config.external_host_call_index_increase(meta, &common_config)
                 },
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5e. sp change", |meta| {
@@ -381,6 +393,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5f. mpages change", |meta| {
@@ -391,6 +406,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                     config.allocated_memory_pages_diff(meta)
                 },
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6a. eid change", |meta| {
@@ -398,6 +416,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                 (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
                     * fixed_curr!(meta, step_sel),
             ]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6b. fid change", |meta| {
@@ -410,6 +431,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .map(|x| x - fid_cell.curr_expr(meta))
                 },
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6c. iid change", |meta| {
@@ -422,6 +446,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .map(|x| x - iid_cell.curr_expr(meta))
                 },
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6d. frame_id change", |meta| {
@@ -434,6 +461,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .map(|x| x - frame_id_cell.curr_expr(meta))
                 },
             )]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c7. itable_lookup_encode", |meta| {
