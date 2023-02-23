@@ -49,7 +49,6 @@ impl_cell!(AllocatedBitCell);
 impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedUnlimitedCell);
-impl_cell!(AllocatedMemoryTableLookupCell);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum MemoryTableCellType {
@@ -203,10 +202,6 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
 
     pub(super) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell(self.alloc(&MemoryTableCellType::Unlimited))
-    }
-
-    pub(super) fn alloc_memory_table_lookup_cell(&mut self) -> AllocatedMemoryTableLookupCell<F> {
-        AllocatedMemoryTableLookupCell(self.alloc(&MemoryTableCellType::Unlimited))
     }
 
     pub(super) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {

@@ -63,8 +63,8 @@ impl AccessType {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, Serialize, Hash, PartialOrd, Ord)]
 pub enum VarType {
+    I64 = 0,
     I32 = 1,
-    I64,
 }
 
 impl VarType {

@@ -32,7 +32,7 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     pairing::bn256::{Bn256, Fr, G1Affine},
     plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error,
+        create_proof, keygen_pk, keygen_vk, verify_proof, ConstraintSystem, Error,
         Expression, ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
     },
     poly::commitment::{Params, ParamsVerifier},

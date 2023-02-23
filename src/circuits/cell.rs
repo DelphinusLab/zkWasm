@@ -32,6 +32,13 @@ pub(crate) trait CellExpression<F: FieldExt> {
     ) -> Result<AssignedCell<F, F>, Error> {
         self.assign(ctx, bn_to_field(value))
     }
+    fn assign_u32(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: u32,
+    ) -> Result<AssignedCell<F, F>, Error> {
+        self.assign(ctx, (value as u64).into())
+    }
 }
 
 impl<F: FieldExt> CellExpression<F> for AllocatedCell<F> {
@@ -80,7 +87,6 @@ define_cell!(AllocatedBitCell);
 define_cell!(AllocatedCommonRangeCell);
 define_cell!(AllocatedU16Cell);
 define_cell!(AllocatedUnlimitedCell);
-define_cell!(AllocatedMemoryTableLookupCell);
 
 impl<F: FieldExt> AllocatedU64Cell<F> {
     pub(crate) fn assign(&self, ctx: &mut Context<'_, F>, value: u64) -> Result<(), Error> {
