@@ -15,6 +15,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
 };
+use num_bigint::BigUint;
 use specs::encode::{memory_table::encode_memory_table_entry_v2, FromBn};
 use specs::mtable::{LocationType, VarType};
 use std::{collections::BTreeMap, marker::PhantomData};
@@ -69,7 +70,7 @@ pub(crate) struct AllocatedMemoryTableLookupWriteCell<F: FieldExt> {
     pub(crate) end_eid_diff_cell: AllocatedCommonRangeCell<F>,
 }
 
-impl<F: FieldExt + FromBn> AllocatedMemoryTableLookupReadCell<F> {
+impl<F: FieldExt> AllocatedMemoryTableLookupReadCell<F> {
     pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
@@ -81,9 +82,9 @@ impl<F: FieldExt + FromBn> AllocatedMemoryTableLookupReadCell<F> {
         is_i32: bool,
         value: u64,
     ) -> Result<(), Error> {
-        self.encode_cell.assign(
+        self.encode_cell.assign_bn(
             ctx,
-            encode_memory_table_entry_v2(
+            &encode_memory_table_entry_v2(
                 (start_eid as u64).into(),
                 (end_eid as u64).into(),
                 (offset as u64).into(),
@@ -102,7 +103,7 @@ impl<F: FieldExt + FromBn> AllocatedMemoryTableLookupReadCell<F> {
     }
 }
 
-impl<F: FieldExt + FromBn> AllocatedMemoryTableLookupWriteCell<F> {
+impl<F: FieldExt> AllocatedMemoryTableLookupWriteCell<F> {
     pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
@@ -113,9 +114,9 @@ impl<F: FieldExt + FromBn> AllocatedMemoryTableLookupWriteCell<F> {
         is_i32: bool,
         value: u64,
     ) -> Result<(), Error> {
-        self.encode_cell.assign(
+        self.encode_cell.assign_bn(
             ctx,
-            encode_memory_table_entry_v2(
+            &encode_memory_table_entry_v2(
                 (eid as u64).into(),
                 (end_eid as u64).into(),
                 (offset as u64).into(),
