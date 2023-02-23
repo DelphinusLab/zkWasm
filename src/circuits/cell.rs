@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use halo2_proofs::{
     arithmetic::FieldExt,
+    circuit::AssignedCell,
     plonk::{Advice, Column, Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
@@ -23,8 +24,12 @@ pub(crate) trait CellExpression<F: FieldExt> {
     fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         self.curr_expr(meta)
     }
-    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error>;
-    fn assign_bn(&self, ctx: &mut Context<'_, F>, value: &BigUint) -> Result<(), Error> {
+    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<AssignedCell<F, F>, Error>;
+    fn assign_bn(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: &BigUint,
+    ) -> Result<AssignedCell<F, F>, Error> {
         self.assign(ctx, bn_to_field(value))
     }
 }
@@ -34,14 +39,13 @@ impl<F: FieldExt> CellExpression<F> for AllocatedCell<F> {
         nextn!(meta, self.col, self.rot)
     }
 
-    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
+    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<AssignedCell<F, F>, Error> {
         ctx.region.assign_advice(
             || "assign cell",
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
             || Ok(value),
-        )?;
-        Ok(())
+        )
     }
 }
 
@@ -61,7 +65,11 @@ macro_rules! define_cell {
                 self.0.curr_expr(meta)
             }
 
-            fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<(), Error> {
+            fn assign(
+                &self,
+                ctx: &mut Context<'_, F>,
+                value: F,
+            ) -> Result<AssignedCell<F, F>, Error> {
                 self.0.assign(ctx, value)
             }
         }
