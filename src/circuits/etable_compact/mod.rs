@@ -217,7 +217,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         brtable: &BrTableConfig<F>,
         external_host_call_table: &ExternalHostCallTableConfig<F>,
         foreign_tables: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
-        opcode_set: &BTreeSet<OpcodeClassPlain>,
+        opcode_set: &HashSet<OpcodeClassPlain>,
     ) -> Self {
         let sel = meta.fixed_column();
         let block_first_line_sel = meta.fixed_column();

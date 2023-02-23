@@ -7,12 +7,12 @@ use halo2_proofs::{
 
 use crate::{
     circuits::{
+        cell::*,
         mtable_compact::MemoryTableConfig,
         rtable::RangeTableConfig,
-        utils::{
-            bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column,
-        },
-        Lookup, cell::*,
+        traits::ConfigureLookupTable,
+        utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
+        Lookup,
     },
     constant_from, curr, nextn,
 };
@@ -107,7 +107,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
-        mtable: &MemoryTableConfig<F>,
+        mtable: &impl ConfigureLookupTable<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut allocator = Self::_new(meta, rtable, mtable, cols);
@@ -121,7 +121,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     fn _new(
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
-        mtable: &MemoryTableConfig<F>,
+        mtable: &impl ConfigureLookupTable<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut all_cols = BTreeMap::new();
