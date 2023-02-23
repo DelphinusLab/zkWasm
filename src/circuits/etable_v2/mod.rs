@@ -198,7 +198,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let sel = meta.fixed_column();
         let step_sel = meta.fixed_column();
 
-        let mut allocator = EventTableCellAllocator::new(meta, rtable, mtable, cols);
+        let mut allocator = EventTableCellAllocator::new(meta, sel, rtable, mtable, cols);
         allocator.enable_equality(meta, &EventTableCellType::CommonRange);
 
         let lvl1_bits = [0; OP_LVL1_BITS].map(|_| allocator.alloc_bit_cell());
@@ -297,6 +297,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                     .unwrap()
                     - constant_from!(1),
             ]
+            .into_iter()
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .collect::<Vec<_>>()
         });
 
         let sum_ops_expr_with_init = |init: Expression<F>,
@@ -391,7 +394,10 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("c6a. eid change", |meta| {
-            vec![eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1)]
+            vec![
+                (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
+                    * fixed_curr!(meta, step_sel),
+            ]
         });
 
         meta.create_gate("c6b. fid change", |meta| {
