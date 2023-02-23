@@ -8,9 +8,9 @@ use specs::{
 use crate::{circuits::config::zkwasm_k, runtime::memory_event_of_step};
 
 #[derive(Clone)]
-struct MemoryWritingEntry {
-    entry: MemoryTableEntry,
-    end_eid: u32,
+pub(in crate::circuits) struct MemoryWritingEntry {
+    pub(in crate::circuits) entry: MemoryTableEntry,
+    pub(in crate::circuits) end_eid: u32,
 }
 
 impl MemoryWritingEntry {
@@ -19,7 +19,7 @@ impl MemoryWritingEntry {
     }
 }
 
-pub(crate) struct MemoryWritingTable(Vec<MemoryWritingEntry>);
+pub(in crate::circuits) struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl From<MTable> for MemoryWritingTable {
     fn from(value: MTable) -> Self {
@@ -75,23 +75,26 @@ impl MemoryWritingTable {
     }
 }
 
-pub(crate) struct MemoryReadingEntry {
+pub(in crate::circuits) struct MemoryReadingEntry {
     entry: MemoryTableEntry,
     start_eid: u32,
     end_eid: u32,
 }
 
-pub(crate) struct EventTableEntryWithMemoryReading {
+pub(in crate::circuits) struct EventTableEntryWithMemoryReading {
     pub(crate) eentry: EventTableEntry,
     pub(crate) memory_read_entires: Vec<MemoryReadingEntry>,
 }
 
 pub(crate) struct EventTableEntryWithMemoryReadingTable(
-    pub(crate) Vec<EventTableEntryWithMemoryReading>,
+    pub(in crate::circuits) Vec<EventTableEntryWithMemoryReading>,
 );
 
 impl EventTableEntryWithMemoryReadingTable {
-    pub(crate) fn new(event_table: EventTable, memory_writing_table: &MemoryWritingTable) -> Self {
+    pub(in crate::circuits) fn new(
+        event_table: EventTable,
+        memory_writing_table: &MemoryWritingTable,
+    ) -> Self {
         let lookup = memory_writing_table.build_lookup_mapping();
 
         let lookup_mtable_eid = |(eid, ltype, offset)| {
