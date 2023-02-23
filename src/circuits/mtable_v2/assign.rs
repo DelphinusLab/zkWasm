@@ -25,11 +25,19 @@ impl<F: FieldExt> MemoryTableChip<F> {
         Ok(())
     }
 
-    fn configure_rest_mops_permutation(
+    fn constraint_rest_mops_permutation(
         &self,
+        ctx: &mut Context<'_, F>,
         etable_rest_mops_cell: Option<Cell>,
+        init_rest_mops: u64,
     ) -> Result<(), Error> {
-        todo!();
+        let cell = self
+            .config
+            .rest_mops_cell
+            .assign(ctx, F::from(init_rest_mops))?;
+
+        ctx.region
+            .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
 
         Ok(())
     }
@@ -38,57 +46,58 @@ impl<F: FieldExt> MemoryTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         mtable: &MemoryWritingTable,
+        init_rest_mops: u64,
     ) -> Result<(), Error> {
-        let mut rest_mops = mtable
-            .0
-            .iter()
-            .fold(0, |acc, entry| acc + (!entry.entry.atype.is_init() as u64));
+        macro_rules! assign_advice {
+            ($cell:ident, $value:expr) => {
+                self.config.$cell.assign(ctx, $value)?
+            };
+        }
+
+        macro_rules! assign_bit {
+            ($cell:ident) => {
+                assign_advice!($cell, F::one())
+            };
+        }
+
+        macro_rules! assign_bit_if {
+            ($cond:expr, $cell:ident) => {
+                if $cond {
+                    assign_advice!($cell, F::one());
+                }
+            };
+        }
+
+        let mut rest_mops = init_rest_mops;
 
         for entry in &mtable.0 {
-            self.config.enabled_cell.assign(ctx, F::one())?;
+            assign_bit!(enabled_cell);
 
             match entry.entry.ltype {
-                LocationType::Stack => self.config.is_stack_cell.assign(ctx, F::one())?,
-                LocationType::Heap => self.config.is_heap_cell.assign(ctx, F::one())?,
-                LocationType::Global => self.config.is_global_cell.assign(ctx, F::one())?,
-            }
+                LocationType::Stack => assign_bit!(is_stack_cell),
+                LocationType::Heap => assign_bit!(is_heap_cell),
+                LocationType::Global => assign_bit!(is_global_cell),
+            };
 
-            self.config
-                .is_mutable
-                .assign(ctx, F::from(entry.entry.is_mutable))?;
+            assign_bit_if!(entry.entry.is_mutable, is_mutable);
 
             match entry.entry.vtype {
-                VarType::I32 => self.config.is_i32_cell.assign(ctx, F::one())?,
-                VarType::I64 => self.config.is_i64_cell.assign(ctx, F::one())?,
-            }
+                VarType::I32 => assign_bit!(is_i32_cell),
+                VarType::I64 => assign_bit!(is_i64_cell),
+            };
 
-            self.config
-                .is_init_cell
-                .assign(ctx, F::from(entry.entry.atype.is_init()))?;
+            assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
+            assign_bit_if!(entry.entry.atype.is_positive_init(), is_imtable_init_cell);
 
-            self.config
-                .is_imtable_init_cell
-                .assign(ctx, F::from(entry.entry.atype.is_positive_init()))?;
-
-            self.config
-                .start_eid_cell
-                .assign(ctx, F::from(entry.entry.eid as u64))?;
-
-            self.config
-                .end_eid_cell
-                .assign(ctx, F::from(entry.end_eid as u64))?;
-
-            self.config
-                .eid_diff_cell
-                .assign(ctx, F::from((entry.end_eid - entry.entry.eid - 1) as u64))?;
-
-            self.config.rest_mops_cell.assign(ctx, F::from(rest_mops))?;
-
-            self.config
-                .offset_cell
-                .assign(ctx, F::from(entry.entry.offset as u64))?;
-
-            self.config.value.assign(ctx, entry.entry.value)?;
+            assign_advice!(start_eid_cell, F::from(entry.entry.eid as u64));
+            assign_advice!(end_eid_cell, F::from(entry.end_eid as u64));
+            assign_advice!(
+                eid_diff_cell,
+                F::from((entry.end_eid - entry.entry.eid - 1) as u64)
+            );
+            assign_advice!(rest_mops_cell, F::from(rest_mops));
+            assign_advice!(offset_cell, F::from(entry.entry.offset as u64));
+            assign_advice!(value, entry.entry.value);
 
             rest_mops -= 1;
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
@@ -100,14 +109,17 @@ impl<F: FieldExt> MemoryTableChip<F> {
             if curr.entry.ltype == next.entry.ltype {
                 let offset_diff = (next.entry.offset - curr.entry.offset) as u64;
 
-                self.config.is_next_same_ltype_cell.assign(ctx, F::one())?;
-                self.config
-                    .is_next_same_offset_cell
-                    .assign(ctx, F::from(curr.entry.offset == next.entry.offset))?;
-                self.config.offset_diff.assign(ctx, F::from(offset_diff))?;
-                self.config
-                    .offset_diff_inv
-                    .assign(ctx, F::from(offset_diff).invert().unwrap_or(F::zero()))?;
+                assign_bit!(is_next_same_ltype_cell);
+
+                assign_bit_if!(
+                    curr.entry.offset == next.entry.offset,
+                    is_next_same_offset_cell
+                );
+                assign_advice!(offset_diff, F::from(offset_diff));
+                assign_advice!(
+                    offset_diff_inv,
+                    F::from(offset_diff).invert().unwrap_or(F::zero())
+                );
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
@@ -122,12 +134,17 @@ impl<F: FieldExt> MemoryTableChip<F> {
         etable_rest_mops_cell: Option<Cell>,
         mtable: &MemoryWritingTable,
     ) -> Result<(), Error> {
+        let mut rest_mops = mtable
+            .0
+            .iter()
+            .fold(0, |acc, entry| acc + (!entry.entry.atype.is_init() as u64));
+
         self.assign_fixed(ctx)?;
         ctx.reset();
 
-        self.configure_rest_mops_permutation(etable_rest_mops_cell)?;
+        self.constraint_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
 
-        self.assign_entries(ctx, mtable)?;
+        self.assign_entries(ctx, mtable, rest_mops)?;
         ctx.reset();
 
         Ok(())

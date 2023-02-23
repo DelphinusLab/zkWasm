@@ -1,10 +1,11 @@
 use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
-use specs::{etable::EventTable, itable::OpcodeClassPlain};
+use specs::itable::OpcodeClassPlain;
 use std::{collections::BTreeMap, rc::Rc};
 
 use super::{EventTableChip, EventTableOpcodeConfig, ESTEP_SIZE};
-use crate::circuits::utils::{
-    bn_to_field, table_entry::EventTableEntryWithMemoryReadingTable, Context,
+use crate::circuits::{
+    cell::CellExpression,
+    utils::{bn_to_field, table_entry::EventTableEntryWithMemoryReadingTable, Context},
 };
 
 impl<F: FieldExt> EventTableChip<F> {
@@ -44,12 +45,7 @@ impl<F: FieldExt> EventTableChip<F> {
         for entry in &event_table.0 {
             macro_rules! assign_advice {
                 ($cell:ident, $value:expr) => {
-                    ctx.region.assign_advice(
-                        || "etable".to_owned() + stringify!($cell),
-                        self.config.common_config.$cell.0.col,
-                        ctx.offset + self.config.common_config.$cell.0.rot as usize,
-                        || Ok($value),
-                    )?;
+                    self.config.common_config.$cell.assign(ctx, $value)?;
                 };
             }
 
