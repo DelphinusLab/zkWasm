@@ -1,17 +1,21 @@
-use self::allocator::*;
+use self::{allocator::*, constraint_builder::ConstraintBuilder};
 use super::{
     brtable::BrTableConfig, cell::*, config::max_etable_rows, itable::InstructionTableConfig,
     jtable::JumpTableConfig, mtable_v2::MemoryTableConfig, rtable::RangeTableConfig,
     traits::ConfigureLookupTable, utils::Context, CircuitConfigure, Lookup,
 };
-use crate::{constant_from, fixed_curr};
+use crate::{
+    circuits::etable_v2::op_configure::op_return::ReturnConfigBuilder, constant_from, fixed_curr,
+};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
 };
 use specs::{
-    configure_table::ConfigureTable, encode::instruction_table::encode_instruction_table_entry,
-    etable::EventTableEntry, itable::OpcodeClassPlain,
+    configure_table::ConfigureTable,
+    encode::instruction_table::encode_instruction_table_entry,
+    etable::EventTableEntry,
+    itable::{OpcodeClass, OpcodeClassPlain},
 };
 use std::{
     collections::{BTreeMap, HashSet},
@@ -20,7 +24,8 @@ use std::{
 
 mod allocator;
 mod assign;
-mod op_configure;
+mod constraint_builder;
+pub(self) mod op_configure;
 
 pub(crate) const ESTEP_SIZE: i32 = 4;
 pub(crate) const OP_LVL1_BITS: usize = 6;
@@ -73,36 +78,26 @@ impl<F: FieldExt> EventTableCommonConfig<F> {
         &self,
         opcode_class_plain: OpcodeClassPlain,
     ) -> (AllocatedBitCell<F>, AllocatedBitCell<F>) {
+        let (lvl1, lvl2) = Self::opclass_to_two_level(opcode_class_plain);
+
+        (
+            *self.lvl1_bits.get(lvl1).unwrap(),
+            *self.lvl2_bits.get(lvl2).unwrap(),
+        )
+    }
+
+    fn opclass_to_two_level(opcode_class_plain: OpcodeClassPlain) -> (usize, usize) {
         // OpcodeClassPlain starts from 1.
         let idx = opcode_class_plain.0 - 1;
 
         assert!(idx < OP_LVL1_BITS * OP_LVL2_BITS);
-
-        (
-            *self.lvl1_bits.get(idx / OP_LVL2_BITS).unwrap(),
-            *self.lvl2_bits.get(idx % OP_LVL2_BITS).unwrap(),
-        )
+        (idx / OP_LVL2_BITS, idx % OP_LVL2_BITS)
     }
-}
-
-pub(in crate::circuits::etable_v2) struct ConstraintBuilder<'a, F: FieldExt> {
-    meta: &'a mut ConstraintSystem<F>,
-    constraints: Vec<(
-        &'static str,
-        Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
-    )>,
-    lookups: BTreeMap<
-        &'static str,
-        Vec<(
-            &'static str,
-            Box<dyn Fn(&mut VirtualCells<F>) -> Expression<F>>,
-        )>,
-    >,
 }
 
 pub(in crate::circuits::etable_v2) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
     fn configure(
-        common: &mut EventTableCommonConfig<F>,
+        common: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
@@ -201,7 +196,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
         brtable: &BrTableConfig<F>,
-        _opcode_set: &HashSet<OpcodeClassPlain>,
+        opcode_set: &HashSet<OpcodeClassPlain>,
     ) -> EventTableConfig<F> {
         let sel = meta.fixed_column();
         let step_sel = meta.fixed_column();
@@ -255,7 +250,32 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
-        {}
+        macro_rules! configure {
+            ($op:expr, $x:ident) => {
+                let op = OpcodeClassPlain($op as usize);
+                if opcode_set.contains(&op) {
+                    let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
+                    let mut constraint_builder = ConstraintBuilder::new(meta);
+
+                    let config = $x::configure(
+                        &common_config,
+                        &mut allocator.clone(),
+                        &mut constraint_builder,
+                    );
+
+                    constraint_builder.finalize(|meta| {
+                        fixed_curr!(meta, step_sel)
+                            * lvl1_bits[op_lvl1].curr_expr(meta)
+                            * lvl2_bits[op_lvl2].curr_expr(meta)
+                    });
+
+                    op_bitmaps.insert(op, (op_lvl1, op_lvl2));
+                    op_configs.insert(op, Rc::new(config));
+                }
+            };
+        }
+
+        configure!(OpcodeClass::Return, ReturnConfigBuilder);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![

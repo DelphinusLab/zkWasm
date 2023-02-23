@@ -6,7 +6,7 @@ use super::imtable::InitMemoryTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::{cell::*, rtable::RangeTableConfig, CircuitConfigure};
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Fixed};
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells};
 use specs::mtable::LocationType;
 
 mod allocator;
@@ -302,9 +302,7 @@ impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: impl FnOnce(
-            &mut halo2_proofs::plonk::VirtualCells<'_, F>,
-        ) -> halo2_proofs::plonk::Expression<F>,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         todo!()
     }
