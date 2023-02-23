@@ -35,11 +35,11 @@ pub struct ReturnConfig<F: FieldExt> {
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupCell<F>,
 }
 
-pub struct ReturnConfigBuilder {}
+pub struct ReturnConfigBuilder;
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
     fn configure(
-        common_config: &mut EventTableCommonConfig<F>,
+        common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
