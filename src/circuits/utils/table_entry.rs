@@ -92,7 +92,7 @@ pub(crate) struct EventTableEntryWithMemoryReadingTable(
 
 impl EventTableEntryWithMemoryReadingTable {
     pub(in crate::circuits) fn new(
-        event_table: EventTable,
+        event_table: &EventTable,
         memory_writing_table: &MemoryWritingTable,
     ) -> Self {
         let lookup = memory_writing_table.build_lookup_mapping();

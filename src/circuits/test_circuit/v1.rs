@@ -7,20 +7,19 @@ use halo2_proofs::{
 };
 use specs::{host_function::HostPlugin, ExecutionTable, Tables};
 
+pub const VAR_COLUMNS: usize = 20;
+
 use crate::{
     circuits::{
         brtable::{BrTableChip, BrTableConfig},
-        etable_v2::{EventTableChip, EventTableConfig},
+        etable_compact::{EventTableChip, EventTableConfig},
         external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
         imtable::{InitMemoryTableConfig, MInitTableChip},
         itable::{InstructionTableChip, InstructionTableConfig},
         jtable::{JumpTableChip, JumpTableConfig},
-        mtable_v2::{MemoryTableChip, MemoryTableConfig},
+        mtable_compact::{MemoryTableChip, MemoryTableConfig},
         rtable::{RangeTableChip, RangeTableConfig},
-        utils::{
-            table_entry::{EventTableEntryWithMemoryReadingTable, MemoryWritingTable},
-            Context,
-        },
+        utils::Context,
         TestCircuit, CIRCUIT_CONFIGURE,
     },
     foreign::{
@@ -35,8 +34,6 @@ use crate::{
         ForeignTableConfig,
     },
 };
-
-pub const VAR_COLUMNS: usize = 24;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
@@ -109,8 +106,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &mtable,
             &jtable,
             &brtable,
-            //&external_host_call_table,
-            //&foreign_tables,
+            &external_host_call_table,
+            &foreign_tables,
             &circuit_configure.opcode_selector,
         );
 
@@ -189,27 +186,19 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                let memory_writing_table: MemoryWritingTable =
-                    self.tables.execution_tables.mtable.clone().into();
-
-                let etable = EventTableEntryWithMemoryReadingTable::new(
-                    &self.tables.execution_tables.etable,
-                    &memory_writing_table,
-                );
-
                 let (rest_mops_cell, rest_jops_cell) = {
                     echip.assign(
                         &mut ctx,
-                        &etable,
-                        &self.tables.compilation_tables.configure_table,
+                        &self.tables.execution_tables.etable,
+                        self.tables.compilation_tables.configure_table,
                     )?
                 };
 
                 ctx.reset();
                 mchip.assign(
                     &mut ctx,
+                    &self.tables.execution_tables.mtable,
                     rest_mops_cell,
-                    &memory_writing_table,
                     self.tables
                         .compilation_tables
                         .imtable
