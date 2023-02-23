@@ -54,7 +54,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     ) -> Self {
         let entry_sel = meta.fixed_column();
 
-        let mut allocator = MemoryTableCellAllocator::new(meta, rtable, cols);
+        let mut allocator = MemoryTableCellAllocator::new(meta, entry_sel, rtable, cols);
         allocator.enable_equality(meta, &MemoryTableCellType::CommonRange);
 
         let enabled_cell = allocator.alloc_bit_cell();
@@ -84,7 +84,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         meta.create_gate("mc1. enable seq", |meta| {
             vec![
-                (enabled_cell.curr_expr(meta) - constant_from!(1)) * (enabled_cell.next_expr(meta)),
+                (enabled_cell.curr_expr(meta) - constant_from!(1))
+                    * (enabled_cell.next_expr(meta))
+                    * fixed_curr!(meta, entry_sel),
             ]
         });
 

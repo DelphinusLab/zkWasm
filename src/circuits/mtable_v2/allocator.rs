@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, marker::PhantomData};
 
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells},
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         rtable::RangeTableConfig,
         utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
     },
-    constant_from, nextn,
+    constant_from, fixed_curr, nextn,
 };
 
 use super::MEMORY_TABLE_ENTRY_ROWS;
@@ -83,15 +83,19 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
     pub(super) fn prepare_alloc_u64_cell(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> AllocatedU64Cell<F> {
         let u16_cells_le = [0; 4].map(|_| self.alloc_u16_cell());
         let u64_cell = self.alloc_unlimited_cell();
         meta.create_gate("mc9. value", |meta| {
             let init = u64_cell.curr_expr(meta);
-            vec![(0..4)
-                .into_iter()
-                .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
-                .fold(init, |acc, x| acc - x)]
+            vec![
+                (0..4)
+                    .into_iter()
+                    .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
+                    .fold(init, |acc, x| acc - x)
+                    * enable(meta),
+            ]
         });
         AllocatedU64Cell {
             u16_cells_le,
@@ -101,12 +105,13 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
 
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
+        sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, rtable, cols);
+        let mut allocator = Self::_new(meta, sel.clone(), rtable, cols);
         for _ in 0..U64_CELLS {
-            let cell = allocator.prepare_alloc_u64_cell(meta);
+            let cell = allocator.prepare_alloc_u64_cell(meta, |meta| fixed_curr!(meta, sel));
             allocator.free_u64_cells.push(cell);
         }
         allocator
@@ -114,6 +119,7 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
 
     fn _new(
         meta: &mut ConstraintSystem<F>,
+        sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
@@ -121,7 +127,7 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
         all_cols.insert(
             MemoryTableCellType::Bit,
             [0; BIT_COLUMNS]
-                .map(|_| BitColumn::configure(meta, cols, |_| constant_from!(1)).col)
+                .map(|_| BitColumn::configure(meta, cols, |meta| fixed_curr!(meta, sel)).col)
                 .into_iter()
                 .collect(),
         );

@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, marker::PhantomData};
 
 use halo2_proofs::{
     arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
+    plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells},
 };
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
         utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
         Lookup,
     },
-    constant_from, curr, nextn,
+    constant_from, curr, fixed_curr, nextn,
 };
 
 use super::ESTEP_SIZE;
@@ -88,15 +88,19 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(super) fn prepare_alloc_u64_cell(
         &mut self,
         meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) -> AllocatedU64Cell<F> {
         let u16_cells_le = [0; 4].map(|_| self.alloc_u16_cell());
         let u64_cell = self.alloc_unlimited_cell();
         meta.create_gate("c9. u64 decompose", |meta| {
             let init = u64_cell.curr_expr(meta);
-            vec![(0..4)
-                .into_iter()
-                .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
-                .fold(init, |acc, x| acc - x)]
+            vec![
+                (0..4)
+                    .into_iter()
+                    .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
+                    .fold(init, |acc, x| acc - x)
+                    * enable(meta),
+            ]
         });
         AllocatedU64Cell {
             u16_cells_le,
@@ -106,13 +110,14 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
+        sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, rtable, mtable, cols);
+        let mut allocator = Self::_new(meta, sel, rtable, mtable, cols);
         for _ in 0..U64_CELLS {
-            let cell = allocator.prepare_alloc_u64_cell(meta);
+            let cell = allocator.prepare_alloc_u64_cell(meta, |meta| fixed_curr!(meta, sel));
             allocator.free_u64_cells.push(cell);
         }
         allocator
@@ -120,6 +125,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     fn _new(
         meta: &mut ConstraintSystem<F>,
+        sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
@@ -128,7 +134,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         all_cols.insert(
             EventTableCellType::Bit,
             [0; BIT_COLUMNS]
-                .map(|_| BitColumn::configure(meta, cols, |_| constant_from!(1)).col)
+                .map(|_| BitColumn::configure(meta, cols, |meta| fixed_curr!(meta, sel)).col)
                 .into_iter()
                 .collect(),
         );

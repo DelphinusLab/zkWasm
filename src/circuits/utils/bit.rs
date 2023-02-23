@@ -1,5 +1,5 @@
 use super::Context;
-use crate::curr;
+use crate::{constant_from, curr};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
@@ -21,7 +21,11 @@ impl<F: FieldExt> BitColumn<F> {
         let col = cols.next().unwrap();
 
         meta.create_gate("bit column", |meta| {
-            vec![curr!(meta, col.clone()) * enable(meta)]
+            vec![
+                curr!(meta, col.clone())
+                    * (constant_from!(1) - curr!(meta, col.clone()))
+                    * enable(meta),
+            ]
         });
 
         Self {
