@@ -111,14 +111,13 @@ impl<F: FieldExt> EventTableChip<F> {
     pub(crate) fn assign(
         self,
         ctx: &mut Context<'_, F>,
-        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         event_table: &EventTableEntryWithMemoryReadingTable,
     ) -> Result<(), Error> {
         self.init(ctx)?;
 
         ctx.reset();
 
-        self.assign_advice(ctx, op_configs, event_table)?;
+        self.assign_advice(ctx, &self.config.op_configs, event_table)?;
 
         Ok(())
     }
