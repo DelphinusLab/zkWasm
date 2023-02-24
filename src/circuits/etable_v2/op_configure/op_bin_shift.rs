@@ -111,7 +111,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                 vec![
                     rhs_modulus.expr(meta)
                         - constant_from!(64)
-                        - is_i32.expr(meta) * constant_from!(32),
+                        + is_i32.expr(meta) * constant_from!(32),
                     size_modulus.expr(meta) - constant_from_bn!(&(BigUint::from(1u64) << 64usize))
                         + is_i32.expr(meta) * constant_from!((u32::MAX as u64) << 32),
                 ]
