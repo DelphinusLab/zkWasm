@@ -11,3 +11,4 @@ pub mod op_test;
 pub mod op_br;
 pub mod op_br_if;
 pub mod op_br_if_eqz;
+pub mod op_conversion;
