@@ -141,7 +141,7 @@ pub(super) enum EventTableCellType {
     MTableLookup,
 }
 
-const BIT_COLUMNS: usize = 5;
+const BIT_COLUMNS: usize = 7;
 const U16_COLUMNS: usize = 6;
 const COMMON_RANGE_COLUMNS: usize = 7;
 const UNLIMITED_COLUMNS: usize = 5;
@@ -451,7 +451,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                         + flag_u16_rem_cell.expr(meta)
                         - flag_u16),
                     (flag_u16_rem_cell.expr(meta)
-                        - flag_u16_rem_diff_cell.expr(meta)
+                        + flag_u16_rem_diff_cell.expr(meta)
                         - constant_from!((1 << 15) - 1)),
                 ]
             }),
