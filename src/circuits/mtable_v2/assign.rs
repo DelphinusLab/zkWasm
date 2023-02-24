@@ -130,7 +130,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 ))
             );
 
-            rest_mops -= 1;
+            if !entry.entry.atype.is_init() {
+                rest_mops -= 1;
+            }
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
 
