@@ -131,7 +131,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                 ..
             } => {
                 assert!(keep.len() <= 1);
-                assert!(*drop < 1 << 16);
                 assert_eq!(keep.len(), keep_values.len());
 
                 self.drop.assign(ctx, F::from(*drop as u64))?;
@@ -159,7 +158,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                         ctx,
                         step.current.eid,
                         entry.memory_rw_entires[1].end_eid,
-                        step.current.sp + *drop + 1,
+                        step.current.sp + drop + 1,
                         LocationType::Stack,
                         VarType::from(keep[0]) == VarType::I32,
                         keep_values[0],
@@ -187,20 +186,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     }
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(2) * self.keep.expr(meta))
+        Some(self.keep.expr(meta))
     }
 
-    fn assigned_extra_mops(
-        &self,
-        _ctx: &mut Context<'_, F>,
-        _step: &StepStatus,
-        entry: &EventTableEntry,
-    ) -> u64 {
+    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
         match &entry.step_info {
             StepInfo::Return { keep, .. } => {
                 if keep.len() > 0 {
                     assert!(keep.len() == 1);
-                    2
+                    1
                 } else {
                     0
                 }
@@ -208,7 +202,26 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
             _ => unreachable!(),
         }
     }
-
+    /*
+        fn assigned_extra_mops(
+            &self,
+            _ctx: &mut Context<'_, F>,
+            _step: &StepStatus,
+            entry: &EventTableEntry,
+        ) -> u64 {
+            match &entry.step_info {
+                StepInfo::Return { keep, .. } => {
+                    if keep.len() > 0 {
+                        assert!(keep.len() == 1);
+                        2
+                    } else {
+                        0
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+    */
     fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(self.jops()))
     }

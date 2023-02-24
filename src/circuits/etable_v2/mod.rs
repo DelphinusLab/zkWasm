@@ -104,6 +104,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         step: &StepStatus,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error>;
+    /*
     fn assigned_extra_mops(
         &self,
         _ctx: &mut Context<'_, F>,
@@ -112,6 +113,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> u64 {
         0u64
     }
+    */
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
         0
     }

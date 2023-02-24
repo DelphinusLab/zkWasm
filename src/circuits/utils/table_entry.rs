@@ -7,7 +7,7 @@ use specs::{
 
 use crate::{circuits::config::zkwasm_k, runtime::memory_event_of_step};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(in crate::circuits) struct MemoryWritingEntry {
     pub(in crate::circuits) entry: MemoryTableEntry,
     pub(in crate::circuits) end_eid: u32,
@@ -19,6 +19,7 @@ impl MemoryWritingEntry {
     }
 }
 
+#[derive(Debug)]
 pub(in crate::circuits) struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl From<MTable> for MemoryWritingTable {
@@ -99,13 +100,20 @@ impl EventTableWithMemoryInfo {
     ) -> Self {
         let lookup = memory_writing_table.build_lookup_mapping();
 
-        let lookup_mtable_eid = |(eid, ltype, offset)| {
+        let lookup_mtable_eid = |(eid, ltype, offset, is_writing)| {
             let records = lookup.get(&(ltype, offset)).unwrap();
 
-            records
-                .iter()
-                .find(|(start_eid, end_eid)| *start_eid <= eid && eid < *end_eid)
-                .unwrap()
+            if is_writing {
+                records
+                    .iter()
+                    .find(|(start_eid, end_eid)| *start_eid == eid)
+                    .unwrap()
+            } else {
+                records
+                    .iter()
+                    .find(|(start_eid, end_eid)| *start_eid < eid && eid <= *end_eid)
+                    .unwrap()
+            }
         };
 
         EventTableWithMemoryInfo(
@@ -117,8 +125,12 @@ impl EventTableWithMemoryInfo {
                     memory_rw_entires: memory_event_of_step(eentry, &mut 1)
                         .iter()
                         .map(|mentry| {
-                            let (start_eid, end_eid) =
-                                lookup_mtable_eid((eentry.eid, mentry.ltype, mentry.offset));
+                            let (start_eid, end_eid) = lookup_mtable_eid((
+                                eentry.eid,
+                                mentry.ltype,
+                                mentry.offset,
+                                mentry.atype == AccessType::Write,
+                            ));
 
                             MemoryRWEntry {
                                 entry: mentry.clone(),
