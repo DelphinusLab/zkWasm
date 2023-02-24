@@ -15,3 +15,4 @@ mod op_rel;
 mod op_return;
 mod op_select;
 mod op_test;
+mod op_unary;
