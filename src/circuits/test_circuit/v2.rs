@@ -197,17 +197,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     &memory_writing_table,
                 );
 
-                /*
-                                let (rest_mops_cell, rest_jops_cell) = {
-                                    echip.assign(
-                                        &mut ctx,
-                                        &etable,
-                                        &self.tables.compilation_tables.configure_table,
-                                    )?
-                                };
-                */
-                let rest_mops_cell = None;
-                let rest_jops_cell = None;
+                let (rest_mops_cell, rest_jops_cell) = {
+                    echip.assign(
+                        &mut ctx,
+                        &etable,
+                        &self.tables.compilation_tables.configure_table,
+                    )?
+                };
 
                 ctx.reset();
                 mchip.assign(

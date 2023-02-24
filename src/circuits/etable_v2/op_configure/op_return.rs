@@ -6,7 +6,10 @@ use crate::{
             EventTableOpcodeConfigBuilder,
         },
         jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        utils::{bn_to_field, step_status::StepStatus, Context},
+        utils::{
+            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryReading,
+            Context,
+        },
     },
     constant, constant_from,
 };
@@ -118,9 +121,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
         &self,
         ctx: &mut Context<'_, F>,
         step: &StepStatus,
-        entry: &EventTableEntry,
+        entry: &EventTableEntryWithMemoryReading,
     ) -> Result<(), Error> {
-        match &entry.step_info {
+        match &entry.eentry.step_info {
             StepInfo::Return {
                 drop,
                 keep,
@@ -137,7 +140,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                     self.keep.assign(ctx, 0.into())?;
                 } else {
                     self.keep.assign(ctx, 1.into())?;
-                    self.is_i32.assign(ctx,  (VarType::from(keep[0]) as u64).into())?;
+                    self.is_i32
+                        .assign(ctx, (VarType::from(keep[0]) as u64).into())?;
                     self.value.assign(ctx, keep_values[0])?;
 
                     // TODO: how to find start_eid & end_eid

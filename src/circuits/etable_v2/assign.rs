@@ -201,7 +201,7 @@ impl<F: FieldExt> EventTableChip<F> {
             let op_config = op_configs
                 .get(&entry.eentry.inst.opcode.clone().into())
                 .unwrap();
-            op_config.assign(ctx, &step_status, &entry.eentry)?;
+            op_config.assign(ctx, &step_status, &entry)?;
 
             if op_config.is_host_public_input(&entry.eentry) {
                 host_public_inputs += 1;
