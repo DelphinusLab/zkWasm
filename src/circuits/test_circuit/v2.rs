@@ -38,7 +38,7 @@ use crate::{
     },
 };
 
-pub const VAR_COLUMNS: usize = 28;
+pub const VAR_COLUMNS: usize = 34;
 pub const IMTABLE_COLUMNS: usize = 1;
 
 #[derive(Clone)]
