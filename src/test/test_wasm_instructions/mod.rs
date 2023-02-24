@@ -1,3 +1,5 @@
+mod op_bin;
+mod op_bin_shift;
 mod op_br;
 mod op_br_if;
 mod op_br_if_eqz;

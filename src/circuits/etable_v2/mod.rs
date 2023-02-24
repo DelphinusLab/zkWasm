@@ -13,6 +13,8 @@ use super::{
 };
 use crate::{
     circuits::etable_v2::op_configure::{
+        op_bin::BinConfigBuilder,
+        op_bin_shift::BinShiftConfigBuilder,
         op_br::BrConfigBuilder,
         op_br_if::BrIfConfigBuilder,
         op_br_if_eqz::BrIfEqzConfigBuilder,
@@ -289,6 +291,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
+        configure!(OpcodeClass::Bin, BinConfigBuilder);
+        configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
         configure!(OpcodeClass::Br, BrConfigBuilder);
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
         configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder);
