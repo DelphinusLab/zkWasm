@@ -1,3 +1,4 @@
+mod op_call;
 mod op_const;
 mod op_conversion;
 mod op_global_get;
