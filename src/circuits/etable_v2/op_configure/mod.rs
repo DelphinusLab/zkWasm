@@ -9,3 +9,4 @@ pub mod op_global_get;
 pub mod op_global_set;
 pub mod op_test;
 pub mod op_br;
+pub mod op_br_if;
