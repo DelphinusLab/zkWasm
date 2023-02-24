@@ -1,10 +1,9 @@
-#[cfg(test)]
-mod tests {
-    use crate::test::test_circuit_noexternal;
 
-    #[test]
-    fn test_trivial_return() {
-        let textual_repr = r#"
+use crate::test::test_circuit_noexternal;
+
+#[test]
+fn test_trivial_return() {
+    let textual_repr = r#"
             (module
                 (func (export "test")
                   return
@@ -12,12 +11,12 @@ mod tests {
                )
             "#;
 
-        test_circuit_noexternal(textual_repr).unwrap();
-    }
+    test_circuit_noexternal(textual_repr).unwrap();
+}
 
-    #[test]
-    fn test_return_with_drop_ok() {
-        let textual_repr = r#"
+#[test]
+fn test_return_with_drop_ok() {
+    let textual_repr = r#"
             (module
                 (func (export "test")
                   (block
@@ -29,12 +28,12 @@ mod tests {
                )
             "#;
 
-        test_circuit_noexternal(textual_repr).unwrap();
-    }
+    test_circuit_noexternal(textual_repr).unwrap();
+}
 
-    #[test]
-    fn test_return_with_keep_ok() {
-        let textual_repr = r#"
+#[test]
+fn test_return_with_keep_ok() {
+    let textual_repr = r#"
             (module
                 (func (export "test") (result i32)
                     (i32.const 0)
@@ -42,6 +41,5 @@ mod tests {
                )
             "#;
 
-        test_circuit_noexternal(textual_repr).unwrap();
-    }
+    test_circuit_noexternal(textual_repr).unwrap();
 }

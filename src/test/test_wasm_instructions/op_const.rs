@@ -1,10 +1,8 @@
-#[cfg(test)]
-mod tests {
-    use crate::test::test_circuit_noexternal;
+use crate::test::test_circuit_noexternal;
 
-    #[test]
-    fn test_const() {
-        let textual_repr = r#"
+#[test]
+fn test_const() {
+    let textual_repr = r#"
             (module
                 (func (export "test")
                   (i32.const 0)
@@ -15,6 +13,5 @@ mod tests {
                )
             "#;
 
-        test_circuit_noexternal(textual_repr).unwrap();
-    }
+    test_circuit_noexternal(textual_repr).unwrap();
 }
