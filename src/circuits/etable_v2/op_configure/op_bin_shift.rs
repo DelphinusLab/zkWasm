@@ -119,7 +119,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin rhs rem",
+            "bin_shift rhs rem",
             Box::new(move |meta| {
                 vec![
                     rhs_round.expr(meta) * rhs_modulus.expr(meta) + rhs_rem.expr(meta)
@@ -131,7 +131,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin modulus pow lookup",
+            "bin_shift modulus pow lookup",
             Box::new(move |meta| {
                 vec![
                     lookup_pow.expr(meta)
@@ -141,7 +141,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin shr_u",
+            "bin_shift shr_u",
             Box::new(move |meta| {
                 vec![
                     is_shr_u.expr(meta)
@@ -157,7 +157,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin shr_s",
+            "bin_shift shr_s",
             Box::new(move |meta| {
                 vec![
                     is_shr_s.expr(meta)
@@ -179,7 +179,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin shl",
+            "bin_shift shl",
             Box::new(move |meta| {
                 vec![
                     is_shl.expr(meta)
@@ -195,7 +195,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin rotl",
+            "bin_shift rotl",
             Box::new(move |meta| {
                 vec![
                     is_rotl.expr(meta)
@@ -212,7 +212,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin rotr",
+            "bin_shift rotr",
             Box::new(move |meta| {
                 vec![
                     is_rotr.expr(meta)
