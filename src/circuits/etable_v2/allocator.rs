@@ -330,7 +330,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 vec![
                     (eid.expr(meta)
                         - cell.start_eid_cell.expr(meta)
-                        - cell.start_eid_cell.expr(meta)
+                        - cell.start_eid_diff_cell.expr(meta)
                         - constant_from!(1))
                         * enable.clone(),
                     (eid.expr(meta) + cell.end_eid_diff_cell.expr(meta)
