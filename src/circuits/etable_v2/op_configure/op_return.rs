@@ -155,28 +155,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                         keep_values[0],
                     )?;
 
-                    /*
-                    self.memory_table_lookup_stack_read.assign_bn(
+                    self.memory_table_lookup_stack_write.assign(
                         ctx,
-                        &MemoryTableLookupEncode::encode_stack(
-                            BigUint::from(entry.eid),
-                            BigUint::from(1 as u64),
-                            BigUint::from(entry.sp + 1),
-                            BigUint::from(vtype as u16),
-                            BigUint::from(keep_values[0]),
-                        ),
+                        step.current.eid,
+                        entry.memory_rw_entires[1].end_eid,
+                        step.current.sp + *drop + 1,
+                        LocationType::Stack,
+                        VarType::from(keep[0]) == VarType::I32,
+                        keep_values[0],
                     )?;
-                    self.memory_table_lookup_stack_write.assign_bn(
-                        ctx,
-                        &MemoryTableLookupEncode::encode_stack(
-                            BigUint::from(entry.eid),
-                            BigUint::from(2 as u64),
-                            BigUint::from(entry.sp + *drop + 1),
-                            BigUint::from(vtype as u16),
-                            BigUint::from(keep_values[0]),
-                        ),
-                    )?;
-                    */
                 }
 
                 self.frame_table_lookup.assign_bn(

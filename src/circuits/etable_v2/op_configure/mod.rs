@@ -7,3 +7,4 @@ pub mod op_local_tee;
 pub mod op_call;
 pub mod op_global_get;
 pub mod op_global_set;
+pub mod op_test;
