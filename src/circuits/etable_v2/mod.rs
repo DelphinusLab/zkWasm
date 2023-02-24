@@ -382,11 +382,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 },
             )]
             .into_iter()
-            .map(|expr| {
-                expr * enabled_cell.curr_expr(meta)
-                    * enabled_cell.next_expr(meta)
-                    * fixed_curr!(meta, step_sel)
-            })
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
             .collect::<Vec<_>>()
         });
 
@@ -421,11 +417,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         meta.create_gate("c6a. eid change", |meta| {
             vec![(eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))]
                 .into_iter()
-                .map(|expr| {
-                    expr * enabled_cell.curr_expr(meta)
-                        * enabled_cell.next_expr(meta)
-                        * fixed_curr!(meta, step_sel)
-                })
+                .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
                 .collect::<Vec<_>>()
         });
 
