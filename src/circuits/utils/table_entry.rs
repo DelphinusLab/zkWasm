@@ -75,15 +75,15 @@ impl MemoryWritingTable {
     }
 }
 
-pub(in crate::circuits) struct MemoryReadingEntry {
+pub struct MemoryReadingEntry {
     entry: MemoryTableEntry,
     start_eid: u32,
     end_eid: u32,
 }
 
-pub(in crate::circuits) struct EventTableEntryWithMemoryReading {
-    pub(crate) eentry: EventTableEntry,
-    pub(crate) memory_read_entires: Vec<MemoryReadingEntry>,
+pub struct EventTableEntryWithMemoryReading {
+    pub eentry: EventTableEntry,
+    pub memory_read_entires: Vec<MemoryReadingEntry>,
 }
 
 pub(crate) struct EventTableEntryWithMemoryReadingTable(

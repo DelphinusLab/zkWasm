@@ -5,7 +5,10 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        utils::{bn_to_field, step_status::StepStatus, Context},
+        utils::{
+            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryReading,
+            Context,
+        },
     },
     constant, constant_from,
 };
@@ -72,9 +75,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
         &self,
         ctx: &mut Context<'_, F>,
         step_info: &StepStatus,
-        entry: &EventTableEntry,
+        entry: &EventTableEntryWithMemoryReading,
     ) -> Result<(), Error> {
-        match &entry.step_info {
+        match &entry.eentry.step_info {
             specs::step::StepInfo::I32Const { value } => {
                 self.value.assign(ctx, *value as u32 as u64)?;
                 self.is_i32.assign(ctx, F::one())?;

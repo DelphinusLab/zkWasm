@@ -8,7 +8,7 @@ use super::{
     mtable_v2::MemoryTableConfig,
     rtable::RangeTableConfig,
     traits::ConfigureLookupTable,
-    utils::{step_status::StepStatus, Context},
+    utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryReading, Context},
     CircuitConfigure, Lookup,
 };
 use crate::{
@@ -100,7 +100,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         &self,
         ctx: &mut Context<'_, F>,
         step: &StepStatus,
-        entry: &EventTableEntry,
+        entry: &EventTableEntryWithMemoryReading,
     ) -> Result<(), Error>;
     fn assigned_extra_mops(
         &self,
@@ -383,7 +383,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                 },
             )]
             .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .map(|expr| {
+                expr * enabled_cell.curr_expr(meta)
+                    * enabled_cell.next_expr(meta)
+                    * fixed_curr!(meta, step_sel)
+            })
             .collect::<Vec<_>>()
         });
 
@@ -412,13 +416,14 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("c6a. eid change", |meta| {
-            vec![
-                (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
-                    * fixed_curr!(meta, step_sel),
-            ]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
+            vec![(eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))]
+                .into_iter()
+                .map(|expr| {
+                    expr * enabled_cell.curr_expr(meta)
+                        * enabled_cell.next_expr(meta)
+                        * fixed_curr!(meta, step_sel)
+                })
+                .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6b. fid change", |meta| {
@@ -466,17 +471,18 @@ impl<F: FieldExt> EventTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
-        meta.create_gate("c7. itable_lookup_encode", |meta| {
-            let opcode = sum_ops_expr(
-                meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| Some(config.opcode(meta)),
-            );
-            vec![
-                encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
-                    * fixed_curr!(meta, step_sel),
-            ]
-        });
-
+        /* FIXME
+                meta.create_gate("c7. itable_lookup_encode", |meta| {
+                    let opcode = sum_ops_expr(
+                        meta,
+                        &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| Some(config.opcode(meta)),
+                    );
+                    vec![
+                        encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
+                            * fixed_curr!(meta, step_sel),
+                    ]
+                });
+        */
         jtable.configure_in_table(meta, "c8a. itable_lookup in itable", |meta| {
             jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
