@@ -456,7 +456,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c6b. fid change", |meta| {
             vec![sum_ops_expr_with_init(
-                fid_cell.next_expr(meta) - fid_cell.curr_expr(meta),
+                -fid_cell.next_expr(meta) + fid_cell.curr_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config
@@ -492,7 +492,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c6d. frame_id change", |meta| {
             vec![sum_ops_expr_with_init(
-                frame_id_cell.next_expr(meta) - frame_id_cell.curr_expr(meta),
+                -frame_id_cell.next_expr(meta) + frame_id_cell.curr_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config
