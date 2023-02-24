@@ -12,7 +12,7 @@ use super::{
     CircuitConfigure, Lookup,
 };
 use crate::{
-    circuits::etable_v2::op_configure::op_return::ReturnConfigBuilder, constant_from, curr,
+    circuits::etable_v2::op_configure::{op_return::ReturnConfigBuilder, op_const::ConstConfigBuilder}, constant_from, curr,
     fixed_curr,
 };
 use halo2_proofs::{
@@ -271,6 +271,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         }
 
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
+        configure!(OpcodeClass::Const, ConstConfigBuilder);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
