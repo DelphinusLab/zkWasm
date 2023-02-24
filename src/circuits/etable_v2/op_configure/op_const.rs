@@ -26,7 +26,7 @@ use specs::{
 pub struct ConstConfig<F: FieldExt> {
     is_i32: AllocatedBitCell<F>,
     value: AllocatedU64Cell<F>,
-    lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
+    memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
 pub struct ConstConfigBuilder {}
@@ -43,7 +43,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
         let sp_cell = common_config.sp_cell;
         let eid_cell = common_config.eid_cell;
 
-        let lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
+        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_const stack write",
             constraint_builder,
             eid_cell,
@@ -57,7 +57,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
         Box::new(ConstConfig {
             is_i32,
             value,
-            lookup_stack_write,
+            memory_table_lookup_stack_write,
         })
     }
 }
@@ -74,25 +74,22 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step_info: &StepStatus,
+        step: &StepStatus,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             specs::step::StepInfo::I32Const { value } => {
                 self.value.assign(ctx, *value as u32 as u64)?;
                 self.is_i32.assign(ctx, F::one())?;
-                /* TODO
-                self.lookup_stack_write.assign(
+                self.memory_table_lookup_stack_write.assign(
                     ctx,
-                    &MemoryTableLookupEncode::encode_stack_write(
-                        BigUint::from(step_info.current.eid),
-                        BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp),
-                        BigUint::from(VarType::I32 as u16),
-                        BigUint::from(*value as u32 as u64),
-                    ),
+                    step.current.eid,
+                    entry.memory_rw_entires[0].end_eid,
+                    step.current.sp,
+                    LocationType::Stack,
+                    true,
+                    *value as u32 as u64,
                 )?;
-                */
                 Ok(())
             }
             specs::step::StepInfo::I64Const { value } => {
