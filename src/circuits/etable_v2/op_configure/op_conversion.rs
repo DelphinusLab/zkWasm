@@ -30,14 +30,10 @@ use specs::{
 };
 
 pub struct ConversionConfig<F: FieldExt> {
-    value: AllocatedU64Cell<F>,
+    value: AllocatedU64CellWithFlagBit<F, 1>,
     value_is_i32: AllocatedBitCell<F>,
     res: AllocatedU64Cell<F>,
     res_is_i32: AllocatedBitCell<F>,
-
-    flag_bit: AllocatedBitCell<F>,
-    flag_u16_rem: AllocatedCommonRangeCell<F>,
-    flag_u16_rem_diff: AllocatedCommonRangeCell<F>,
 
     is_i32_wrap_i64: AllocatedBitCell<F>,
     is_i64_extend_i32_u: AllocatedBitCell<F>,
@@ -55,14 +51,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let value = allocator.alloc_u64_cell();
+        let value = allocator.alloc_u64_with_flag_bit_cell(constraint_builder);
         let value_is_i32 = allocator.alloc_bit_cell();
         let res = allocator.alloc_u64_cell();
         let res_is_i32 = allocator.alloc_bit_cell();
-
-        let flag_bit = allocator.alloc_bit_cell();
-        let flag_u16_rem = allocator.alloc_common_range_cell();
-        let flag_u16_rem_diff = allocator.alloc_common_range_cell();
 
         let is_i32_wrap_i64 = allocator.alloc_bit_cell();
         let is_i64_extend_i32_u = allocator.alloc_bit_cell();
@@ -107,20 +99,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_conversion flag bit",
-            Box::new(move |meta| {
-                let flag_u16 = value.u16_cells_le[1].expr(meta);
-                vec![
-                    (flag_bit.expr(meta) * constant_from!(1 << 15) + flag_u16_rem.expr(meta)
-                        - flag_u16),
-                    (flag_u16_rem.expr(meta)
-                        - flag_u16_rem_diff.expr(meta)
-                        - constant_from!((1 << 15) - 1)),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
             "i64_extend_i32_u",
             Box::new(move |meta| {
                 vec![
@@ -133,7 +111,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         constraint_builder.push(
             "i64_extend_i32_s",
             Box::new(move |meta| {
-                let pad = flag_bit.expr(meta) * constant_from!((u32::MAX as u64) << 32);
+                let pad = value.flag_bit_cell.expr(meta) * constant_from!((u32::MAX as u64) << 32);
 
                 vec![
                     is_i64_extend_i32_s.expr(meta)
@@ -172,9 +150,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             value_is_i32,
             res,
             res_is_i32,
-            flag_bit,
-            flag_u16_rem,
-            flag_u16_rem_diff,
             is_i32_wrap_i64,
             is_i64_extend_i32_u,
             is_i64_extend_i32_s,
@@ -232,19 +207,32 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
             _ => unreachable!(),
         };
 
-        let flag_u16 = value as u32 >> 16;
-        let flag_bit = flag_u16 >> 15;
-        let flag_u16_rem = flag_u16 & 0x7fff;
-        let flag_u16_rem_diff = 0x7fff - flag_u16_rem;
-
-        self.flag_bit.assign_u32(ctx, flag_bit)?;
-        self.flag_u16_rem.assign_u32(ctx, flag_u16_rem)?;
-        self.flag_u16_rem_diff.assign_u32(ctx, flag_u16_rem_diff)?;
-
         self.value.assign(ctx, value)?;
         self.res.assign(ctx, result)?;
         self.value_is_i32.assign(ctx, F::from(value_type as u64))?;
         self.res_is_i32.assign(ctx, F::from(result_type as u64))?;
+
+        self.memory_table_lookup_stack_read.assign(
+            ctx,
+            entry.memory_rw_entires[0].start_eid,
+            step.current.eid,
+            entry.memory_rw_entires[0].end_eid,
+            step.current.sp + 1,
+            LocationType::Stack,
+            value_type == VarType::I32,
+            value,
+        )?;
+
+        self.memory_table_lookup_stack_write.assign(
+            ctx,
+            step.current.eid,
+            entry.memory_rw_entires[1].end_eid,
+            step.current.sp + 1,
+            LocationType::Stack,
+            result_type == VarType::I32,
+            result,
+        )?;
+
         Ok(())
     }
 
