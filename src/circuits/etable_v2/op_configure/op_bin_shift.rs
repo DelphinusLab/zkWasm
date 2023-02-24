@@ -109,8 +109,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             "bin_shift modulus",
             Box::new(move |meta| {
                 vec![
-                    rhs_modulus.expr(meta)
-                        - constant_from!(64)
+                    rhs_modulus.expr(meta) - constant_from!(64)
                         + is_i32.expr(meta) * constant_from!(32),
                     size_modulus.expr(meta) - constant_from_bn!(&(BigUint::from(1u64) << 64usize))
                         + is_i32.expr(meta) * constant_from!((u32::MAX as u64) << 32),
@@ -401,7 +400,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
         self.rhs_rem.assign(ctx, F::from(power))?;
         self.rhs_rem_diff.assign(ctx, F::from(size - 1 - power))?;
         self.modulus.assign(ctx, 1 << power)?;
-        self.lookup_pow.assign(ctx, power.into())?;
+        self.lookup_pow
+            .assign_bn(ctx, &((BigUint::from(1u64) << (power + 16)) + power))?;
         self.is_i32
             .assign(ctx, if is_eight_bytes { F::zero() } else { F::one() })?;
         self.res.assign(ctx, F::from(value))?;
