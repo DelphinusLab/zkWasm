@@ -168,7 +168,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
             eid,
             move |meta| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |meta| is_i32.expr(meta),
             move |meta| result.u64_cell.expr(meta),
             move |meta| constant_from!(1),
         );
@@ -223,7 +223,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            specs::step::StepInfo::UnaryOp {
+            StepInfo::UnaryOp {
                 class,
                 vtype,
                 operand,
@@ -242,6 +242,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                 } else {
                     (64, 1u128 << 64)
                 };
+                self.bits.assign(ctx, F::from(bits))?;
 
                 match class {
                     UnaryOp::Ctz => {
@@ -261,7 +262,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         self.aux1.assign(ctx, hd)?;
                         self.boundary
                             .assign(ctx, bn_to_field(&BigUint::from(1u128 << least_one_pos)))?;
-                        self.lookup_pow.assign(ctx, least_one_pos.into())?;
+                        self.lookup_pow.assign(
+                            ctx,
+                            bn_to_field(&pow_table_encode(
+                                BigUint::from(1u128 << least_one_pos),
+                                BigUint::from(least_one_pos),
+                            )),
+                        )?;
                     }
                     UnaryOp::Clz => {
                         self.is_clz.assign_bool(ctx, true)?;
@@ -281,7 +288,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         self.aux1.assign(ctx, tail)?;
                         self.aux2.assign(ctx, boundary - tail - 1)?;
                         if boundary != 0 {
-                            self.lookup_pow.assign(ctx, (bits - *result - 1).into())?;
+                            self.lookup_pow.assign(
+                                ctx,
+                                bn_to_field(&pow_table_encode(
+                                    BigUint::from(1u128 << (bits - *result - 1)),
+                                    BigUint::from(bits - *result - 1),
+                                )),
+                            )?;
                         }
                     }
                     UnaryOp::Popcnt => {
@@ -291,13 +304,24 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                     }
                 }
 
+                self.memory_table_lookup_stack_read.assign(
+                    ctx,
+                    entry.memory_rw_entires[0].start_eid,
+                    step.current.eid,
+                    entry.memory_rw_entires[0].end_eid,
+                    step.current.sp + 1,
+                    LocationType::Stack,
+                    *vtype == VarType::I32,
+                    *operand,
+                )?;
+
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,
                     entry.memory_rw_entires[1].end_eid,
                     step.current.sp + 1,
                     LocationType::Stack,
-                    true,
+                    *vtype == VarType::I32,
                     *result as u32 as u64,
                 )?;
 

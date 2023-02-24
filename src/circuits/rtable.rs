@@ -11,6 +11,7 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::FromBn;
 use specs::itable::BitOp;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
@@ -134,11 +135,8 @@ pub struct RangeTableChip<F: FieldExt> {
     config: RangeTableConfig<F>,
 }
 
-pub fn pow_table_encode<F: FieldExt>(
-    modulus: Expression<F>,
-    power: Expression<F>,
-) -> Expression<F> {
-    modulus * constant_from!(1u64 << 16) + power
+pub fn pow_table_encode<T: FromBn>(modulus: T, power: T) -> T {
+    modulus * T::from_bn(&BigUint::from(1u64 << 16)) + power
 }
 
 pub fn bits_of_offset_len(offset: u64, len: u64) -> u64 {
