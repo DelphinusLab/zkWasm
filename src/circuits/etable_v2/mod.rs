@@ -13,7 +13,9 @@ use super::{
 };
 use crate::{
     circuits::etable_v2::op_configure::{
-        op_const::ConstConfigBuilder, op_drop::DropConfigBuilder, op_return::ReturnConfigBuilder,
+        op_const::ConstConfigBuilder, op_drop::DropConfigBuilder,
+        op_local_get::LocalGetConfigBuilder, op_local_set::LocalSetConfigBuilder,
+        op_local_tee::LocalTeeConfigBuilder, op_return::ReturnConfigBuilder,
     },
     constant_from, curr, fixed_curr,
 };
@@ -274,9 +276,12 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
-        configure!(OpcodeClass::Return, ReturnConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
+        configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
+        configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
+        configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
+        configure!(OpcodeClass::Return, ReturnConfigBuilder);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![

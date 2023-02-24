@@ -118,7 +118,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entires[1].end_eid,
                     step.current.sp,
                     LocationType::Stack,
                     *vtype == VarType::I32,

@@ -89,6 +89,7 @@ pub struct EventTableEntryWithMemoryInfo {
     pub memory_rw_entires: Vec<MemoryRWEntry>,
 }
 
+#[derive(Debug)]
 pub(crate) struct EventTableWithMemoryInfo(
     pub(in crate::circuits) Vec<EventTableEntryWithMemoryInfo>,
 );

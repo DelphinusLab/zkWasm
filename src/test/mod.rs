@@ -11,13 +11,15 @@ use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, pairing::bn256::Fr as 
 use specs::Tables;
 use wasmi::{ImportsBuilder, RuntimeValue};
 
+#[cfg(test)]
+mod test_wasm_instructions;
+
 mod spec;
 mod test_binary_search;
 mod test_fibonacci;
 mod test_rlp;
 mod test_sha256;
 mod test_start;
-mod test_wasm_instructions;
 
 fn test_circuit(
     mut env: HostEnv,
