@@ -13,6 +13,9 @@ use super::{
 };
 use crate::{
     circuits::etable_v2::op_configure::{
+        op_br::BrConfigBuilder,
+        op_br_if::BrIfConfigBuilder,
+        op_br_if_eqz::BrIfEqzConfigBuilder,
         op_call::CallConfigBuilder,
         op_const::ConstConfigBuilder,
         op_conversion::ConversionConfigBuilder,
@@ -22,7 +25,9 @@ use crate::{
         op_local_get::LocalGetConfigBuilder,
         op_local_set::LocalSetConfigBuilder,
         op_local_tee::LocalTeeConfigBuilder,
-        op_return::ReturnConfigBuilder, op_select::SelectConfigBuilder, op_test::TestConfigBuilder,
+        op_return::ReturnConfigBuilder,
+        op_select::SelectConfigBuilder,
+        op_test::TestConfigBuilder,
     },
     constant_from, curr, fixed_curr,
 };
@@ -283,6 +288,9 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
+        configure!(OpcodeClass::Br, BrConfigBuilder);
+        configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
+        configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder);
         configure!(OpcodeClass::Call, CallConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);

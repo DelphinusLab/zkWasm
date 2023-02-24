@@ -1,3 +1,6 @@
+mod op_br;
+mod op_br_if;
+mod op_br_if_eqz;
 mod op_call;
 mod op_const;
 mod op_conversion;
