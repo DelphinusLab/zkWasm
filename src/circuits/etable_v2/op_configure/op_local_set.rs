@@ -48,7 +48,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
         let eid_cell = common_config.eid_cell;
 
         let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_local_get stack read",
+            "op_local_set stack read",
             constraint_builder,
             eid_cell,
             move |_| constant_from!(LocationType::Stack as u64),
@@ -59,7 +59,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_local_get stack write",
+            "op_local_set stack write",
             constraint_builder,
             eid_cell,
             move |_| constant_from!(LocationType::Stack as u64),
