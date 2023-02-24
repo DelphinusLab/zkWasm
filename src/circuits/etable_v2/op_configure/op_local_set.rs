@@ -24,7 +24,7 @@ use specs::{
     step::StepInfo,
 };
 
-pub struct LocalGetConfig<F: FieldExt> {
+pub struct LocalSetConfig<F: FieldExt> {
     offset_cell: AllocatedCommonRangeCell<F>,
     is_i32_cell: AllocatedBitCell<F>,
     value_cell: AllocatedU64Cell<F>,
@@ -32,9 +32,9 @@ pub struct LocalGetConfig<F: FieldExt> {
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
-pub struct LocalGetConfigBuilder {}
+pub struct LocalSetConfigBuilder {}
 
-impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
+impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
     fn configure(
         common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
@@ -52,7 +52,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
             constraint_builder,
             eid_cell,
             move |_| constant_from!(LocationType::Stack as u64),
-            move |meta| sp_cell.expr(meta) + offset_cell.expr(meta),
+            move |meta| sp_cell.expr(meta) + constant_from!(1),
             move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
             move |_| constant_from!(1),
@@ -64,12 +64,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
             eid_cell,
             move |_| constant_from!(LocationType::Stack as u64),
             move |meta| sp_cell.expr(meta),
-            move |meta| is_i32_cell.expr(meta),
+            move |meta| is_i32_cell.expr(meta) + constant_from!(1) + offset_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
             move |_| constant_from!(1),
         );
 
-        Box::new(LocalGetConfig {
+        Box::new(LocalSetConfig {
             offset_cell,
             is_i32_cell,
             value_cell,
@@ -79,10 +79,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalGetConfigBuilder {
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalSetConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
+            &(BigUint::from(OpcodeClass::LocalSet as u64) << OPCODE_CLASS_SHIFT)
         )) + self.is_i32_cell.expr(meta)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + self.offset_cell.expr(meta)
@@ -95,7 +95,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::GetLocal {
+            StepInfo::SetLocal {
                 vtype,
                 depth,
                 value,
@@ -109,7 +109,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
                     entry.memory_rw_entires[0].start_eid,
                     step.current.eid,
                     entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + depth,
+                    step.current.sp + 1,
                     LocationType::Stack,
                     *vtype == VarType::I32,
                     *value,
@@ -119,7 +119,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
                     ctx,
                     step.current.eid,
                     entry.memory_rw_entires[0].end_eid,
-                    step.current.sp,
+                    step.current.sp + 1 + depth,
                     LocationType::Stack,
                     *vtype == VarType::I32,
                     *value,
@@ -133,7 +133,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalGetConfig<F> {
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant!(-F::one()))
+        Some(constant!(F::one()))
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
