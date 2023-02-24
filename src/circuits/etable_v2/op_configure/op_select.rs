@@ -207,7 +207,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
                     entry.memory_rw_entires[3].end_eid,
                     step.current.sp + 3,
                     LocationType::Stack,
-                    true,
+                    *vtype == VarType::I32,
                     *result,
                 )?;
 
