@@ -108,7 +108,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
                 constraint_builder,
                 eid,
                 move |meta| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + drop_cell.expr(meta) + constant_from!(1),
+                move |meta| sp.expr(meta) + drop_cell.expr(meta) + constant_from!(2),
                 move |meta| is_i32_cell.expr(meta),
                 move |meta| value_cell.u64_cell.expr(meta),
                 move |meta| keep_cell.expr(meta) * cond_is_not_zero_cell.expr(meta),
@@ -179,27 +179,28 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
                     self.keep_cell.assign(ctx, F::one())?;
                     self.value_cell.assign(ctx, keep_values[0])?;
                     self.is_i32_cell.assign(ctx, F::from(keep_type as u64))?;
+                    if *condition != 0 {
+                        self.memory_table_lookup_stack_read_return_value.assign(
+                            ctx,
+                            entry.memory_rw_entires[1].start_eid,
+                            step.current.eid,
+                            entry.memory_rw_entires[1].end_eid,
+                            step.current.sp + 2,
+                            LocationType::Stack,
+                            VarType::from(keep[0]) == VarType::I32,
+                            keep_values[0],
+                        )?;
 
-                    self.memory_table_lookup_stack_read_return_value.assign(
-                        ctx,
-                        entry.memory_rw_entires[1].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[1].end_eid,
-                        step.current.sp + 2,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
-
-                    self.memory_table_lookup_stack_write_return_value.assign(
-                        ctx,
-                        step.current.eid,
-                        entry.memory_rw_entires[2].end_eid,
-                        step.current.sp + *drop + 2,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
+                        self.memory_table_lookup_stack_write_return_value.assign(
+                            ctx,
+                            step.current.eid,
+                            entry.memory_rw_entires[2].end_eid,
+                            step.current.sp + *drop + 2,
+                            LocationType::Stack,
+                            VarType::from(keep[0]) == VarType::I32,
+                            keep_values[0],
+                        )?;
+                    }
                 }
 
                 self.cond_cell.assign(ctx, cond)?;
