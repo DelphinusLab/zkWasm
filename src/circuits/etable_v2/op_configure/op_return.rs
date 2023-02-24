@@ -202,26 +202,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
             _ => unreachable!(),
         }
     }
-    /*
-        fn assigned_extra_mops(
-            &self,
-            _ctx: &mut Context<'_, F>,
-            _step: &StepStatus,
-            entry: &EventTableEntry,
-        ) -> u64 {
-            match &entry.step_info {
-                StepInfo::Return { keep, .. } => {
-                    if keep.len() > 0 {
-                        assert!(keep.len() == 1);
-                        2
-                    } else {
-                        0
-                    }
-                }
-                _ => unreachable!(),
-            }
-        }
-    */
+
     fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(self.jops()))
     }
