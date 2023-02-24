@@ -149,8 +149,8 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     }
     fn next_iid(
         &self,
-        meta: &mut VirtualCells<'_, F>,
-        common_config: &EventTableCommonConfig<F>,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
     }

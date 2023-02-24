@@ -27,6 +27,7 @@ impl<F: FieldExt> EventTableChip<F> {
         event_table
             .0
             .iter()
+            .rev()
             .fold((0, 0), |(rest_mops_sum, rest_jops_sum), entry| {
                 let op_config = op_configs
                     .get(&entry.eentry.inst.opcode.clone().into())
@@ -37,7 +38,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     rest_jops_sum + op_config.jops(),
                 );
 
-                rest_ops.push((acc.0, acc.1));
+                rest_ops.push(acc);
 
                 acc
             });
