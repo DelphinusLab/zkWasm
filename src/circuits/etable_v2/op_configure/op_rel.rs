@@ -34,8 +34,8 @@ use specs::{
 pub struct RelConfig<F: FieldExt> {
     is_i32: AllocatedBitCell<F>,
 
-    lhs: AllocatedU64CellWithFlagBitDyn<F>,
-    rhs: AllocatedU64CellWithFlagBitDyn<F>,
+    lhs: AllocatedU64CellWithFlagBitDynSign<F>,
+    rhs: AllocatedU64CellWithFlagBitDynSign<F>,
 
     diff: AllocatedU64Cell<F>,
     diff_inv: AllocatedUnlimitedCell<F>,
@@ -68,10 +68,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_i32 = allocator.alloc_bit_cell();
-        let lhs = allocator
-            .alloc_u64_with_flag_bit_cell_dyn(constraint_builder, move |meta| is_i32.expr(meta));
-        let rhs = allocator
-            .alloc_u64_with_flag_bit_cell_dyn(constraint_builder, move |meta| is_i32.expr(meta));
+        let op_is_sign = allocator.alloc_bit_cell();
+
+        let lhs = allocator.alloc_u64_with_flag_bit_cell_dyn_sign(
+            constraint_builder,
+            move |meta| is_i32.expr(meta),
+            move |meta| op_is_sign.expr(meta),
+        );
+        let rhs = allocator.alloc_u64_with_flag_bit_cell_dyn_sign(
+            constraint_builder,
+            move |meta| is_i32.expr(meta),
+            move |meta| op_is_sign.expr(meta),
+        );
 
         let diff = allocator.alloc_u64_cell();
         let diff_inv = allocator.alloc_unlimited_cell();
@@ -87,7 +95,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         let op_is_gt = allocator.alloc_bit_cell();
         let op_is_le = allocator.alloc_bit_cell();
         let op_is_ge = allocator.alloc_bit_cell();
-        let op_is_sign = allocator.alloc_bit_cell();
 
         constraint_builder.push(
             "rel: selector",
@@ -353,26 +360,31 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
             self.is_i32.assign(ctx, F::one())?;
         }
 
-        if vec![
+        let op_is_sign = vec![
             RelOp::SignedGt,
             RelOp::SignedGe,
             RelOp::SignedLt,
             RelOp::SignedLe,
         ]
-        .contains(&class)
-        {
+        .contains(&class);
+
+        if op_is_sign {
             self.op_is_sign.assign(ctx, F::one())?;
         }
 
-        self.lhs.assign(ctx, lhs.into(), var_type == VarType::I32)?;
-        self.rhs.assign(ctx, rhs.into(), var_type == VarType::I32)?;
+        self.lhs
+            .assign(ctx, lhs.into(), var_type == VarType::I32, op_is_sign)?;
+        self.rhs
+            .assign(ctx, rhs.into(), var_type == VarType::I32, op_is_sign)?;
         self.diff.assign(ctx, diff.into())?;
 
         self.diff_inv
             .assign(ctx, F::from(diff).invert().unwrap_or(F::zero()))?;
-        self.res_is_eq.assign_bool(ctx, lhs == rhs)?;
-        self.res_is_gt.assign_bool(ctx, lhs > rhs)?;
-        self.res_is_lt.assign_bool(ctx, lhs < rhs)?;
+        {
+            self.res_is_eq.assign_bool(ctx, lhs == rhs)?;
+            self.res_is_gt.assign_bool(ctx, lhs > rhs)?;
+            self.res_is_lt.assign_bool(ctx, lhs < rhs)?;
+        }
         self.res
             .assign(ctx, if value { F::one() } else { F::zero() })?;
 
