@@ -193,7 +193,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             "mc7b. global must has init (because of mutability check).",
             |meta| {
                 vec![
-                    (is_next_same_offset_cell.next_expr(meta) - constant_from!(1))
+                    (is_next_same_offset_cell.expr(meta) - constant_from!(1))
                         * is_global_cell.next_expr(meta)
                         * (is_init_cell.next_expr(meta) - constant_from!(1)),
                 ]
