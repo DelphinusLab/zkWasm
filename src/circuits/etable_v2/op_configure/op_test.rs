@@ -49,6 +49,17 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for TestConfigBuilder {
         let value_cell = allocator.alloc_u64_cell();
         let value_inv_cell = allocator.alloc_unlimited_cell();
 
+        constraint_builder.constraints.push((
+            "test op value_is_zero",
+            Box::new(move |meta| {
+                vec![
+                    res_cell.expr(meta) * value_cell.u64_cell.expr(meta),
+                    value_cell.u64_cell.expr(meta) * value_inv_cell.expr(meta) - constant_from!(1)
+                        + res_cell.expr(meta),
+                ]
+            }),
+        ));
+
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
@@ -141,7 +152,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
             _ => unreachable!(),
         }
     }
-    
+
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(1))
     }
