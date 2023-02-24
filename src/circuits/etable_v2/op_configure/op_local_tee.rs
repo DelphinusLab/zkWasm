@@ -24,7 +24,7 @@ use specs::{
     step::StepInfo,
 };
 
-pub struct LocalSetConfig<F: FieldExt> {
+pub struct LocalTeeConfig<F: FieldExt> {
     offset_cell: AllocatedCommonRangeCell<F>,
     is_i32_cell: AllocatedBitCell<F>,
     value_cell: AllocatedU64Cell<F>,
@@ -32,9 +32,9 @@ pub struct LocalSetConfig<F: FieldExt> {
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
-pub struct LocalSetConfigBuilder {}
+pub struct LocalTeeConfigBuilder {}
 
-impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
+impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalTeeConfigBuilder {
     fn configure(
         common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
@@ -69,7 +69,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
             move |_| constant_from!(1),
         );
 
-        Box::new(LocalSetConfig {
+        Box::new(LocalTeeConfig {
             offset_cell,
             is_i32_cell,
             value_cell,
@@ -79,7 +79,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalSetConfig<F> {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::LocalTee as u64) << OPCODE_CLASS_SHIFT)
