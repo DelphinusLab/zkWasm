@@ -1,4 +1,4 @@
-use super::EVENT_TABLE_ENTRY_ROWS;
+use super::{constraint_builder, EVENT_TABLE_ENTRY_ROWS};
 use crate::circuits::etable_v2::ConstraintBuilder;
 use crate::{
     circuits::{
@@ -395,5 +395,74 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     pub(super) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {
         self.free_u64_cells.pop().expect("no more free u64 cells")
+    }
+
+    pub(super) fn alloc_u64_with_flag_bit_cell<const POS: usize>(
+        &mut self,
+        constraint_builder: &mut ConstraintBuilder<F>,
+    ) -> AllocatedU64CellWithFlagBit<F, POS> {
+        let value = self.free_u64_cells.pop().expect("no more free u64 cells");
+        let flag_bit_cell = self.alloc_bit_cell();
+        let flag_u16_rem_cell = self.alloc_common_range_cell();
+        let flag_u16_rem_diff_cell = self.alloc_common_range_cell();
+
+        constraint_builder.push(
+            "flag bit",
+            Box::new(move |meta| {
+                let flag_u16 = value.u16_cells_le[POS].expr(meta);
+                vec![
+                    (flag_bit_cell.expr(meta) * constant_from!(1 << 15)
+                        + flag_u16_rem_cell.expr(meta)
+                        - flag_u16),
+                    (flag_u16_rem_cell.expr(meta)
+                        - flag_u16_rem_diff_cell.expr(meta)
+                        - constant_from!((1 << 15) - 1)),
+                ]
+            }),
+        );
+
+        AllocatedU64CellWithFlagBit {
+            u16_cells_le: value.u16_cells_le,
+            u64_cell: value.u64_cell,
+            flag_bit_cell,
+            flag_u16_rem_cell,
+            flag_u16_rem_diff_cell,
+        }
+    }
+
+    pub(super) fn alloc_u64_with_flag_bit_cell_dyn(
+        &mut self,
+        constraint_builder: &mut ConstraintBuilder<F>,
+        is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+    ) -> AllocatedU64CellWithFlagBitDyn<F> {
+        let value = self.free_u64_cells.pop().expect("no more free u64 cells");
+        let flag_bit_cell = self.alloc_bit_cell();
+        let flag_u16_rem_cell = self.alloc_common_range_cell();
+        let flag_u16_rem_diff_cell = self.alloc_common_range_cell();
+
+        constraint_builder.push(
+            "flag bit",
+            Box::new(move |meta| {
+                let flag_u16 = value.u16_cells_le[3].expr(meta)
+                    + is_i32(meta)
+                        * (value.u16_cells_le[1].expr(meta) - value.u16_cells_le[3].expr(meta));
+                vec![
+                    (flag_bit_cell.expr(meta) * constant_from!(1 << 15)
+                        + flag_u16_rem_cell.expr(meta)
+                        - flag_u16),
+                    (flag_u16_rem_cell.expr(meta)
+                        - flag_u16_rem_diff_cell.expr(meta)
+                        - constant_from!((1 << 15) - 1)),
+                ]
+            }),
+        );
+
+        AllocatedU64CellWithFlagBitDyn {
+            u16_cells_le: value.u16_cells_le,
+            u64_cell: value.u64_cell,
+            flag_bit_cell,
+            flag_u16_rem_cell,
+            flag_u16_rem_diff_cell,
+        }
     }
 }
