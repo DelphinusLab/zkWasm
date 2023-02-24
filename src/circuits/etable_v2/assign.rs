@@ -1,5 +1,8 @@
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
-use specs::{configure_table::ConfigureTable, itable::OpcodeClassPlain};
+use specs::{
+    configure_table::ConfigureTable,
+    itable::{Opcode, OpcodeClassPlain},
+};
 use std::{collections::BTreeMap, rc::Rc};
 
 use super::{EventTableChip, EventTableOpcodeConfig, EVENT_TABLE_ENTRY_ROWS};
@@ -80,7 +83,7 @@ impl<F: FieldExt> EventTableChip<F> {
         Ok((rest_mops_cell.cell(), rest_mops_jell.cell()))
     }
 
-    fn assign_advice(
+    fn assign_entries(
         &self,
         ctx: &mut Context<'_, F>,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
@@ -129,14 +132,23 @@ impl<F: FieldExt> EventTableChip<F> {
                 })
                 .collect::<Vec<_>>();
 
-            status.push(Status {
-                eid: 0,
+            let terminate_status = Status {
+                eid: status.last().unwrap().eid + 1,
                 fid: 0,
                 iid: 0,
-                sp: 0,
+                sp: status.last().unwrap().sp
+                    + if let Opcode::Return { drop, .. } =
+                        &event_table.0.last().unwrap().eentry.inst.opcode
+                    {
+                        *drop
+                    } else {
+                        unreachable!()
+                    },
                 last_jump_eid: 0,
-                allocated_memory_pages: 0,
-            });
+                allocated_memory_pages: status.last().unwrap().allocated_memory_pages,
+            };
+
+            status.push(terminate_status);
 
             status
         };
@@ -205,6 +217,25 @@ impl<F: FieldExt> EventTableChip<F> {
             index += 1;
         }
 
+        // Assign terminate status
+        assign_advice!(eid_cell, F::from(status.last().unwrap().eid as u64));
+        assign_advice!(fid_cell, F::from(status.last().unwrap().fid as u64));
+        assign_advice!(iid_cell, F::from(status.last().unwrap().iid as u64));
+        assign_advice!(sp_cell, F::from(status.last().unwrap().sp as u64));
+        assign_advice!(
+            frame_id_cell,
+            F::from(status.last().unwrap().last_jump_eid as u64)
+        );
+        assign_advice!(
+            mpages_cell,
+            F::from(status.last().unwrap().allocated_memory_pages as u64)
+        );
+        assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
+        assign_advice!(
+            external_host_call_index_cell,
+            F::from(external_host_call_call_index as u64)
+        );
+
         Ok(())
     }
 
@@ -226,7 +257,7 @@ impl<F: FieldExt> EventTableChip<F> {
         )?;
         ctx.reset();
 
-        self.assign_advice(
+        self.assign_entries(
             ctx,
             &self.config.op_configs,
             event_table,
