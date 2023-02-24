@@ -12,8 +12,10 @@ use super::{
     CircuitConfigure, Lookup,
 };
 use crate::{
-    circuits::etable_v2::op_configure::{op_return::ReturnConfigBuilder, op_const::ConstConfigBuilder}, constant_from, curr,
-    fixed_curr,
+    circuits::etable_v2::op_configure::{
+        op_const::ConstConfigBuilder, op_drop::DropConfigBuilder, op_return::ReturnConfigBuilder,
+    },
+    constant_from, curr, fixed_curr,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -147,8 +149,8 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     }
     fn next_iid(
         &self,
-        _meta: &mut VirtualCells<'_, F>,
-        _common_config: &EventTableCommonConfig<F>,
+        meta: &mut VirtualCells<'_, F>,
+        common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         None
     }
@@ -272,6 +274,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
+        configure!(OpcodeClass::Drop, DropConfigBuilder);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
