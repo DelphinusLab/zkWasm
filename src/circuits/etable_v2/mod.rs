@@ -8,7 +8,7 @@ use super::{
     mtable_v2::MemoryTableConfig,
     rtable::RangeTableConfig,
     traits::ConfigureLookupTable,
-    utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryReading, Context},
+    utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
     CircuitConfigure, Lookup,
 };
 use crate::{
@@ -100,7 +100,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         &self,
         ctx: &mut Context<'_, F>,
         step: &StepStatus,
-        entry: &EventTableEntryWithMemoryReading,
+        entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error>;
     fn assigned_extra_mops(
         &self,

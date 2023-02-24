@@ -7,7 +7,7 @@ use crate::{
         },
         jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
         utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryReading,
+            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
             Context,
         },
     },
@@ -121,7 +121,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
         &self,
         ctx: &mut Context<'_, F>,
         step: &StepStatus,
-        entry: &EventTableEntryWithMemoryReading,
+        entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             StepInfo::Return {

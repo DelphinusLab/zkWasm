@@ -6,7 +6,7 @@ use crate::{
             EventTableOpcodeConfigBuilder,
         },
         utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryReading,
+            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
             Context,
         },
     },
@@ -75,7 +75,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
         &self,
         ctx: &mut Context<'_, F>,
         step_info: &StepStatus,
-        entry: &EventTableEntryWithMemoryReading,
+        entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             specs::step::StepInfo::I32Const { value } => {

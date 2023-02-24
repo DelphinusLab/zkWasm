@@ -1,7 +1,7 @@
 use self::configure::MemoryTableConstriants;
 use super::{
     config::max_mtable_rows,
-    imtable::InitMemoryTableConfig,
+    imtable::{InitMemoryTableConfig, IMTABLE_COLUMN_TWO},
     rtable::RangeTableConfig,
     utils::{row_diff::RowDiffConfig, Context},
     CircuitConfigure,
@@ -76,7 +76,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
         rtable: &RangeTableConfig<F>,
-        imtable: &InitMemoryTableConfig<F>,
+        imtable: &InitMemoryTableConfig<F, IMTABLE_COLUMN_TWO>,
         configure: &CircuitConfigure,
     ) -> Self {
         let mtconfig = Self::new(meta, cols);

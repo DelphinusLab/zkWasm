@@ -4,7 +4,7 @@ use self::{
     external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
     jtable::{JumpTableChip, JumpTableConfig},
     mtable_compact::{MemoryTableChip, MemoryTableConfig},
-    utils::table_entry::{EventTableEntryWithMemoryReadingTable, MemoryWritingTable},
+    utils::table_entry::{EventTableEntryWithMemoryInfo, MemoryWritingTable},
 };
 use crate::{
     circuits::{
@@ -32,8 +32,8 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner},
     pairing::bn256::{Bn256, Fr, G1Affine},
     plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof, ConstraintSystem, Error,
-        Expression, ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
+        create_proof, keygen_pk, keygen_vk, verify_proof, ConstraintSystem, Error, Expression,
+        ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
     },
     poly::commitment::{Params, ParamsVerifier},
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
