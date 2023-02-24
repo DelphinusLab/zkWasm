@@ -20,7 +20,7 @@ use crate::{
         op_local_get::LocalGetConfigBuilder,
         op_local_set::LocalSetConfigBuilder,
         op_local_tee::LocalTeeConfigBuilder,
-        op_return::ReturnConfigBuilder,
+        op_return::ReturnConfigBuilder, op_conversion::ConversionConfigBuilder,
     },
     constant_from, curr, fixed_curr,
 };
@@ -282,6 +282,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         }
 
         configure!(OpcodeClass::Const, ConstConfigBuilder);
+        configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
         configure!(OpcodeClass::GlobalGet, GlobalGetConfigBuilder);
         configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder);
