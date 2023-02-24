@@ -273,7 +273,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     * is_next_same_offset_cell.curr_expr(meta),
             ]
             .into_iter()
-            .map(|x| x * fixed_curr!(meta, entry_sel))
+            .map(|x| x * enabled_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel))
             .collect::<Vec<_>>()
         });
 
@@ -292,7 +292,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 ) - encode_cell.curr_expr(meta),
             ]
             .into_iter()
-            .map(|x| x * fixed_curr!(meta, entry_sel))
+            .map(|x| x * enabled_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel))
             .collect::<Vec<_>>()
         });
 

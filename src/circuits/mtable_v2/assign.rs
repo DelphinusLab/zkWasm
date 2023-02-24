@@ -1,10 +1,15 @@
+use ark_std::One;
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
-use specs::mtable::{LocationType, VarType};
+use num_bigint::BigUint;
+use specs::{
+    encode::memory_table::encode_memory_table_entry_v2,
+    mtable::{LocationType, VarType},
+};
 
 use crate::circuits::{
     cell::CellExpression,
     mtable_v2::MemoryTableChip,
-    utils::{table_entry::MemoryWritingTable, Context},
+    utils::{bn_to_field, table_entry::MemoryWritingTable, Context},
 };
 
 use super::MEMORY_TABLE_ENTRY_ROWS;
@@ -108,6 +113,22 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_advice!(rest_mops_cell, F::from(rest_mops));
             assign_advice!(offset_cell, F::from(entry.entry.offset as u64));
             assign_advice!(value, entry.entry.value);
+
+            assign_advice!(
+                encode_cell,
+                bn_to_field(&encode_memory_table_entry_v2(
+                    entry.entry.eid.into(),
+                    entry.end_eid.into(),
+                    entry.entry.offset.into(),
+                    (entry.entry.ltype as u64).into(),
+                    if VarType::I32 == entry.entry.vtype {
+                        1u64.into()
+                    } else {
+                        0u64.into()
+                    },
+                    entry.entry.value.into()
+                ))
+            );
 
             rest_mops -= 1;
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
