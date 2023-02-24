@@ -63,8 +63,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalTeeConfigBuilder {
             constraint_builder,
             eid_cell,
             move |_| constant_from!(LocationType::Stack as u64),
-            move |meta| sp_cell.expr(meta),
-            move |meta| is_i32_cell.expr(meta) + offset_cell.expr(meta),
+            move |meta| sp_cell.expr(meta) + offset_cell.expr(meta),
+            move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
             move |_| constant_from!(1),
         );
@@ -95,7 +95,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::SetLocal {
+            StepInfo::TeeLocal {
                 vtype,
                 depth,
                 value,
@@ -118,7 +118,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig<F> {
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entires[1].end_eid,
                     step.current.sp + depth,
                     LocationType::Stack,
                     *vtype == VarType::I32,
