@@ -22,7 +22,7 @@ use crate::{
         op_local_get::LocalGetConfigBuilder,
         op_local_set::LocalSetConfigBuilder,
         op_local_tee::LocalTeeConfigBuilder,
-        op_return::ReturnConfigBuilder,
+        op_return::ReturnConfigBuilder, op_select::SelectConfigBuilder,
     },
     constant_from, curr, fixed_curr,
 };
@@ -293,6 +293,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
+        configure!(OpcodeClass::Select, SelectConfigBuilder);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
