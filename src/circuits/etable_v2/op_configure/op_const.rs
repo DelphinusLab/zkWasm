@@ -120,4 +120,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(1))
     }
+
+    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+        1
+    }
 }
