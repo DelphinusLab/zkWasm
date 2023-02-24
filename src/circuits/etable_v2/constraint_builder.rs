@@ -29,6 +29,14 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         }
     }
 
+    pub(super) fn push(
+        &mut self,
+        name: &'static str,
+        constraint: Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
+    ) {
+        self.constraints.push((name, constraint))
+    }
+
     pub(super) fn finalize(self, enable: impl Fn(&mut VirtualCells<F>) -> Expression<F>) {
         for (name, builder) in self.constraints {
             self.meta.create_gate(&name, |meta| {
