@@ -13,9 +13,14 @@ use super::{
 };
 use crate::{
     circuits::etable_v2::op_configure::{
-        op_const::ConstConfigBuilder, op_drop::DropConfigBuilder,
-        op_local_get::LocalGetConfigBuilder, op_local_set::LocalSetConfigBuilder,
-        op_local_tee::LocalTeeConfigBuilder, op_return::ReturnConfigBuilder,
+        op_const::ConstConfigBuilder,
+        op_drop::DropConfigBuilder,
+        op_global_get::{GlobalGetConfig, GlobalGetConfigBuilder},
+        op_global_set::GlobalSetConfigBuilder,
+        op_local_get::LocalGetConfigBuilder,
+        op_local_set::LocalSetConfigBuilder,
+        op_local_tee::LocalTeeConfigBuilder,
+        op_return::ReturnConfigBuilder,
     },
     constant_from, curr, fixed_curr,
 };
@@ -278,6 +283,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
+        configure!(OpcodeClass::GlobalGet, GlobalGetConfigBuilder);
+        //configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder);
         configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
