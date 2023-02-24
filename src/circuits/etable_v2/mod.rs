@@ -13,14 +13,16 @@ use super::{
 };
 use crate::{
     circuits::etable_v2::op_configure::{
+        op_call::CallConfigBuilder,
         op_const::ConstConfigBuilder,
+        op_conversion::ConversionConfigBuilder,
         op_drop::DropConfigBuilder,
         op_global_get::{GlobalGetConfig, GlobalGetConfigBuilder},
         op_global_set::GlobalSetConfigBuilder,
         op_local_get::LocalGetConfigBuilder,
         op_local_set::LocalSetConfigBuilder,
         op_local_tee::LocalTeeConfigBuilder,
-        op_return::ReturnConfigBuilder, op_conversion::ConversionConfigBuilder,
+        op_return::ReturnConfigBuilder,
     },
     constant_from, curr, fixed_curr,
 };
@@ -281,6 +283,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
+        configure!(OpcodeClass::Call, CallConfigBuilder);
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
