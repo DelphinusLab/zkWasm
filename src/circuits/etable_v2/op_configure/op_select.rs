@@ -81,7 +81,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         let sp = common_config.sp_cell;
 
         let memory_table_lookup_stack_read_cond = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
+            "op_select stack read",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Stack as u64),
@@ -92,7 +92,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         );
 
         let memory_table_lookup_stack_read_val2 = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
+            "op_select stack read",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Stack as u64),
@@ -103,7 +103,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         );
 
         let memory_table_lookup_stack_read_val1 = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
+            "op_select stack read",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Stack as u64),
@@ -114,7 +114,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_test stack write",
+            "op_select stack write",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Stack as u64),

@@ -152,7 +152,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
         let sp = common_config.sp_cell;
 
         let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
+            "op_unary stack read",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Stack as u64),
@@ -163,7 +163,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_test stack write",
+            "op_unary stack write",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Stack as u64),
