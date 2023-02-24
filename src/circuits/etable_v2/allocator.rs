@@ -415,7 +415,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                         + flag_u16_rem_cell.expr(meta)
                         - flag_u16),
                     (flag_u16_rem_cell.expr(meta)
-                        - flag_u16_rem_diff_cell.expr(meta)
+                        + flag_u16_rem_diff_cell.expr(meta)
                         - constant_from!((1 << 15) - 1)),
                 ]
             }),
@@ -441,7 +441,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let flag_u16_rem_diff_cell = self.alloc_common_range_cell();
 
         constraint_builder.push(
-            "flag bit",
+            "flag bit dyn",
             Box::new(move |meta| {
                 let flag_u16 = value.u16_cells_le[3].expr(meta)
                     + is_i32(meta)
