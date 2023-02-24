@@ -267,7 +267,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         meta.create_gate("mc11. mutable", |meta| {
             vec![
-                (is_init_cell.curr_expr(meta) - constant_from!(1)) * is_mutable.curr_expr(meta),
+                (is_init_cell.curr_expr(meta) - constant_from!(1))
+                    * (is_mutable.curr_expr(meta) - constant_from!(1)),
                 (is_mutable.curr_expr(meta) - is_mutable.next_expr(meta))
                     * is_next_same_offset_cell.curr_expr(meta),
             ]
