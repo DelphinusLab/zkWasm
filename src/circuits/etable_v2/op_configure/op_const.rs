@@ -21,6 +21,7 @@ use specs::{
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::LocationType,
+    step::StepInfo,
 };
 
 pub struct ConstConfig<F: FieldExt> {
@@ -78,7 +79,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            specs::step::StepInfo::I32Const { value } => {
+            StepInfo::I32Const { value } => {
                 self.value.assign(ctx, *value as u32 as u64)?;
                 self.is_i32.assign(ctx, F::one())?;
                 self.memory_table_lookup_stack_write.assign(
@@ -90,9 +91,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
                     true,
                     *value as u32 as u64,
                 )?;
+
                 Ok(())
             }
-            specs::step::StepInfo::I64Const { value } => {
+            StepInfo::I64Const { value } => {
                 self.value.assign(ctx, *value as u64)?;
                 self.is_i32.assign(ctx, F::zero())?;
                 self.memory_table_lookup_stack_write.assign(
@@ -102,8 +104,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
                     step.current.sp,
                     LocationType::Stack,
                     false,
-                    *value as u32 as u64,
+                    *value as u64,
                 )?;
+
                 Ok(())
             }
             _ => unreachable!(),
