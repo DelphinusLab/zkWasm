@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{
     circuits::{
         cell::*,
@@ -18,10 +20,11 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use specs::{
+    encode::opcode::encode_global_get,
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
-    step::StepInfo, encode::opcode::encode_global_get,
+    step::StepInfo,
 };
 
 pub struct GlobalGetConfig<F: FieldExt> {
@@ -112,7 +115,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig<F> {
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entires[1].end_eid,
                     step.current.sp,
                     LocationType::Stack,
                     *vtype == VarType::I32,

@@ -124,24 +124,3 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::test::test_circuit_noexternal;
-
-    #[test]
-    fn test_global_get() {
-        let textual_repr = r#"
-                (module
-                    (global $global_i32 i32 (i32.const 10))
-
-                    (func (export "test")
-                        (global.get $global_i32)
-                        (drop)
-                    )
-                )
-                "#;
-
-        test_circuit_noexternal(textual_repr).unwrap()
-    }
-}
