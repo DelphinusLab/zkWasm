@@ -176,7 +176,6 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
 
 #[derive(Clone)]
 pub struct EventTableConfig<F: FieldExt> {
-    pub sel: Column<Fixed>,
     pub step_sel: Column<Fixed>,
     pub common_config: EventTableCommonConfig<F>,
     op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)>,
@@ -195,10 +194,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         brtable: &BrTableConfig<F>,
         opcode_set: &HashSet<OpcodeClassPlain>,
     ) -> EventTableConfig<F> {
-        let sel = meta.fixed_column();
         let step_sel = meta.fixed_column();
 
-        let mut allocator = EventTableCellAllocator::new(meta, sel, rtable, mtable, cols);
+        let mut allocator = EventTableCellAllocator::new(meta, step_sel, rtable, mtable, cols);
         allocator.enable_equality(meta, &EventTableCellType::CommonRange);
 
         let lvl1_bits = [0; OP_LVL1_BITS].map(|_| allocator.alloc_bit_cell());
@@ -398,7 +396,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
             )]
             .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .map(|expr| {
+                expr * enabled_cell.curr_expr(meta)
+                    * enabled_cell.next_expr(meta)
+                    * fixed_curr!(meta, step_sel)
+            })
             .collect::<Vec<_>>()
         });
 
@@ -437,7 +439,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                 },
             )]
             .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .map(|expr| {
+                expr * enabled_cell.curr_expr(meta)
+                    * enabled_cell.next_expr(meta)
+                    * fixed_curr!(meta, step_sel)
+            })
             .collect::<Vec<_>>()
         });
 
@@ -471,18 +477,18 @@ impl<F: FieldExt> EventTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
-        /* FIXME
-                meta.create_gate("c7. itable_lookup_encode", |meta| {
-                    let opcode = sum_ops_expr(
-                        meta,
-                        &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| Some(config.opcode(meta)),
-                    );
-                    vec![
-                        encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
-                            * fixed_curr!(meta, step_sel),
-                    ]
-                });
-        */
+        meta.create_gate("c7. itable_lookup_encode", |meta| {
+            let opcode = sum_ops_expr(
+                meta,
+                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| Some(config.opcode(meta)),
+            );
+            vec![
+                (encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
+                    - itable_lookup_cell.curr_expr(meta))
+                    * fixed_curr!(meta, step_sel),
+            ]
+        });
+
         jtable.configure_in_table(meta, "c8a. itable_lookup in itable", |meta| {
             jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
@@ -506,7 +512,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         );
 
         Self {
-            sel,
             step_sel,
             common_config,
             op_bitmaps,

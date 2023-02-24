@@ -77,9 +77,9 @@ impl MemoryWritingTable {
 
 #[derive(Debug)]
 pub struct MemoryRWEntry {
-    entry: MemoryTableEntry,
-    start_eid: u32,
-    end_eid: u32,
+    pub entry: MemoryTableEntry,
+    pub start_eid: u32,
+    pub end_eid: u32,
 }
 
 #[derive(Debug)]

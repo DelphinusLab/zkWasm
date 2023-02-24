@@ -336,14 +336,15 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (eid.expr(meta) + cell.end_eid_diff_cell.expr(meta)
                         - cell.end_eid_cell.expr(meta))
                         * enable.clone(),
-                    encode_memory_table_entry_v2(
+                    (encode_memory_table_entry_v2(
                         cell.start_eid_cell.expr(meta),
                         cell.end_eid_cell.expr(meta),
                         offset(meta),
                         location_type(meta),
                         is_i32(meta),
                         value(meta),
-                    ),
+                    ) - cell.encode_cell.expr(meta))
+                        * enable,
                 ]
             }),
         ));
@@ -375,15 +376,16 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 vec![
                     (eid.expr(meta) + cell.end_eid_diff_cell.expr(meta) + constant_from!(1)
                         - cell.end_eid_cell.expr(meta))
-                        * enable,
-                    encode_memory_table_entry_v2(
+                        * enable.clone(),
+                    (encode_memory_table_entry_v2(
                         eid.expr(meta),
                         cell.end_eid_cell.expr(meta),
                         offset(meta),
                         location_type(meta),
                         is_i32(meta),
                         value(meta),
-                    ),
+                    ) - cell.encode_cell.expr(meta))
+                        * enable,
                 ]
             }),
         ));
