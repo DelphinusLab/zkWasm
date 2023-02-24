@@ -50,7 +50,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for TestConfigBuilder {
         let value_inv_cell = allocator.alloc_unlimited_cell();
 
         constraint_builder.constraints.push((
-            "test op value_is_zero",
+            "op_test res = !value",
             Box::new(move |meta| {
                 vec![
                     res_cell.expr(meta) * value_cell.u64_cell.expr(meta),
