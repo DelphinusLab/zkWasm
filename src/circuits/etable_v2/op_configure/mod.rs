@@ -15,3 +15,4 @@ pub mod op_conversion;
 pub mod op_bin_shift;
 pub mod op_bin;
 pub mod op_rel;
+pub mod op_unary;
