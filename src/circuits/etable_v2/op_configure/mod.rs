@@ -14,3 +14,4 @@ pub mod op_br_if_eqz;
 pub mod op_conversion;
 pub mod op_bin_shift;
 pub mod op_bin;
+pub mod op_rel;

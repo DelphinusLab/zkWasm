@@ -39,6 +39,13 @@ pub(crate) trait CellExpression<F: FieldExt> {
     ) -> Result<AssignedCell<F, F>, Error> {
         self.assign(ctx, (value as u64).into())
     }
+    fn assign_bool(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: bool,
+    ) -> Result<AssignedCell<F, F>, Error> {
+        self.assign(ctx, if value { F::one() } else { F::zero() })
+    }
 }
 
 impl<F: FieldExt> CellExpression<F> for AllocatedCell<F> {
