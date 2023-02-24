@@ -190,7 +190,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                         * (d.u16_cells_le[1].expr(meta) - d.u16_cells_le[3].expr(meta));
                 vec![
                     // d_flag must be zero if res_flag is zero
-                    (d_leading_u16 + d_flag_helper_diff.expr(meta) - constant_from!((1 << 15) - 1))
+                    (d_leading_u16 + d_flag_helper_diff.expr(meta) - constant_from!(0x7fff))
                         * (constant_from!(1) - res_flag.clone()),
                     normalized_lhs
                         - normalized_rhs.clone() * d.u64_cell.expr(meta)
@@ -440,13 +440,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 };
                 let d = normalized_lhs / normalized_rhs;
                 let rem = normalized_lhs % normalized_rhs;
-                let d_leading_u4 = (d >> (shift - 4)) as u16;
+                let d_leading_u16 = d >> (shift - 16);
                 self.d_flag_helper_diff.assign(
                     ctx,
-                    if d_leading_u4 > 7 {
+                    if d_leading_u16 >= 0x7fff {
                         F::from(0)
                     } else {
-                        F::from(7 - d_leading_u4 as u64)
+                        F::from(0x7fff - d_leading_u16)
                     },
                 )?;
                 self.d.assign(ctx, d)?;
