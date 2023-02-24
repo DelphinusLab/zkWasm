@@ -21,7 +21,7 @@ impl<F: FieldExt> U16Column<F> {
     ) -> Self {
         let col = cols.next().unwrap();
 
-        rtable.configure_in_u8_range(meta, "u16", |meta| curr!(meta, col) * enable(meta));
+        rtable.configure_in_u16_range(meta, "u16", |meta| curr!(meta, col) * enable(meta));
 
         Self {
             col,
