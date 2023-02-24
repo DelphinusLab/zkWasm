@@ -75,22 +75,24 @@ impl MemoryWritingTable {
     }
 }
 
-pub struct MemoryReadingEntry {
+#[derive(Debug)]
+pub struct MemoryRWEntry {
     entry: MemoryTableEntry,
     start_eid: u32,
     end_eid: u32,
 }
 
-pub struct EventTableEntryWithMemoryReading {
+#[derive(Debug)]
+pub struct EventTableEntryWithMemoryInfo {
     pub eentry: EventTableEntry,
-    pub memory_read_entires: Vec<MemoryReadingEntry>,
+    pub memory_rw_entires: Vec<MemoryRWEntry>,
 }
 
-pub(crate) struct EventTableEntryWithMemoryReadingTable(
-    pub(in crate::circuits) Vec<EventTableEntryWithMemoryReading>,
+pub(crate) struct EventTableWithMemoryInfo(
+    pub(in crate::circuits) Vec<EventTableEntryWithMemoryInfo>,
 );
 
-impl EventTableEntryWithMemoryReadingTable {
+impl EventTableWithMemoryInfo {
     pub(in crate::circuits) fn new(
         event_table: &EventTable,
         memory_writing_table: &MemoryWritingTable,
@@ -106,26 +108,22 @@ impl EventTableEntryWithMemoryReadingTable {
                 .unwrap()
         };
 
-        EventTableEntryWithMemoryReadingTable(
+        EventTableWithMemoryInfo(
             event_table
                 .entries()
                 .iter()
-                .map(|eentry| EventTableEntryWithMemoryReading {
+                .map(|eentry| EventTableEntryWithMemoryInfo {
                     eentry: eentry.clone(),
-                    memory_read_entires: memory_event_of_step(eentry, &mut 1)
+                    memory_rw_entires: memory_event_of_step(eentry, &mut 1)
                         .iter()
-                        .filter_map(|mentry| {
-                            if mentry.atype == AccessType::Read {
-                                let (start_eid, end_eid) =
-                                    lookup_mtable_eid((eentry.eid, mentry.ltype, mentry.offset));
+                        .map(|mentry| {
+                            let (start_eid, end_eid) =
+                                lookup_mtable_eid((eentry.eid, mentry.ltype, mentry.offset));
 
-                                Some(MemoryReadingEntry {
-                                    entry: mentry.clone(),
-                                    start_eid: *start_eid,
-                                    end_eid: *end_eid,
-                                })
-                            } else {
-                                None
+                            MemoryRWEntry {
+                                entry: mentry.clone(),
+                                start_eid: *start_eid,
+                                end_eid: *end_eid,
                             }
                         })
                         .collect(),

@@ -8,7 +8,7 @@ use crate::circuits::{
     utils::{
         bn_to_field,
         step_status::{Status, StepStatus},
-        table_entry::EventTableEntryWithMemoryReadingTable,
+        table_entry::{EventTableEntryWithMemoryInfo, EventTableWithMemoryInfo},
         Context,
     },
 };
@@ -17,7 +17,7 @@ impl<F: FieldExt> EventTableChip<F> {
     fn compute_rest_mops_and_jops(
         &self,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
-        event_table: &EventTableEntryWithMemoryReadingTable,
+        event_table: &EventTableWithMemoryInfo,
     ) -> Vec<(u32, u32)> {
         let mut rest_ops = vec![];
 
@@ -93,7 +93,7 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
-        event_table: &EventTableEntryWithMemoryReadingTable,
+        event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         rest_ops: Vec<(u32, u32)>,
     ) -> Result<(), Error> {
@@ -220,7 +220,7 @@ impl<F: FieldExt> EventTableChip<F> {
     pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        event_table: &EventTableEntryWithMemoryReadingTable,
+        event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
     ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);

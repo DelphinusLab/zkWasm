@@ -1,6 +1,9 @@
 //#![deny(unused_imports)]
 //#![deny(dead_code)]
 //#![deny(unused_variables)]
+#![allow(unused_imports)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 #![feature(thread_local)]
 
 pub mod circuits;

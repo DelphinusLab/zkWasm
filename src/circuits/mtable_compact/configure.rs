@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    circuits::{config::IMTABLE_COLUMNS, CircuitConfigure, Lookup},
+    circuits::{imtable::IMTABLE_COLUMN_TWO, CircuitConfigure, Lookup},
     constant_from, curr, fixed_curr, nextn,
 };
 use halo2_proofs::{
@@ -19,7 +19,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         &self,
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
-        imtable: &InitMemoryTableConfig<F>,
+        imtable: &InitMemoryTableConfig<F, IMTABLE_COLUMN_TWO>,
         configure: &CircuitConfigure,
     ) {
         self.configure_enable_as_bit(meta, rtable);
@@ -61,7 +61,7 @@ pub trait MemoryTableConstriants<F: FieldExt> {
         &self,
         meta: &mut ConstraintSystem<F>,
         rtable: &RangeTableConfig<F>,
-        imtable: &InitMemoryTableConfig<F>,
+        imtable: &InitMemoryTableConfig<F, IMTABLE_COLUMN_TWO>,
     );
     fn configure_heap_init_lazy(
         &self,
@@ -330,11 +330,11 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut ConstraintSystem<F>,
         _rtable: &RangeTableConfig<F>,
-        imtable: &InitMemoryTableConfig<F>,
+        imtable: &InitMemoryTableConfig<F, IMTABLE_COLUMN_TWO>,
     ) {
         meta.create_gate("mtable imtable selector sum", |meta| {
             let mut acc = constant_from!(1);
-            for i in 0..IMTABLE_COLUMNS {
+            for i in 0..IMTABLE_COLUMN_TWO {
                 acc = acc - self.imtable_selector(meta, i as u32);
             }
             vec![
@@ -346,7 +346,7 @@ impl<F: FieldExt> MemoryTableConstriants<F> for MemoryTableConfig<F> {
             ]
         });
 
-        for i in 0..IMTABLE_COLUMNS {
+        for i in 0..IMTABLE_COLUMN_TWO {
             imtable.configure_in_table(
                 meta,
                 "mtable configure_heap_init_in_imtable",

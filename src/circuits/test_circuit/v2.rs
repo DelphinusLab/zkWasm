@@ -18,7 +18,9 @@ use crate::{
         mtable_v2::{MemoryTableChip, MemoryTableConfig},
         rtable::{RangeTableChip, RangeTableConfig},
         utils::{
-            table_entry::{EventTableEntryWithMemoryReadingTable, MemoryWritingTable},
+            table_entry::{
+                EventTableEntryWithMemoryInfo, EventTableWithMemoryInfo, MemoryWritingTable,
+            },
             Context,
         },
         TestCircuit, CIRCUIT_CONFIGURE,
@@ -37,12 +39,13 @@ use crate::{
 };
 
 pub const VAR_COLUMNS: usize = 28;
+pub const IMTABLE_COLUMNS: usize = 1;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     itable: InstructionTableConfig<F>,
-    imtable: InitMemoryTableConfig<F>,
+    imtable: InitMemoryTableConfig<F, IMTABLE_COLUMNS>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -80,7 +83,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rtable = RangeTableConfig::configure([0; 7].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
-        let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
+        let imtable = InitMemoryTableConfig::configure(
+            [0; IMTABLE_COLUMNS].map(|_| meta.lookup_table_column()),
+        );
         let mtable =
             MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable, &circuit_configure);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
@@ -192,7 +197,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 let memory_writing_table: MemoryWritingTable =
                     self.tables.execution_tables.mtable.clone().into();
 
-                let etable = EventTableEntryWithMemoryReadingTable::new(
+                let etable = EventTableWithMemoryInfo::new(
                     &self.tables.execution_tables.etable,
                     &memory_writing_table,
                 );

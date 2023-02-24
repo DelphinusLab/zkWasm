@@ -1,13 +1,14 @@
 use self::allocator::*;
-use super::config::max_mtable_rows;
-use super::imtable::InitMemoryTableConfig;
-use super::traits::ConfigureLookupTable;
-use super::{cell::*, rtable::RangeTableConfig, CircuitConfigure};
+use super::{
+    cell::*, config::max_mtable_rows, imtable::InitMemoryTableConfig, rtable::RangeTableConfig,
+    test_circuit::v2::IMTABLE_COLUMNS, traits::ConfigureLookupTable, CircuitConfigure,
+};
 use crate::{constant_from, fixed_curr};
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells};
-use specs::encode::memory_table::encode_memory_table_entry_v2;
-use specs::mtable::LocationType;
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells},
+};
+use specs::{encode::memory_table::encode_memory_table_entry_v2, mtable::LocationType};
 
 mod allocator;
 mod assign;
@@ -50,7 +51,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
-        imtable: &InitMemoryTableConfig<F>,
+        imtable: &InitMemoryTableConfig<F, IMTABLE_COLUMNS>,
         configure: &CircuitConfigure,
     ) -> Self {
         let entry_sel = meta.fixed_column();
