@@ -26,7 +26,7 @@ use specs::{
     step::StepInfo,
 };
 
-pub struct BrIfConfig<F: FieldExt> {
+pub struct BrIfEqzConfig<F: FieldExt> {
     cond_cell: AllocatedU64Cell<F>,
     cond_inv_cell: AllocatedUnlimitedCell<F>,
     cond_is_zero_cell: AllocatedBitCell<F>,
@@ -42,9 +42,9 @@ pub struct BrIfConfig<F: FieldExt> {
     memory_table_lookup_stack_write_return_value: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
-pub struct BrIfConfigBuilder;
+pub struct BrIfEqzConfigBuilder;
 
-impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
+impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
     fn configure(
         common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
@@ -100,7 +100,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
                 move |meta| sp.expr(meta) + constant_from!(2),
                 move |meta| is_i32_cell.expr(meta),
                 move |meta| value_cell.u64_cell.expr(meta),
-                move |meta| keep_cell.expr(meta) * cond_is_not_zero_cell.expr(meta),
+                move |meta| keep_cell.expr(meta) * cond_is_zero_cell.expr(meta),
             );
         let memory_table_lookup_stack_write_return_value = allocator
             .alloc_memory_table_lookup_write_cell(
@@ -111,10 +111,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
                 move |meta| sp.expr(meta) + drop_cell.expr(meta) + constant_from!(1),
                 move |meta| is_i32_cell.expr(meta),
                 move |meta| value_cell.u64_cell.expr(meta),
-                move |meta| keep_cell.expr(meta) * cond_is_not_zero_cell.expr(meta),
+                move |meta| keep_cell.expr(meta) * cond_is_zero_cell.expr(meta),
             );
 
-        Box::new(BrIfConfig {
+        Box::new(BrIfEqzConfig {
             cond_cell,
             cond_inv_cell,
             cond_is_zero_cell,
@@ -131,10 +131,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::BrIf as u64) << OPCODE_CLASS_SHIFT)
+            &(BigUint::from(OpcodeClass::BrIfEqz as u64) << OPCODE_CLASS_SHIFT)
         )) + self.drop_cell.expr(meta)
             * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
             + self.keep_cell.expr(meta)
@@ -149,7 +149,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::BrIfNez {
+            StepInfo::BrIfEqz {
                 condition,
                 dst_pc,
                 drop,
@@ -218,23 +218,23 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1) + self.cond_is_not_zero_cell.expr(meta) * self.drop_cell.expr(meta))
+        Some(constant_from!(1) + self.cond_is_zero_cell.expr(meta) * self.drop_cell.expr(meta))
     }
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(self.cond_is_not_zero_cell.expr(meta) * self.keep_cell.expr(meta))
+        Some(self.cond_is_zero_cell.expr(meta) * self.keep_cell.expr(meta))
     }
 
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
         match &entry.step_info {
-            StepInfo::BrIfNez {
+            StepInfo::BrIfEqz {
                 drop,
                 keep,
                 keep_values,
                 condition,
                 ..
             } => {
-                if *condition == 0 {
+                if *condition != 0 {
                     0
                 } else {
                     keep.len() as u32
@@ -250,8 +250,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         Some(
-            self.cond_is_not_zero_cell.expr(meta) * self.dst_pc_cell.expr(meta)
-                + self.cond_is_zero_cell.expr(meta)
+            self.cond_is_zero_cell.expr(meta) * self.dst_pc_cell.expr(meta)
+                + self.cond_is_not_zero_cell.expr(meta)
                     * (common_config.iid_cell.curr_expr(meta) + constant_from!(1)),
         )
     }
