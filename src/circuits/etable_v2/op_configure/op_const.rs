@@ -95,18 +95,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
             specs::step::StepInfo::I64Const { value } => {
                 self.value.assign(ctx, *value as u64)?;
                 self.is_i32.assign(ctx, F::zero())?;
-                /* TODO
-                self.lookup_stack_write.assign(
+                self.memory_table_lookup_stack_write.assign(
                     ctx,
-                    &MemoryTableLookupEncode::encode_stack_write(
-                        BigUint::from(step_info.current.eid),
-                        BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp),
-                        BigUint::from(VarType::I64 as u16),
-                        BigUint::from(*value as u64),
-                    ),
+                    step.current.eid,
+                    entry.memory_rw_entires[0].end_eid,
+                    step.current.sp,
+                    LocationType::Stack,
+                    false,
+                    *value as u32 as u64,
                 )?;
-                */
                 Ok(())
             }
             _ => unreachable!(),
