@@ -92,7 +92,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::GetGlobal {
+            StepInfo::SetGlobal {
                 idx, vtype, value, ..
             } => {
                 self.idx_cell.assign(ctx, F::from(*idx as u64))?;
@@ -113,7 +113,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig<F> {
                 self.memory_table_lookup_global_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entires[1].end_eid,
                     *idx,
                     LocationType::Global,
                     *vtype == VarType::I32,

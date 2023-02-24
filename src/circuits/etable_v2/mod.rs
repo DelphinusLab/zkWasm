@@ -284,7 +284,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Drop, DropConfigBuilder);
         configure!(OpcodeClass::GlobalGet, GlobalGetConfigBuilder);
-        //configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder);
+        configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder);
         configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
