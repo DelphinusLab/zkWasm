@@ -8,3 +8,4 @@ mod op_local_set;
 mod op_local_tee;
 mod op_return;
 mod op_select;
+mod op_test;
