@@ -25,6 +25,7 @@ use crate::{
         op_local_get::LocalGetConfigBuilder,
         op_local_set::LocalSetConfigBuilder,
         op_local_tee::LocalTeeConfigBuilder,
+        op_rel::RelConfigBuilder,
         op_return::ReturnConfigBuilder,
         op_select::SelectConfigBuilder,
         op_test::TestConfigBuilder,
@@ -301,6 +302,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
         configure!(OpcodeClass::Return, ReturnConfigBuilder);
+        configure!(OpcodeClass::Rel, RelConfigBuilder);
         configure!(OpcodeClass::Select, SelectConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
 
