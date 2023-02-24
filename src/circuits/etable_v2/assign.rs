@@ -48,7 +48,7 @@ impl<F: FieldExt> EventTableChip<F> {
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        for index in 0..self.max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize{
+        for index in 0..self.max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize {
             ctx.region.assign_fixed(
                 || "etable: step sel",
                 self.config.step_sel,
