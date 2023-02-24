@@ -381,7 +381,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             .assign(ctx, right.into(), var_type == VarType::I32)?;
         self.res.assign(ctx, value.into())?;
         self.size_modulus
-            .assign_bn(ctx, &(BigUint::from(1u64) << 32usize))?;
+            .assign_bn(ctx, &(BigUint::from(1u64) << shift))?;
 
         match class {
             BinOp::Add => {
