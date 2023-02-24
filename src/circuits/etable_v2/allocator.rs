@@ -142,11 +142,11 @@ pub(super) enum EventTableCellType {
 }
 
 const BIT_COLUMNS: usize = 7;
-const U16_COLUMNS: usize = 6;
+const U16_COLUMNS: usize = 7;
 const COMMON_RANGE_COLUMNS: usize = 7;
 const UNLIMITED_COLUMNS: usize = 5;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 1;
-const U64_CELLS: usize = 6;
+const U64_CELLS: usize = 7;
 
 #[derive(Debug, Clone)]
 pub(super) struct EventTableCellAllocator<F: FieldExt> {
