@@ -391,7 +391,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c5e. sp change", |meta| {
             vec![sum_ops_expr_with_init(
-                sp_cell.next_expr(meta) - sp_cell.curr_expr(meta),
+                sp_cell.curr_expr(meta) - sp_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
             )]
@@ -445,12 +445,14 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c6c. iid change", |meta| {
             vec![sum_ops_expr_with_init(
-                iid_cell.next_expr(meta) - iid_cell.curr_expr(meta),
+                iid_cell.curr_expr(meta) - iid_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config
                         .next_iid(meta, &common_config)
-                        .map(|x| x - iid_cell.curr_expr(meta))
+                        .map_or(Some(constant_from!(1)), |x| {
+                            Some(x - iid_cell.curr_expr(meta))
+                        })
                 },
             )]
             .into_iter()
