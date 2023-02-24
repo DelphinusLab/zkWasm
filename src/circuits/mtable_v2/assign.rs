@@ -98,7 +98,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             if entry.entry.atype.is_positive_init() {
                 assign_bit!(is_imtable_init_cell);
-            } else {
+            } else if entry.entry.atype.is_init() {
                 assign_advice!(
                     zero_init_proof_cell,
                     F::from((entry.entry.offset - first_consecutive_zero_memory_offset) as u64)
