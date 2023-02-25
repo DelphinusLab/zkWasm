@@ -108,8 +108,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         meta.create_gate("mc3. ltype group", |meta| {
             vec![
                 (is_stack_cell.curr_expr(meta) - constant_from!(1)) * is_stack_cell.next_expr(meta),
-                (is_global_cell.curr_expr(meta) - constant_from!(1))
-                    * is_global_cell.next_expr(meta)
+                (is_heap_cell.curr_expr(meta) - constant_from!(1))
+                    * is_heap_cell.next_expr(meta)
                     * (is_stack_cell.curr_expr(meta) - constant_from!(1)),
             ]
             .into_iter()
