@@ -33,11 +33,22 @@ pub struct RangeTableConfig<F: FieldExt> {
     // {0 | 1 | 0b1000000000000000, 0 | 2 | 0b110000000000000 ...}
     offset_len_bits_col: TableColumn,
 
+    // (and | or | xor) << 24
+    //        l_u8      << 16
+    //        r_u8      <<  8
+    //      res_u8
+    u8_bit_op_col: TableColumn,
+
     _mark: PhantomData<F>,
 }
 
+pub(crate) fn encode_u8_bit_lookup(op: BitOp, left: u8, right: u8) -> u64 {
+    let res = op.eval(left as u64, right as u64);
+    ((op as u64) << 24) + ((left as u64) << 16) + ((right as u64) << 8) + res
+}
+
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 7]) -> Self {
+    pub fn configure(cols: [TableColumn; 8]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
             u8_col: cols[1],
@@ -46,6 +57,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
             u4_bop_col: cols[4],
             pow_col: cols[5],
             offset_len_bits_col: cols[6],
+            u8_bit_op_col: cols[7],
             _mark: PhantomData,
         }
     }
@@ -75,6 +87,28 @@ impl<F: FieldExt> RangeTableConfig<F> {
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
+    }
+
+    pub fn configure_in_u8_bit_table(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        key: &'static str,
+        op: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        left: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        right: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        res: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        meta.lookup(key, |meta| {
+            vec![(
+                enable(meta)
+                    * (op(meta) * constant_from!(1 << 24)
+                        + left(meta) * constant_from!(1 << 16)
+                        + right(meta) * constant_from!(1 << 8)
+                        + res(meta)),
+                self.u8_bit_op_col,
+            )]
+        });
     }
 
     pub fn configure_in_u4_range(
@@ -314,6 +348,27 @@ impl<F: FieldExt> RangeTableChip<F> {
                             || Ok(F::from(offset_len_bits_encode(i, j))),
                         )?;
                         offset += 1;
+                    }
+                }
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "u8 bit table",
+            |mut table| {
+                let mut offset = 0;
+                for op in BitOp::iter() {
+                    for l in 0..1 << 8 {
+                        for r in 0..1 << 8 {
+                            table.assign_cell(
+                                || "range table",
+                                self.config.u8_bit_op_col,
+                                offset as usize,
+                                || Ok(F::from(encode_u8_bit_lookup(op, l, r))),
+                            )?;
+                            offset += 1;
+                        }
                     }
                 }
                 Ok(())
