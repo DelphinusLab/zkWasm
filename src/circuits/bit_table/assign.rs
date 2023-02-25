@@ -56,12 +56,14 @@ impl<F: FieldExt> BitTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            ctx.region.assign_fixed(
-                || "bit table: lookup sel",
-                self.config.lookup_sel,
-                ctx.offset + 1,
-                || Ok(F::one()),
-            )?;
+            for o in 0..8 {
+                ctx.region.assign_fixed(
+                    || "bit table: lookup sel",
+                    self.config.lookup_sel,
+                    ctx.offset + 4 * o + 1,
+                    || Ok(F::one()),
+                )?;
+            }
 
             ctx.step(STEP_SIZE);
         }
