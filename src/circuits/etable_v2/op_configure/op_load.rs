@@ -241,20 +241,31 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_load pick u16 decompose",
+            "op_load pick u16 decompose1",
             Box::new(move |meta| {
                 vec![
                     load_picked_leading_u16.expr(meta)
                         - (is_two_bytes.expr(meta) + is_one_byte.expr(meta))
                             * load_picked.u16_cells_le[0].expr(meta)
-                        + is_four_bytes.expr(meta) * load_picked.u16_cells_le[1].expr(meta)
-                        + is_eight_bytes.expr(meta) * load_picked.u16_cells_le[3].expr(meta),
+                        - is_four_bytes.expr(meta) * load_picked.u16_cells_le[1].expr(meta)
+                        - is_eight_bytes.expr(meta) * load_picked.u16_cells_le[3].expr(meta)
+                ]
+            }),
+        );
+
+
+
+        constraint_builder.push(
+            "op_load pick u16 decompose2",
+            Box::new(move |meta| {
+                vec![
                     load_picked_leading_u16_u8_high.expr(meta) * constant_from!(1 << 8)
                         + load_picked_leading_u16_u8_low.expr(meta)
                         - load_picked_leading_u16.expr(meta),
                 ]
             }),
         );
+
 
         constraint_builder.push(
             "op_load flag",
