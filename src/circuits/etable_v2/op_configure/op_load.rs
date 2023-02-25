@@ -47,8 +47,11 @@ pub struct LoadConfig<F: FieldExt> {
     load_value_in_heap2: AllocatedU64Cell<F>,
 
     load_tailing: AllocatedU64Cell<F>,
+    load_tailing_diff: AllocatedU64Cell<F>,
     load_picked: AllocatedU64Cell<F>,
     load_leading: AllocatedU64Cell<F>,
+    load_leading_diff: AllocatedU64Cell<F>,
+    load_leading_modulus: AllocatedUnlimitedCell<F>,
 
     load_picked_leading_u16: AllocatedUnlimitedCell<F>,
     load_picked_leading_u16_u8_high: AllocatedU8Cell<F>,
@@ -115,8 +118,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let load_value_in_heap2 = allocator.alloc_u64_cell();
 
         let load_tailing = allocator.alloc_u64_cell();
+        let load_tailing_diff = allocator.alloc_u64_cell();
         let load_picked = allocator.alloc_u64_cell();
         let load_leading = allocator.alloc_u64_cell();
+        let load_leading_diff = allocator.alloc_u64_cell();
+        let load_leading_modulus = allocator.alloc_unlimited_cell();
 
         let pos_modulus = allocator.alloc_u64_cell();
 
@@ -204,6 +210,32 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                         - load_value_in_heap1.expr(meta)
                         - load_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
+                    load_tailing.expr(meta) + load_tailing_diff.expr(meta) + constant_from!(1)
+                        - pos_modulus.expr(meta),
+                    load_leading.expr(meta) + load_leading_diff.expr(meta) + constant_from!(1)
+                        - load_leading_modulus.expr(meta),
+                    pos_modulus.expr(meta)
+                        * len_modulus.expr(meta)
+                        * load_leading_modulus.expr(meta)
+                        - constant_from_bn!(&(BigUint::from(1u64) << 64))
+                        - is_cross_block.expr(meta)
+                            * constant_from_bn!(
+                                &((BigUint::from(1u64) << 128) - (BigUint::from(1u64) << 64))
+                            ),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_load pick value size check",
+            Box::new(move |meta| {
+                vec![
+                    is_four_bytes.expr(meta)
+                        * (load_picked.u16_cells_le[2].expr(meta)
+                            + load_picked.u16_cells_le[3].expr(meta)),
+                    is_two_bytes.expr(meta)
+                        * (load_picked.expr(meta) - load_picked_leading_u16.expr(meta)),
+                    is_one_byte.expr(meta) * (load_picked_leading_u16_u8_high.expr(meta)),
                 ]
             }),
         );
@@ -211,15 +243,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         constraint_builder.push(
             "op_load pick u16 decompose",
             Box::new(move |meta| {
-                let load_picked_leading_u16 = (is_two_bytes.expr(meta) + is_one_byte.expr(meta))
-                    * load_picked.u16_cells_le[0].expr(meta)
-                    + is_four_bytes.expr(meta) * load_picked.u16_cells_le[1].expr(meta)
-                    + is_eight_bytes.expr(meta) * load_picked.u16_cells_le[3].expr(meta);
-
                 vec![
+                    load_picked_leading_u16.expr(meta)
+                        - (is_two_bytes.expr(meta) + is_one_byte.expr(meta))
+                            * load_picked.u16_cells_le[0].expr(meta)
+                        + is_four_bytes.expr(meta) * load_picked.u16_cells_le[1].expr(meta)
+                        + is_eight_bytes.expr(meta) * load_picked.u16_cells_le[3].expr(meta),
                     load_picked_leading_u16_u8_high.expr(meta) * constant_from!(1 << 8)
                         + load_picked_leading_u16_u8_low.expr(meta)
-                        - load_picked_leading_u16,
+                        - load_picked_leading_u16.expr(meta),
                 ]
             }),
         );
@@ -379,6 +411,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             address_within_allocated_pages_helper,
             load_value_in_heap1,
             pos_modulus,
+            load_tailing_diff,
+            load_leading_diff,
+            load_leading_modulus,
         })
     }
 }
@@ -429,13 +464,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.load_inner_pos_diff
                     .assign_u32(ctx, 7 - inner_byte_index as u32)?;
 
-                self.pos_modulus.assign(ctx, 1 << (inner_byte_index * 8))?;
+                let is_cross_block = (effective_address as u64 & 7) + len > 8;
+
+                let len_modulus = BigUint::from(1u64) << (len * 8);
+                let pos_modulus = 1 << (inner_byte_index * 8);
+                let size = if is_cross_block { 16 } else { 8 };
+                let leading_modulus: u64 = 1u64 << ((size - len - inner_byte_index) * 8);
+                self.pos_modulus.assign(ctx, pos_modulus.into())?;
+                self.load_leading_modulus
+                    .assign(ctx, leading_modulus.into())?;
                 self.lookup_pow.assign_bn(
                     ctx,
                     &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
                 )?;
 
-                let is_cross_block = (effective_address as u64 & 7) + len > 8;
                 self.is_cross_block.assign_bool(ctx, is_cross_block)?;
                 let rem = ((effective_address as u64 & 7) + len - 1) & 7;
                 self.cross_block_rem.assign(ctx, rem.into())?;
@@ -462,8 +504,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                     .clone();
 
                 self.load_tailing.assign(ctx, tailing)?;
+                self.load_tailing_diff
+                    .assign(ctx, pos_modulus - 1 - tailing)?;
                 self.load_picked.assign(ctx, picked)?;
                 self.load_leading.assign(ctx, leading)?;
+                self.load_leading_diff
+                    .assign(ctx, leading_modulus - leading - 1u64)?;
 
                 let load_picked_leading_u16 = if len == 1 {
                     picked
@@ -490,7 +536,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                     .assign(ctx, (0x7f - (load_picked_leading_u8 & 0x7f)).into())?;
 
                 self.res.assign(ctx, value.into())?;
-
                 self.load_base.assign(ctx, raw_address as u64)?;
 
                 self.is_one_byte.assign_bool(ctx, len == 1)?;
@@ -498,8 +543,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
                 self.len.assign(ctx, len.into())?;
-                self.len_modulus
-                    .assign_bn(ctx, &(BigUint::from(1u64) << (len * 8)))?;
+                self.len_modulus.assign_bn(ctx, &len_modulus)?;
 
                 self.is_sign.assign_bool(ctx, load_size.is_sign())?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
