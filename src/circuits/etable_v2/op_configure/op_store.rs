@@ -34,30 +34,42 @@ pub struct StoreConfig<F: FieldExt> {
     // offset in opcode
     opcode_store_offset: AllocatedCommonRangeCell<F>,
 
-    value_leading_u16: AllocatedUnlimitedCell<F>,
-    value_leading_u16_u8_high: AllocatedU8Cell<F>,
-    value_leading_u16_u8_low: AllocatedU8Cell<F>,
-
     // which heap offset to load
-    store_block_index: AllocatedU64Cell<F>,
-    store_inner_pos: [AllocatedBitCell<F>; 3],
+    load_block_index: AllocatedCommonRangeCell<F>,
+    load_inner_pos: AllocatedCommonRangeCell<F>,
+    load_inner_pos_diff: AllocatedU8Cell<F>,
 
-    store_value_tailing_u16_u8_high: AllocatedU8Cell<F>,
-    store_value_tailing_u16_u8_low: AllocatedU8Cell<F>,
+    is_cross_block: AllocatedBitCell<F>,
+    cross_block_rem: AllocatedCommonRangeCell<F>,
+    cross_block_rem_diff: AllocatedCommonRangeCell<F>,
 
-    load_value_in_heap: AllocatedU64Cell<F>,
-    // value after pick bytes from load
-    load_value_picked: AllocatedU64Cell<F>,
+    load_value_in_heap1: AllocatedU64Cell<F>,
+    load_value_in_heap2: AllocatedU64Cell<F>,
+
+    load_tailing: AllocatedU64Cell<F>,
+    load_tailing_diff: AllocatedU64Cell<F>,
+    load_picked: AllocatedU64Cell<F>,
+    load_leading: AllocatedU64Cell<F>,
+    load_leading_diff: AllocatedU64Cell<F>,
+    load_leading_modulus: AllocatedUnlimitedCell<F>,
+    load_picked_byte_proof: AllocatedU8Cell<F>,
+
+    pos_modulus: AllocatedU64Cell<F>,
+
+    unchanged_value: AllocatedUnlimitedCell<F>,
+    len: AllocatedUnlimitedCell<F>,
+    len_modulus: AllocatedUnlimitedCell<F>,
 
     store_value: AllocatedU64Cell<F>,
-    store_value_wrapped: AllocatedU64Cell<F>,
-    store_value_modulus: AllocatedU64Cell<F>,
+    store_value_tailing_u16_u8_high: AllocatedU8Cell<F>,
+    store_value_tailing_u16_u8_low: AllocatedU8Cell<F>,
+    store_value_wrapped: AllocatedUnlimitedCell<F>,
 
-    // value after extension
-    res: AllocatedUnlimitedCell<F>,
+    store_value_in_heap1: AllocatedU64Cell<F>,
+    store_value_in_heap2: AllocatedU64Cell<F>,
 
     // load offset arg
-    store_base: AllocatedU64Cell<F>,
+    store_base: AllocatedCommonRangeCell<F>,
 
     is_one_byte: AllocatedBitCell<F>,
     is_two_bytes: AllocatedBitCell<F>,
@@ -67,8 +79,10 @@ pub struct StoreConfig<F: FieldExt> {
 
     memory_table_lookup_stack_read_pos: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_read_val: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_heap_read: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_heap_write: AllocatedMemoryTableLookupWriteCell<F>,
+    memory_table_lookup_heap_read1: AllocatedMemoryTableLookupReadCell<F>,
+    memory_table_lookup_heap_read2: AllocatedMemoryTableLookupReadCell<F>,
+    memory_table_lookup_heap_write1: AllocatedMemoryTableLookupWriteCell<F>,
+    memory_table_lookup_heap_write2: AllocatedMemoryTableLookupWriteCell<F>,
 
     lookup_pow: AllocatedUnlimitedCell<F>,
 
@@ -84,29 +98,38 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let opcode_store_offset = allocator.alloc_common_range_cell();
-        let store_base = allocator.alloc_u64_cell();
-
-        let value_leading_u16 = allocator.alloc_unlimited_cell();
-        let value_leading_u16_u8_high = allocator.alloc_u8_cell();
-        let value_leading_u16_u8_low = allocator.alloc_u8_cell();
-
-        let store_value_tailing_u16_u8_high = allocator.alloc_u8_cell();
-        let store_value_tailing_u16_u8_low = allocator.alloc_u8_cell();
+        let store_base = allocator.alloc_common_range_cell();
 
         // which heap offset to load
-        let store_block_index = allocator.alloc_u64_cell();
-        let store_inner_pos = [0; 3].map(|x| allocator.alloc_bit_cell());
+        let load_block_index = allocator.alloc_common_range_cell();
+        let load_inner_pos = allocator.alloc_common_range_cell();
+        let load_inner_pos_diff = allocator.alloc_u8_cell();
+        let is_cross_block = allocator.alloc_bit_cell();
+        let cross_block_rem = allocator.alloc_common_range_cell();
+        let cross_block_rem_diff = allocator.alloc_common_range_cell();
 
-        let load_value_in_heap = allocator.alloc_u64_cell();
-        // value after pick bytes from load
-        let load_value_picked = allocator.alloc_u64_cell();
+        let is_one_byte = allocator.alloc_bit_cell();
+        let is_two_bytes = allocator.alloc_bit_cell();
+        let is_four_bytes = allocator.alloc_bit_cell();
+        let is_eight_bytes = allocator.alloc_bit_cell();
+        let len = allocator.alloc_unlimited_cell();
+        let len_modulus = allocator.alloc_unlimited_cell();
+
+        let load_value_in_heap1 = allocator.alloc_u64_cell();
+        let load_value_in_heap2 = allocator.alloc_u64_cell();
+
+        let load_tailing = allocator.alloc_u64_cell();
+        let load_tailing_diff = allocator.alloc_u64_cell();
+        let load_picked = allocator.alloc_u64_cell();
+        let load_picked_byte_proof = allocator.alloc_u8_cell();
+        let load_leading = allocator.alloc_u64_cell();
+        let load_leading_diff = allocator.alloc_u64_cell();
+        let load_leading_modulus = allocator.alloc_unlimited_cell();
+
+        let pos_modulus = allocator.alloc_u64_cell();
 
         let store_value = allocator.alloc_u64_cell();
-        let store_value_wrapped = allocator.alloc_u64_cell();
-        let store_value_modulus = allocator.alloc_u64_cell();
-
-        // value after merge
-        let res = allocator.alloc_unlimited_cell();
+        let store_value_wrapped = allocator.alloc_unlimited_cell();
 
         let is_one_byte = allocator.alloc_bit_cell();
         let is_two_bytes = allocator.alloc_bit_cell();
@@ -128,34 +151,138 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_store store target",
+            "op_store len",
             Box::new(move |meta| {
                 vec![
-                    (store_block_index.expr(meta) * constant_from!(8)
-                        + store_inner_pos[2].expr(meta) * constant_from!(4)
-                        + store_inner_pos[1].expr(meta) * constant_from!(2)
-                        + store_inner_pos[0].expr(meta))
-                        - opcode_store_offset.expr(meta)
-                        - store_base.expr(meta),
+                    len.expr(meta)
+                        - constant_from!(1)
+                        - is_two_bytes.expr(meta)
+                        - constant_from!(3) * is_four_bytes.expr(meta)
+                        - constant_from!(7) * is_eight_bytes.expr(meta),
                 ]
             }),
         );
 
-        // We only support store aligned in this version
         constraint_builder.push(
-            "op_store store align",
+            "op_store load_block_index",
             Box::new(move |meta| {
                 vec![
-                    is_eight_bytes.expr(meta)
-                        * (store_inner_pos[2].expr(meta)
-                            + store_inner_pos[1].expr(meta)
-                            + store_inner_pos[0].expr(meta)),
-                    is_four_bytes.expr(meta)
-                        * (store_inner_pos[1].expr(meta) + store_inner_pos[0].expr(meta)),
-                    is_two_bytes.expr(meta) * (store_inner_pos[0].expr(meta)),
+                    load_block_index.expr(meta) * constant_from!(8) + load_inner_pos.expr(meta)
+                        - opcode_store_offset.expr(meta)
+                        - store_base.expr(meta),
+                    load_inner_pos.expr(meta) + load_inner_pos_diff.expr(meta) - constant_from!(7),
                 ]
             }),
         );
+
+        constraint_builder.push(
+            "op_store cross_block",
+            Box::new(move |meta| {
+                vec![
+                    is_cross_block.expr(meta) * constant_from!(8) + cross_block_rem.expr(meta)
+                        - load_inner_pos.expr(meta)
+                        - len.expr(meta)
+                        + constant_from!(1),
+                    cross_block_rem.expr(meta) + cross_block_rem_diff.expr(meta)
+                        - constant_from!(7),
+                    (is_cross_block.expr(meta) - constant_from!(1))
+                        * load_value_in_heap2.expr(meta),
+                ]
+            }),
+        );
+
+        let store_value_in_heap1 = allocator.alloc_u64_cell();
+        let store_value_in_heap2 = allocator.alloc_u64_cell();
+
+        let unchanged_value = allocator.alloc_unlimited_cell();
+
+        constraint_builder.push(
+            "op_store len modulus",
+            Box::new(move |meta| {
+                vec![
+                    len_modulus.expr(meta)
+                        - is_one_byte.expr(meta) * constant_from!(1u64 << 8)
+                        - is_two_bytes.expr(meta) * constant_from!(1u64 << 16)
+                        - is_four_bytes.expr(meta) * constant_from!(1u64 << 32)
+                        - is_eight_bytes.expr(meta)
+                            * constant_from_bn!(&(BigUint::from(1u64) << 64)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_store pick value1",
+            Box::new(move |meta| {
+                vec![
+                    unchanged_value.expr(meta)
+                        - load_tailing.expr(meta)
+                        - load_leading.expr(meta) * pos_modulus.expr(meta) * len_modulus.expr(meta),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_store pick value2",
+            Box::new(move |meta| {
+                vec![
+                    unchanged_value.expr(meta) + load_picked.expr(meta) * pos_modulus.expr(meta)
+                        - load_value_in_heap1.expr(meta)
+                        - load_value_in_heap2.expr(meta)
+                            * constant_from_bn!(&(BigUint::from(1u64) << 64)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_store pick value3",
+            Box::new(move |meta| {
+                vec![
+                    unchanged_value.expr(meta)
+                        + store_value_wrapped.expr(meta) * pos_modulus.expr(meta)
+                        - store_value_in_heap1.expr(meta)
+                        - store_value_in_heap2.expr(meta)
+                            * constant_from_bn!(&(BigUint::from(1u64) << 64)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_store pick helper value check",
+            Box::new(move |meta| {
+                vec![
+                    load_tailing.expr(meta) + load_tailing_diff.expr(meta) + constant_from!(1)
+                        - pos_modulus.expr(meta),
+                    load_leading.expr(meta) + load_leading_diff.expr(meta) + constant_from!(1)
+                        - load_leading_modulus.expr(meta),
+                    pos_modulus.expr(meta)
+                        * len_modulus.expr(meta)
+                        * load_leading_modulus.expr(meta)
+                        - constant_from_bn!(&(BigUint::from(1u64) << 64))
+                        - is_cross_block.expr(meta)
+                            * constant_from_bn!(
+                                &((BigUint::from(1u64) << 128) - (BigUint::from(1u64) << 64))
+                            ),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_store pick value size check",
+            Box::new(move |meta| {
+                vec![
+                    is_four_bytes.expr(meta)
+                        * (load_picked.u16_cells_le[2].expr(meta)
+                            + load_picked.u16_cells_le[3].expr(meta)),
+                    is_two_bytes.expr(meta)
+                        * (load_picked.expr(meta) - load_picked.u16_cells_le[0].expr(meta)),
+                    is_one_byte.expr(meta)
+                        * (load_picked.expr(meta) - load_picked_byte_proof.expr(meta)),
+                ]
+            }),
+        );
+
+        let store_value_tailing_u16_u8_high = allocator.alloc_u8_cell();
+        let store_value_tailing_u16_u8_low = allocator.alloc_u8_cell();
 
         constraint_builder.push(
             "op_store tailing u16 decompose",
@@ -184,85 +311,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             }),
         );
 
-        constraint_builder.push(
-            "op_store pick load leading u16",
-            Box::new(move |meta| {
-                vec![
-                    // ask for a better encoding
-                    value_leading_u16.expr(meta)
-                        - (is_two_bytes.expr(meta) + is_one_byte.expr(meta))
-                            * ((store_inner_pos[2].expr(meta)
-                                * store_inner_pos[1].expr(meta)
-                                * load_value_in_heap.u16_cells_le[3].expr(meta))
-                                + (constant_from!(1) - store_inner_pos[2].expr(meta))
-                                    * store_inner_pos[1].expr(meta)
-                                    * (load_value_in_heap.u16_cells_le[1].expr(meta))
-                                + store_inner_pos[2].expr(meta)
-                                    * (constant_from!(1) - store_inner_pos[1].expr(meta))
-                                    * (load_value_in_heap.u16_cells_le[2].expr(meta))
-                                + (constant_from!(1) - store_inner_pos[2].expr(meta))
-                                    * (constant_from!(1) - store_inner_pos[1].expr(meta))
-                                    * (load_value_in_heap.u16_cells_le[0].expr(meta)))
-                        - is_four_bytes.expr(meta)
-                            * (store_inner_pos[2].expr(meta)
-                                * load_value_in_heap.u16_cells_le[3].expr(meta)
-                                + (constant_from!(1) - store_inner_pos[2].expr(meta))
-                                    * load_value_in_heap.u16_cells_le[1].expr(meta))
-                        - is_eight_bytes.expr(meta) * load_value_in_heap.u16_cells_le[3].expr(meta),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "op_store load leading u16 decompose",
-            Box::new(move |meta| {
-                vec![
-                    value_leading_u16_u8_high.expr(meta) * constant_from!(1 << 8)
-                        + value_leading_u16_u8_low.expr(meta)
-                        - value_leading_u16.expr(meta),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "op_store pick load value",
-            Box::new(move |meta| {
-                vec![
-                    load_value_picked.expr(meta)
-                        - is_eight_bytes.expr(meta) * load_value_in_heap.expr(meta)
-                        - is_four_bytes.expr(meta)
-                            * store_inner_pos[2].expr(meta)
-                            * (load_value_in_heap.u16_cells_le[2].expr(meta)
-                                + load_value_in_heap.u16_cells_le[3].expr(meta)
-                                    * constant_from!(1 << 16))
-                        - is_four_bytes.expr(meta)
-                            * (constant_from!(1) - store_inner_pos[2].expr(meta))
-                            * (load_value_in_heap.u16_cells_le[0].expr(meta)
-                                + load_value_in_heap.u16_cells_le[1].expr(meta)
-                                    * constant_from!(1 << 16))
-                        - is_two_bytes.expr(meta) * (value_leading_u16.expr(meta))
-                        - is_one_byte.expr(meta)
-                            * store_inner_pos[0].expr(meta)
-                            * (value_leading_u16_u8_high.expr(meta))
-                        - is_one_byte.expr(meta)
-                            * (constant_from!(1) - store_inner_pos[0].expr(meta))
-                            * (value_leading_u16_u8_low.expr(meta)),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "op_store merge value",
-            Box::new(move |meta| {
-                vec![
-                    res.expr(meta)
-                        - (load_value_in_heap.expr(meta)
-                            + (store_value_wrapped.expr(meta) - load_value_picked.expr(meta))
-                                * store_value_modulus.expr(meta)),
-                ]
-            }),
-        );
-
         let lookup_pow = common_config.pow_table_lookup_cell;
 
         constraint_builder.push(
@@ -271,10 +319,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                 vec![
                     lookup_pow.expr(meta)
                         - pow_table_encode(
-                            store_value_modulus.expr(meta),
-                            store_inner_pos[0].expr(meta) * constant_from!(8)
-                                + store_inner_pos[1].expr(meta) * constant_from!(16)
-                                + store_inner_pos[2].expr(meta) * constant_from!(32),
+                            pos_modulus.expr(meta),
+                            load_inner_pos.expr(meta) * constant_from!(8),
                         ),
                 ]
             }),
@@ -305,26 +351,48 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             move |meta| constant_from!(1),
         );
 
-        let memory_table_lookup_heap_read = allocator.alloc_memory_table_lookup_read_cell(
-            "store load origin",
+        let memory_table_lookup_heap_read1 = allocator.alloc_memory_table_lookup_read_cell(
+            "store load origin1",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Heap as u64),
-            move |meta| store_block_index.expr(meta),
+            move |meta| load_block_index.expr(meta),
             move |meta| constant_from!(0),
-            move |meta| load_value_in_heap.expr(meta),
+            move |meta| load_value_in_heap1.expr(meta),
             move |meta| constant_from!(1),
         );
 
-        let memory_table_lookup_heap_write = allocator.alloc_memory_table_lookup_write_cell(
-            "store write res",
+        let memory_table_lookup_heap_read2 = allocator.alloc_memory_table_lookup_read_cell(
+            "store load origin2",
             constraint_builder,
             eid,
             move |meta| constant_from!(LocationType::Heap as u64),
-            move |meta| store_block_index.expr(meta),
+            move |meta| load_block_index.expr(meta) + constant_from!(1),
             move |meta| constant_from!(0),
-            move |meta| res.expr(meta),
+            move |meta| load_value_in_heap2.expr(meta),
+            move |meta| is_cross_block.expr(meta),
+        );
+
+        let memory_table_lookup_heap_write1 = allocator.alloc_memory_table_lookup_write_cell(
+            "store write res1",
+            constraint_builder,
+            eid,
+            move |meta| constant_from!(LocationType::Heap as u64),
+            move |meta| load_block_index.expr(meta),
+            move |meta| constant_from!(0),
+            move |meta| store_value_in_heap1.expr(meta),
             move |meta| constant_from!(1),
+        );
+
+        let memory_table_lookup_heap_write2 = allocator.alloc_memory_table_lookup_write_cell(
+            "store write res1",
+            constraint_builder,
+            eid,
+            move |meta| constant_from!(LocationType::Heap as u64),
+            move |meta| load_block_index.expr(meta) + constant_from!(1),
+            move |meta| constant_from!(0),
+            move |meta| store_value_in_heap2.expr(meta),
+            move |meta| is_cross_block.expr(meta),
         );
 
         let current_memory_page_size = common_config.mpages_cell;
@@ -350,31 +418,45 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
 
         Box::new(StoreConfig {
             opcode_store_offset,
-            store_block_index,
-            store_inner_pos,
-            load_value_in_heap,
-            load_value_picked,
+            load_block_index,
+            load_inner_pos,
+            load_inner_pos_diff,
+            is_cross_block,
+            cross_block_rem,
+            cross_block_rem_diff,
+            load_value_in_heap1,
+            load_value_in_heap2,
+            load_tailing,
+            load_picked,
+            load_picked_byte_proof,
+            load_leading,
+            unchanged_value,
             store_value,
+            store_value_tailing_u16_u8_high,
+            store_value_tailing_u16_u8_low,
             store_value_wrapped,
-            store_value_modulus,
-            res,
+            store_value_in_heap1,
+            store_value_in_heap2,
             store_base,
             is_one_byte,
             is_two_bytes,
             is_four_bytes,
             is_eight_bytes,
             is_i32,
-            memory_table_lookup_stack_read_val,
             memory_table_lookup_stack_read_pos,
-            memory_table_lookup_heap_read,
-            memory_table_lookup_heap_write,
-            address_within_allocated_pages_helper,
-            value_leading_u16,
-            value_leading_u16_u8_high,
-            value_leading_u16_u8_low,
-            store_value_tailing_u16_u8_high,
-            store_value_tailing_u16_u8_low,
+            memory_table_lookup_stack_read_val,
+            memory_table_lookup_heap_read1,
+            memory_table_lookup_heap_read2,
+            memory_table_lookup_heap_write1,
+            memory_table_lookup_heap_write2,
             lookup_pow,
+            address_within_allocated_pages_helper,
+            load_tailing_diff,
+            load_leading_diff,
+            load_leading_modulus,
+            pos_modulus,
+            len,
+            len_modulus,
         })
     }
 }
@@ -416,60 +498,91 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.opcode_store_offset.assign_u32(ctx, offset)?;
 
                 let len = store_size.byte_size();
+                self.len.assign(ctx, len.into())?;
+
                 let byte_index = effective_address as u64;
                 let inner_byte_index = byte_index & 7;
-                let inner_u16_index = inner_byte_index >> 1;
 
-                let value_leading_u16 = if len == 1 {
-                    (pre_block_value1 >> (inner_u16_index * 16)) & 0xffff
-                } else {
-                    (pre_block_value1 >> (inner_u16_index * 16 + (len - 2) * 8)) & 0xffff
-                };
-                self.value_leading_u16
-                    .assign(ctx, value_leading_u16.into())?;
-                self.value_leading_u16_u8_high
-                    .assign(ctx, (value_leading_u16 >> 8).into())?;
-                self.value_leading_u16_u8_low
-                    .assign(ctx, (value_leading_u16 & 0xff).into())?;
+                self.load_block_index
+                    .assign_u32(ctx, (effective_address as u32) >> 3)?;
+                self.load_inner_pos
+                    .assign_u32(ctx, inner_byte_index as u32)?;
+                self.load_inner_pos_diff
+                    .assign_u32(ctx, 7 - inner_byte_index as u32)?;
 
-                self.store_block_index
-                    .assign(ctx, (effective_address as u64) >> 3)?;
-                self.store_inner_pos[0].assign_bool(ctx, effective_address & 1 != 0)?;
-                self.store_inner_pos[1].assign_bool(ctx, effective_address & 2 != 0)?;
-                self.store_inner_pos[2].assign_bool(ctx, effective_address & 4 != 0)?;
+                let is_cross_block = (effective_address as u64 & 7) + len > 8;
 
-                self.store_value_tailing_u16_u8_high
-                    .assign(ctx, ((value & 0xffff) >> 8).into())?;
-                self.store_value_tailing_u16_u8_low
-                    .assign(ctx, (value & 0xff).into())?;
+                let len_modulus = BigUint::from(1u64) << (len * 8);
+                self.len_modulus.assign_bn(ctx, &len_modulus)?;
 
-                self.load_value_in_heap.assign(ctx, pre_block_value1)?;
+                let pos_modulus = 1 << (inner_byte_index * 8);
+                let size = if is_cross_block { 16 } else { 8 };
+                let leading_modulus: u64 = 1u64 << ((size - len - inner_byte_index) * 8);
+                self.pos_modulus.assign(ctx, pos_modulus.into())?;
+                self.load_leading_modulus
+                    .assign(ctx, leading_modulus.into())?;
+                self.lookup_pow.assign_bn(
+                    ctx,
+                    &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
+                )?;
 
-                println!("{} {} {}", effective_address, inner_byte_index, len);
-                assert!(inner_byte_index == 0 || len != 8);
-                assert!(inner_byte_index & 3 == 0 || len != 4);
-                assert!(inner_byte_index & 1 == 0 || len != 2);
+                self.is_cross_block.assign_bool(ctx, is_cross_block)?;
+                let rem = ((effective_address as u64 & 7) + len - 1) & 7;
+                self.cross_block_rem.assign(ctx, rem.into())?;
+                self.cross_block_rem_diff.assign(ctx, (7 - rem).into())?;
 
-                let value_picked = pre_block_value1 >> (inner_byte_index * 8);
+                self.load_value_in_heap1.assign(ctx, pre_block_value1)?;
+                self.load_value_in_heap2.assign(ctx, pre_block_value2)?;
 
-                let value_picked = if len == 8 {
-                    value_picked
-                } else {
-                    value_picked & ((1 << (len * 8)) - 1)
-                };
-                self.load_value_picked.assign(ctx, value_picked.into())?;
+                let tailing_bits = inner_byte_index * 8;
+                let picked_bits = len * 8;
+                let load_value: BigUint =
+                    (BigUint::from(pre_block_value2) << 64) + pre_block_value1;
+                let tailing: u64 = load_value.to_u64_digits().first().unwrap_or(&0u64).clone()
+                    & ((1 << tailing_bits) - 1);
+                let picked: u64 = ((&load_value >> tailing_bits)
+                    & ((BigUint::from(1u64) << picked_bits) - 1u64))
+                    .to_u64_digits()
+                    .first()
+                    .unwrap_or(&0u64)
+                    .clone();
+                let leading: u64 = (load_value >> (picked_bits + tailing_bits))
+                    .to_u64_digits()
+                    .first()
+                    .unwrap_or(&0u64)
+                    .clone();
+
+                self.load_tailing.assign(ctx, tailing)?;
+                self.load_tailing_diff
+                    .assign(ctx, pos_modulus - 1 - tailing)?;
+                self.load_picked.assign(ctx, picked)?;
+                if len == 1 {
+                    self.load_picked_byte_proof.assign(ctx, picked.into())?;
+                }
+                self.load_leading.assign(ctx, leading)?;
+                self.load_leading_diff
+                    .assign(ctx, leading_modulus - leading - 1u64)?;
+
+                self.unchanged_value.assign_bn(
+                    ctx,
+                    &((BigUint::from(leading) << ((inner_byte_index + len) * 8)) + tailing),
+                )?;
 
                 self.store_value.assign(ctx, value)?;
+                self.store_value_tailing_u16_u8_low
+                    .assign(ctx, (value & 0xff).into())?;
+                self.store_value_tailing_u16_u8_high
+                    .assign(ctx, ((value >> 8) & 0xff).into())?;
                 let value_wrapped = if len == 8 {
                     value
                 } else {
                     value & ((1 << (len * 8)) - 1)
                 };
-                self.store_value_wrapped.assign(ctx, value_wrapped)?;
-                self.store_value_modulus
-                    .assign(ctx, 1 << (inner_byte_index * 8))?;
-
-                self.res.assign(ctx, updated_block_value1.into())?;
+                self.store_value_wrapped.assign(ctx, value_wrapped.into())?;
+                self.store_value_in_heap1
+                    .assign(ctx, updated_block_value1)?;
+                self.store_value_in_heap2
+                    .assign(ctx, updated_block_value2)?;
 
                 self.is_one_byte.assign_bool(ctx, len == 1)?;
                 self.is_two_bytes.assign_bool(ctx, len == 2)?;
@@ -490,7 +603,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     ),
                 )?;
 
-                self.store_base.assign(ctx, raw_address as u64)?;
+                self.store_base.assign_u32(ctx, raw_address)?;
 
                 self.memory_table_lookup_stack_read_val.assign(
                     ctx,
@@ -514,7 +627,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     raw_address as u64,
                 )?;
 
-                self.memory_table_lookup_heap_read.assign(
+                self.memory_table_lookup_heap_read1.assign(
                     ctx,
                     entry.memory_rw_entires[2].start_eid,
                     step.current.eid,
@@ -525,7 +638,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     pre_block_value1,
                 )?;
 
-                self.memory_table_lookup_heap_write.assign(
+                self.memory_table_lookup_heap_write1.assign(
                     ctx,
                     step.current.eid,
                     entry.memory_rw_entires[3].end_eid,
@@ -534,6 +647,29 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     false,
                     updated_block_value1,
                 )?;
+
+                if is_cross_block {
+                    self.memory_table_lookup_heap_read2.assign(
+                        ctx,
+                        entry.memory_rw_entires[4].start_eid,
+                        step.current.eid,
+                        entry.memory_rw_entires[4].end_eid,
+                        (effective_address >> 3) + 1,
+                        LocationType::Heap,
+                        false,
+                        pre_block_value2,
+                    )?;
+
+                    self.memory_table_lookup_heap_write2.assign(
+                        ctx,
+                        step.current.eid,
+                        entry.memory_rw_entires[5].end_eid,
+                        (effective_address >> 3) + 1,
+                        LocationType::Heap,
+                        false,
+                        updated_block_value2,
+                    )?;
+                }
                 Ok(())
             }
             _ => unreachable!(),
@@ -544,11 +680,32 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
         Some(constant_from!(2))
     }
 
-    fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1))
+    fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(1) + self.is_cross_block.expr(meta))
     }
 
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
-        1
+        match entry.step_info {
+            StepInfo::Store {
+                vtype,
+                store_size,
+                offset,
+                raw_address,
+                effective_address,
+                pre_block_value1,
+                updated_block_value1,
+                pre_block_value2,
+                updated_block_value2,
+                value,
+            } => {
+                let is_cross_block = (effective_address as u64 & 7) + store_size.byte_size() > 8;
+                if is_cross_block {
+                    2
+                } else {
+                    1
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 }
