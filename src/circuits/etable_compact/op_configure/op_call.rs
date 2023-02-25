@@ -75,7 +75,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig {
         meta: &mut VirtualCells<'_, F>,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        Some(common_config.next_last_jump_eid(meta))
+        Some(common_config.eid(meta))
     }
 
     fn next_fid(
