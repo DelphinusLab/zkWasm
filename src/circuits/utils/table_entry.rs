@@ -1,5 +1,6 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, env, io::Write, path::PathBuf};
 
+use serde::Serialize;
 use specs::{
     etable::{EventTable, EventTableEntry},
     mtable::{AccessType, LocationType, MTable, MemoryTableEntry},
@@ -7,8 +8,9 @@ use specs::{
 
 use crate::{circuits::config::zkwasm_k, runtime::memory_event_of_step};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub(in crate::circuits) struct MemoryWritingEntry {
+    index: usize,
     pub(in crate::circuits) entry: MemoryTableEntry,
     pub(in crate::circuits) end_eid: u32,
 }
@@ -19,22 +21,28 @@ impl MemoryWritingEntry {
     }
 }
 
-#[derive(Debug)]
-pub(in crate::circuits) struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
+#[derive(Debug, Serialize)]
+pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl From<MTable> for MemoryWritingTable {
     fn from(value: MTable) -> Self {
         let maximal_eid = (1u32 << (zkwasm_k() - 1)) - 1;
+        let mut index = 0;
 
         let mut entries: Vec<MemoryWritingEntry> = value
             .entries()
             .iter()
             .filter_map(|entry| {
                 if entry.atype != AccessType::Read {
-                    Some(MemoryWritingEntry {
+                    let entry = Some(MemoryWritingEntry {
+                        index,
                         entry: entry.clone(),
                         end_eid: maximal_eid,
-                    })
+                    });
+
+                    index += 1;
+
+                    entry
                 } else {
                     None
                 }
@@ -73,6 +81,22 @@ impl MemoryWritingTable {
         }
 
         mapping
+    }
+
+    pub fn write_json(&self, dir: Option<PathBuf>) {
+        fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
+            let mut folder = folder.clone();
+            folder.push(filename);
+            let mut fd = std::fs::File::create(folder.as_path()).unwrap();
+            folder.pop();
+
+            fd.write(buf.as_bytes()).unwrap();
+        }
+
+        let mtable = serde_json::to_string(self).unwrap();
+
+        let dir = dir.unwrap_or(env::current_dir().unwrap());
+        write_file(&dir, "memory_writing_table.json", &mtable);
     }
 }
 

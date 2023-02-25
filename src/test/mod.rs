@@ -1,5 +1,5 @@
 use crate::{
-    circuits::{config::zkwasm_k, TestCircuit},
+    circuits::{config::zkwasm_k, utils::table_entry::MemoryWritingTable, TestCircuit},
     profile::Profile,
     runtime::{
         host::host_env::HostEnv, wasmi_interpreter::Execution, ExecutionResult, WasmInterpreter,
@@ -76,6 +76,8 @@ pub fn test_circuit_with_env(
 
 pub fn run_test_circuit<F: FieldExt>(tables: Tables, public_inputs: Vec<F>) -> Result<()> {
     tables.write_json(None);
+    let memory_writing_table: MemoryWritingTable = tables.execution_tables.mtable.clone().into();
+    memory_writing_table.write_json(None);
 
     tables.execution_tables.etable.profile_instruction();
 

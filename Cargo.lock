@@ -420,6 +420,8 @@ dependencies = [
  "num-traits",
  "rand",
  "rusty-fork",
+ "serde",
+ "serde_json",
  "sha2",
  "specs",
  "strum",
