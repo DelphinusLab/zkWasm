@@ -5,13 +5,13 @@ use halo2_proofs::{
     plonk::{ConstraintSystem, Expression, VirtualCells},
 };
 
-pub(super) struct ConstraintBuilder<'a, F: FieldExt> {
+pub(crate) struct ConstraintBuilder<'a, F: FieldExt> {
     meta: &'a mut ConstraintSystem<F>,
-    pub(in crate::circuits::etable_v2) constraints: Vec<(
+    pub(crate) constraints: Vec<(
         &'static str,
         Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
     )>,
-    pub(in crate::circuits::etable_v2) lookups: BTreeMap<
+    pub(crate) lookups: BTreeMap<
         &'static str,
         Vec<(
             &'static str,
@@ -35,6 +35,20 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         constraint: Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
     ) {
         self.constraints.push((name, constraint))
+    }
+
+    pub(crate) fn lookup(
+        &mut self,
+        foreign_table_id: &'static str,
+        name: &'static str,
+        builder: Box<dyn Fn(&mut VirtualCells<F>) -> Expression<F>>,
+    ) {
+        match self.lookups.get_mut(&foreign_table_id) {
+            Some(lookups) => lookups.push((name, builder)),
+            None => {
+                self.lookups.insert(foreign_table_id, vec![(name, builder)]);
+            }
+        }
     }
 
     pub(super) fn finalize(self, enable: impl Fn(&mut VirtualCells<F>) -> Expression<F>) {

@@ -11,6 +11,7 @@ pub mod keccak_helper;
 pub mod log_helper;
 pub mod require_helper;
 pub mod sha256_helper;
+pub mod v2;
 pub mod wasm_input_helper;
 
 pub trait ForeignCallInfo {

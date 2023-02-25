@@ -91,8 +91,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     is_i32_wrap_i64.expr(meta)
-                        * (value.u16_cells_le[0].expr(meta) * constant_from!(1 << 16)
-                            + value.u16_cells_le[1].expr(meta)
+                        * (value.u16_cells_le[1].expr(meta) * constant_from!(1 << 16)
+                            + value.u16_cells_le[0].expr(meta)
                             - res.u64_cell.expr(meta)),
                 ]
             }),

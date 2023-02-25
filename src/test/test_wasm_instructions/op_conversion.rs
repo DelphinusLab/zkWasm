@@ -1,4 +1,3 @@
-
 use crate::test::test_circuit_noexternal;
 
 #[test]
@@ -7,14 +6,14 @@ fn test_i32_wrap_i64_ok() {
         (module
             (func (export "test")
                 (i64.const 0)
-                    (i32.wrap_i64)
-                    (drop)
-                    (i64.const 0xffffffff00000000)
-                    (i32.wrap_i64)
-                    (drop)
-                    (i64.const 0xfffffffff0f0f0f0)
-                    (i32.wrap_i64)
-                    (drop)
+                (i32.wrap_i64)
+                (drop)
+                (i64.const 0xffffffff00000000)
+                (i32.wrap_i64)
+                (drop)
+                (i64.const 0xfffffffff0f0f0f0)
+                (i32.wrap_i64)
+                (drop)
                 )
             )
         "#;
