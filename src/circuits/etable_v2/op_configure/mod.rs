@@ -17,3 +17,4 @@ pub mod op_bin;
 pub mod op_rel;
 pub mod op_unary;
 pub mod op_select;
+pub mod op_load;
