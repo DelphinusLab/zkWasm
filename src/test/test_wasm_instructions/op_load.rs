@@ -56,3 +56,33 @@ fn test_load_normal() {
 
     test_circuit_noexternal(textual_repr).unwrap();
 }
+
+#[test]
+fn test_load_cross() {
+    let textual_repr = r#"
+            (module
+                (memory $0 1)
+                (data (i32.const 0) "\ff\00\00\00\fe\00\00\00\fd\00\00\00\fc\00\00\00")
+                (func (export "test")
+                    (i32.const 4)
+                    (i64.load offset=0)
+                    (drop)
+                    (i32.const 6)
+                    (i64.load32_u offset=0)
+                    (drop)
+                    (i32.const 7)
+                    (i64.load16_u offset=0)
+                    (drop)
+
+                    (i32.const 6)
+                    (i32.load offset=0)
+                    (drop)
+                    (i32.const 7)
+                    (i32.load16_u offset=0)
+                    (drop)
+                )
+               )
+            "#;
+
+    test_circuit_noexternal(textual_repr).unwrap();
+}
