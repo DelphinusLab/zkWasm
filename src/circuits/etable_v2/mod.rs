@@ -31,7 +31,7 @@ use crate::{
         op_return::ReturnConfigBuilder,
         op_select::SelectConfigBuilder,
         op_test::TestConfigBuilder,
-        op_unary::UnaryConfigBuilder, op_load::LoadConfigBuilder,
+        op_unary::UnaryConfigBuilder, op_load::LoadConfigBuilder, op_bin_bit::BinBitConfigBuilder,
     },
     constant_from, curr, fixed_curr,
 };
@@ -312,6 +312,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Unary, UnaryConfigBuilder);
         configure!(OpcodeClass::Load, LoadConfigBuilder);
+        configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
