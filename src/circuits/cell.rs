@@ -125,6 +125,7 @@ macro_rules! define_cell {
 
 define_cell!(AllocatedBitCell);
 define_cell!(AllocatedCommonRangeCell);
+define_cell!(AllocatedU8Cell);
 define_cell!(AllocatedU16Cell);
 define_cell!(AllocatedUnlimitedCell);
 
