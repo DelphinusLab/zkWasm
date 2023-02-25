@@ -1,5 +1,6 @@
 use self::{allocator::*, constraint_builder::ConstraintBuilder};
 use super::{
+    bit_table::BitTableConfig,
     brtable::BrTableConfig,
     cell::*,
     config::max_etable_rows,
@@ -14,6 +15,7 @@ use super::{
 use crate::{
     circuits::etable_v2::op_configure::{
         op_bin::BinConfigBuilder,
+        op_bin_bit::BinBitConfigBuilder,
         op_bin_shift::BinShiftConfigBuilder,
         op_br::BrConfigBuilder,
         op_br_if::BrIfConfigBuilder,
@@ -24,14 +26,16 @@ use crate::{
         op_drop::DropConfigBuilder,
         op_global_get::{GlobalGetConfig, GlobalGetConfigBuilder},
         op_global_set::GlobalSetConfigBuilder,
+        op_load::LoadConfigBuilder,
         op_local_get::LocalGetConfigBuilder,
         op_local_set::LocalSetConfigBuilder,
         op_local_tee::LocalTeeConfigBuilder,
         op_rel::RelConfigBuilder,
         op_return::ReturnConfigBuilder,
         op_select::SelectConfigBuilder,
+        op_store::StoreConfigBuilder,
         op_test::TestConfigBuilder,
-        op_unary::UnaryConfigBuilder, op_load::LoadConfigBuilder, op_bin_bit::BinBitConfigBuilder, op_store::StoreConfigBuilder,
+        op_unary::UnaryConfigBuilder,
     },
     constant_from, curr, fixed_curr,
     foreign::{
@@ -86,6 +90,7 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     jtable_lookup_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
     olb_table_lookup_cell: AllocatedUnlimitedCell<F>,
+    bit_table_lookup_cell: AllocatedUnlimitedCell<F>,
 }
 
 impl<F: FieldExt> EventTableCommonConfig<F> {
@@ -218,6 +223,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
         brtable: &BrTableConfig<F>,
+        bit_table: &BitTableConfig<F>,
         opcode_set: &HashSet<OpcodeClassPlain>,
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
@@ -245,6 +251,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let jtable_lookup_cell = allocator.alloc_unlimited_cell();
         let pow_table_lookup_cell = allocator.alloc_unlimited_cell();
         let olb_table_lookup_cell = allocator.alloc_unlimited_cell();
+        let bit_table_lookup_cell = allocator.alloc_unlimited_cell();
 
         let common_config = EventTableCommonConfig {
             enabled_cell,
@@ -265,6 +272,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             jtable_lookup_cell,
             pow_table_lookup_cell,
             olb_table_lookup_cell,
+            bit_table_lookup_cell,
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)> = BTreeMap::new();
@@ -582,6 +590,10 @@ impl<F: FieldExt> EventTableConfig<F> {
             "c8e. olb_table_lookup in offset_len_bits_table",
             |meta| olb_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
         );
+
+        bit_table.configure_in_table(meta, "c8f: bit_table_lookup in bit_table", |meta| {
+            bit_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
+        });
 
         Self {
             step_sel,

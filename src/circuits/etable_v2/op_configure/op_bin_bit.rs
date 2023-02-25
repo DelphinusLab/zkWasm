@@ -1,5 +1,6 @@
 use crate::{
     circuits::{
+        bit_table::encode_bit_table,
         cell::*,
         etable_v2::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
@@ -38,6 +39,8 @@ pub struct BinBitConfig<F: FieldExt> {
 
     is_i32: AllocatedBitCell<F>,
 
+    bit_table_lookup: AllocatedUnlimitedCell<F>,
+
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -62,6 +65,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
+
+        let bit_table_lookup = common_config.bit_table_lookup_cell;
 
         let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
             "op_bin stack read",
@@ -102,6 +107,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             res,
             op_class,
             is_i32,
+            bit_table_lookup,
             memory_table_lookup_stack_read_lhs,
             memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
@@ -157,6 +163,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
         self.lhs.assign(ctx, left)?;
         self.rhs.assign(ctx, right)?;
         self.res.assign(ctx, value)?;
+
+        self.bit_table_lookup.assign_bn(
+            ctx,
+            &encode_bit_table(
+                BigUint::from(class as u64),
+                left.into(),
+                right.into(),
+                value.into(),
+            ),
+        )?;
 
         match class {
             specs::itable::BitOp::And => {
