@@ -83,7 +83,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
-        let rtable = RangeTableConfig::configure([0; 7].map(|_| meta.lookup_table_column()));
+        let rtable = RangeTableConfig::configure([0; 8].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
         let imtable = InitMemoryTableConfig::configure(
             [0; IMTABLE_COLUMNS].map(|_| meta.lookup_table_column()),
@@ -93,7 +93,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let jtable = JumpTableConfig::configure(meta, &mut cols);
         let brtable = BrTableConfig::configure(meta.lookup_table_column());
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
-        let bit_table = BitTableConfig::configure(meta, rtable);
+        let bit_table = BitTableConfig::configure(meta, &rtable);
 
         let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
         let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);

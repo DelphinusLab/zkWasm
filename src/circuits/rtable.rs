@@ -366,13 +366,13 @@ impl<F: FieldExt> RangeTableChip<F> {
             |mut table| {
                 let mut offset = 0;
                 for op in BitOp::iter() {
-                    for l in 0..1 << 8 {
-                        for r in 0..1 << 8 {
+                    for l in 0..1u16 << 8 {
+                        for r in 0u16..1 << 8 {
                             table.assign_cell(
                                 || "range table",
                                 self.config.u8_bit_op_col,
                                 offset as usize,
-                                || Ok(F::from(encode_u8_bit_lookup(op, l, r))),
+                                || Ok(F::from(encode_u8_bit_lookup(op, l as u8, r as u8))),
                             )?;
                             offset += 1;
                         }
