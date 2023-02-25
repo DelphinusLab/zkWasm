@@ -166,14 +166,17 @@ fn build_test() -> Result<(Tables, Vec<u64>)> {
 
 mod tests {
     use super::*;
-    use crate::{circuits::config::set_zkwasm_k, test::run_test_circuit};
+    use crate::{
+        circuits::{config::set_zkwasm_k, ZkWasmCircuitBuilder},
+        test::run_test_circuit,
+    };
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use rusty_fork::rusty_fork_test;
 
     rusty_fork_test! {
         #[test]
         fn test_rlp_mock() {
-            set_zkwasm_k(23);
+            set_zkwasm_k(20);
 
             let (tables, public_inputs) = build_test().unwrap();
 
@@ -182,6 +185,21 @@ mod tests {
                 public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
             )
             .unwrap();
+        }
+    }
+
+    rusty_fork_test! {
+        #[test]
+        fn test_rlp_bench() {
+            set_zkwasm_k(20);
+
+            let (tables, public_inputs) = build_test().unwrap();
+
+            let builder = ZkWasmCircuitBuilder {
+                tables,
+            };
+
+            builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
         }
     }
 }
