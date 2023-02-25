@@ -69,6 +69,12 @@ pub(crate) struct AllocatedU64Cell<F: FieldExt> {
     pub(crate) u64_cell: AllocatedUnlimitedCell<F>,
 }
 
+impl<F: FieldExt> AllocatedU64Cell<F> {
+    pub(crate) fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.u64_cell.expr(meta)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedU64CellWithFlagBit<F: FieldExt, const POS: usize> {
     pub(crate) u16_cells_le: [AllocatedU16Cell<F>; 4],
