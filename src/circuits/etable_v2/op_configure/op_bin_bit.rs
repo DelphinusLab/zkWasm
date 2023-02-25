@@ -61,8 +61,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
 
         let op_class = allocator.alloc_common_range_cell();
 
-        // TODO: add constraints for (op, lhs, rhs, res, is_i32)
-
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 

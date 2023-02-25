@@ -35,7 +35,12 @@ fn filter_bit_table_entries(event_table: &EventTableWithMemoryInfo) -> Vec<BitTa
                 left,
                 right,
                 value,
-            } => todo!(),
+            } => Some(BitTableAssign {
+                op: *class,
+                left: *left as u64,
+                right: *right as u64,
+                result: *value as u64,
+            }),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -90,12 +95,14 @@ impl<F: FieldExt> BitTableChip<F> {
     }
 
     fn assign_op(&self, ctx: &mut Context<'_, F>, op: BitOp) -> Result<(), Error> {
-        ctx.region.assign_advice(
-            || "bit table op",
-            self.config.value,
-            ctx.offset + 1,
-            || Ok(F::from(op as u64)),
-        )?;
+        for i in 0..8 {
+            ctx.region.assign_advice(
+                || "bit table op",
+                self.config.value,
+                ctx.offset + 4 * i + 1,
+                || Ok(F::from(op as u64)),
+            )?;
+        }
 
         Ok(())
     }
@@ -139,7 +146,7 @@ impl<F: FieldExt> BitTableChip<F> {
         Ok(())
     }
 
-    pub fn assign(
+    pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
         event_table: &EventTableWithMemoryInfo,

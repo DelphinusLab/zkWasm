@@ -57,7 +57,7 @@ pub struct BitTableConfig<F: FieldExt> {
 |    0      |     1      |  op        |
 */
 impl<F: FieldExt> BitTableConfig<F> {
-    pub(crate) fn configure(meta: &mut ConstraintSystem<F>, rtable: RangeTableConfig<F>) -> Self {
+    pub(crate) fn configure(meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) -> Self {
         let step_sel = meta.fixed_column();
         let lookup_sel = meta.fixed_column();
         let value = meta.advice_column();
@@ -77,19 +77,22 @@ impl<F: FieldExt> BitTableConfig<F> {
         );
 
         meta.create_gate("bit table encode", |meta| {
-            let u64_composer = |offset| {
-                (0..8)
-                    .into_iter()
-                    .map(|x| {
-                        nextn!(meta, value, 1 + x * 4 + offset) * constant_from!(1u64 << (8 * x))
-                    })
-                    .fold(constant_from!(1), |acc, x| acc + x)
-            };
+            macro_rules! compose_u64 {
+                ($offset:expr) => {
+                    (0..8)
+                        .into_iter()
+                        .map(|x| {
+                            nextn!(meta, value, 1 + x * 4 + $offset)
+                                * constant_from!(1u64 << (8 * x))
+                        })
+                        .fold(constant_from!(0), |acc, x| acc + x)
+                };
+            }
 
             let op = next!(meta, value);
-            let left = u64_composer(1);
-            let right = u64_composer(2);
-            let result = u64_composer(3);
+            let left = compose_u64!(1);
+            let right = compose_u64!(2);
+            let result = compose_u64!(3);
 
             vec![
                 (curr!(meta, value) - encode_bit_table(op, left, right, result))
