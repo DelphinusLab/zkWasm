@@ -1,12 +1,13 @@
 use crate::{
     foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::host::host_env::HostEnv,
+    runtime::{host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter},
 };
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Fr as Fp;
 use specs::Tables;
 use std::fs::{self};
+use wasmi::ImportsBuilder;
 
 use super::test_circuit_with_env;
 
@@ -149,17 +150,23 @@ fn build_test() -> Result<(Tables, Vec<u64>)> {
     ];
 
     let wasm = fs::read("wasm/rlp.wasm").unwrap();
+    let module = wasmi::Module::from_buffer(&wasm).expect("failed to load wasm");
 
     let mut env = HostEnv::new();
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs);
     env.finalize();
 
-    let execution_result = test_circuit_with_env(
-        env,
-        wasm,
-        "zkmain",
-        public_inputs.iter().map(|v| Fp::from(*v)).collect(),
-    )?;
+    let imports = ImportsBuilder::new().with_resolver("env", &env);
+    let compiler = WasmInterpreter::new();
+    let compiled_module = compiler
+        .compile(
+            &module,
+            &imports,
+            &env.function_description_table(),
+            "zkmain",
+        )
+        .unwrap();
+    let execution_result = compiled_module.run(&mut env)?;
 
     Ok((execution_result.tables, public_inputs))
 }
