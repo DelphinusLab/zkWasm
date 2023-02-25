@@ -248,12 +248,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                         - (is_two_bytes.expr(meta) + is_one_byte.expr(meta))
                             * load_picked.u16_cells_le[0].expr(meta)
                         - is_four_bytes.expr(meta) * load_picked.u16_cells_le[1].expr(meta)
-                        - is_eight_bytes.expr(meta) * load_picked.u16_cells_le[3].expr(meta)
+                        - is_eight_bytes.expr(meta) * load_picked.u16_cells_le[3].expr(meta),
                 ]
             }),
         );
-
-
 
         constraint_builder.push(
             "op_load pick u16 decompose2",
@@ -265,7 +263,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                 ]
             }),
         );
-
 
         constraint_builder.push(
             "op_load flag",
