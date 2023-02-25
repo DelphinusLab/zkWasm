@@ -50,8 +50,8 @@ use std::{
 };
 
 mod bit_table;
-mod cell;
-mod etable_v2;
+pub(crate) mod cell;
+pub(crate) mod etable_v2;
 mod external_host_call_table;
 mod mtable_v2;
 mod traits;

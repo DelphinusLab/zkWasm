@@ -34,6 +34,10 @@ use crate::{
         op_unary::UnaryConfigBuilder, op_load::LoadConfigBuilder, op_bin_bit::BinBitConfigBuilder, op_store::StoreConfigBuilder,
     },
     constant_from, curr, fixed_curr,
+    foreign::{
+        v2::{EventTableForeignCallConfigBuilder, InternalHostPluginBuilder},
+        wasm_input_helper::etable_op_configure_v2::ETableWasmInputHelperTableConfigBuilder,
+    },
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -50,9 +54,9 @@ use std::{
     rc::Rc,
 };
 
-mod allocator;
+pub(crate) mod allocator;
 mod assign;
-mod constraint_builder;
+pub(crate) mod constraint_builder;
 pub(self) mod op_configure;
 
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
@@ -68,12 +72,12 @@ pub struct EventTableCommonConfig<F: FieldExt> {
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     rest_jops_cell: AllocatedCommonRangeCell<F>,
-    input_index_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     external_host_call_index_cell: AllocatedCommonRangeCell<F>,
-    sp_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) sp_cell: AllocatedCommonRangeCell<F>,
     mpages_cell: AllocatedCommonRangeCell<F>,
     frame_id_cell: AllocatedCommonRangeCell<F>,
-    eid_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) eid_cell: AllocatedCommonRangeCell<F>,
     fid_cell: AllocatedCommonRangeCell<F>,
     iid_cell: AllocatedCommonRangeCell<F>,
 
@@ -292,6 +296,32 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
+        macro_rules! configure_foreign {
+            ($op:expr, $x:expr) => {
+                let op = OpcodeClassPlain($op);
+
+                if opcode_set.contains(&op) {
+                    let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
+                    let mut constraint_builder = ConstraintBuilder::new(meta);
+
+                    let config = $x.configure(
+                        &common_config,
+                        &mut allocator.clone(),
+                        &mut constraint_builder,
+                    );
+
+                    constraint_builder.finalize(|meta| {
+                        fixed_curr!(meta, step_sel)
+                            * lvl1_bits[op_lvl1].curr_expr(meta)
+                            * lvl2_bits[op_lvl2].curr_expr(meta)
+                    });
+
+                    op_bitmaps.insert(op, (op_lvl1, op_lvl2));
+                    op_configs.insert(op, Rc::new(config));
+                }
+            };
+        }
+
         configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
         configure!(OpcodeClass::Bin, BinConfigBuilder);
         configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder);
@@ -314,6 +344,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Store, StoreConfigBuilder);
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
+
+        let plugins = vec![ETableWasmInputHelperTableConfigBuilder::new(0)];
+        plugins.into_iter().enumerate().for_each(|(index, plugin)| {
+            configure_foreign!(OpcodeClass::ForeignPluginStart as usize + index, plugin);
+        });
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
@@ -403,7 +438,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c5c. input_index change", |meta| {
             vec![sum_ops_expr_with_init(
-                input_index_cell.next_expr(meta) - input_index_cell.curr_expr(meta),
+                input_index_cell.curr_expr(meta) - input_index_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.input_index_increase(meta, &common_config)

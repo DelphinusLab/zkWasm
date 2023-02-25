@@ -135,7 +135,7 @@ impl<F: FieldExt> AllocatedMemoryTableLookupWriteCell<F> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) enum EventTableCellType {
+pub(crate) enum EventTableCellType {
     Bit = 1,
     U8,
     U16,
@@ -153,7 +153,7 @@ const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 1;
 const U64_CELLS: usize = 7;
 
 #[derive(Debug, Clone)]
-pub(super) struct EventTableCellAllocator<F: FieldExt> {
+pub(crate) struct EventTableCellAllocator<F: FieldExt> {
     all_cols: BTreeMap<EventTableCellType, Vec<Column<Advice>>>,
     free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     free_u64_cells: Vec<AllocatedU64Cell<F>>,
@@ -300,27 +300,27 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         res
     }
 
-    pub(super) fn alloc_bit_cell(&mut self) -> AllocatedBitCell<F> {
+    pub(crate) fn alloc_bit_cell(&mut self) -> AllocatedBitCell<F> {
         AllocatedBitCell(self.alloc(&EventTableCellType::Bit))
     }
 
-    pub(super) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
+    pub(crate) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
         AllocatedCommonRangeCell(self.alloc(&EventTableCellType::CommonRange))
     }
 
-    pub(super) fn alloc_u8_cell(&mut self) -> AllocatedU8Cell<F> {
+    pub(crate) fn alloc_u8_cell(&mut self) -> AllocatedU8Cell<F> {
         AllocatedU8Cell(self.alloc(&EventTableCellType::U8))
     }
 
-    pub(super) fn alloc_u16_cell(&mut self) -> AllocatedU16Cell<F> {
+    pub(crate) fn alloc_u16_cell(&mut self) -> AllocatedU16Cell<F> {
         AllocatedU16Cell(self.alloc(&EventTableCellType::U16))
     }
 
-    pub(super) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
+    pub(crate) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell(self.alloc(&EventTableCellType::Unlimited))
     }
 
-    pub(super) fn alloc_memory_table_lookup_read_cell(
+    pub(crate) fn alloc_memory_table_lookup_read_cell(
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
@@ -368,7 +368,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         cell
     }
 
-    pub(super) fn alloc_memory_table_lookup_write_cell(
+    pub(crate) fn alloc_memory_table_lookup_write_cell(
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
@@ -409,11 +409,11 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         cell
     }
 
-    pub(super) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {
+    pub(crate) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {
         self.free_u64_cells.pop().expect("no more free u64 cells")
     }
 
-    pub(super) fn alloc_u64_with_flag_bit_cell<const POS: usize>(
+    pub(crate) fn alloc_u64_with_flag_bit_cell<const POS: usize>(
         &mut self,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> AllocatedU64CellWithFlagBit<F, POS> {
@@ -445,7 +445,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
-    pub(super) fn alloc_u64_with_flag_bit_cell_dyn(
+    pub(crate) fn alloc_u64_with_flag_bit_cell_dyn(
         &mut self,
         constraint_builder: &mut ConstraintBuilder<F>,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -480,7 +480,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
-    pub(super) fn alloc_u64_with_flag_bit_cell_dyn_sign(
+    pub(crate) fn alloc_u64_with_flag_bit_cell_dyn_sign(
         &mut self,
         constraint_builder: &mut ConstraintBuilder<F>,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
