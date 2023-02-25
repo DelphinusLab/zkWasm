@@ -42,6 +42,13 @@ pub struct RangeTableConfig<F: FieldExt> {
     _mark: PhantomData<F>,
 }
 
+pub(crate) fn encode_u8_bit_entry<T: FromBn>(op: T, left: T, right: T, res: T) -> T {
+    op * T::from_bn(&(BigUint::from(1u64) << 24))
+        + left * T::from_bn(&(BigUint::from(1u64) << 16))
+        + right * T::from_bn(&(BigUint::from(1u64) << 8))
+        + res
+}
+
 pub(crate) fn encode_u8_bit_lookup(op: BitOp, left: u8, right: u8) -> u64 {
     let res = op.eval(left as u64, right as u64);
     ((op as u64) << 24) + ((left as u64) << 16) + ((right as u64) << 8) + res

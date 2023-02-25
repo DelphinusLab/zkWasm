@@ -15,6 +15,8 @@ lazy_static! {
         env::var("ZKWASM_MTABLE_RATIO").map_or(31, |k| k.parse().unwrap());
     static ref ZKWASM_JTABLE_RATIO: u32 =
         env::var("ZKWASM_JTABLE_RATIO").map_or(31, |k| k.parse().unwrap());
+    static ref ZKWASM_BIT_TABLE_RATIO: u32 =
+        env::var("ZKWASM_BIT_TABLE_RATIO").map_or(31, |k| k.parse().unwrap());
     pub(super) static ref ZKWASM_FOREIGN_CALL_TABLE_RATIO: u32 =
         env::var("ZKWASM_FOREIGN_CALL_TABLE_RATIO").map_or(31, |k| k.parse().unwrap());
     static ref ZKWASM_SHA256_RATIO: u32 =
@@ -48,6 +50,12 @@ pub(crate) fn max_jtable_rows() -> u32 {
     assert!(*ZKWASM_JTABLE_RATIO < *ZKWASM_TABLE_DENOMINATOR);
 
     (1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_JTABLE_RATIO
+}
+
+pub(crate) fn max_bit_table_rows() -> u32 {
+    assert!(*ZKWASM_BIT_TABLE_RATIO < *ZKWASM_TABLE_DENOMINATOR);
+
+    (1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_BIT_TABLE_RATIO
 }
 
 pub(crate) fn max_sha256_rows() -> u32 {

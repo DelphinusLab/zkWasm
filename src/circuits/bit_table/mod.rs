@@ -4,11 +4,32 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Fixed},
 };
+use num_bigint::BigUint;
+use specs::encode::FromBn;
 
-use crate::{constant_from, curr, fixed_curr, nextn};
+use crate::{
+    constant_from, constant_from_bn, curr, fixed_curr, fixed_next, fixed_nextn, next, nextn, prev,
+};
 
-use super::rtable::RangeTableConfig;
+use super::{
+    config::max_bit_table_rows,
+    rtable::{encode_u8_bit_entry, RangeTableConfig},
+    utils::bn_to_field,
+};
 
+mod assign;
+mod configure;
+
+const STEP_SIZE: usize = 33;
+
+pub fn encode_bit_table<T: FromBn>(op: T, left: T, right: T, result: T) -> T {
+    op * T::from_bn(&(BigUint::from(1u64) << 192))
+        + left * T::from_bn(&(BigUint::from(1u64) << 128))
+        + right * T::from_bn(&(BigUint::from(1u64) << 64))
+        + result
+}
+
+#[derive(Clone)]
 pub struct BitTableConfig<F: FieldExt> {
     step_sel: Column<Fixed>,
     lookup_sel: Column<Fixed>,
@@ -56,10 +77,31 @@ impl<F: FieldExt> BitTableConfig<F> {
         );
 
         meta.create_gate("bit table encode", |meta| {
+            let u64_composer = |offset| {
+                (0..8)
+                    .into_iter()
+                    .map(|x| {
+                        nextn!(meta, value, 1 + x * 4 + offset) * constant_from!(1u64 << (8 * x))
+                    })
+                    .fold(constant_from!(1), |acc, x| acc + x)
+            };
+
+            let op = next!(meta, value);
+            let left = u64_composer(1);
+            let right = u64_composer(2);
+            let result = u64_composer(3);
+
             vec![
-                (
-                    curr!(meta, value) - 
-                ) * fixed_curr!(meta, step_sel)
+                (curr!(meta, value) - encode_bit_table(op, left, right, result))
+                    * fixed_curr!(meta, step_sel),
+            ]
+        });
+
+        meta.create_gate("op consistent", |meta| {
+            vec![
+                (nextn!(meta, value, 4) - curr!(meta, value))
+                    * (fixed_nextn!(meta, step_sel, 4) - constant_from!(1))
+                    * fixed_curr!(meta, lookup_sel),
             ]
         });
 
@@ -68,6 +110,20 @@ impl<F: FieldExt> BitTableConfig<F> {
             lookup_sel,
             value,
             _mark: PhantomData,
+        }
+    }
+}
+
+pub struct BitTableChip<F: FieldExt> {
+    config: BitTableConfig<F>,
+    max_available_rows: usize,
+}
+
+impl<F: FieldExt> BitTableChip<F> {
+    pub fn new(config: BitTableConfig<F>) -> Self {
+        BitTableChip {
+            config,
+            max_available_rows: max_bit_table_rows() as usize / STEP_SIZE * STEP_SIZE,
         }
     }
 }

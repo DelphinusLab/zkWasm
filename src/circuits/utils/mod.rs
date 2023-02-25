@@ -120,6 +120,13 @@ macro_rules! fixed_next {
 }
 
 #[macro_export]
+macro_rules! fixed_nextn {
+    ($meta: expr, $x: expr, $n: expr) => {
+        $meta.query_fixed($x, halo2_proofs::poly::Rotation($n))
+    };
+}
+
+#[macro_export]
 macro_rules! constant_from {
     ($x: expr) => {
         halo2_proofs::plonk::Expression::Constant(F::from($x as u64))

@@ -9,6 +9,7 @@ use specs::{host_function::HostPlugin, ExecutionTable, Tables};
 
 use crate::{
     circuits::{
+        bit_table::{BitTableChip, BitTableConfig},
         brtable::{BrTableChip, BrTableConfig},
         etable_v2::{EventTableChip, EventTableConfig},
         external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
@@ -50,6 +51,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
     brtable: BrTableConfig<F>,
+    bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
     wasm_input_helper_table: WasmInputHelperTableConfig<F>,
     sha256_helper_table: Sha256HelperTableConfig<F>,
@@ -91,6 +93,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let jtable = JumpTableConfig::configure(meta, &mut cols);
         let brtable = BrTableConfig::configure(meta.lookup_table_column());
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
+        let bit_table = BitTableConfig::configure(meta, rtable);
 
         let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
         let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);
@@ -114,6 +117,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &mtable,
             &jtable,
             &brtable,
+            &bit_table,
             //&external_host_call_table,
             //&foreign_tables,
             &circuit_configure.opcode_selector,
@@ -127,6 +131,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             jtable,
             etable,
             brtable,
+            bit_table,
             external_host_call_table,
             wasm_input_helper_table,
             sha256_helper_table,
@@ -145,6 +150,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let jchip = JumpTableChip::new(config.jtable);
         let echip = EventTableChip::new(config.etable);
         let brchip = BrTableChip::new(config.brtable);
+        let bit_chip = BitTableChip::new(config.bit_table);
         let external_host_call_chip = ExternalHostCallChip::new(config.external_host_call_table);
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
         let sha256chip = Sha256HelperTableChip::new(config.sha256_helper_table);
@@ -228,6 +234,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     rest_jops_cell,
                     &self.tables.compilation_tables.static_jtable,
                 )?;
+
+                ctx.reset();
+
+                bit_chip.assign(&mut ctx, &etable)?;
 
                 Ok(())
             },
