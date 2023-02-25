@@ -1,5 +1,6 @@
 use super::{constraint_builder, EVENT_TABLE_ENTRY_ROWS};
 use crate::circuits::etable_v2::ConstraintBuilder;
+use crate::circuits::utils::u8::U8Column;
 use crate::{
     circuits::{
         cell::*,
@@ -51,6 +52,7 @@ macro_rules! impl_cell {
 
 impl_cell!(AllocatedBitCell);
 impl_cell!(AllocatedCommonRangeCell);
+impl_cell!(AllocatedU8Cell);
 impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedUnlimitedCell);
 
@@ -135,6 +137,7 @@ impl<F: FieldExt> AllocatedMemoryTableLookupWriteCell<F> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum EventTableCellType {
     Bit = 1,
+    U8,
     U16,
     CommonRange,
     Unlimited,
@@ -142,6 +145,7 @@ pub(super) enum EventTableCellType {
 }
 
 const BIT_COLUMNS: usize = 7;
+const U8_COLUMNS: usize = 1;
 const U16_COLUMNS: usize = 7;
 const COMMON_RANGE_COLUMNS: usize = 7;
 const UNLIMITED_COLUMNS: usize = 5;
@@ -217,6 +221,13 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .collect(),
         );
         all_cols.insert(
+            EventTableCellType::U8,
+            [0; U8_COLUMNS]
+                .map(|_| U8Column::configure(meta, cols, rtable, |_| constant_from!(1)).col)
+                .into_iter()
+                .collect(),
+        );
+        all_cols.insert(
             EventTableCellType::U16,
             [0; U16_COLUMNS]
                 .map(|_| U16Column::configure(meta, cols, rtable, |_| constant_from!(1)).col)
@@ -258,6 +269,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             free_cells: BTreeMap::from_iter(
                 vec![
                     (EventTableCellType::Bit, (0, 0)),
+                    (EventTableCellType::U8, (0, 0)),
                     (EventTableCellType::U16, (0, 0)),
                     (EventTableCellType::CommonRange, (0, 0)),
                     (EventTableCellType::Unlimited, (0, 0)),
@@ -294,6 +306,10 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     pub(super) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
         AllocatedCommonRangeCell(self.alloc(&EventTableCellType::CommonRange))
+    }
+
+    pub(super) fn alloc_u8_cell(&mut self) -> AllocatedU8Cell<F> {
+        AllocatedU8Cell(self.alloc(&EventTableCellType::U8))
     }
 
     pub(super) fn alloc_u16_cell(&mut self) -> AllocatedU16Cell<F> {
@@ -414,8 +430,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (flag_bit_cell.expr(meta) * constant_from!(1 << 15)
                         + flag_u16_rem_cell.expr(meta)
                         - flag_u16),
-                    (flag_u16_rem_cell.expr(meta)
-                        + flag_u16_rem_diff_cell.expr(meta)
+                    (flag_u16_rem_cell.expr(meta) + flag_u16_rem_diff_cell.expr(meta)
                         - constant_from!((1 << 15) - 1)),
                 ]
             }),
@@ -450,8 +465,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (flag_bit_cell.expr(meta) * constant_from!(1 << 15)
                         + flag_u16_rem_cell.expr(meta)
                         - flag_u16),
-                    (flag_u16_rem_cell.expr(meta)
-                        + flag_u16_rem_diff_cell.expr(meta)
+                    (flag_u16_rem_cell.expr(meta) + flag_u16_rem_diff_cell.expr(meta)
                         - constant_from!((1 << 15) - 1)),
                 ]
             }),
@@ -465,7 +479,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             flag_u16_rem_diff_cell,
         }
     }
-
 
     pub(super) fn alloc_u64_with_flag_bit_cell_dyn_sign(
         &mut self,
@@ -486,13 +499,14 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                         * (value.u16_cells_le[1].expr(meta) - value.u16_cells_le[3].expr(meta));
                 let is_sign = is_sign(meta);
                 vec![
-                    is_sign.clone() * (flag_bit_cell.expr(meta) * constant_from!(1 << 15)
-                        + flag_u16_rem_cell.expr(meta)
-                        - flag_u16),
-                    is_sign.clone() * (flag_u16_rem_cell.expr(meta)
-                        + flag_u16_rem_diff_cell.expr(meta)
-                        - constant_from!((1 << 15) - 1)),
-                    (is_sign - constant_from!(1)) * flag_bit_cell.expr(meta)
+                    is_sign.clone()
+                        * (flag_bit_cell.expr(meta) * constant_from!(1 << 15)
+                            + flag_u16_rem_cell.expr(meta)
+                            - flag_u16),
+                    is_sign.clone()
+                        * (flag_u16_rem_cell.expr(meta) + flag_u16_rem_diff_cell.expr(meta)
+                            - constant_from!((1 << 15) - 1)),
+                    (is_sign - constant_from!(1)) * flag_bit_cell.expr(meta),
                 ]
             }),
         );

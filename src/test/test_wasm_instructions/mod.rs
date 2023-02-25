@@ -17,3 +17,5 @@ mod op_select;
 mod op_test;
 mod op_unary;
 mod op_bin_bit;
+mod op_load;
+mod op_store;
