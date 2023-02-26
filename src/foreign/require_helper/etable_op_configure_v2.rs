@@ -132,4 +132,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableRequireHelperTableConfig<F
             _ => unreachable!(),
         }
     }
+
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(1))
+    }
 }
