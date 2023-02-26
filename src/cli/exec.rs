@@ -189,7 +189,7 @@ pub fn exec_create_proof(
         .collect::<Vec<_>>()
         .clone()];
 
-    if true {
+    if false {
         info!("Mock test...");
 
         circuit.tables.write_json(Some(output_dir.clone()));

@@ -121,6 +121,28 @@ impl<F: FieldExt> EventTableChip<F> {
         let mut external_host_call_call_index = 1u32;
         let mut index = 0;
 
+        assign_constant!(input_index_cell, F::from(host_public_inputs as u64));
+        assign_constant!(
+            external_host_call_index_cell,
+            F::from(external_host_call_call_index as u64)
+        );
+        assign_constant!(
+            mpages_cell,
+            F::from(configure_table.init_memory_pages as u64)
+        );
+        assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
+        assign_constant!(frame_id_cell, F::zero());
+        assign_constant!(eid_cell, F::one());
+        assign_constant!(fid_cell, F::from(fid_of_entry as u64));
+        assign_constant!(iid_cell, F::zero());
+
+        /*
+         * The length of event_table equals 0: without_witness
+         */
+        if event_table.0.len() == 0 {
+            return Ok(());
+        }
+
         let status = {
             let mut status = event_table
                 .0
@@ -155,21 +177,6 @@ impl<F: FieldExt> EventTableChip<F> {
 
             status
         };
-
-        assign_constant!(input_index_cell, F::from(host_public_inputs as u64));
-        assign_constant!(
-            external_host_call_index_cell,
-            F::from(external_host_call_call_index as u64)
-        );
-        assign_constant!(
-            mpages_cell,
-            F::from(configure_table.init_memory_pages as u64)
-        );
-        assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
-        assign_constant!(frame_id_cell, F::zero());
-        assign_constant!(eid_cell, F::one());
-        assign_constant!(fid_cell, F::from(fid_of_entry as u64));
-        assign_constant!(iid_cell, F::zero());
 
         for (entry, (rest_mops, rest_jops)) in event_table.0.iter().zip(rest_ops.iter()) {
             let step_status = StepStatus {
@@ -261,8 +268,8 @@ impl<F: FieldExt> EventTableChip<F> {
 
         let (rest_mops_cell, rest_jops_cell) = self.assign_rest_ops_first_step(
             ctx,
-            rest_ops.first().unwrap().0,
-            rest_ops.first().unwrap().1,
+            rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops),
+            rest_ops.first().map_or(0u32, |(_, rest_jops)| *rest_jops),
         )?;
         ctx.reset();
 
