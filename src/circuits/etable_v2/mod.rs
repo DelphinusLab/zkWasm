@@ -35,7 +35,7 @@ use crate::{
         op_select::SelectConfigBuilder,
         op_store::StoreConfigBuilder,
         op_test::TestConfigBuilder,
-        op_unary::UnaryConfigBuilder,
+        op_unary::UnaryConfigBuilder, op_memory_size::MemorySizeConfigBuilder,
     },
     constant_from, curr, fixed_curr,
     foreign::{
@@ -349,6 +349,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Store, StoreConfigBuilder);
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
+        configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
 
         let plugins = vec![ETableWasmInputHelperTableConfigBuilder::new(0)];
         plugins.into_iter().enumerate().for_each(|(index, plugin)| {
