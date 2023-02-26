@@ -30,12 +30,14 @@ use crate::{
         op_local_get::LocalGetConfigBuilder,
         op_local_set::LocalSetConfigBuilder,
         op_local_tee::LocalTeeConfigBuilder,
+        op_memory_grow::MemoryGrowConfigBuilder,
+        op_memory_size::MemorySizeConfigBuilder,
         op_rel::RelConfigBuilder,
         op_return::ReturnConfigBuilder,
         op_select::SelectConfigBuilder,
         op_store::StoreConfigBuilder,
         op_test::TestConfigBuilder,
-        op_unary::UnaryConfigBuilder, op_memory_size::MemorySizeConfigBuilder,
+        op_unary::UnaryConfigBuilder,
     },
     constant_from, curr, fixed_curr,
     foreign::{
@@ -90,6 +92,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     jtable_lookup_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
     bit_table_lookup_cell: AllocatedUnlimitedCell<F>,
+
+    circuit_configure: CircuitConfigure,
 }
 
 impl<F: FieldExt> EventTableCommonConfig<F> {
@@ -216,7 +220,7 @@ impl<F: FieldExt> EventTableConfig<F> {
     pub(crate) fn configure(
         meta: &mut ConstraintSystem<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
-        _circuit_configure: &CircuitConfigure,
+        circuit_configure: &CircuitConfigure,
         rtable: &RangeTableConfig<F>,
         itable: &InstructionTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
@@ -270,6 +274,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             jtable_lookup_cell,
             pow_table_lookup_cell,
             bit_table_lookup_cell,
+            circuit_configure: circuit_configure.clone(),
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)> = BTreeMap::new();
@@ -350,6 +355,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Store, StoreConfigBuilder);
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
         configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
+        configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder);
 
         let plugins = vec![ETableWasmInputHelperTableConfigBuilder::new(0)];
         plugins.into_iter().enumerate().for_each(|(index, plugin)| {
@@ -486,7 +492,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c5f. mpages change", |meta| {
             vec![sum_ops_expr_with_init(
-                mpages_cell.next_expr(meta) - mpages_cell.curr_expr(meta),
+                mpages_cell.curr_expr(meta) - mpages_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.allocated_memory_pages_diff(meta)
