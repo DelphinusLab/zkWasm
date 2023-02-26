@@ -31,7 +31,6 @@ pub struct MemoryGrowConfig<F: FieldExt> {
     result: AllocatedU64Cell<F>,
     success: AllocatedBitCell<F>,
     current_maximal_diff: AllocatedCommonRangeCell<F>,
-    fail_maximal_diff: AllocatedU64Cell<F>,
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -47,12 +46,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let grow_size = allocator.alloc_u64_cell();
         let result = allocator.alloc_u64_cell();
-        let fail_maximal_diff = allocator.alloc_u64_cell();
         let current_maximal_diff = allocator.alloc_common_range_cell();
-        let current_memory_size = common_config.mpages_cell;
 
         let success = allocator.alloc_bit_cell();
 
+        let current_memory_size = common_config.mpages_cell;
         let maximal_memory_pages = common_config.circuit_configure.maximal_memory_pages;
 
         constraint_builder.push(
@@ -76,19 +74,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
                         + current_maximal_diff.expr(meta)
                         - constant_from!(maximal_memory_pages))
                         * success.expr(meta),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "memory_grow: fail only on exceed limit",
-            Box::new(move |meta| {
-                vec![
-                    (success.expr(meta) - constant_from!(1))
-                        * (current_memory_size.expr(meta) + grow_size.expr(meta)
-                            - constant_from!(maximal_memory_pages)
-                            - constant_from!(1)
-                            - fail_maximal_diff.expr(meta)),
                 ]
             }),
         );
@@ -123,7 +108,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
             result,
             success,
             current_maximal_diff,
-            fail_maximal_diff,
             memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
         })
@@ -158,13 +142,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
                                 - (step.current.allocated_memory_pages + *grow_size as u32))
                                 as u64,
                         ),
-                    )?;
-                } else {
-                    self.fail_maximal_diff.assign(
-                        ctx,
-                        step.current.allocated_memory_pages as u64 + *grow_size as u32 as u64
-                            - step.configure_table.maximal_memory_pages as u64
-                            - 1,
                     )?;
                 }
 
