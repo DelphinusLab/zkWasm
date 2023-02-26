@@ -43,7 +43,7 @@ fn test_circuit(
         .unwrap();
     let execution_result = compiled_module.run(&mut env)?;
 
-    run_test_circuit::<Fp>(execution_result.tables.clone(), public_inputs)?;
+    run_test_circuit::<Fp>(execution_result.clone(), public_inputs)?;
 
     Ok(execution_result)
 }
@@ -74,14 +74,26 @@ pub fn test_circuit_with_env(
     test_circuit(env, wasm, function_name, public_inputs)
 }
 
-pub fn run_test_circuit<F: FieldExt>(tables: Tables, public_inputs: Vec<F>) -> Result<()> {
-    tables.write_json(None);
-    let memory_writing_table: MemoryWritingTable = tables.execution_tables.mtable.clone().into();
+pub fn run_test_circuit<F: FieldExt>(
+    execution_result: ExecutionResult<wasmi::RuntimeValue>,
+    public_inputs: Vec<F>,
+) -> Result<()> {
+    execution_result.tables.write_json(None);
+    let memory_writing_table: MemoryWritingTable = execution_result
+        .tables
+        .execution_tables
+        .mtable
+        .clone()
+        .into();
     memory_writing_table.write_json(None);
 
-    tables.execution_tables.etable.profile_instruction();
+    execution_result
+        .tables
+        .execution_tables
+        .etable
+        .profile_instruction();
 
-    let circuit = TestCircuit::<F>::new(tables);
+    let circuit = TestCircuit::<F>::new(execution_result.fid_of_entry, execution_result.tables);
 
     let prover = MockProver::run(zkwasm_k(), &circuit, vec![public_inputs])?;
     assert_eq!(prover.verify(), Ok(()));

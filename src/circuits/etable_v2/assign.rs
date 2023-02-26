@@ -4,6 +4,7 @@ use specs::{
     itable::{Opcode, OpcodeClassPlain},
 };
 use std::{collections::BTreeMap, rc::Rc};
+use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::{EventTableChip, EventTableOpcodeConfig, EVENT_TABLE_ENTRY_ROWS};
 use crate::circuits::{
@@ -90,6 +91,7 @@ impl<F: FieldExt> EventTableChip<F> {
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
+        fid_of_entry: u32,
         rest_ops: Vec<(u32, u32)>,
     ) -> Result<(), Error> {
         macro_rules! assign_advice {
@@ -163,6 +165,11 @@ impl<F: FieldExt> EventTableChip<F> {
             mpages_cell,
             F::from(configure_table.init_memory_pages as u64)
         );
+        assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
+        assign_constant!(frame_id_cell, F::zero());
+        assign_constant!(eid_cell, F::one());
+        assign_constant!(fid_cell, F::from(fid_of_entry as u64));
+        assign_constant!(iid_cell, F::zero());
 
         for (entry, (rest_mops, rest_jops)) in event_table.0.iter().zip(rest_ops.iter()) {
             let step_status = StepStatus {
@@ -245,6 +252,7 @@ impl<F: FieldExt> EventTableChip<F> {
         ctx: &mut Context<'_, F>,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
+        fid_of_entry: u32,
     ) -> Result<(Option<Cell>, Option<Cell>), Error> {
         let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
 
@@ -263,6 +271,7 @@ impl<F: FieldExt> EventTableChip<F> {
             &self.config.op_configs,
             event_table,
             configure_table,
+            fid_of_entry,
             rest_ops,
         )?;
         ctx.reset();

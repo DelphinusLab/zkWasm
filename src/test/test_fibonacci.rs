@@ -104,7 +104,7 @@ mod tests {
         );
 
         run_test_circuit(
-            execution_result.tables,
+            execution_result,
             public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
         )
         .unwrap();
@@ -120,6 +120,7 @@ mod tests {
         );
 
         let builder = ZkWasmCircuitBuilder {
+            fid_of_entry: execution_result.fid_of_entry,
             tables: execution_result.tables,
         };
 

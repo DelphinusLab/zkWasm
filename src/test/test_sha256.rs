@@ -29,6 +29,7 @@ mod tests {
             test_circuit_with_env(env, wasm, "sha256_digest", public_inputs.clone()).unwrap();
 
         let builder = ZkWasmCircuitBuilder {
+            fid_of_entry: execution_result.fid_of_entry,
             tables: execution_result.tables,
         };
 
