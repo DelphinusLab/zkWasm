@@ -36,8 +36,8 @@ pub struct StoreConfig<F: FieldExt> {
 
     // which heap offset to load
     load_block_index: AllocatedCommonRangeCell<F>,
-    load_inner_pos: AllocatedCommonRangeCell<F>,
-    load_inner_pos_diff: AllocatedU8Cell<F>,
+    load_block_inner_pos_bits: [AllocatedBitCell<F>; 3],
+    load_block_inner_pos: AllocatedUnlimitedCell<F>,
 
     is_cross_block: AllocatedBitCell<F>,
     cross_block_rem: AllocatedCommonRangeCell<F>,
@@ -100,8 +100,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
 
         // which heap offset to load
         let load_block_index = allocator.alloc_common_range_cell();
-        let load_inner_pos = allocator.alloc_common_range_cell();
-        let load_inner_pos_diff = allocator.alloc_u8_cell();
+        let load_block_inner_pos_bits = [0; 3].map(|x| allocator.alloc_bit_cell());
+        let load_block_inner_pos = allocator.alloc_unlimited_cell();
         let is_cross_block = allocator.alloc_bit_cell();
         let cross_block_rem = allocator.alloc_common_range_cell();
         let cross_block_rem_diff = allocator.alloc_common_range_cell();
@@ -163,10 +163,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             "op_store load_block_index",
             Box::new(move |meta| {
                 vec![
-                    load_block_index.expr(meta) * constant_from!(8) + load_inner_pos.expr(meta)
+                    load_block_index.expr(meta) * constant_from!(8)
+                        + load_block_inner_pos.expr(meta)
                         - opcode_store_offset.expr(meta)
                         - store_base.expr(meta),
-                    load_inner_pos.expr(meta) + load_inner_pos_diff.expr(meta) - constant_from!(7),
+                    load_block_inner_pos.expr(meta)
+                        - load_block_inner_pos_bits[0].expr(meta)
+                        - load_block_inner_pos_bits[1].expr(meta) * constant_from!(2)
+                        - load_block_inner_pos_bits[2].expr(meta) * constant_from!(4),
                 ]
             }),
         );
@@ -176,7 +180,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     is_cross_block.expr(meta) * constant_from!(8) + cross_block_rem.expr(meta)
-                        - load_inner_pos.expr(meta)
+                        - load_block_inner_pos.expr(meta)
                         - len.expr(meta)
                         + constant_from!(1),
                     cross_block_rem.expr(meta) + cross_block_rem_diff.expr(meta)
@@ -247,7 +251,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     load_tailing.expr(meta) + load_tailing_diff.expr(meta) + constant_from!(1)
-                        - pos_modulus.expr(meta)
+                        - pos_modulus.expr(meta),
                 ]
             }),
         );
@@ -306,7 +310,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                     lookup_pow.expr(meta)
                         - pow_table_encode(
                             pos_modulus.expr(meta),
-                            load_inner_pos.expr(meta) * constant_from!(8),
+                            load_block_inner_pos.expr(meta) * constant_from!(8),
                         ),
                 ]
             }),
@@ -405,8 +409,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         Box::new(StoreConfig {
             opcode_store_offset,
             load_block_index,
-            load_inner_pos,
-            load_inner_pos_diff,
+            load_block_inner_pos_bits,
+            load_block_inner_pos,
             is_cross_block,
             cross_block_rem,
             cross_block_rem_diff,
@@ -489,10 +493,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 self.load_block_index
                     .assign_u32(ctx, (effective_address as u32) >> 3)?;
-                self.load_inner_pos
+                self.load_block_inner_pos
                     .assign_u32(ctx, inner_byte_index as u32)?;
-                self.load_inner_pos_diff
-                    .assign_u32(ctx, 7 - inner_byte_index as u32)?;
+                self.load_block_inner_pos_bits[0].assign_bool(ctx, inner_byte_index & 1 != 0)?;
+                self.load_block_inner_pos_bits[1].assign_bool(ctx, inner_byte_index & 2 != 0)?;
+                self.load_block_inner_pos_bits[2].assign_bool(ctx, inner_byte_index & 4 != 0)?;
 
                 let is_cross_block = (effective_address as u64 & 7) + len > 8;
 
