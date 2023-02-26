@@ -21,3 +21,4 @@ pub mod op_load;
 pub mod op_bin_bit;
 pub mod op_store;
 pub mod op_memory_size;
+pub mod op_memory_grow;
