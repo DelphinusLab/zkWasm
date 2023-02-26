@@ -284,7 +284,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     fn alloc(&mut self, t: &EventTableCellType) -> AllocatedCell<F> {
         let v = self.free_cells.get_mut(t).unwrap();
-        println!("alloc {:?}", t);
 
         let res = AllocatedCell {
             col: self.all_cols.get(t).unwrap()[v.0],
