@@ -20,3 +20,4 @@ pub mod op_select;
 pub mod op_load;
 pub mod op_bin_bit;
 pub mod op_store;
+pub mod op_memory_size;
