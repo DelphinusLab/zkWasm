@@ -41,6 +41,7 @@ use crate::{
     },
     constant_from, curr, fixed_curr,
     foreign::{
+        require_helper::etable_op_configure_v2::ETableRequireHelperTableConfigBuilder,
         v2::{EventTableForeignCallConfigBuilder, InternalHostPluginBuilder},
         wasm_input_helper::etable_op_configure_v2::ETableWasmInputHelperTableConfigBuilder,
     },
@@ -306,32 +307,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
-        macro_rules! configure_foreign {
-            ($op:expr, $x:expr) => {
-                let op = OpcodeClassPlain($op);
-
-                if opcode_set.contains(&op) {
-                    let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
-                    let mut constraint_builder = ConstraintBuilder::new(meta);
-
-                    let config = $x.configure(
-                        &common_config,
-                        &mut allocator.clone(),
-                        &mut constraint_builder,
-                    );
-
-                    constraint_builder.finalize(|meta| {
-                        fixed_curr!(meta, step_sel)
-                            * lvl1_bits[op_lvl1].curr_expr(meta)
-                            * lvl2_bits[op_lvl2].curr_expr(meta)
-                    });
-
-                    op_bitmaps.insert(op, (op_lvl1, op_lvl2));
-                    op_configs.insert(op, Rc::new(config));
-                }
-            };
-        }
-
         configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
         configure!(OpcodeClass::Bin, BinConfigBuilder);
         configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder);
@@ -357,10 +332,39 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
         configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder);
 
-        let plugins = vec![ETableWasmInputHelperTableConfigBuilder::new(0)];
-        plugins.into_iter().enumerate().for_each(|(index, plugin)| {
-            configure_foreign!(OpcodeClass::ForeignPluginStart as usize + index, plugin);
-        });
+        let mut plugin_index = 0;
+        macro_rules! configure_foreign {
+            ($x:ident) => {
+                let builder = $x::new(plugin_index);
+                let op = OpcodeClass::ForeignPluginStart as usize + plugin_index;
+                let op = OpcodeClassPlain(op);
+
+                if opcode_set.contains(&op) {
+                    let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
+                    let mut constraint_builder = ConstraintBuilder::new(meta);
+
+                    let config = builder.configure(
+                        &common_config,
+                        &mut allocator.clone(),
+                        &mut constraint_builder,
+                    );
+
+                    constraint_builder.finalize(|meta| {
+                        fixed_curr!(meta, step_sel)
+                            * lvl1_bits[op_lvl1].curr_expr(meta)
+                            * lvl2_bits[op_lvl2].curr_expr(meta)
+                    });
+
+                    op_bitmaps.insert(op, (op_lvl1, op_lvl2));
+                    op_configs.insert(op, Rc::new(config));
+                }
+
+                plugin_index += 1;
+            };
+        }
+        configure_foreign!(ETableWasmInputHelperTableConfigBuilder);
+        configure_foreign!(ETableRequireHelperTableConfigBuilder);
+        drop(plugin_index);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![

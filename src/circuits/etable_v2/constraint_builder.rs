@@ -29,7 +29,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         }
     }
 
-    pub(super) fn push(
+    pub(crate) fn push(
         &mut self,
         name: &'static str,
         constraint: Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
