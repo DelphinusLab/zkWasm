@@ -146,11 +146,11 @@ pub(crate) enum EventTableCellType {
 
 const BIT_COLUMNS: usize = 7;
 const U8_COLUMNS: usize = 1;
-const U16_COLUMNS: usize = 11;
-const COMMON_RANGE_COLUMNS: usize = 11;
+const U16_COLUMNS: usize = 10;
+const COMMON_RANGE_COLUMNS: usize = 10;
 const UNLIMITED_COLUMNS: usize = 6;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
-const U64_CELLS: usize = 11;
+const U64_CELLS: usize = 10;
 
 #[derive(Debug, Clone)]
 pub(crate) struct EventTableCellAllocator<F: FieldExt> {
@@ -284,6 +284,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     fn alloc(&mut self, t: &EventTableCellType) -> AllocatedCell<F> {
         let v = self.free_cells.get_mut(t).unwrap();
+        println!("alloc {:?}", t);
+
         let res = AllocatedCell {
             col: self.all_cols.get(t).unwrap()[v.0],
             rot: v.1 as i32,

@@ -282,7 +282,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         macro_rules! configure {
             ($op:expr, $x:ident) => {
                 let op = OpcodeClassPlain($op as usize);
-                if opcode_set.contains(&op) {
+                if  true || opcode_set.contains(&op) {
                     let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
                     let mut constraint_builder = ConstraintBuilder::new(meta);
 
@@ -308,7 +308,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             ($op:expr, $x:expr) => {
                 let op = OpcodeClassPlain($op);
 
-                if opcode_set.contains(&op) {
+                if true || opcode_set.contains(&op) {
                     let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
                     let mut constraint_builder = ConstraintBuilder::new(meta);
 
