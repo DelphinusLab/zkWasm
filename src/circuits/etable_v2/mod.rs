@@ -89,7 +89,6 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
     jtable_lookup_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
-    olb_table_lookup_cell: AllocatedUnlimitedCell<F>,
     bit_table_lookup_cell: AllocatedUnlimitedCell<F>,
 }
 
@@ -250,7 +249,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
         let jtable_lookup_cell = allocator.alloc_unlimited_cell();
         let pow_table_lookup_cell = allocator.alloc_unlimited_cell();
-        let olb_table_lookup_cell = allocator.alloc_unlimited_cell();
         let bit_table_lookup_cell = allocator.alloc_unlimited_cell();
 
         let common_config = EventTableCommonConfig {
@@ -271,7 +269,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             brtable_lookup_cell,
             jtable_lookup_cell,
             pow_table_lookup_cell,
-            olb_table_lookup_cell,
             bit_table_lookup_cell,
         };
 
@@ -582,12 +579,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {
             pow_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
-
-        rtable.configure_in_offset_len_bits_set(
-            meta,
-            "c8e. olb_table_lookup in offset_len_bits_table",
-            |meta| olb_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
-        );
 
         bit_table.configure_in_table(meta, "c8f: bit_table_lookup in bit_table", |meta| {
             bit_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
