@@ -334,9 +334,9 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let mut plugin_index = 0;
         macro_rules! configure_foreign {
-            ($x:ident) => {
-                let builder = $x::new(plugin_index);
-                let op = OpcodeClass::ForeignPluginStart as usize + plugin_index;
+            ($x:ident, $i:expr) => {
+                let builder = $x::new($i);
+                let op = OpcodeClass::ForeignPluginStart as usize + $i;
                 let op = OpcodeClassPlain(op);
 
                 if opcode_set.contains(&op) {
@@ -362,8 +362,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 plugin_index += 1;
             };
         }
-        configure_foreign!(ETableWasmInputHelperTableConfigBuilder);
-        configure_foreign!(ETableRequireHelperTableConfigBuilder);
+        configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
+        configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
         drop(plugin_index);
 
         meta.create_gate("c1. enable seq", |meta| {
