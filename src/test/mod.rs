@@ -19,6 +19,7 @@ mod test_binary_search;
 mod test_fibonacci;
 mod test_fibonacci_v2;
 mod test_rlp;
+mod test_rlp_simple;
 mod test_sha256;
 mod test_start;
 
