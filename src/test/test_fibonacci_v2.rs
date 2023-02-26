@@ -86,7 +86,7 @@ mod tests {
             RuntimeValue::I32(expected_value)
         );
 
-        run_test_circuit::<Fp>(execution_result.tables, vec![]).unwrap();
+        run_test_circuit::<Fp>(execution_result, vec![]).unwrap();
     }
 
     #[test]
@@ -99,6 +99,7 @@ mod tests {
         );
 
         let builder = ZkWasmCircuitBuilder {
+            fid_of_entry: execution_result.fid_of_entry,
             tables: execution_result.tables,
         };
 

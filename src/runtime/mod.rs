@@ -15,12 +15,15 @@ pub mod wasmi_interpreter;
 
 pub struct CompiledImage<I, T> {
     pub entry: String,
+    pub fid_of_entry: u32,
     pub tables: CompilationTable,
     pub instance: I,
     pub tracer: Rc<RefCell<T>>,
 }
 
+#[derive(Clone)]
 pub struct ExecutionResult<R> {
+    pub fid_of_entry: u32,
     pub tables: Tables,
     pub result: Option<R>,
 }

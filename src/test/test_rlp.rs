@@ -1,6 +1,8 @@
 use crate::{
     foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter},
+    runtime::{
+        host::host_env::HostEnv, wasmi_interpreter::Execution, ExecutionResult, WasmInterpreter,
+    },
 };
 
 use anyhow::Result;
@@ -11,7 +13,7 @@ use wasmi::ImportsBuilder;
 
 use super::test_circuit_with_env;
 
-fn build_test() -> Result<(Tables, Vec<u64>)> {
+fn build_test() -> Result<(ExecutionResult<wasmi::RuntimeValue>, Vec<u64>)> {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -168,7 +170,7 @@ fn build_test() -> Result<(Tables, Vec<u64>)> {
         .unwrap();
     let execution_result = compiled_module.run(&mut env)?;
 
-    Ok((execution_result.tables, public_inputs))
+    Ok((execution_result, public_inputs))
 }
 
 mod tests {
@@ -185,10 +187,10 @@ mod tests {
         fn test_rlp_mock() {
             set_zkwasm_k(20);
 
-            let (tables, public_inputs) = build_test().unwrap();
+            let (execution_result, public_inputs) = build_test().unwrap();
 
             run_test_circuit(
-                tables,
+                execution_result,
                 public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
             )
             .unwrap();
@@ -200,10 +202,11 @@ mod tests {
         fn test_rlp_bench() {
             set_zkwasm_k(20);
 
-            let (tables, public_inputs) = build_test().unwrap();
+            let (execution_result, public_inputs) = build_test().unwrap();
 
             let builder = ZkWasmCircuitBuilder {
-                tables,
+                fid_of_entry: execution_result.fid_of_entry,
+                tables: execution_result.tables,
             };
 
             builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())

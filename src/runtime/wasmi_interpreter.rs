@@ -54,6 +54,7 @@ impl Execution<RuntimeValue>
                 execution_tables,
             },
             result,
+            fid_of_entry: self.fid_of_entry,
         })
     }
 }
@@ -78,7 +79,7 @@ impl WasmiRuntime {
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
             .expect("failed to instantiate wasm module");
 
-        {
+        let fid_of_entry = {
             let idx_of_entry = instance.lookup_function_by_name(tracer.clone(), entry);
 
             if instance.has_start() {
@@ -106,7 +107,13 @@ impl WasmiRuntime {
                     fid: 0,
                     iid: 0,
                 });
-        }
+
+            if instance.has_start() {
+                0
+            } else {
+                idx_of_entry
+            }
+        };
 
         let itable = tracer.borrow().itable.clone();
         let imtable = tracer.borrow().imtable.finalized();
@@ -116,6 +123,7 @@ impl WasmiRuntime {
 
         Ok(CompiledImage {
             entry: entry.to_owned(),
+            fid_of_entry,
             tables: CompilationTable {
                 itable,
                 imtable,

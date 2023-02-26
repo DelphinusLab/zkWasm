@@ -80,12 +80,13 @@ static mut CIRCUIT_CONFIGURE: Option<CircuitConfigure> = None;
 
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
+    pub fid_of_entry: u32,
     pub tables: Tables,
     _data: PhantomData<F>,
 }
 
 impl<F: FieldExt> TestCircuit<F> {
-    pub fn new(tables: Tables) -> Self {
+    pub fn new(fid_of_entry: u32, tables: Tables) -> Self {
         unsafe {
             CIRCUIT_CONFIGURE = Some(CircuitConfigure {
                 first_consecutive_zero_memory_offset: tables
@@ -102,6 +103,7 @@ impl<F: FieldExt> TestCircuit<F> {
         }
 
         TestCircuit {
+            fid_of_entry,
             tables,
             _data: PhantomData,
         }
@@ -126,6 +128,7 @@ pub(self) trait Lookup<F: FieldExt> {
 }
 
 pub struct ZkWasmCircuitBuilder {
+    pub fid_of_entry: u32,
     pub tables: Tables,
 }
 
@@ -133,7 +136,7 @@ const PARAMS: &str = "param.data";
 
 impl ZkWasmCircuitBuilder {
     pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-        TestCircuit::new(self.tables.clone())
+        TestCircuit::new(self.fid_of_entry, self.tables.clone())
     }
 
     fn prepare_param(&self) -> Params<G1Affine> {
