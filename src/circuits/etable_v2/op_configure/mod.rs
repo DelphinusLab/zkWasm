@@ -6,6 +6,7 @@ pub mod op_br_if;
 pub mod op_br_if_eqz;
 pub mod op_br_table;
 pub mod op_call;
+pub mod op_call_indirect;
 pub mod op_const;
 pub mod op_conversion;
 pub mod op_drop;
