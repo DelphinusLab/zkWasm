@@ -1,0 +1,192 @@
+use crate::{
+    circuits::{
+        cell::*,
+        etable_v2::{
+            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
+            EventTableOpcodeConfigBuilder,
+        },
+        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
+    },
+    constant_from,
+};
+use halo2_proofs::{
+    arithmetic::FieldExt,
+    plonk::{Error, Expression, VirtualCells},
+};
+use num_bigint::BigUint;
+use specs::{
+    encode::opcode::encode_call_host,
+    external_host_call_table::{encode::encode_host_call_entry, ExternalHostCallSignature},
+    mtable::LocationType,
+    step::StepInfo,
+};
+
+pub struct ExternalCallHostCircuitConfig<F: FieldExt> {
+    op: AllocatedCommonRangeCell<F>,
+    value: AllocatedU64Cell<F>,
+    value_is_ret: AllocatedBitCell<F>,
+    value_is_not_ret: AllocatedBitCell<F>,
+
+    external_host_call_lookup: AllocatedUnlimitedCell<F>,
+    memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
+    memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
+}
+
+pub struct ExternalCallHostCircuitConfigBuilder {}
+
+impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitConfigBuilder {
+    fn configure(
+        common_config: &EventTableCommonConfig<F>,
+        allocator: &mut EventTableCellAllocator<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
+    ) -> Box<dyn EventTableOpcodeConfig<F>> {
+        let op = allocator.alloc_common_range_cell();
+        let value = allocator.alloc_u64_cell();
+        let value_is_ret = allocator.alloc_bit_cell();
+        let value_is_not_ret = allocator.alloc_bit_cell();
+
+        let index = common_config.external_host_call_index_cell;
+
+        constraint_builder.push(
+            "op_call_host is_ret or not",
+            Box::new(move |meta| {
+                vec![value_is_ret.expr(meta) + value_is_not_ret.expr(meta) - constant_from!(1)]
+            }),
+        );
+
+        constraint_builder.push(
+            "external host call index change",
+            Box::new(move |meta| {
+                vec![index.next_expr(meta) - index.curr_expr(meta) - constant_from!(1)]
+            }),
+        );
+
+        let eid = common_config.eid_cell;
+        let sp = common_config.sp_cell;
+
+        let _memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
+            "op_call_host read value",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |____| constant_from!(0),
+            move |meta| value.expr(meta),
+            move |meta| value_is_not_ret.expr(meta),
+        );
+
+        let _memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
+            "op_call_host return value",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack),
+            move |meta| sp.expr(meta),
+            move |____| constant_from!(0),
+            move |meta| value.expr(meta),
+            move |meta| value_is_ret.expr(meta),
+        );
+
+        let external_host_call_lookup = allocator.alloc_unlimited_cell();
+        constraint_builder.push(
+            "external host call lookup",
+            Box::new(move |meta| {
+                vec![
+                    external_host_call_lookup.expr(meta)
+                        - encode_host_call_entry(
+                            index.expr(meta),
+                            op.expr(meta),
+                            value_is_ret.expr(meta),
+                            value.expr(meta),
+                        ),
+                ]
+            }),
+        );
+
+        todo!();
+        // Add Lookup here
+        Box::new(ExternalCallHostCircuitConfig {
+            op,
+            value,
+            value_is_ret,
+            value_is_not_ret,
+            external_host_call_lookup,
+            memory_table_lookup_stack_read: _memory_table_lookup_stack_read,
+            memory_table_lookup_stack_write: _memory_table_lookup_stack_write,
+        })
+    }
+}
+
+impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig<F> {
+    fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        encode_call_host(self.op.expr(meta), self.value_is_ret.expr(meta))
+    }
+
+    fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        step: &StepStatus,
+        entry: &EventTableEntryWithMemoryInfo,
+    ) -> Result<(), Error> {
+        match &entry.eentry.step_info {
+            StepInfo::ExternalHostCall { op, value, sig } => {
+                self.op.assign(ctx, F::from(*op as u64))?;
+                self.value.assign(ctx, value.unwrap())?;
+                self.value_is_ret.assign_bool(ctx, sig.is_ret())?;
+                self.value_is_not_ret.assign_bool(ctx, !sig.is_ret())?;
+                self.external_host_call_lookup.assign_bn(
+                    ctx,
+                    &encode_host_call_entry(
+                        BigUint::from(step.current_external_host_call_index),
+                        BigUint::from(*op as u64),
+                        BigUint::from(sig.is_ret() as u64),
+                        BigUint::from(value.unwrap()),
+                    ),
+                )?;
+
+                match sig {
+                    ExternalHostCallSignature::Argument => {
+                        self.memory_table_lookup_stack_read.assign(
+                            ctx,
+                            entry.memory_rw_entires[0].start_eid,
+                            step.current.eid,
+                            entry.memory_rw_entires[0].end_eid,
+                            step.current.sp + 1,
+                            LocationType::Stack,
+                            false,
+                            value.unwrap(),
+                        )?;
+                    }
+                    ExternalHostCallSignature::Return => {
+                        self.memory_table_lookup_stack_write.assign(
+                            ctx,
+                            step.current.eid,
+                            entry.memory_rw_entires[0].end_eid,
+                            step.current.sp,
+                            LocationType::Stack,
+                            false,
+                            value.unwrap(),
+                        )?;
+                    }
+                }
+
+                Ok(())
+            }
+
+            _ => unreachable!(),
+        }
+    }
+
+    fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(1) - self.value_is_ret.expr(meta) * constant_from!(2))
+    }
+
+    fn memory_writing_ops(&self, entry: &specs::etable::EventTableEntry) -> u32 {
+        match &entry.step_info {
+            StepInfo::ExternalHostCall { sig, .. } => match sig {
+                ExternalHostCallSignature::Return => 1u32,
+                _ => 0,
+            },
+            _ => unreachable!(),
+        }
+    }
+}
