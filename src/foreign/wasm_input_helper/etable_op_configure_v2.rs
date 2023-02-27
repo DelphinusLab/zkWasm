@@ -72,21 +72,21 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
             "wasm input stack read",
             constraint_builder,
             eid,
-            move |_| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| is_public.expr(meta),
-            move |_| constant_from!(1),
+            move |____| constant_from!(1),
         );
         let lookup_write_stack = allocator.alloc_memory_table_lookup_write_cell(
             "wasm input stack write",
             constraint_builder,
             eid,
-            move |_| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(0),
+            move |____| constant_from!(0),
             move |meta| value.u64_cell.expr(meta),
-            move |_| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         constraint_builder.lookup(
@@ -127,7 +127,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             StepInfo::CallHost {
-                plugin,
                 args,
                 ret_val,
                 signature,
@@ -176,7 +175,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 

@@ -5,23 +5,17 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
+        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
     },
-    constant, constant_from,
+    constant_from,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use num_bigint::{BigUint, ToBigUint};
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, FromBn, opcode::encode_br},
+    encode::opcode::encode_br,
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
     step::StepInfo,
 };
@@ -50,9 +44,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrConfigBuilder {
         let dst_pc_cell = allocator.alloc_common_range_cell();
         let value_cell = allocator.alloc_u64_cell();
 
-        let fid_cell = common_config.fid_cell;
-        let iid_cell = common_config.iid_cell;
-        let frame_id_cell = common_config.frame_id_cell;
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
@@ -60,7 +51,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrConfigBuilder {
             "op_br stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
@@ -70,7 +61,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrConfigBuilder {
             "op_br stack write",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + drop_cell.expr(meta) + constant_from!(1),
             move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
@@ -163,22 +154,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrConfig<F> {
 
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
         match &entry.step_info {
-            StepInfo::Br {
-                drop,
-                keep,
-                keep_values,
-                ..
-            } => {
-                keep.len() as u32
-            }
-            _ => unreachable!()
+            StepInfo::Br { keep, .. } => keep.len() as u32,
+            _ => unreachable!(),
         }
     }
 
     fn next_iid(
         &self,
         meta: &mut VirtualCells<'_, F>,
-        common_config: &EventTableCommonConfig<F>,
+        _: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
         Some(self.dst_pc_cell.expr(meta))
     }

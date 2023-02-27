@@ -1,9 +1,5 @@
-use crate::{
-    foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{host::host_env::HostEnv, ExecutionResult},
-};
+use crate::runtime::{host::host_env::HostEnv, ExecutionResult};
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::Fr as Fp;
 use wasmi::RuntimeValue;
 
 use super::test_circuit_with_env;

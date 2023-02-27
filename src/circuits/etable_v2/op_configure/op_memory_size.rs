@@ -5,7 +5,6 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
         utils::{
             bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
             Context,
@@ -19,15 +18,13 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, opcode::encode_call},
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+    mtable::LocationType,
     step::StepInfo,
 };
 
 pub struct MemorySizeConfig<F: FieldExt> {
-    allocated_memory_pages: AllocatedCommonRangeCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -47,15 +44,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemorySizeConfigBuilder {
             "op_test stack write",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| allocated_memory_pages.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(MemorySizeConfig {
-            allocated_memory_pages,
             memory_table_lookup_stack_write,
         })
     }
@@ -101,7 +97,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemorySizeConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 }

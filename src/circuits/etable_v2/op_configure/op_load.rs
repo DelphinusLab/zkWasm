@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{
     circuits::{
         cell::*,
@@ -7,7 +5,6 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
         rtable::pow_table_encode,
         utils::{
             bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
@@ -20,10 +17,9 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
 use specs::{
     configure_table::WASM_PAGE_SIZE,
-    encode::{frame_table::encode_frame_table_entry, memory_table, FromBn},
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
@@ -308,31 +304,31 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             "load read offset",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| load_base.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_heap_read1 = allocator.alloc_memory_table_lookup_read_cell(
             "load read data1",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Heap as u64),
+            move |____| constant_from!(LocationType::Heap as u64),
             move |meta| load_block_index.expr(meta),
-            move |meta| constant_from!(0),
+            move |____| constant_from!(0),
             move |meta| load_value_in_heap1.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_heap_read2 = allocator.alloc_memory_table_lookup_read_cell(
             "load read data2",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Heap as u64),
+            move |____| constant_from!(LocationType::Heap as u64),
             move |meta| load_block_index.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(0),
+            move |____| constant_from!(0),
             move |meta| load_value_in_heap2.expr(meta),
             move |meta| is_cross_block.expr(meta),
         );
@@ -341,11 +337,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             "load write res",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |meta| is_i32.expr(meta),
             move |meta| res.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let current_memory_page_size = common_config.mpages_cell;
@@ -460,7 +456,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 let len_modulus = BigUint::from(1u64) << (len * 8);
                 let pos_modulus = 1 << (inner_byte_index * 8);
-                let size = if is_cross_block { 16 } else { 8 };
                 self.pos_modulus.assign(ctx, pos_modulus.into())?;
                 self.lookup_pow.assign_bn(
                     ctx,
@@ -602,7 +597,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 }

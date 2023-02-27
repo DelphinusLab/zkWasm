@@ -48,7 +48,7 @@ fn filter_bit_table_entries(event_table: &EventTableWithMemoryInfo) -> Vec<BitTa
 
 impl<F: FieldExt> BitTableChip<F> {
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        for i in 0..self.max_available_rows / STEP_SIZE {
+        for _ in 0..self.max_available_rows / STEP_SIZE {
             ctx.region.assign_fixed(
                 || "bit table: step sel",
                 self.config.step_sel,

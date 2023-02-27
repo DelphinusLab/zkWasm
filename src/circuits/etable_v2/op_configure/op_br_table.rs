@@ -5,28 +5,18 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
+        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
     },
-    constant, constant_from,
+    constant_from,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
 use specs::{
-    encode::{
-        br_table::encode_br_table_entry,
-        frame_table::encode_frame_table_entry,
-        opcode::{encode_br, encode_br_table},
-        FromBn,
-    },
+    encode::{br_table::encode_br_table_entry, opcode::encode_br_table},
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
     step::StepInfo,
 };
@@ -129,11 +119,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
             "op_br_table stack read index",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| expected_index.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_read_return_value = allocator
@@ -141,7 +131,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
                 "op_br_table stack read index",
                 constraint_builder,
                 eid,
-                move |meta| constant_from!(LocationType::Stack as u64),
+                move |____| constant_from!(LocationType::Stack as u64),
                 move |meta| sp.expr(meta) + constant_from!(2),
                 move |meta| keep_is_i32.expr(meta),
                 move |meta| keep_value.expr(meta),
@@ -153,7 +143,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
                 "op_br stack write",
                 constraint_builder,
                 eid,
-                move |meta| constant_from!(LocationType::Stack as u64),
+                move |____| constant_from!(LocationType::Stack as u64),
                 move |meta| sp.expr(meta) + drop.expr(meta) + constant_from!(2),
                 move |meta| keep_is_i32.expr(meta),
                 move |meta| keep_value.expr(meta),
@@ -311,12 +301,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
 
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
         match &entry.step_info {
-            StepInfo::BrTable {
-                drop,
-                keep,
-                keep_values,
-                ..
-            } => keep.len() as u32,
+            StepInfo::BrTable { keep, .. } => keep.len() as u32,
             _ => unreachable!(),
         }
     }

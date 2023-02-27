@@ -14,33 +14,20 @@ use super::{
 };
 use crate::{
     circuits::etable_v2::op_configure::{
-        op_bin::BinConfigBuilder,
-        op_bin_bit::BinBitConfigBuilder,
-        op_bin_shift::BinShiftConfigBuilder,
-        op_br::BrConfigBuilder,
-        op_br_if::BrIfConfigBuilder,
-        op_br_if_eqz::BrIfEqzConfigBuilder,
-        op_br_table::BrTableConfigBuilder,
-        op_call::CallConfigBuilder,
-        op_const::ConstConfigBuilder,
-        op_conversion::ConversionConfigBuilder,
-        op_drop::DropConfigBuilder,
-        op_global_get::{GlobalGetConfig, GlobalGetConfigBuilder},
-        op_global_set::GlobalSetConfigBuilder,
-        op_load::LoadConfigBuilder,
-        op_local_get::LocalGetConfigBuilder,
-        op_local_set::LocalSetConfigBuilder,
-        op_local_tee::LocalTeeConfigBuilder,
-        op_memory_grow::MemoryGrowConfigBuilder,
-        op_memory_size::MemorySizeConfigBuilder,
-        op_rel::RelConfigBuilder,
-        op_return::ReturnConfigBuilder,
-        op_select::SelectConfigBuilder,
-        op_store::StoreConfigBuilder,
-        op_test::TestConfigBuilder,
-        op_unary::UnaryConfigBuilder, op_call_indirect::CallIndirectConfigBuilder,
+        op_bin::BinConfigBuilder, op_bin_bit::BinBitConfigBuilder,
+        op_bin_shift::BinShiftConfigBuilder, op_br::BrConfigBuilder, op_br_if::BrIfConfigBuilder,
+        op_br_if_eqz::BrIfEqzConfigBuilder, op_br_table::BrTableConfigBuilder,
+        op_call::CallConfigBuilder, op_call_indirect::CallIndirectConfigBuilder,
+        op_const::ConstConfigBuilder, op_conversion::ConversionConfigBuilder,
+        op_drop::DropConfigBuilder, op_global_get::GlobalGetConfigBuilder,
+        op_global_set::GlobalSetConfigBuilder, op_load::LoadConfigBuilder,
+        op_local_get::LocalGetConfigBuilder, op_local_set::LocalSetConfigBuilder,
+        op_local_tee::LocalTeeConfigBuilder, op_memory_grow::MemoryGrowConfigBuilder,
+        op_memory_size::MemorySizeConfigBuilder, op_rel::RelConfigBuilder,
+        op_return::ReturnConfigBuilder, op_select::SelectConfigBuilder,
+        op_store::StoreConfigBuilder, op_test::TestConfigBuilder, op_unary::UnaryConfigBuilder,
     },
-    constant_from, curr, fixed_curr,
+    constant_from, fixed_curr,
     foreign::{
         require_helper::etable_op_configure_v2::ETableRequireHelperTableConfigBuilder,
         v2::{EventTableForeignCallConfigBuilder, InternalHostPluginBuilder},
@@ -52,7 +39,6 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
 };
 use specs::{
-    configure_table::ConfigureTable,
     encode::instruction_table::encode_instruction_table_entry,
     etable::EventTableEntry,
     itable::{OpcodeClass, OpcodeClassPlain},
@@ -136,17 +122,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
         step: &StepStatus,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error>;
-    /*
-    fn assigned_extra_mops(
-        &self,
-        _ctx: &mut Context<'_, F>,
-        _step: &StepStatus,
-        _entry: &EventTableEntry,
-    ) -> u64 {
-        0u64
-    }
-    */
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         0
     }
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
@@ -214,7 +190,6 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
 pub struct EventTableConfig<F: FieldExt> {
     pub step_sel: Column<Fixed>,
     pub common_config: EventTableCommonConfig<F>,
-    op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)>,
     op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
 }
 
@@ -601,7 +576,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         Self {
             step_sel,
             common_config,
-            op_bitmaps,
             op_configs,
         }
     }

@@ -6,12 +6,8 @@ use crate::{
 };
 
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::Fr as Fp;
-use specs::Tables;
 use std::fs::{self};
 use wasmi::ImportsBuilder;
-
-use super::test_circuit_with_env;
 
 fn build_test() -> Result<(ExecutionResult<wasmi::RuntimeValue>, Vec<u64>)> {
     let public_inputs = vec![2, 2];

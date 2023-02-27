@@ -8,7 +8,6 @@ use crate::{
 
 use anyhow::Result;
 use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, pairing::bn256::Fr as Fp};
-use specs::Tables;
 use wasmi::{ImportsBuilder, RuntimeValue};
 
 #[cfg(test)]

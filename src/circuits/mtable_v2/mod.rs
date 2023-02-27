@@ -327,7 +327,7 @@ impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
     fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
-        key: &'static str,
+        _: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup_any("etable mtable lookup", |meta| {

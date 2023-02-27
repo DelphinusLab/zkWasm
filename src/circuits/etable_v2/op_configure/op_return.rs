@@ -19,7 +19,7 @@ use halo2_proofs::{
 };
 use num_bigint::{BigUint, ToBigUint};
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, FromBn},
+    encode::frame_table::encode_frame_table_entry,
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
@@ -61,7 +61,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             "op_return stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |meta| is_i32.expr(meta),
             move |meta| value.u64_cell.expr(meta),
@@ -71,7 +71,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             "op_return stack write",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + drop.expr(meta) + constant_from!(1),
             move |meta| is_i32.expr(meta),
             move |meta| value.u64_cell.expr(meta),

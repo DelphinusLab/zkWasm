@@ -1,17 +1,12 @@
 use crate::{
     circuits::{
         cell::*,
-        etable_compact::op_configure::{BrTableLookupCell, MTableLookupCell},
         etable_v2::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
         jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
+        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
     },
     constant, constant_from,
 };
@@ -22,13 +17,10 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use specs::{
     encode::{
-        br_table::encode_elem_entry,
-        frame_table::encode_frame_table_entry,
-        opcode::{encode_call, encode_call_indirect},
+        br_table::encode_elem_entry, frame_table::encode_frame_table_entry,
+        opcode::encode_call_indirect,
     },
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
+    mtable::LocationType,
     step::StepInfo,
 };
 
@@ -86,11 +78,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
             "op_call_indirect stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack),
+            move |____| constant_from!(LocationType::Stack),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| offset.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let fid_cell = common_config.fid_cell;
@@ -188,7 +180,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
             _ => unreachable!(),
         }
     }
-    
+
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant!(F::one()))
     }
