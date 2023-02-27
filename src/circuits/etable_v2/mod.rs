@@ -20,6 +20,7 @@ use crate::{
         op_br::BrConfigBuilder,
         op_br_if::BrIfConfigBuilder,
         op_br_if_eqz::BrIfEqzConfigBuilder,
+        op_br_table::BrTableConfigBuilder,
         op_call::CallConfigBuilder,
         op_const::ConstConfigBuilder,
         op_conversion::ConversionConfigBuilder,
@@ -331,6 +332,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
         configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
         configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder);
+        configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
 
         let mut plugin_index = 0;
         macro_rules! configure_foreign {
