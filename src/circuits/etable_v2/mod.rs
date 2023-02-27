@@ -38,7 +38,7 @@ use crate::{
         op_select::SelectConfigBuilder,
         op_store::StoreConfigBuilder,
         op_test::TestConfigBuilder,
-        op_unary::UnaryConfigBuilder,
+        op_unary::UnaryConfigBuilder, op_call_indirect::CallIndirectConfigBuilder,
     },
     constant_from, curr, fixed_curr,
     foreign::{
@@ -333,6 +333,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
         configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder);
         configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
+        configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder);
 
         let mut plugin_index = 0;
         macro_rules! configure_foreign {
