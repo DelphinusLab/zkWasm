@@ -5,26 +5,18 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
+        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
     },
-    constant, constant_from,
+    constant_from,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use num_bigint::BigUint;
 use specs::{
-    encode::{
-        frame_table::encode_frame_table_entry,
-        opcode::{encode_call, encode_conversion},
-    },
+    encode::opcode::encode_conversion,
     etable::EventTableEntry,
-    itable::{ConversionOp, OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
+    itable::ConversionOp,
     mtable::{LocationType, VarType},
     step::StepInfo,
 };
@@ -127,22 +119,22 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             "op_conversion stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |meta| value_is_i32.expr(meta),
             move |meta| value.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_conversion stack write",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |meta| res_is_i32.expr(meta),
             move |meta| res.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(ConversionConfig {
@@ -240,7 +232,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 }

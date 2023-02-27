@@ -51,22 +51,22 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalSetConfigBuilder {
             "op_local_set stack read",
             constraint_builder,
             eid_cell,
-            move |_| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp_cell.expr(meta) + constant_from!(1),
             move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
-            move |_| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_local_set stack write",
             constraint_builder,
             eid_cell,
-            move |_| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp_cell.expr(meta) + constant_from!(1) + offset_cell.expr(meta),
             move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
-            move |_| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(LocalSetConfig {
@@ -140,7 +140,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalSetConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 }

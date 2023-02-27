@@ -5,7 +5,6 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
         utils::{
             bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
             Context,
@@ -17,9 +16,8 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::{BigUint};
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, opcode::encode_br, FromBn},
     etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
@@ -75,9 +73,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
         let dst_pc_cell = allocator.alloc_common_range_cell();
         let value_cell = allocator.alloc_u64_cell();
 
-        let fid_cell = common_config.fid_cell;
-        let iid_cell = common_config.iid_cell;
-        let frame_id_cell = common_config.frame_id_cell;
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
@@ -85,18 +80,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
             "op_br_if stack read cond",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| cond_cell.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
         let memory_table_lookup_stack_read_return_value = allocator
             .alloc_memory_table_lookup_read_cell(
                 "op_br_if_eqz stack read return value",
                 constraint_builder,
                 eid,
-                move |meta| constant_from!(LocationType::Stack as u64),
+                move |____| constant_from!(LocationType::Stack as u64),
                 move |meta| sp.expr(meta) + constant_from!(2),
                 move |meta| is_i32_cell.expr(meta),
                 move |meta| value_cell.u64_cell.expr(meta),
@@ -107,7 +102,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
                 "op_br_if_eqz stack write return value",
                 constraint_builder,
                 eid,
-                move |meta| constant_from!(LocationType::Stack as u64),
+                move |____| constant_from!(LocationType::Stack as u64),
                 move |meta| sp.expr(meta) + drop_cell.expr(meta) + constant_from!(2),
                 move |meta| is_i32_cell.expr(meta),
                 move |meta| value_cell.u64_cell.expr(meta),
@@ -229,9 +224,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
         match &entry.step_info {
             StepInfo::BrIfEqz {
-                drop,
                 keep,
-                keep_values,
                 condition,
                 ..
             } => {

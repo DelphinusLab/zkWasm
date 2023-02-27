@@ -5,7 +5,6 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
         utils::{
             bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
             Context,
@@ -19,10 +18,9 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, opcode::encode_call},
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+    mtable::LocationType,
     step::StepInfo,
 };
 
@@ -85,22 +83,22 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
             "op_test stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| grow_size.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_test stack write",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| result.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(MemoryGrowConfig {
@@ -177,7 +175,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 

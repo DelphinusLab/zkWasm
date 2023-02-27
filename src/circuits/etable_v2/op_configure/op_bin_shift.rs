@@ -5,7 +5,6 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
         rtable::pow_table_encode,
         utils::{
             bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
@@ -20,10 +19,9 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, opcode::encode_call},
     etable::EventTableEntry,
     itable::{OpcodeClass, ShiftOp, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
+    mtable::LocationType,
     step::StepInfo,
 };
 
@@ -238,33 +236,33 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             "op_test stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |meta| is_i32.expr(meta),
             move |meta| rhs.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
             "op_test stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(2),
             move |meta| is_i32.expr(meta),
             move |meta| lhs.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_test stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(2),
             move |meta| is_i32.expr(meta),
             move |meta| res.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(BinShiftConfig {
@@ -329,7 +327,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
         step: &StepStatus,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (class, vtype, left, right, value, power, is_eight_bytes, _is_sign) =
+        let (class, left, right, value, power, is_eight_bytes, _is_sign) =
             match entry.eentry.step_info {
                 StepInfo::I32BinShiftOp {
                     class,
@@ -337,23 +335,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     right,
                     value,
                 } => {
-                    let vtype = VarType::I32;
                     let left = left as u32 as u64;
                     let right = right as u32 as u64;
                     let value = value as u32 as u64;
                     let power = right % 32;
                     let is_eight_bytes = false;
                     let is_sign = true;
-                    (
-                        class,
-                        vtype,
-                        left,
-                        right,
-                        value,
-                        power,
-                        is_eight_bytes,
-                        is_sign,
-                    )
+                    (class, left, right, value, power, is_eight_bytes, is_sign)
                 }
 
                 StepInfo::I64BinShiftOp {
@@ -362,24 +350,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     right,
                     value,
                 } => {
-                    // FIXME: check
-                    let vtype = VarType::I64;
                     let left = left as u64;
                     let right = right as u64;
                     let value = value as u64;
                     let power = right % 64;
                     let is_eight_bytes = true;
                     let is_sign = true;
-                    (
-                        class,
-                        vtype,
-                        left,
-                        right,
-                        value,
-                        power,
-                        is_eight_bytes,
-                        is_sign,
-                    )
+                    (class, left, right, value, power, is_eight_bytes, is_sign)
                 }
 
                 _ => {
@@ -512,7 +489,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 

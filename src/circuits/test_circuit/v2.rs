@@ -19,9 +19,7 @@ use crate::{
         mtable_v2::{MemoryTableChip, MemoryTableConfig},
         rtable::{RangeTableChip, RangeTableConfig},
         utils::{
-            table_entry::{
-                EventTableEntryWithMemoryInfo, EventTableWithMemoryInfo, MemoryWritingTable,
-            },
+            table_entry::{EventTableWithMemoryInfo, MemoryWritingTable},
             Context,
         },
         TestCircuit, CIRCUIT_CONFIGURE,

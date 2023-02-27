@@ -48,11 +48,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConstConfigBuilder {
             "op_const stack write",
             constraint_builder,
             eid_cell,
-            move |_| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp_cell.expr(meta),
             move |meta| is_i32.expr(meta),
             move |meta| value.u64_cell.expr(meta),
-            move |_| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(ConstConfig {
@@ -121,7 +121,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 }

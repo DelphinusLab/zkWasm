@@ -4,21 +4,16 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use specs::{
-    etable::EventTableEntry,
-    host_function::HostPlugin,
     itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
+    mtable::LocationType,
     step::StepInfo,
 };
 
 use crate::{
     circuits::{
-        cell::{AllocatedBitCell, AllocatedU64Cell, AllocatedUnlimitedCell, CellExpression},
+        cell::{AllocatedU64Cell, AllocatedUnlimitedCell, CellExpression},
         etable_v2::{
-            allocator::{
-                AllocatedMemoryTableLookupReadCell, AllocatedMemoryTableLookupWriteCell,
-                EventTableCellAllocator,
-            },
+            allocator::{AllocatedMemoryTableLookupReadCell, EventTableCellAllocator},
             constraint_builder::ConstraintBuilder,
             EventTableCommonConfig, EventTableOpcodeConfig,
         },
@@ -74,7 +69,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableRequireHelperT
             eid,
             move |_| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| cond.expr(meta),
             move |_| constant_from!(1),
         );
@@ -104,10 +99,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableRequireHelperTableConfig<F
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             StepInfo::CallHost {
-                plugin,
                 args,
-                ret_val,
-                signature,
                 ..
             } => {
                 let cond = args[0];

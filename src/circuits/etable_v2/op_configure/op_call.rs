@@ -11,18 +11,14 @@ use crate::{
             Context,
         },
     },
-    constant, constant_from,
+    constant_from,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use num_bigint::BigUint;
 use specs::{
     encode::{frame_table::encode_frame_table_entry, opcode::encode_call},
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
     step::StepInfo,
 };
 

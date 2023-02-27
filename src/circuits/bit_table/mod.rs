@@ -7,15 +7,9 @@ use halo2_proofs::{
 use num_bigint::BigUint;
 use specs::encode::FromBn;
 
-use crate::{
-    constant_from, constant_from_bn, curr, fixed_curr, fixed_next, fixed_nextn, next, nextn, prev,
-};
+use crate::{constant_from, curr, fixed_curr, fixed_nextn, next, nextn};
 
-use super::{
-    config::max_bit_table_rows,
-    rtable::{encode_u8_bit_entry, RangeTableConfig},
-    utils::bn_to_field,
-};
+use super::{config::max_bit_table_rows, rtable::RangeTableConfig};
 
 mod assign;
 mod configure;

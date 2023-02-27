@@ -5,8 +5,6 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        rtable::pow_table_encode,
         utils::{
             bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
             Context,
@@ -20,9 +18,8 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, opcode::encode_call},
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
+    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
     step::StepInfo,
 };
@@ -84,44 +81,44 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
             "op_select stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| cond.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_read_val2 = allocator.alloc_memory_table_lookup_read_cell(
             "op_select stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(2),
             move |meta| is_i32.expr(meta),
             move |meta| val2.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_read_val1 = allocator.alloc_memory_table_lookup_read_cell(
             "op_select stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(3),
             move |meta| is_i32.expr(meta),
             move |meta| val1.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_select stack write",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(3),
             move |meta| is_i32.expr(meta),
             move |meta| res.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(SelectConfig {
@@ -140,7 +137,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
 }
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
-    fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+    fn opcode(&self, _: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant!(bn_to_field(
             &(BigUint::from(OpcodeClass::Select as u64) << OPCODE_CLASS_SHIFT)
         ))
@@ -226,7 +223,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 }

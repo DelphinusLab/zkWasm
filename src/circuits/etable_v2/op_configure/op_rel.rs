@@ -1,32 +1,25 @@
 use crate::{
     circuits::{
         cell::*,
-        etable_compact::op_configure::UnlimitedCell,
         etable_v2::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        rtable::pow_table_encode,
         utils::{
             bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
             Context,
         },
     },
-    constant, constant_from, constant_from_bn,
+    constant, constant_from,
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
-use num_traits::ops::overflowing;
 use specs::{
-    encode::{frame_table::encode_frame_table_entry, opcode::encode_call},
     etable::EventTableEntry,
-    itable::{
-        OpcodeClass, RelOp, ShiftOp, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT,
-    },
+    itable::{OpcodeClass, RelOp, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
     step::StepInfo,
 };
@@ -174,33 +167,33 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             "op_bin stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |meta| is_i32.expr(meta),
             move |meta| rhs.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
             "op_bin stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(2),
             move |meta| is_i32.expr(meta),
             move |meta| lhs.u64_cell.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_bin stack read",
             constraint_builder,
             eid,
-            move |meta| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
             move |meta| res.expr(meta),
-            move |meta| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(RelConfig {
@@ -460,7 +453,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 

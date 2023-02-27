@@ -1,10 +1,9 @@
-use super::{constraint_builder, EVENT_TABLE_ENTRY_ROWS};
+use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::etable_v2::ConstraintBuilder;
 use crate::circuits::utils::u8::U8Column;
 use crate::{
     circuits::{
         cell::*,
-        mtable_compact::MemoryTableConfig,
         rtable::RangeTableConfig,
         traits::ConfigureLookupTable,
         utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
@@ -16,9 +15,8 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
 };
-use num_bigint::BigUint;
-use specs::encode::{memory_table::encode_memory_table_entry_v2, FromBn};
-use specs::mtable::{LocationType, VarType};
+use specs::encode::memory_table::encode_memory_table_entry_v2;
+use specs::mtable::LocationType;
 use std::{collections::BTreeMap, marker::PhantomData};
 
 pub(super) trait EventTableCellExpression<F: FieldExt> {

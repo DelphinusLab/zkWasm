@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{
     circuits::{
         cell::*,
@@ -7,10 +5,7 @@ use crate::{
             allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
             EventTableOpcodeConfigBuilder,
         },
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
+        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
     },
     constant, constant_from,
 };
@@ -18,11 +13,9 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
-use num_bigint::BigUint;
 use specs::{
     encode::opcode::encode_global_get,
     etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_CLASS_SHIFT},
     mtable::{LocationType, VarType},
     step::StepInfo,
 };
@@ -54,22 +47,22 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalGetConfigBuilder {
             "op_global_get global read",
             constraint_builder,
             eid_cell,
-            move |_| constant_from!(LocationType::Global as u64),
+            move |____| constant_from!(LocationType::Global as u64),
             move |meta| idx_cell.expr(meta),
             move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
-            move |_| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_global_get stack write",
             constraint_builder,
             eid_cell,
-            move |_| constant_from!(LocationType::Stack as u64),
+            move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp_cell.expr(meta),
             move |meta| is_i32_cell.expr(meta),
             move |meta| value_cell.u64_cell.expr(meta),
-            move |_| constant_from!(1),
+            move |____| constant_from!(1),
         );
 
         Box::new(GlobalGetConfig {
@@ -137,7 +130,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalGetConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
 }

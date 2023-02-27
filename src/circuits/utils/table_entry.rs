@@ -131,7 +131,7 @@ impl EventTableWithMemoryInfo {
             if is_writing {
                 records
                     .iter()
-                    .find(|(start_eid, end_eid)| *start_eid == eid)
+                    .find(|(start_eid, _)| *start_eid == eid)
                     .unwrap()
             } else {
                 records

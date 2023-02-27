@@ -1,6 +1,4 @@
-use ark_std::One;
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
-use num_bigint::BigUint;
 use specs::{
     encode::memory_table::encode_memory_table_entry_v2,
     mtable::{LocationType, VarType},
@@ -16,7 +14,7 @@ use super::MEMORY_TABLE_ENTRY_ROWS;
 
 impl<F: FieldExt> MemoryTableChip<F> {
     fn assign_fixed(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        for i in 0..(self.maximal_available_rows / MEMORY_TABLE_ENTRY_ROWS as usize) {
+        for _ in 0..(self.maximal_available_rows / MEMORY_TABLE_ENTRY_ROWS as usize) {
             ctx.region.assign_fixed(
                 || "mtable: sel",
                 self.config.entry_sel,
