@@ -15,6 +15,8 @@ mod op_load;
 mod op_local_get;
 mod op_local_set;
 mod op_local_tee;
+mod op_memory_grow;
+mod op_memory_size;
 mod op_rel;
 mod op_return;
 mod op_select;
