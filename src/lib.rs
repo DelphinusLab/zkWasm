@@ -1,7 +1,6 @@
-//#![deny(unused_imports)]
 //#![deny(dead_code)]
 #![deny(unused_variables)]
-#![allow(unused_imports)]
+#![deny(unused_imports)]
 #![allow(dead_code)]
 #![feature(thread_local)]
 

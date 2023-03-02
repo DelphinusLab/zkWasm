@@ -1,5 +1,5 @@
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
-use log::{debug, info};
+use log::debug;
 use specs::{
     encode::memory_table::encode_memory_table_entry_v2,
     mtable::{LocationType, VarType},

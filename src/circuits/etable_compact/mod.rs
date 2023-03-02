@@ -47,11 +47,7 @@ use specs::{
     etable::{EventTable, EventTableEntry},
     itable::OpcodeClass,
 };
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    marker::PhantomData,
-    rc::Rc,
-};
+use std::{collections::BTreeMap, marker::PhantomData, rc::Rc};
 
 pub mod assign;
 pub mod expression;
