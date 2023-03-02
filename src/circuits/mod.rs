@@ -1,48 +1,26 @@
 use self::{
-    brtable::{BrTableChip, BrTableConfig},
-    etable_compact::{EventTableChip, EventTableConfig},
-    external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
-    jtable::{JumpTableChip, JumpTableConfig},
-    mtable_compact::{MemoryTableChip, MemoryTableConfig},
-    utils::table_entry::{EventTableEntryWithMemoryInfo, MemoryWritingTable},
+    brtable::BrTableConfig, external_host_call_table::ExternalHostCallTableConfig,
+    jtable::JumpTableConfig, mtable_compact::MemoryTableConfig,
 };
-use crate::{
-    circuits::{
-        config::zkwasm_k,
-        imtable::{InitMemoryTableConfig, MInitTableChip},
-        itable::{InstructionTableChip, InstructionTableConfig},
-        rtable::{RangeTableChip, RangeTableConfig},
-        utils::Context,
-    },
-    foreign::{
-        sha256_helper::{
-            circuits::{assign::Sha256HelperTableChip, Sha256HelperTableConfig},
-            SHA256_FOREIGN_TABLE_KEY,
-        },
-        wasm_input_helper::circuits::{
-            assign::WasmInputHelperTableChip, WasmInputHelperTableConfig,
-            WASM_INPUT_FOREIGN_TABLE_KEY,
-        },
-        ForeignTableConfig,
-    },
+use crate::circuits::{
+    config::zkwasm_k, itable::InstructionTableConfig, rtable::RangeTableConfig, utils::Context,
 };
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Layouter, SimpleFloorPlanner},
     pairing::bn256::{Bn256, Fr, G1Affine},
     plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof, ConstraintSystem, Error, Expression,
-        ProvingKey, SingleVerifier, VerifyingKey, VirtualCells,
+        create_proof, keygen_pk, keygen_vk, verify_proof, ConstraintSystem, Expression, ProvingKey,
+        SingleVerifier, VerifyingKey, VirtualCells,
     },
     poly::commitment::{Params, ParamsVerifier},
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
 };
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, ExecutionTable, Tables};
+use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, Tables};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::HashSet,
     fs::File,
     io::{Cursor, Read},
     marker::PhantomData,
