@@ -1,4 +1,5 @@
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
+use log::{debug, info};
 use specs::{
     encode::memory_table::encode_memory_table_entry_v2,
     mtable::{LocationType, VarType},
@@ -167,6 +168,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
         mtable: &MemoryWritingTable,
         first_consecutive_zero_memory_offset: u32,
     ) -> Result<(), Error> {
+        debug!("size of memory writing table: {}", mtable.0.len());
+
         let rest_mops = mtable
             .0
             .iter()

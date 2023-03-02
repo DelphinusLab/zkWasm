@@ -1,4 +1,5 @@
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
+use log::debug;
 use specs::{
     configure_table::ConfigureTable,
     itable::{Opcode, OpcodeClassPlain},
@@ -261,6 +262,8 @@ impl<F: FieldExt> EventTableChip<F> {
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
     ) -> Result<(Option<Cell>, Option<Cell>), Error> {
+        debug!("size of execution table: {}", event_table.0.len());
+
         let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
 
         self.init(ctx)?;
