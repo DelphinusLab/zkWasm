@@ -119,7 +119,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &jtable,
             &brtable,
             &bit_table,
-            //&external_host_call_table,
+            &external_host_call_table,
             //&foreign_tables,
             &circuit_configure.opcode_selector,
         );

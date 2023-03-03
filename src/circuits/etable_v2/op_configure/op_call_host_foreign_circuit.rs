@@ -27,7 +27,7 @@ pub struct ExternalCallHostCircuitConfig<F: FieldExt> {
     value_is_ret: AllocatedBitCell<F>,
     value_is_not_ret: AllocatedBitCell<F>,
 
-    external_host_call_lookup: AllocatedUnlimitedCell<F>,
+    external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
@@ -46,6 +46,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitCo
         let value_is_not_ret = allocator.alloc_bit_cell();
 
         let index = common_config.external_host_call_index_cell;
+        let external_foreign_call_lookup_cell = common_config.external_foreign_call_lookup_cell;
 
         constraint_builder.push(
             "op_call_host is_ret or not",
@@ -64,7 +65,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitCo
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let _memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
+        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
             "op_call_host read value",
             constraint_builder,
             eid,
@@ -75,7 +76,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitCo
             move |meta| value_is_not_ret.expr(meta),
         );
 
-        let _memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
+        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_call_host return value",
             constraint_builder,
             eid,
@@ -86,12 +87,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitCo
             move |meta| value_is_ret.expr(meta),
         );
 
-        let external_host_call_lookup = allocator.alloc_unlimited_cell();
         constraint_builder.push(
             "external host call lookup",
             Box::new(move |meta| {
                 vec![
-                    external_host_call_lookup.expr(meta)
+                    external_foreign_call_lookup_cell.expr(meta)
                         - encode_host_call_entry(
                             index.expr(meta),
                             op.expr(meta),
@@ -102,16 +102,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitCo
             }),
         );
 
-        todo!();
-        // Add Lookup here
         Box::new(ExternalCallHostCircuitConfig {
             op,
             value,
             value_is_ret,
             value_is_not_ret,
-            external_host_call_lookup,
-            memory_table_lookup_stack_read: _memory_table_lookup_stack_read,
-            memory_table_lookup_stack_write: _memory_table_lookup_stack_write,
+            external_foreign_call_lookup_cell,
+            memory_table_lookup_stack_read,
+            memory_table_lookup_stack_write,
         })
     }
 }
@@ -133,7 +131,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig<F>
                 self.value.assign(ctx, value.unwrap())?;
                 self.value_is_ret.assign_bool(ctx, sig.is_ret())?;
                 self.value_is_not_ret.assign_bool(ctx, !sig.is_ret())?;
-                self.external_host_call_lookup.assign_bn(
+                self.external_foreign_call_lookup_cell.assign_bn(
                     ctx,
                     &encode_host_call_entry(
                         BigUint::from(step.current_external_host_call_index),
@@ -188,5 +186,21 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig<F>
             },
             _ => unreachable!(),
         }
+    }
+
+    fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(self.value_is_ret.curr_expr(meta))
+    }
+
+    fn is_external_host_call(&self, _entry: &specs::etable::EventTableEntry) -> bool {
+        true
+    }
+
+    fn external_host_call_index_increase(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        Some(constant_from!(1))
     }
 }
