@@ -6,6 +6,7 @@ mod op_br_if;
 mod op_br_if_eqz;
 mod op_br_table;
 mod op_call;
+mod op_call_host;
 mod op_call_indirect;
 mod op_const;
 mod op_conversion;
