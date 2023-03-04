@@ -54,10 +54,21 @@ use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
+use crate::foreign::kv_helper::kvpair::register_kvpair_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::foreign::hash_helper::sha256::register_sha256_foreign;
+use crate::foreign::hash_helper::poseidon::register_poseidon_foreign;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::WasmInterpreter;
+
+use crate::foreign::ecc_helper::{
+    bls381::pair::register_blspair_foreign,
+    bls381::sum::register_blssum_foreign,
+    bn254::pair::register_bn254pair_foreign,
+    bn254::sum::register_bn254sum_foreign,
+    jubjub::sum::register_babyjubjubsum_foreign,
+};
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
@@ -72,6 +83,14 @@ pub fn compile_image<'a>(
     let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
     register_require_foreign(&mut env);
     register_log_foreign(&mut env);
+    register_kvpair_foreign(&mut env);
+    register_blspair_foreign(&mut env);
+    register_blssum_foreign(&mut env);
+    register_bn254pair_foreign(&mut env);
+    register_bn254sum_foreign(&mut env);
+    register_sha256_foreign(&mut env);
+    register_poseidon_foreign(&mut env);
+    register_babyjubjubsum_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
@@ -104,7 +123,6 @@ pub fn build_circuit_without_witness(
     let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
 
     let (wasm_runtime_io, compiled_module) = compile_image(&module, function_name);
-
     let builder = ZkWasmCircuitBuilder {
         tables: Tables {
             compilation_tables: compiled_module.tables,
