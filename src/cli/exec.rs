@@ -47,6 +47,11 @@ use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::WasmInterpreter;
 
+use crate::foreign::{
+    blspair_helper::register_blspair_foreign,
+    blssum_helper::register_blssum_foreign,
+};
+
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
 pub fn compile_image<'a>(
@@ -60,6 +65,8 @@ pub fn compile_image<'a>(
     let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
     register_require_foreign(&mut env);
     register_log_foreign(&mut env);
+    register_blspair_foreign(&mut env);
+    register_blssum_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
@@ -92,7 +99,6 @@ pub fn build_circuit_without_witness(
     let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
 
     let (wasm_runtime_io, compiled_module) = compile_image(&module, function_name);
-
     let builder = ZkWasmCircuitBuilder {
         tables: Tables {
             compilation_tables: compiled_module.tables,
@@ -117,6 +123,8 @@ fn build_circuit_with_witness(
         register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     register_require_foreign(&mut env);
     register_log_foreign(&mut env);
+    register_blspair_foreign(&mut env);
+    register_blssum_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
