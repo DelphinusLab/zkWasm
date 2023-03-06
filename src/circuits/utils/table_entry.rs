@@ -1,10 +1,9 @@
-use std::{collections::BTreeMap, env, io::Write, path::PathBuf};
-
 use serde::Serialize;
 use specs::{
     etable::{EventTable, EventTableEntry},
     mtable::{AccessType, LocationType, MTable, MemoryTableEntry},
 };
+use std::{cmp::Ordering, collections::BTreeMap, env, io::Write, path::PathBuf};
 
 use crate::{circuits::config::zkwasm_k, runtime::memory_event_of_step};
 
@@ -129,15 +128,23 @@ impl EventTableWithMemoryInfo {
             let records = lookup.get(&(ltype, offset)).unwrap();
 
             if is_writing {
-                records
-                    .iter()
-                    .find(|(start_eid, _)| *start_eid == eid)
-                    .unwrap()
+                let idx = records
+                    .binary_search_by(|(start_eid, _)| start_eid.cmp(eid))
+                    .unwrap();
+                records[idx]
             } else {
-                records
-                    .iter()
-                    .find(|(start_eid, end_eid)| *start_eid < eid && eid <= *end_eid)
-                    .unwrap()
+                let idx = records
+                    .binary_search_by(|(start_eid, end_eid)| {
+                        if eid <= start_eid {
+                            Ordering::Greater
+                        } else if eid > end_eid {
+                            Ordering::Less
+                        } else {
+                            Ordering::Equal
+                        }
+                    })
+                    .unwrap();
+                records[idx]
             }
         };
 
@@ -151,7 +158,7 @@ impl EventTableWithMemoryInfo {
                         .iter()
                         .map(|mentry| {
                             let (start_eid, end_eid) = lookup_mtable_eid((
-                                eentry.eid,
+                                &eentry.eid,
                                 mentry.ltype,
                                 mentry.offset,
                                 mentry.atype == AccessType::Write,
@@ -159,8 +166,8 @@ impl EventTableWithMemoryInfo {
 
                             MemoryRWEntry {
                                 entry: mentry.clone(),
-                                start_eid: *start_eid,
-                                end_eid: *end_eid,
+                                start_eid,
+                                end_eid,
                             }
                         })
                         .collect(),
