@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use ark_std::{end_timer, start_timer};
 use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Layouter, SimpleFloorPlanner},
@@ -24,6 +25,7 @@ use crate::{
         },
         TestCircuit, CIRCUIT_CONFIGURE,
     },
+    exec_with_profile,
     foreign::{
         sha256_helper::{
             circuits::{assign::Sha256HelperTableChip, Sha256HelperTableConfig},
@@ -144,6 +146,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
+        let assign_timer = start_timer!(|| "Assign");
+
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
         let imchip = MInitTableChip::new(config.imtable);
@@ -156,45 +160,67 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
         let sha256chip = Sha256HelperTableChip::new(config.sha256_helper_table);
 
-        rchip.init(&mut layouter)?;
-        wasm_input_chip.init(&mut layouter)?;
-        sha256chip.init(&mut layouter)?;
+        exec_with_profile!(|| "Init range chip", rchip.init(&mut layouter)?);
+        exec_with_profile!(
+            || "Init wasm input chip",
+            wasm_input_chip.init(&mut layouter)?
+        );
+        exec_with_profile!(|| "Init sha256 chip", sha256chip.init(&mut layouter)?);
 
-        sha256chip.assign(
-            &mut layouter,
-            &self
-                .tables
-                .execution_tables
-                .etable
-                .filter_foreign_entries(HostPlugin::Sha256),
-        )?;
-        wasm_input_chip.assign(
-            &mut layouter,
-            &self
-                .tables
-                .execution_tables
-                .etable
-                .filter_foreign_entries(HostPlugin::HostInput),
-        )?;
+        exec_with_profile!(
+            || "Assign sha256 chip",
+            sha256chip.assign(
+                &mut layouter,
+                &self
+                    .tables
+                    .execution_tables
+                    .etable
+                    .filter_foreign_entries(HostPlugin::Sha256),
+            )?
+        );
+        exec_with_profile!(
+            || "Assign wasm input chip",
+            wasm_input_chip.assign(
+                &mut layouter,
+                &self
+                    .tables
+                    .execution_tables
+                    .etable
+                    .filter_foreign_entries(HostPlugin::HostInput),
+            )?
+        );
 
-        ichip.assign(&mut layouter, &self.tables.compilation_tables.itable)?;
-        brchip.assign(
-            &mut layouter,
-            &self.tables.compilation_tables.itable.create_brtable(),
-            &self.tables.compilation_tables.elem_table,
-        )?;
+        exec_with_profile!(
+            || "Assign instruction table",
+            ichip.assign(&mut layouter, &self.tables.compilation_tables.itable)?
+        );
+        exec_with_profile!(
+            || "Assign br table",
+            brchip.assign(
+                &mut layouter,
+                &self.tables.compilation_tables.itable.create_brtable(),
+                &self.tables.compilation_tables.elem_table,
+            )?
+        );
+
         if self.tables.compilation_tables.imtable.entries().len() > 0 {
-            imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?;
+            exec_with_profile!(
+                || "Assign memory initialization table",
+                imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?
+            );
         }
 
-        external_host_call_chip.assign(
-            &mut layouter,
-            &self
-                .tables
-                .execution_tables
-                .etable
-                .filter_external_host_call_table(),
-        )?;
+        exec_with_profile!(
+            || "Assign external host call table",
+            external_host_call_chip.assign(
+                &mut layouter,
+                &self
+                    .tables
+                    .execution_tables
+                    .etable
+                    .filter_external_host_call_table(),
+            )?
+        );
 
         layouter.assign_region(
             || "jtable mtable etable",
@@ -204,46 +230,63 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 let memory_writing_table: MemoryWritingTable =
                     self.tables.execution_tables.mtable.clone().into();
 
-                let etable = EventTableWithMemoryInfo::new(
-                    &self.tables.execution_tables.etable,
-                    &memory_writing_table,
+                let etable = exec_with_profile!(
+                    || "Prepare memory info for etable",
+                    EventTableWithMemoryInfo::new(
+                        &self.tables.execution_tables.etable,
+                        &memory_writing_table,
+                    )
                 );
 
-                let (rest_mops_cell, rest_jops_cell) = {
+                let (rest_mops_cell, rest_jops_cell) = exec_with_profile!(
+                    || "Assign etable",
                     echip.assign(
                         &mut ctx,
                         &etable,
                         &self.tables.compilation_tables.configure_table,
                         self.fid_of_entry,
                     )?
-                };
+                );
 
-                ctx.reset();
-                mchip.assign(
-                    &mut ctx,
-                    rest_mops_cell,
-                    &memory_writing_table,
-                    self.tables
-                        .compilation_tables
-                        .imtable
-                        .first_consecutive_zero_memory(),
-                )?;
+                {
+                    ctx.reset();
+                    exec_with_profile!(
+                        || "Assign mtable",
+                        mchip.assign(
+                            &mut ctx,
+                            rest_mops_cell,
+                            &memory_writing_table,
+                            self.tables
+                                .compilation_tables
+                                .imtable
+                                .first_consecutive_zero_memory(),
+                        )?
+                    );
+                }
 
-                ctx.reset();
-                jchip.assign(
-                    &mut ctx,
-                    &self.tables.execution_tables.jtable,
-                    rest_jops_cell,
-                    &self.tables.compilation_tables.static_jtable,
-                )?;
+                {
+                    ctx.reset();
+                    exec_with_profile!(
+                        || "Assign frame table",
+                        jchip.assign(
+                            &mut ctx,
+                            &self.tables.execution_tables.jtable,
+                            rest_jops_cell,
+                            &self.tables.compilation_tables.static_jtable,
+                        )?
+                    );
+                }
 
-                ctx.reset();
-
-                bit_chip.assign(&mut ctx, &etable)?;
+                {
+                    ctx.reset();
+                    exec_with_profile!(|| "Assign bit table", bit_chip.assign(&mut ctx, &etable)?);
+                }
 
                 Ok(())
             },
         )?;
+
+        end_timer!(assign_timer);
 
         Ok(())
     }
