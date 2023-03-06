@@ -8,6 +8,8 @@ use specs::{
 
 use crate::runtime::memory_event_of_step;
 
+mod helper;
+
 pub trait Profile {
     fn profile_instruction(&self);
 }

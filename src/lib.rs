@@ -18,7 +18,3 @@ pub mod test;
 #[macro_use]
 extern crate lazy_static;
 extern crate downcast_rs;
-
-// fn main() {
-//     println!("Hello, world!");
-// }
