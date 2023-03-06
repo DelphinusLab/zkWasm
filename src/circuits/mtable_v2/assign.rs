@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
 use log::debug;
 use specs::{
@@ -138,6 +140,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
         ctx.reset();
 
+        let mut cache = HashMap::new();
         for (curr, next) in mtable.0.iter().zip(mtable.0.iter().skip(1)) {
             if curr.entry.ltype == next.entry.ltype {
                 let offset_diff = (next.entry.offset - curr.entry.offset) as u64;
@@ -149,10 +152,14 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     is_next_same_offset_cell
                 );
                 assign_advice!(offset_diff_cell, F::from(offset_diff));
-                assign_advice!(
-                    offset_diff_inv_cell,
-                    F::from(offset_diff).invert().unwrap_or(F::zero())
-                );
+                let invert = if let Some(f) = cache.get(&offset_diff) {
+                    *f
+                } else {
+                    let f = F::from(offset_diff).invert().unwrap_or(F::zero());
+                    cache.insert(offset_diff, f);
+                    f
+                };
+                assign_advice!(offset_diff_inv_cell, invert);
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
