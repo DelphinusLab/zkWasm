@@ -192,10 +192,10 @@ pub fn exec_create_proof(
         .collect::<Vec<_>>()
         .clone()];
 
+    circuit.tables.write_json(Some(output_dir.clone()));
+
     if false {
         info!("Mock test...");
-
-        circuit.tables.write_json(Some(output_dir.clone()));
 
         let prover = MockProver::run(
             zkwasm_k,
