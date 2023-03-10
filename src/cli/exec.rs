@@ -1,3 +1,4 @@
+use crate::profile::Profiler;
 use anyhow::Result;
 use halo2_proofs::{
     dev::MockProver,
@@ -95,6 +96,8 @@ fn build_circuit_with_witness(
     let fid_of_entry = compiled_module.fid_of_entry;
 
     let execution_result = compiled_module.run(&mut env)?;
+
+    execution_result.tables.profile_tables();
 
     let builder = ZkWasmCircuitBuilder {
         fid_of_entry,
