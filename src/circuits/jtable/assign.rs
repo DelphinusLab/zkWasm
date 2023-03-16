@@ -1,8 +1,14 @@
-use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
-use specs::jtable::{JumpTable, StaticFrameEntry};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Cell;
+use halo2_proofs::plonk::Error;
+use specs::jtable::JumpTable;
+use specs::jtable::StaticFrameEntry;
 
-use super::{jtable_rows, JtableOffset, JumpTableChip};
-use crate::circuits::utils::{bn_to_field, Context};
+use super::jtable_rows;
+use super::JtableOffset;
+use super::JumpTableChip;
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::Context;
 
 impl<F: FieldExt> JumpTableChip<F> {
     /// Frame Table Constraint 1. The etable and jtable must have the same jops count."

@@ -1,10 +1,15 @@
-use crate::{
-    external_host_call_table::ExternalHostCallSignature,
-    host_function::{HostPlugin, Signature},
-    itable::{BinOp, BitOp, RelOp, ShiftOp, UnaryOp},
-    mtable::{MemoryReadSize, MemoryStoreSize, VarType},
-    types::ValueType,
-};
+use crate::external_host_call_table::ExternalHostCallSignature;
+use crate::host_function::HostPlugin;
+use crate::host_function::Signature;
+use crate::itable::BinOp;
+use crate::itable::BitOp;
+use crate::itable::RelOp;
+use crate::itable::ShiftOp;
+use crate::itable::UnaryOp;
+use crate::mtable::MemoryReadSize;
+use crate::mtable::MemoryStoreSize;
+use crate::mtable::VarType;
+use crate::types::ValueType;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]

@@ -1,59 +1,75 @@
-use self::{allocator::*, constraint_builder::ConstraintBuilder};
-use super::{
-    bit_table::BitTableConfig,
-    brtable::BrTableConfig,
-    cell::*,
-    config::max_etable_rows,
-    external_host_call_table::ExternalHostCallTableConfig,
-    itable::InstructionTableConfig,
-    jtable::JumpTableConfig,
-    mtable::MemoryTableConfig,
-    rtable::RangeTableConfig,
-    traits::ConfigureLookupTable,
-    utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
-    CircuitConfigure, Lookup,
-};
-use crate::{
-    circuits::etable::op_configure::{
-        op_bin::BinConfigBuilder, op_bin_bit::BinBitConfigBuilder,
-        op_bin_shift::BinShiftConfigBuilder, op_br::BrConfigBuilder, op_br_if::BrIfConfigBuilder,
-        op_br_if_eqz::BrIfEqzConfigBuilder, op_br_table::BrTableConfigBuilder,
-        op_call::CallConfigBuilder,
-        op_call_host_foreign_circuit::ExternalCallHostCircuitConfigBuilder,
-        op_call_indirect::CallIndirectConfigBuilder, op_const::ConstConfigBuilder,
-        op_conversion::ConversionConfigBuilder, op_drop::DropConfigBuilder,
-        op_global_get::GlobalGetConfigBuilder, op_global_set::GlobalSetConfigBuilder,
-        op_load::LoadConfigBuilder, op_local_get::LocalGetConfigBuilder,
-        op_local_set::LocalSetConfigBuilder, op_local_tee::LocalTeeConfigBuilder,
-        op_memory_grow::MemoryGrowConfigBuilder, op_memory_size::MemorySizeConfigBuilder,
-        op_rel::RelConfigBuilder, op_return::ReturnConfigBuilder, op_select::SelectConfigBuilder,
-        op_store::StoreConfigBuilder, op_test::TestConfigBuilder, op_unary::UnaryConfigBuilder,
-    },
-    constant_from, fixed_curr,
-    foreign::{
-        require_helper::etable_op_configure::ETableRequireHelperTableConfigBuilder,
-        wasm_input_helper::etable_op_configure::ETableWasmInputHelperTableConfigBuilder,
-        EventTableForeignCallConfigBuilder, InternalHostPluginBuilder,
-    },
-};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
-};
-use specs::{
-    encode::instruction_table::encode_instruction_table_entry,
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OpcodeClassPlain},
-};
-use std::{
-    collections::{BTreeMap, HashSet},
-    rc::Rc,
-};
+use self::allocator::*;
+use self::constraint_builder::ConstraintBuilder;
+use super::bit_table::BitTableConfig;
+use super::brtable::BrTableConfig;
+use super::cell::*;
+use super::config::max_etable_rows;
+use super::external_host_call_table::ExternalHostCallTableConfig;
+use super::itable::InstructionTableConfig;
+use super::jtable::JumpTableConfig;
+use super::mtable::MemoryTableConfig;
+use super::rtable::RangeTableConfig;
+use super::traits::ConfigureLookupTable;
+use super::utils::step_status::StepStatus;
+use super::utils::table_entry::EventTableEntryWithMemoryInfo;
+use super::utils::Context;
+use super::CircuitConfigure;
+use super::Lookup;
+use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
+use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
+use crate::circuits::etable::op_configure::op_bin_shift::BinShiftConfigBuilder;
+use crate::circuits::etable::op_configure::op_br::BrConfigBuilder;
+use crate::circuits::etable::op_configure::op_br_if::BrIfConfigBuilder;
+use crate::circuits::etable::op_configure::op_br_if_eqz::BrIfEqzConfigBuilder;
+use crate::circuits::etable::op_configure::op_br_table::BrTableConfigBuilder;
+use crate::circuits::etable::op_configure::op_call::CallConfigBuilder;
+use crate::circuits::etable::op_configure::op_call_host_foreign_circuit::ExternalCallHostCircuitConfigBuilder;
+use crate::circuits::etable::op_configure::op_call_indirect::CallIndirectConfigBuilder;
+use crate::circuits::etable::op_configure::op_const::ConstConfigBuilder;
+use crate::circuits::etable::op_configure::op_conversion::ConversionConfigBuilder;
+use crate::circuits::etable::op_configure::op_drop::DropConfigBuilder;
+use crate::circuits::etable::op_configure::op_global_get::GlobalGetConfigBuilder;
+use crate::circuits::etable::op_configure::op_global_set::GlobalSetConfigBuilder;
+use crate::circuits::etable::op_configure::op_load::LoadConfigBuilder;
+use crate::circuits::etable::op_configure::op_local_get::LocalGetConfigBuilder;
+use crate::circuits::etable::op_configure::op_local_set::LocalSetConfigBuilder;
+use crate::circuits::etable::op_configure::op_local_tee::LocalTeeConfigBuilder;
+use crate::circuits::etable::op_configure::op_memory_grow::MemoryGrowConfigBuilder;
+use crate::circuits::etable::op_configure::op_memory_size::MemorySizeConfigBuilder;
+use crate::circuits::etable::op_configure::op_rel::RelConfigBuilder;
+use crate::circuits::etable::op_configure::op_return::ReturnConfigBuilder;
+use crate::circuits::etable::op_configure::op_select::SelectConfigBuilder;
+use crate::circuits::etable::op_configure::op_store::StoreConfigBuilder;
+use crate::circuits::etable::op_configure::op_test::TestConfigBuilder;
+use crate::circuits::etable::op_configure::op_unary::UnaryConfigBuilder;
+use crate::constant_from;
+use crate::fixed_curr;
+use crate::foreign::require_helper::etable_op_configure::ETableRequireHelperTableConfigBuilder;
+use crate::foreign::wasm_input_helper::etable_op_configure::ETableWasmInputHelperTableConfigBuilder;
+use crate::foreign::EventTableForeignCallConfigBuilder;
+use crate::foreign::InternalHostPluginBuilder;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::VirtualCells;
+use specs::encode::instruction_table::encode_instruction_table_entry;
+use specs::etable::EventTableEntry;
+use specs::itable::OpcodeClass;
+use specs::itable::OpcodeClassPlain;
+use std::collections::BTreeMap;
+use std::collections::HashSet;
+use std::rc::Rc;
+
+mod assign;
+
+pub(self) mod op_configure;
 
 pub(crate) mod allocator;
-mod assign;
 pub(crate) mod constraint_builder;
-pub(self) mod op_configure;
 
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
 pub(crate) const OP_LVL1_BITS: usize = 6;

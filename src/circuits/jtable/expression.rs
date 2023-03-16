@@ -1,9 +1,10 @@
-use super::{JtableOffset, JumpTableConfig};
-use crate::{fixed_curr, nextn};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Expression, VirtualCells},
-};
+use super::JtableOffset;
+use super::JumpTableConfig;
+use crate::fixed_curr;
+use crate::nextn;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use specs::encode::frame_table::encode_frame_table_entry;
 
 impl<F: FieldExt> JumpTableConfig<F> {

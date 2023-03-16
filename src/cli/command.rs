@@ -1,4 +1,5 @@
-use clap::{App, Command};
+use clap::App;
+use clap::Command;
 
 use super::args::ArgBuilder;
 

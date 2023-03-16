@@ -1,8 +1,15 @@
 use specs::external_host_call_table::ExternalHostCallSignature;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use wasmi::{FuncInstance, ModuleImportResolver, RuntimeArgs, RuntimeValue};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use wasmi::FuncInstance;
+use wasmi::ModuleImportResolver;
+use wasmi::RuntimeArgs;
+use wasmi::RuntimeValue;
 
-use super::{ForeignContext, ForeignPlugin, MatchForeignOpSignature};
+use super::ForeignContext;
+use super::ForeignPlugin;
+use super::MatchForeignOpSignature;
 
 pub(super) struct ForeignOp {
     pub op_index: usize,

@@ -1,7 +1,11 @@
 use super::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::ENABLE_LINES;
-use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
-use specs::{etable::EventTableEntry, host_function::HostPlugin, step::StepInfo};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::Error;
+use specs::etable::EventTableEntry;
+use specs::host_function::HostPlugin;
+use specs::step::StepInfo;
 
 pub struct WasmInputHelperTableChip<F: FieldExt> {
     pub(crate) config: WasmInputHelperTableConfig<F>,

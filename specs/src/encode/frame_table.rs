@@ -1,9 +1,9 @@
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
+use num_bigint::ToBigUint;
 
-use crate::{
-    encode::COMMON_RANGE_OFFSET,
-    jtable::{JumpTableEntry, StaticFrameEntry},
-};
+use crate::encode::COMMON_RANGE_OFFSET;
+use crate::jtable::JumpTableEntry;
+use crate::jtable::StaticFrameEntry;
 
 use super::FromBn;
 

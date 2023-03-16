@@ -1,6 +1,8 @@
-use std::ops::{Add, Mul};
+use std::ops::Add;
+use std::ops::Mul;
 
-use halo2_proofs::{arithmetic::FieldExt, plonk::Expression};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Expression;
 use num_bigint::BigUint;
 
 pub mod br_table;

@@ -1,7 +1,6 @@
-use halo2_proofs::{
-    arithmetic::{BaseExt, FieldExt},
-    circuit::Region,
-};
+use halo2_proofs::arithmetic::BaseExt;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Region;
 use num_bigint::BigUint;
 
 pub mod bit;

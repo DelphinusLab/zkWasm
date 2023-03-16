@@ -2,14 +2,17 @@
 #![deny(unused_imports)]
 #![deny(dead_code)]
 
-use std::{env, io::Write, path::PathBuf};
+use std::env;
+use std::io::Write;
+use std::path::PathBuf;
 
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
-use jtable::{JumpTable, StaticFrameEntry};
+use jtable::JumpTable;
+use jtable::StaticFrameEntry;
 use mtable::MTable;
 use serde::Serialize;
 

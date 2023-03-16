@@ -1,11 +1,11 @@
-use crate::circuits::etable::{
-    allocator::EventTableCellAllocator, constraint_builder::ConstraintBuilder,
-    EventTableCommonConfig, EventTableOpcodeConfig,
-};
+use crate::circuits::etable::allocator::EventTableCellAllocator;
+use crate::circuits::etable::constraint_builder::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonConfig;
+use crate::circuits::etable::EventTableOpcodeConfig;
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::{
-    plonk::{ConstraintSystem, Expression, VirtualCells},
-};
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 
 pub mod keccak_helper;
 pub mod log_helper;

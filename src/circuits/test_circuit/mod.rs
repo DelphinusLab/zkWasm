@@ -1,33 +1,41 @@
-use ark_std::{end_timer, start_timer};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::{Layouter, SimpleFloorPlanner},
-    plonk::{Circuit, ConstraintSystem, Error},
-};
-use specs::{host_function::HostPlugin, ExecutionTable, Tables};
+use ark_std::end_timer;
+use ark_std::start_timer;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::circuit::SimpleFloorPlanner;
+use halo2_proofs::plonk::Circuit;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
+use specs::host_function::HostPlugin;
+use specs::ExecutionTable;
+use specs::Tables;
 
-use crate::{
-    circuits::{
-        bit_table::{BitTableChip, BitTableConfig},
-        brtable::{BrTableChip, BrTableConfig},
-        etable::{EventTableChip, EventTableConfig},
-        external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
-        imtable::{InitMemoryTableConfig, MInitTableChip},
-        itable::{InstructionTableChip, InstructionTableConfig},
-        jtable::{JumpTableChip, JumpTableConfig},
-        mtable::{MemoryTableChip, MemoryTableConfig},
-        rtable::{RangeTableChip, RangeTableConfig},
-        utils::{
-            table_entry::{EventTableWithMemoryInfo, MemoryWritingTable},
-            Context,
-        },
-        TestCircuit, CIRCUIT_CONFIGURE,
-    },
-    exec_with_profile,
-    foreign::wasm_input_helper::circuits::{
-        assign::WasmInputHelperTableChip, WasmInputHelperTableConfig,
-    },
-};
+use crate::circuits::bit_table::BitTableChip;
+use crate::circuits::bit_table::BitTableConfig;
+use crate::circuits::brtable::BrTableChip;
+use crate::circuits::brtable::BrTableConfig;
+use crate::circuits::etable::EventTableChip;
+use crate::circuits::etable::EventTableConfig;
+use crate::circuits::external_host_call_table::ExternalHostCallChip;
+use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
+use crate::circuits::imtable::InitMemoryTableConfig;
+use crate::circuits::imtable::MInitTableChip;
+use crate::circuits::itable::InstructionTableChip;
+use crate::circuits::itable::InstructionTableConfig;
+use crate::circuits::jtable::JumpTableChip;
+use crate::circuits::jtable::JumpTableConfig;
+use crate::circuits::mtable::MemoryTableChip;
+use crate::circuits::mtable::MemoryTableConfig;
+use crate::circuits::rtable::RangeTableChip;
+use crate::circuits::rtable::RangeTableConfig;
+use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
+use crate::circuits::utils::table_entry::MemoryWritingTable;
+use crate::circuits::utils::Context;
+use crate::circuits::TestCircuit;
+use crate::circuits::CIRCUIT_CONFIGURE;
+use crate::exec_with_profile;
+use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChip;
+use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 
 pub const VAR_COLUMNS: usize = 43;
 

@@ -1,6 +1,7 @@
 use serde::Serialize;
 
-use crate::{external_host_call_table::ExternalHostCallSignature, types::ValueType};
+use crate::external_host_call_table::ExternalHostCallSignature;
+use crate::types::ValueType;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Signature {

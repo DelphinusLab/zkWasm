@@ -1,9 +1,9 @@
 use num_bigint::BigUint;
 
-use crate::{
-    brtable::{BrTableEntry, ElemEntry, IndirectClass},
-    encode::COMMON_RANGE_OFFSET,
-};
+use crate::brtable::BrTableEntry;
+use crate::brtable::ElemEntry;
+use crate::brtable::IndirectClass;
+use crate::encode::COMMON_RANGE_OFFSET;
 
 use super::FromBn;
 

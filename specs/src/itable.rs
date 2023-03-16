@@ -1,18 +1,19 @@
 use super::mtable::VarType;
-use crate::{
-    brtable::{BrTable, BrTableEntry},
-    encode::{
-        opcode::{
-            encode_br_if_eqz, encode_br_table, encode_call, encode_call_host, encode_call_indirect,
-            encode_global_get, encode_global_set,
-        },
-        COMMON_RANGE_OFFSET,
-    },
-    external_host_call_table::ExternalHostCallSignature,
-    host_function::HostPlugin,
-    mtable::{MemoryReadSize, MemoryStoreSize},
-    types::ValueType,
-};
+use crate::brtable::BrTable;
+use crate::brtable::BrTableEntry;
+use crate::encode::opcode::encode_br_if_eqz;
+use crate::encode::opcode::encode_br_table;
+use crate::encode::opcode::encode_call;
+use crate::encode::opcode::encode_call_host;
+use crate::encode::opcode::encode_call_indirect;
+use crate::encode::opcode::encode_global_get;
+use crate::encode::opcode::encode_global_set;
+use crate::encode::COMMON_RANGE_OFFSET;
+use crate::external_host_call_table::ExternalHostCallSignature;
+use crate::host_function::HostPlugin;
+use crate::mtable::MemoryReadSize;
+use crate::mtable::MemoryStoreSize;
+use crate::types::ValueType;
 use num_bigint::BigUint;
 use serde::Serialize;
 use std::collections::HashSet;

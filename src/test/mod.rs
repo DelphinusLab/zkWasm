@@ -1,14 +1,18 @@
-use crate::{
-    circuits::{config::zkwasm_k, utils::table_entry::MemoryWritingTable, TestCircuit},
-    profile::Profiler,
-    runtime::{
-        host::host_env::HostEnv, wasmi_interpreter::Execution, ExecutionResult, WasmInterpreter,
-    },
-};
+use crate::circuits::config::zkwasm_k;
+use crate::circuits::utils::table_entry::MemoryWritingTable;
+use crate::circuits::TestCircuit;
+use crate::profile::Profiler;
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::wasmi_interpreter::Execution;
+use crate::runtime::ExecutionResult;
+use crate::runtime::WasmInterpreter;
 
 use anyhow::Result;
-use halo2_proofs::{arithmetic::FieldExt, dev::MockProver, pairing::bn256::Fr as Fp};
-use wasmi::{ImportsBuilder, RuntimeValue};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::dev::MockProver;
+use halo2_proofs::pairing::bn256::Fr as Fp;
+use wasmi::ImportsBuilder;
+use wasmi::RuntimeValue;
 
 #[cfg(test)]
 mod test_wasm_instructions;

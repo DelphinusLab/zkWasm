@@ -1,7 +1,9 @@
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
+use num_bigint::ToBigUint;
 
 use super::FromBn;
-use crate::{encode::COMMON_RANGE_OFFSET, imtable::InitMemoryTableEntry};
+use crate::encode::COMMON_RANGE_OFFSET;
+use crate::imtable::InitMemoryTableEntry;
 
 pub fn encode_init_memory_table_entry<T: FromBn>(
     ltype: T,

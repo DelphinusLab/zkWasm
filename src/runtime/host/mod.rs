@@ -1,7 +1,12 @@
-use downcast_rs::{impl_downcast, Downcast};
-use specs::{external_host_call_table::ExternalHostCallSignature, host_function::HostFunctionDesc};
-use std::{cell::RefCell, rc::Rc};
-use wasmi::{RuntimeArgs, RuntimeValue, Signature};
+use downcast_rs::impl_downcast;
+use downcast_rs::Downcast;
+use specs::external_host_call_table::ExternalHostCallSignature;
+use specs::host_function::HostFunctionDesc;
+use std::cell::RefCell;
+use std::rc::Rc;
+use wasmi::RuntimeArgs;
+use wasmi::RuntimeValue;
+use wasmi::Signature;
 
 pub mod host_env;
 

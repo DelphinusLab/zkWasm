@@ -1,33 +1,39 @@
 use crate::profile::Profiler;
 use anyhow::Result;
-use halo2_proofs::{
-    dev::MockProver,
-    pairing::bn256::{Bn256, Fr, G1Affine},
-    plonk::{verify_proof, SingleVerifier},
-    poly::commitment::ParamsVerifier,
-};
-use halo2aggregator_s::{
-    circuit_verifier::circuit::AggregatorCircuit,
-    circuits::utils::{
-        load_instance, load_or_build_unsafe_params, load_or_build_vkey, load_or_create_proof,
-        load_proof, load_vkey, run_circuit_unsafe_full_pass, TranscriptHash,
-    },
-    solidity_verifier::{codegen::solidity_aux_gen, solidity_render},
-    transcript::{poseidon::PoseidonRead, sha256::ShaRead},
-};
+use halo2_proofs::dev::MockProver;
+use halo2_proofs::pairing::bn256::Bn256;
+use halo2_proofs::pairing::bn256::Fr;
+use halo2_proofs::pairing::bn256::G1Affine;
+use halo2_proofs::plonk::verify_proof;
+use halo2_proofs::plonk::SingleVerifier;
+use halo2_proofs::poly::commitment::ParamsVerifier;
+use halo2aggregator_s::circuit_verifier::circuit::AggregatorCircuit;
+use halo2aggregator_s::circuits::utils::load_instance;
+use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
+use halo2aggregator_s::circuits::utils::load_or_build_vkey;
+use halo2aggregator_s::circuits::utils::load_or_create_proof;
+use halo2aggregator_s::circuits::utils::load_proof;
+use halo2aggregator_s::circuits::utils::load_vkey;
+use halo2aggregator_s::circuits::utils::run_circuit_unsafe_full_pass;
+use halo2aggregator_s::circuits::utils::TranscriptHash;
+use halo2aggregator_s::solidity_verifier::codegen::solidity_aux_gen;
+use halo2aggregator_s::solidity_verifier::solidity_render;
+use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+use halo2aggregator_s::transcript::sha256::ShaRead;
 use log::info;
-use specs::{ExecutionTable, Tables};
+use specs::ExecutionTable;
+use specs::Tables;
 use std::path::PathBuf;
 use wasmi::ImportsBuilder;
 
-use crate::{
-    circuits::{TestCircuit, ZkWasmCircuitBuilder},
-    foreign::{
-        log_helper::register_log_foreign, require_helper::register_require_foreign,
-        wasm_input_helper::runtime::register_wasm_input_foreign,
-    },
-    runtime::{host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter},
-};
+use crate::circuits::TestCircuit;
+use crate::circuits::ZkWasmCircuitBuilder;
+use crate::foreign::log_helper::register_log_foreign;
+use crate::foreign::require_helper::register_require_foreign;
+use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::wasmi_interpreter::Execution;
+use crate::runtime::WasmInterpreter;
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 

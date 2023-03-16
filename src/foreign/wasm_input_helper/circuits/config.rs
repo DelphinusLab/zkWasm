@@ -1,12 +1,14 @@
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Expression, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 
-use crate::{
-    constant_from, curr, fixed_curr, foreign::ForeignTableConfig, instance_curr,
-    traits::circuits::bit_range_table::BitRangeTable,
-};
+use crate::constant_from;
+use crate::curr;
+use crate::fixed_curr;
+use crate::foreign::ForeignTableConfig;
+use crate::instance_curr;
+use crate::traits::circuits::bit_range_table::BitRangeTable;
 
 use super::WasmInputHelperTableConfig;
 
@@ -17,7 +19,7 @@ impl<F: FieldExt> WasmInputHelperTableConfig<F> {
         let input = meta.instance_column();
         let input_u8 = [(); 8].map(|_| meta.advice_column());
 
-        // constaint input to u64
+        // constrain input to u64
         for i in input_u8 {
             rtable.configure_in_u8_range(meta, "wasm input u8 cell", |meta| curr!(meta, i));
         }

@@ -1,4 +1,6 @@
-use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::Error;
 use specs::external_host_call_table::ExternalHostCallTable;
 
 use crate::circuits::traits::TableSize;

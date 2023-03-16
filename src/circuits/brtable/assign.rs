@@ -1,5 +1,8 @@
-use halo2_proofs::{arithmetic::FieldExt, circuit::Layouter, plonk::Error};
-use specs::brtable::{BrTable, ElemTable};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::Error;
+use specs::brtable::BrTable;
+use specs::brtable::ElemTable;
 
 use super::BrTableChip;
 use crate::circuits::utils::bn_to_field;

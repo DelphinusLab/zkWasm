@@ -1,7 +1,8 @@
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Expression, TableColumn, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::TableColumn;
+use halo2_proofs::plonk::VirtualCells;
 use std::marker::PhantomData;
 
 use super::BrTableConfig;

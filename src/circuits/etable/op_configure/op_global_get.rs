@@ -1,24 +1,23 @@
-use crate::{
-    circuits::{
-        cell::*,
-        etable::{
-            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
-            EventTableOpcodeConfigBuilder,
-        },
-        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
-    },
-    constant, constant_from,
-};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Error, Expression, VirtualCells},
-};
-use specs::{
-    encode::opcode::encode_global_get,
-    etable::EventTableEntry,
-    mtable::{LocationType, VarType},
-    step::StepInfo,
-};
+use crate::circuits::cell::*;
+use crate::circuits::etable::allocator::*;
+use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonConfig;
+use crate::circuits::etable::EventTableOpcodeConfig;
+use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use crate::circuits::utils::Context;
+use crate::constant;
+use crate::constant_from;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
+use specs::encode::opcode::encode_global_get;
+use specs::etable::EventTableEntry;
+use specs::mtable::LocationType;
+use specs::mtable::VarType;
+use specs::step::StepInfo;
 
 pub struct GlobalGetConfig<F: FieldExt> {
     idx_cell: AllocatedCommonRangeCell<F>,

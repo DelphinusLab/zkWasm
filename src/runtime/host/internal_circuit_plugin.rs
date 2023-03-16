@@ -1,8 +1,15 @@
-use specs::host_function::{HostPlugin, Signature};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use wasmi::{FuncInstance, ModuleImportResolver, RuntimeArgs, RuntimeValue};
+use specs::host_function::HostPlugin;
+use specs::host_function::Signature;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use wasmi::FuncInstance;
+use wasmi::ModuleImportResolver;
+use wasmi::RuntimeArgs;
+use wasmi::RuntimeValue;
 
-use super::{ForeignContext, ForeignPlugin};
+use super::ForeignContext;
+use super::ForeignPlugin;
 
 pub(super) struct ForeignOp {
     pub index: Option<usize>,

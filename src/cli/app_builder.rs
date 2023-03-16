@@ -1,19 +1,21 @@
-use clap::{App, AppSettings};
+use clap::App;
+use clap::AppSettings;
 use log::info;
-use std::{fs, path::PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
-use crate::{
-    circuits::config::{set_zkwasm_k, MIN_K},
-    cli::exec::exec_dry_run,
-};
+use crate::circuits::config::set_zkwasm_k;
+use crate::circuits::config::MIN_K;
+use crate::cli::exec::exec_dry_run;
 
-use super::{
-    command::CommandBuilder,
-    exec::{
-        build_circuit_without_witness, exec_aggregate_create_proof, exec_create_proof, exec_setup,
-        exec_solidity_aggregate_proof, exec_verify_aggregate_proof, exec_verify_proof,
-    },
-};
+use super::command::CommandBuilder;
+use super::exec::build_circuit_without_witness;
+use super::exec::exec_aggregate_create_proof;
+use super::exec::exec_create_proof;
+use super::exec::exec_setup;
+use super::exec::exec_solidity_aggregate_proof;
+use super::exec::exec_verify_aggregate_proof;
+use super::exec::exec_verify_proof;
 
 fn load_or_generate_output_path(wasm_md5: &String, path: Option<&PathBuf>) -> PathBuf {
     if let Some(path) = path {

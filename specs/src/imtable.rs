@@ -1,4 +1,5 @@
-use crate::mtable::{LocationType, VarType};
+use crate::mtable::LocationType;
+use crate::mtable::VarType;
 use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone)]

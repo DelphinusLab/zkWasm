@@ -1,8 +1,10 @@
 use std::rc::Rc;
 
-use specs::{host_function::HostPlugin, types::ValueType};
+use specs::host_function::HostPlugin;
+use specs::types::ValueType;
 
-use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::host::ForeignContext;
 
 struct Context {
     public_inputs: Vec<u64>,

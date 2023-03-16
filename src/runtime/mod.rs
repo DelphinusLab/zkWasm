@@ -1,12 +1,15 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use specs::{
-    etable::EventTableEntry,
-    external_host_call_table::ExternalHostCallSignature,
-    mtable::{AccessType, LocationType, MemoryTableEntry, VarType},
-    step::StepInfo,
-    CompilationTable, Tables,
-};
+use specs::etable::EventTableEntry;
+use specs::external_host_call_table::ExternalHostCallSignature;
+use specs::mtable::AccessType;
+use specs::mtable::LocationType;
+use specs::mtable::MemoryTableEntry;
+use specs::mtable::VarType;
+use specs::step::StepInfo;
+use specs::CompilationTable;
+use specs::Tables;
 
 use self::wasmi_interpreter::WasmiRuntime;
 

@@ -1,9 +1,13 @@
 use super::JumpTableConfig;
-use crate::{circuits::Lookup, constant_from, fixed_curr};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, VirtualCells},
-};
+use crate::circuits::Lookup;
+use crate::constant_from;
+use crate::fixed_curr;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 
 pub trait JTableConstraint<F: FieldExt> {
     fn configure(&self, meta: &mut ConstraintSystem<F>) {

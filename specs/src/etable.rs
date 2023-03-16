@@ -1,7 +1,8 @@
 use serde::Serialize;
 
 use super::itable::InstructionTableEntry;
-use crate::{host_function::HostPlugin, step::StepInfo};
+use crate::host_function::HostPlugin;
+use crate::step::StepInfo;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct EventTableEntry {

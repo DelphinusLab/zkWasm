@@ -1,9 +1,10 @@
 use num_bigint::BigUint;
 
-use crate::itable::{
-    ConversionOp, OpcodeClass, OPCODE_ARG0_SHIFT as OPCODE_ARG0, OPCODE_ARG1_SHIFT as OPCODE_ARG1,
-    OPCODE_CLASS_SHIFT as OPCODE_CLASS,
-};
+use crate::itable::ConversionOp;
+use crate::itable::OpcodeClass;
+use crate::itable::OPCODE_ARG0_SHIFT as OPCODE_ARG0;
+use crate::itable::OPCODE_ARG1_SHIFT as OPCODE_ARG1;
+use crate::itable::OPCODE_CLASS_SHIFT as OPCODE_CLASS;
 
 use super::FromBn;
 
