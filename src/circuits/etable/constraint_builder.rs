@@ -5,8 +5,11 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 
-pub(crate) struct ConstraintBuilder<'a, F: FieldExt> {
+use crate::foreign::ForeignTableConfig;
+
+pub(crate) struct ConstraintBuilder<'a, 'b, F: FieldExt> {
     meta: &'a mut ConstraintSystem<F>,
+    foreign_table_configs: &'b BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
     pub(crate) constraints: Vec<(
         &'static str,
         Box<dyn FnOnce(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
@@ -15,15 +18,19 @@ pub(crate) struct ConstraintBuilder<'a, F: FieldExt> {
         &'static str,
         Vec<(
             &'static str,
-            Box<dyn Fn(&mut VirtualCells<F>) -> Expression<F>>,
+            Box<dyn Fn(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
         )>,
     >,
 }
 
-impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
-    pub(super) fn new(meta: &'a mut ConstraintSystem<F>) -> Self {
+impl<'a, 'b, F: FieldExt> ConstraintBuilder<'a, 'b, F> {
+    pub(super) fn new(
+        meta: &'a mut ConstraintSystem<F>,
+        foreign_table_configs: &'b BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
+    ) -> Self {
         Self {
             meta,
+            foreign_table_configs,
             constraints: vec![],
             lookups: BTreeMap::new(),
         }
@@ -41,7 +48,7 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
         &mut self,
         foreign_table_id: &'static str,
         name: &'static str,
-        builder: Box<dyn Fn(&mut VirtualCells<F>) -> Expression<F>>,
+        builder: Box<dyn Fn(&mut VirtualCells<F>) -> Vec<Expression<F>>>,
     ) {
         match self.lookups.get_mut(&foreign_table_id) {
             Some(lookups) => lookups.push((name, builder)),
@@ -59,6 +66,19 @@ impl<'a, F: FieldExt> ConstraintBuilder<'a, F> {
                     .map(|constraint| constraint * enable(meta))
                     .collect::<Vec<_>>()
             });
+        }
+
+        for (id, lookups) in self.lookups {
+            let config = self.foreign_table_configs.get(&id).unwrap();
+
+            for (key, expr) in lookups {
+                config.configure_in_table(self.meta, key, &|meta| {
+                    expr(meta)
+                        .into_iter()
+                        .map(|expr| expr * enable(meta))
+                        .collect()
+                });
+            }
         }
     }
 }

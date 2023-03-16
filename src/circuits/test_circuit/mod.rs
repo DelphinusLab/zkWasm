@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use ark_std::end_timer;
 use ark_std::start_timer;
 use halo2_proofs::arithmetic::FieldExt;
@@ -6,7 +8,6 @@ use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
-use specs::host_function::HostPlugin;
 use specs::ExecutionTable;
 use specs::Tables;
 
@@ -36,6 +37,8 @@ use crate::circuits::CIRCUIT_CONFIGURE;
 use crate::exec_with_profile;
 use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChip;
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
+use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
+use crate::foreign::ForeignTableConfig;
 
 pub const VAR_COLUMNS: usize = 43;
 
@@ -92,7 +95,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
         let bit_table = BitTableConfig::configure(meta, &rtable);
 
-        let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
+        let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta);
+        let mut foreign_table_configs: BTreeMap<_, Box<(dyn ForeignTableConfig<F>)>> =
+            BTreeMap::new();
+        foreign_table_configs.insert(
+            WASM_INPUT_FOREIGN_TABLE_KEY,
+            Box::new(wasm_input_helper_table.clone()),
+        );
 
         let etable = EventTableConfig::configure(
             meta,
@@ -105,6 +114,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &brtable,
             &bit_table,
             &external_host_call_table,
+            &foreign_table_configs,
             &circuit_configure.opcode_selector,
         );
 
@@ -148,14 +158,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         exec_with_profile!(
             || "Assign wasm input chip",
-            wasm_input_chip.assign(
-                &mut layouter,
-                &self
-                    .tables
-                    .execution_tables
-                    .etable
-                    .filter_foreign_entries(HostPlugin::HostInput),
-            )?
+            wasm_input_chip.assign(&mut layouter)?
         );
 
         exec_with_profile!(
