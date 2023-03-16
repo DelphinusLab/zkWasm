@@ -21,20 +21,12 @@ use std::{
     path::PathBuf,
 };
 
-#[cfg(feature = "v2")]
-mod bit_table;
-#[cfg(feature = "v2")]
-pub(crate) mod etable_v2;
-#[cfg(feature = "v2")]
-mod mtable_v2;
-
-#[cfg(not(feature = "v2"))]
-pub mod etable_compact;
-#[cfg(not(feature = "v2"))]
-pub mod mtable_compact;
-
 pub(crate) mod cell;
+pub(crate) mod etable;
+
+mod bit_table;
 mod external_host_call_table;
+mod mtable;
 mod traits;
 
 pub mod brtable;

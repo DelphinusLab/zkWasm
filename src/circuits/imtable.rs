@@ -10,16 +10,14 @@ use specs::{
 };
 use std::marker::PhantomData;
 
-pub(crate) const IMTABLE_COLUMN_TWO: usize = 2;
-
 #[derive(Clone)]
-pub struct InitMemoryTableConfig<F: FieldExt, const IMTABLE_COLOMNS: usize> {
-    col: [TableColumn; IMTABLE_COLOMNS],
+pub struct InitMemoryTableConfig<F: FieldExt> {
+    col: TableColumn,
     _mark: PhantomData<F>,
 }
 
-impl<F: FieldExt, const IMTABLE_COLOMNS: usize> InitMemoryTableConfig<F, IMTABLE_COLOMNS> {
-    pub fn configure(col: [TableColumn; IMTABLE_COLOMNS]) -> Self {
+impl<F: FieldExt> InitMemoryTableConfig<F> {
+    pub fn configure(col: TableColumn) -> Self {
         Self {
             col,
             _mark: PhantomData,
@@ -41,18 +39,17 @@ impl<F: FieldExt, const IMTABLE_COLOMNS: usize> InitMemoryTableConfig<F, IMTABLE
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-        index: usize,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.col[index])]);
+        meta.lookup(key, |meta| vec![(expr(meta), self.col)]);
     }
 }
 
-pub struct MInitTableChip<F: FieldExt, const IMTABLE_COLOMNS: usize> {
-    config: InitMemoryTableConfig<F, IMTABLE_COLOMNS>,
+pub struct MInitTableChip<F: FieldExt> {
+    config: InitMemoryTableConfig<F>,
 }
 
-impl<F: FieldExt, const IMTABLE_COLUMNS: usize> MInitTableChip<F, IMTABLE_COLUMNS> {
-    pub fn new(config: InitMemoryTableConfig<F, IMTABLE_COLUMNS>) -> Self {
+impl<F: FieldExt> MInitTableChip<F> {
+    pub fn new(config: InitMemoryTableConfig<F>) -> Self {
         MInitTableChip { config }
     }
 
@@ -62,45 +59,29 @@ impl<F: FieldExt, const IMTABLE_COLUMNS: usize> MInitTableChip<F, IMTABLE_COLUMN
         minit: &InitMemoryTable,
     ) -> Result<(), Error> {
         layouter.assign_table(
-            || "minit",
+            || "init memory table",
             |mut table| {
-                for i in 0..IMTABLE_COLUMNS {
-                    table.assign_cell(|| "minit table", self.config.col[i], 0, || Ok(F::zero()))?;
-                }
+                table.assign_cell(
+                    || "init memory table empty",
+                    self.config.col,
+                    0,
+                    || Ok(F::zero()),
+                )?;
 
                 let heap_entries = minit.filter(LocationType::Heap);
                 let global_entries = minit.filter(LocationType::Global);
-
-                /*
-                 * Since the number of heap entries is always n * PAGE_SIZE / sizeof(u64).
-                 */
-                assert_eq!(heap_entries.len() % IMTABLE_COLUMNS, 0);
 
                 let mut idx = 0;
 
                 for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
                     table.assign_cell(
-                        || "minit table",
-                        self.config.col[idx % IMTABLE_COLUMNS],
-                        idx / IMTABLE_COLUMNS + 1,
+                        || "init memory table cell",
+                        self.config.col,
+                        idx + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),
                     )?;
 
                     idx += 1;
-                }
-
-                /*
-                 * Fill blank cells in the last row to make halo2 happy.
-                 */
-                if idx % IMTABLE_COLUMNS != 0 {
-                    for blank_col in (idx % IMTABLE_COLUMNS)..IMTABLE_COLUMNS {
-                        table.assign_cell(
-                            || "minit table",
-                            self.config.col[blank_col],
-                            idx / IMTABLE_COLUMNS + 1,
-                            || Ok(F::zero()),
-                        )?;
-                    }
                 }
 
                 Ok(())

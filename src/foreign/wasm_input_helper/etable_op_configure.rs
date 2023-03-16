@@ -1,18 +1,3 @@
-use crate::{
-    circuits::{
-        etable_compact::{
-            op_configure::{
-                BitCell, ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfig,
-                MTableLookupCell, U64Cell,
-            },
-            EventTableCommonConfig, MLookupItem, StepStatus,
-        },
-        mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, Context},
-    },
-    constant, constant_from,
-    foreign::v1::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
-};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
@@ -22,56 +7,103 @@ use specs::{
     etable::EventTableEntry,
     host_function::HostPlugin,
     itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
-    mtable::VarType,
+    mtable::{LocationType, VarType},
     step::StepInfo,
+};
+
+use crate::{
+    circuits::{
+        cell::{AllocatedBitCell, AllocatedU64Cell, CellExpression},
+        etable::{
+            allocator::{
+                AllocatedMemoryTableLookupReadCell, AllocatedMemoryTableLookupWriteCell,
+                EventTableCellAllocator,
+            },
+            constraint_builder::ConstraintBuilder,
+            EventTableCommonConfig, EventTableOpcodeConfig,
+        },
+        utils::{
+            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
+            Context,
+        },
+    },
+    constant_from, constant_from_bn,
+    foreign::{EventTableForeignCallConfigBuilder, InternalHostPluginBuilder},
 };
 
 use super::circuits::{InputTableEncode, WASM_INPUT_FOREIGN_TABLE_KEY};
 
-pub struct WasmInputForeignCallInfo {}
-impl ForeignCallInfo for WasmInputForeignCallInfo {
-    fn call_id(&self) -> usize {
-        OpcodeClass::ForeignPluginStart as usize + HostPlugin::HostInput as usize
+pub struct ETableWasmInputHelperTableConfig<F: FieldExt> {
+    plugin_index: usize,
+
+    is_public: AllocatedBitCell<F>,
+    value: AllocatedU64Cell<F>,
+
+    lookup_read_stack: AllocatedMemoryTableLookupReadCell<F>,
+    lookup_write_stack: AllocatedMemoryTableLookupWriteCell<F>,
+}
+
+pub struct ETableWasmInputHelperTableConfigBuilder {
+    index: usize,
+}
+
+impl InternalHostPluginBuilder for ETableWasmInputHelperTableConfigBuilder {
+    fn new(index: usize) -> Self {
+        Self { index }
     }
 }
-
-pub struct ETableWasmInputHelperTableConfig {
-    public: BitCell,
-    value: U64Cell,
-
-    lookup_read_stack: MTableLookupCell,
-    lookup_write_stack: MTableLookupCell,
-}
-
-pub struct ETableWasmInputHelperTableConfigBuilder {}
 
 impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
     for ETableWasmInputHelperTableConfigBuilder
 {
     fn configure(
-        common: &mut EventTableCellAllocator<F>,
+        self,
+        common_config: &EventTableCommonConfig<F>,
+        allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
-        _info: &impl ForeignCallInfo,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let public = common.alloc_bit_value();
-        let value = common.alloc_u64();
+        let eid = common_config.eid_cell;
+        let sp = common_config.sp_cell;
+        let public_input_index = common_config.input_index_cell;
 
-        let lookup_read_stack = common.alloc_mtable_lookup();
-        let lookup_write_stack = common.alloc_mtable_lookup();
-
-        let input_index = common.input_index_cell();
+        let is_public = allocator.alloc_bit_cell();
+        let value = allocator.alloc_u64_cell();
+        let lookup_read_stack = allocator.alloc_memory_table_lookup_read_cell(
+            "wasm input stack read",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |____| constant_from!(1),
+            move |meta| is_public.expr(meta),
+            move |____| constant_from!(1),
+        );
+        let lookup_write_stack = allocator.alloc_memory_table_lookup_write_cell(
+            "wasm input stack write",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |____| constant_from!(0),
+            move |meta| value.u64_cell.expr(meta),
+            move |____| constant_from!(1),
+        );
 
         constraint_builder.lookup(
             WASM_INPUT_FOREIGN_TABLE_KEY,
             "lookup input table",
             Box::new(move |meta| {
-                public.expr(meta)
-                    * InputTableEncode::encode_for_lookup(input_index.expr(meta), value.expr(meta))
+                is_public.expr(meta)
+                    * InputTableEncode::encode_for_lookup(
+                        public_input_index.expr(meta),
+                        value.u64_cell.expr(meta),
+                    )
             }),
         );
 
         Box::new(ETableWasmInputHelperTableConfig {
-            public,
+            plugin_index: self.index,
+            is_public,
             value,
             lookup_read_stack,
             lookup_write_stack,
@@ -79,23 +111,22 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig<F> {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + HostPlugin::HostInput as u64)
+        constant_from_bn!(
+            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + self.plugin_index as u64)
                 << OPCODE_CLASS_SHIFT)
-        ))
+        )
     }
 
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step_info: &StepStatus,
-        entry: &EventTableEntry,
+        step: &StepStatus,
+        entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        match &entry.step_info {
+        match &entry.eentry.step_info {
             StepInfo::CallHost {
-                plugin,
                 args,
                 ret_val,
                 signature,
@@ -104,34 +135,33 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
                 let arg_type: VarType = (*signature.params.get(0).unwrap()).into();
                 let ret_type: VarType = signature.return_type.unwrap().into();
 
-                assert_eq!(*plugin, HostPlugin::HostInput);
                 assert_eq!(args.len(), 1);
                 assert_eq!(arg_type, VarType::I32);
                 assert_eq!(ret_type, VarType::I64);
 
-                self.public.assign(ctx, (*args.get(0).unwrap()) == 1)?;
+                self.is_public
+                    .assign(ctx, F::from(*args.get(0).unwrap() == 1))?;
                 self.value.assign(ctx, ret_val.unwrap())?;
 
                 self.lookup_read_stack.assign(
                     ctx,
-                    &MemoryTableLookupEncode::encode_stack_read(
-                        BigUint::from(step_info.current.eid),
-                        BigUint::from(1 as u64),
-                        BigUint::from(step_info.current.sp + 1),
-                        BigUint::from(arg_type as u16),
-                        BigUint::from(*args.get(0).unwrap()),
-                    ),
+                    entry.memory_rw_entires[0].start_eid,
+                    step.current.eid,
+                    entry.memory_rw_entires[0].end_eid,
+                    step.current.sp + 1,
+                    LocationType::Stack,
+                    true,
+                    *args.get(0).unwrap(),
                 )?;
 
                 self.lookup_write_stack.assign(
                     ctx,
-                    &MemoryTableLookupEncode::encode_stack_write(
-                        BigUint::from(step_info.current.eid),
-                        BigUint::from(2 as u64),
-                        BigUint::from(step_info.current.sp + 1),
-                        BigUint::from(ret_type as u16),
-                        BigUint::from(ret_val.unwrap()),
-                    ),
+                    step.current.eid,
+                    entry.memory_rw_entires[1].end_eid,
+                    step.current.sp + 1,
+                    LocationType::Stack,
+                    false,
+                    ret_val.unwrap(),
                 )?;
 
                 Ok(())
@@ -142,41 +172,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(2))
+        Some(constant_from!(1))
     }
 
-    fn assigned_extra_mops(
-        &self,
-        _ctx: &mut Context<'_, F>,
-        _step: &StepStatus,
-        _entry: &EventTableEntry,
-    ) -> u64 {
-        2
-    }
-
-    fn mtable_lookup(
-        &self,
-        meta: &mut VirtualCells<'_, F>,
-        item: MLookupItem,
-        common_config: &EventTableCommonConfig<F>,
-    ) -> Option<Expression<F>> {
-        match item {
-            MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
-                common_config.eid(meta),
-                constant_from!(1),
-                common_config.sp(meta) + constant_from!(1),
-                constant_from!(VarType::I32),
-                self.public.expr(meta),
-            )),
-            MLookupItem::Second => Some(MemoryTableLookupEncode::encode_stack_write(
-                common_config.eid(meta),
-                constant_from!(2),
-                common_config.sp(meta) + constant_from!(1),
-                constant_from!(VarType::I64),
-                self.value.expr(meta),
-            )),
-            _ => None,
-        }
+    fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
+        1
     }
 
     fn input_index_increase(
@@ -184,10 +184,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
         meta: &mut VirtualCells<'_, F>,
         _common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        Some(self.public.expr(meta))
+        Some(self.is_public.expr(meta))
     }
 
-    fn is_host_public_input(&self, _step: &StepStatus, entry: &EventTableEntry) -> bool {
+    fn is_host_public_input(&self, entry: &EventTableEntry) -> bool {
         match &entry.step_info {
             StepInfo::CallHost { plugin, args, .. } => {
                 assert_eq!(*plugin, HostPlugin::HostInput);

@@ -40,7 +40,6 @@ serde_json = "1.0"
 rusty-fork = "0.3.0"
 
 [features]
-default = ["v2"]
+default = []
+uniform_verifier = []
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
-v2 = []
-uniform_verifier = ["v2"]

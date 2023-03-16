@@ -1,4 +1,4 @@
-use crate::{foreign::sha256_helper::runtime::register_sha256_foreign, profile::Profiler};
+use crate::profile::Profiler;
 use anyhow::Result;
 use halo2_proofs::{
     dev::MockProver,
@@ -38,7 +38,6 @@ pub fn build_circuit_without_witness(
     let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
 
     let mut env = HostEnv::new();
-    register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, vec![], vec![]);
     register_require_foreign(&mut env);
     register_log_foreign(&mut env);
@@ -75,7 +74,6 @@ fn build_circuit_with_witness(
     let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
 
     let mut env = HostEnv::new();
-    register_sha256_foreign(&mut env);
     register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     register_require_foreign(&mut env);
     register_log_foreign(&mut env);
