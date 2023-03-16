@@ -47,6 +47,7 @@ use crate::fixed_curr;
 use crate::foreign::require_helper::etable_op_configure::ETableRequireHelperTableConfigBuilder;
 use crate::foreign::wasm_input_helper::etable_op_configure::ETableWasmInputHelperTableConfigBuilder;
 use crate::foreign::EventTableForeignCallConfigBuilder;
+use crate::foreign::ForeignTableConfig;
 use crate::foreign::InternalHostPluginBuilder;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
@@ -223,6 +224,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         brtable: &BrTableConfig<F>,
         bit_table: &BitTableConfig<F>,
         external_host_call_table: &ExternalHostCallTableConfig<F>,
+        foreign_table_configs: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
         opcode_set: &HashSet<OpcodeClassPlain>,
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
@@ -284,7 +286,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClassPlain($op as usize);
                 if opcode_set.contains(&op) {
                     let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
-                    let mut constraint_builder = ConstraintBuilder::new(meta);
+                    let foreign_table_configs = BTreeMap::new();
+                    let mut constraint_builder =
+                        ConstraintBuilder::new(meta, &foreign_table_configs);
 
                     let config = $x::configure(
                         &common_config,
@@ -341,7 +345,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 if opcode_set.contains(&op) {
                     let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
-                    let mut constraint_builder = ConstraintBuilder::new(meta);
+                    let mut constraint_builder =
+                        ConstraintBuilder::new(meta, foreign_table_configs);
 
                     let config = builder.configure(
                         &common_config,

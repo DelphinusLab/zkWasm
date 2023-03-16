@@ -29,7 +29,6 @@ use crate::constant_from_bn;
 use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::InternalHostPluginBuilder;
 
-use super::circuits::InputTableEncode;
 use super::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 
 pub struct ETableWasmInputHelperTableConfig<F: FieldExt> {
@@ -92,11 +91,10 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
             WASM_INPUT_FOREIGN_TABLE_KEY,
             "lookup input table",
             Box::new(move |meta| {
-                is_public.expr(meta)
-                    * InputTableEncode::encode_for_lookup(
-                        public_input_index.expr(meta),
-                        value.u64_cell.expr(meta),
-                    )
+                vec![
+                    is_public.expr(meta) * public_input_index.expr(meta),
+                    is_public.expr(meta) * value.u64_cell.expr(meta),
+                ]
             }),
         );
 

@@ -17,7 +17,7 @@ pub trait ForeignTableConfig<F: FieldExt> {
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: &dyn Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: &dyn Fn(&mut VirtualCells<'_, F>) -> Vec<Expression<F>>,
     );
 }
 
