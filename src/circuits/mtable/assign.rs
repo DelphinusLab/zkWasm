@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
@@ -57,7 +58,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         mtable: &MemoryWritingTable,
         init_rest_mops: u64,
         first_consecutive_zero_memory_offset: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<AssignedCell<F, F>, Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.$cell.assign(ctx, $value)?
@@ -79,6 +80,11 @@ impl<F: FieldExt> MemoryTableChip<F> {
         }
 
         let mut rest_mops = init_rest_mops;
+
+        let first_consecutive_zero_memory_offset_cell = assign_advice!(
+            first_consecutive_zero_memory_offset,
+            F::from(first_consecutive_zero_memory_offset as u64)
+        );
 
         for entry in &mtable.0 {
             assign_bit!(enabled_cell);
@@ -116,6 +122,10 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_advice!(rest_mops_cell, F::from(rest_mops));
             assign_advice!(offset_cell, F::from(entry.entry.offset as u64));
             assign_advice!(value, entry.entry.value);
+            assign_advice!(
+                first_consecutive_zero_memory_offset,
+                F::from(first_consecutive_zero_memory_offset as u64)
+            );
 
             assign_advice!(
                 encode_cell,
@@ -138,6 +148,11 @@ impl<F: FieldExt> MemoryTableChip<F> {
             }
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
+
+        assign_advice!(
+            first_consecutive_zero_memory_offset,
+            F::from(first_consecutive_zero_memory_offset as u64)
+        );
 
         ctx.reset();
 
@@ -166,7 +181,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
 
-        Ok(())
+        Ok(first_consecutive_zero_memory_offset_cell)
     }
 
     pub(crate) fn assign(
@@ -175,7 +190,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         etable_rest_mops_cell: Option<Cell>,
         mtable: &MemoryWritingTable,
         first_consecutive_zero_memory_offset: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<AssignedCell<F, F>, Error> {
         debug!("size of memory writing table: {}", mtable.0.len());
 
         let rest_mops = mtable
@@ -188,9 +203,10 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
         self.constraint_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
 
-        self.assign_entries(ctx, mtable, rest_mops, first_consecutive_zero_memory_offset)?;
+        let first_consecutive_zero_memory_offset =
+            self.assign_entries(ctx, mtable, rest_mops, first_consecutive_zero_memory_offset)?;
         ctx.reset();
 
-        Ok(())
+        Ok(first_consecutive_zero_memory_offset)
     }
 }

@@ -50,3 +50,22 @@ fn test_memory_grow_lazy_init() {
 
     test_circuit_noexternal(textual_repr).unwrap()
 }
+
+#[test]
+fn test_memory_grow_lazy_init_2() {
+    let textual_repr = r#"
+        (module
+            (memory 1 2)
+
+            (func (export "test")
+                (memory.grow (i32.const 1))
+                (drop)
+                (i32.const 65536)
+                (i32.load offset=0)
+                (drop)
+            )
+        )
+    "#;
+
+    test_circuit_noexternal(textual_repr).unwrap()
+}

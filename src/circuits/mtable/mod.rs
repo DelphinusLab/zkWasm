@@ -4,7 +4,6 @@ use super::config::max_mtable_rows;
 use super::imtable::InitMemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
-use super::CircuitConfigure;
 use crate::constant_from;
 use crate::fixed_curr;
 use halo2_proofs::arithmetic::FieldExt;
@@ -44,6 +43,7 @@ pub struct MemoryTableConfig<F: FieldExt> {
     eid_diff_cell: AllocatedCommonRangeCell<F>,
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     zero_init_proof_cell: AllocatedCommonRangeCell<F>,
+    first_consecutive_zero_memory_offset: AllocatedCommonRangeCell<F>,
     offset_cell: AllocatedCommonRangeCell<F>,
     offset_diff_cell: AllocatedCommonRangeCell<F>,
 
@@ -59,7 +59,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
         imtable: &InitMemoryTableConfig<F>,
-        configure: &CircuitConfigure,
     ) -> Self {
         let entry_sel = meta.fixed_column();
 
@@ -84,6 +83,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let eid_diff_cell = allocator.alloc_common_range_cell();
         let rest_mops_cell = allocator.alloc_common_range_cell();
         let zero_init_proof_cell = allocator.alloc_common_range_cell();
+        let first_consecutive_zero_memory_offset = allocator.alloc_common_range_cell();
         let offset_cell = allocator.alloc_common_range_cell();
         let offset_diff_cell = allocator.alloc_common_range_cell();
 
@@ -186,7 +186,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     * (is_imtable_init_cell.curr_expr(meta) - constant_from!(1))
                     * (offset_cell.curr_expr(meta)
                         - zero_init_proof_cell.curr_expr(meta)
-                        - constant_from!(configure.first_consecutive_zero_memory_offset)),
+                        - first_consecutive_zero_memory_offset.curr_expr(meta)),
                 is_init_cell.curr_expr(meta)
                     * (is_imtable_init_cell.curr_expr(meta) - constant_from!(1))
                     * value.u64_cell.curr_expr(meta),
@@ -297,6 +297,19 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
+        meta.create_gate(
+            "mc13. first_consecutive_zero_memory_offset unchanged",
+            |meta| {
+                vec![
+                    first_consecutive_zero_memory_offset.curr_expr(meta)
+                        - first_consecutive_zero_memory_offset.next_expr(meta),
+                ]
+                .into_iter()
+                .map(|x| x * enabled_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel))
+                .collect::<Vec<_>>()
+            },
+        );
+
         Self {
             entry_sel,
             enabled_cell,
@@ -315,6 +328,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             eid_diff_cell,
             rest_mops_cell,
             zero_init_proof_cell,
+            first_consecutive_zero_memory_offset,
             offset_cell,
             offset_diff_cell,
             offset_diff_inv_cell,

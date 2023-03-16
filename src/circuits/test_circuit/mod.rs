@@ -88,8 +88,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let rtable = RangeTableConfig::configure([0; 8].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta);
         let imtable = InitMemoryTableConfig::configure(meta);
-        let mtable =
-            MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable, &circuit_configure);
+        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
         let brtable = BrTableConfig::configure(meta);
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
