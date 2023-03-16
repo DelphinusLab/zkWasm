@@ -1,22 +1,23 @@
-use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Cell;
+use halo2_proofs::plonk::Error;
 use log::debug;
-use specs::{
-    configure_table::ConfigureTable,
-    itable::{Opcode, OpcodeClassPlain},
-};
-use std::{collections::BTreeMap, rc::Rc};
+use specs::configure_table::ConfigureTable;
+use specs::itable::Opcode;
+use specs::itable::OpcodeClassPlain;
+use std::collections::BTreeMap;
+use std::rc::Rc;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
-use super::{EventTableChip, EventTableOpcodeConfig, EVENT_TABLE_ENTRY_ROWS};
-use crate::circuits::{
-    cell::CellExpression,
-    utils::{
-        bn_to_field,
-        step_status::{Status, StepStatus},
-        table_entry::EventTableWithMemoryInfo,
-        Context,
-    },
-};
+use super::EventTableChip;
+use super::EventTableOpcodeConfig;
+use super::EVENT_TABLE_ENTRY_ROWS;
+use crate::circuits::cell::CellExpression;
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::step_status::Status;
+use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
+use crate::circuits::utils::Context;
 
 impl<F: FieldExt> EventTableChip<F> {
     fn compute_rest_mops_and_jops(

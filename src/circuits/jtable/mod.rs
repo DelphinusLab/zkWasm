@@ -1,9 +1,10 @@
 use self::configure::JTableConstraint;
 use super::config::max_jtable_rows;
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Fixed},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Fixed;
 use std::marker::PhantomData;
 
 mod assign;

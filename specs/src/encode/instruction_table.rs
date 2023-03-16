@@ -1,9 +1,9 @@
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::BigUint;
+use num_bigint::ToBigUint;
 
-use crate::{
-    encode::COMMON_RANGE_OFFSET,
-    itable::{InstructionTableEntry, OPCODE_SHIFT},
-};
+use crate::encode::COMMON_RANGE_OFFSET;
+use crate::itable::InstructionTableEntry;
+use crate::itable::OPCODE_SHIFT;
 
 use super::FromBn;
 

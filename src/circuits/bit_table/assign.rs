@@ -1,10 +1,16 @@
-use halo2_proofs::{arithmetic::FieldExt, plonk::Error};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Error;
 use num_bigint::BigUint;
-use specs::{itable::BitOp, step::StepInfo};
+use specs::itable::BitOp;
+use specs::step::StepInfo;
 
-use crate::circuits::utils::{bn_to_field, table_entry::EventTableWithMemoryInfo, Context};
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
+use crate::circuits::utils::Context;
 
-use super::{encode_bit_table, BitTableChip, STEP_SIZE};
+use super::encode_bit_table;
+use super::BitTableChip;
+use super::STEP_SIZE;
 
 struct BitTableAssign {
     op: BitOp,

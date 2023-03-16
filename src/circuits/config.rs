@@ -1,4 +1,5 @@
-use std::{env, sync::Mutex};
+use std::env;
+use std::sync::Mutex;
 
 pub const POW_TABLE_LIMIT: u64 = 128;
 

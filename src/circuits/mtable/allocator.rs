@@ -1,18 +1,22 @@
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::VirtualCells;
 
-use crate::{
-    circuits::{
-        cell::*,
-        rtable::RangeTableConfig,
-        utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
-    },
-    constant_from, fixed_curr, nextn,
-};
+use crate::circuits::cell::*;
+use crate::circuits::rtable::RangeTableConfig;
+use crate::circuits::utils::bit::BitColumn;
+use crate::circuits::utils::common_range::CommonRangeColumn;
+use crate::circuits::utils::u16::U16Column;
+use crate::constant_from;
+use crate::fixed_curr;
+use crate::nextn;
 
 use super::MEMORY_TABLE_ENTRY_ROWS;
 

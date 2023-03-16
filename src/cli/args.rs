@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use clap::{arg, value_parser, Arg, ArgMatches};
+use clap::arg;
+use clap::value_parser;
+use clap::Arg;
+use clap::ArgMatches;
 
 pub trait ArgBuilder {
     fn zkwasm_k_arg<'a>() -> Arg<'a> {

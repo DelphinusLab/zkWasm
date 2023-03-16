@@ -1,4 +1,5 @@
-use halo2_proofs::{arithmetic::FieldExt, plonk::TableColumn};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::TableColumn;
 use std::marker::PhantomData;
 
 mod assign;

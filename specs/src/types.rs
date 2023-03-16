@@ -1,8 +1,8 @@
 use serde::Serialize;
 
-use crate::{
-    external_host_call_table::ExternalHostCallSignature, host_function::HostPlugin, mtable::VarType,
-};
+use crate::external_host_call_table::ExternalHostCallSignature;
+use crate::host_function::HostPlugin;
+use crate::mtable::VarType;
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ValueType {

@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 
-use halo2_proofs::{arithmetic::FieldExt, circuit::Cell, plonk::Error};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Cell;
+use halo2_proofs::plonk::Error;
 use log::debug;
-use specs::{
-    encode::memory_table::encode_memory_table_entry,
-    mtable::{LocationType, VarType},
-};
+use specs::encode::memory_table::encode_memory_table_entry;
+use specs::mtable::LocationType;
+use specs::mtable::VarType;
 
-use crate::circuits::{
-    cell::CellExpression,
-    mtable::MemoryTableChip,
-    utils::{bn_to_field, table_entry::MemoryWritingTable, Context},
-};
+use crate::circuits::cell::CellExpression;
+use crate::circuits::mtable::MemoryTableChip;
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::table_entry::MemoryWritingTable;
+use crate::circuits::utils::Context;
 
 use super::MEMORY_TABLE_ENTRY_ROWS;
 

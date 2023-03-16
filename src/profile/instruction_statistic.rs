@@ -1,10 +1,10 @@
 use log::debug;
-use specs::{
-    etable::EventTable,
-    itable::OpcodeClass,
-    mtable::{AccessType, MemoryTableEntry},
-};
-use std::{collections::BTreeMap, fmt::Debug};
+use specs::etable::EventTable;
+use specs::itable::OpcodeClass;
+use specs::mtable::AccessType;
+use specs::mtable::MemoryTableEntry;
+use std::collections::BTreeMap;
+use std::fmt::Debug;
 
 use crate::runtime::memory_event_of_step;
 

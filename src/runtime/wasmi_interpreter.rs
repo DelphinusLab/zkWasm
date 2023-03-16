@@ -1,14 +1,22 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::runtime::memory_event_of_step;
 use anyhow::Result;
-use specs::{
-    host_function::HostFunctionDesc, jtable::StaticFrameEntry, mtable::MTable, CompilationTable,
-    ExecutionTable, Tables,
-};
-use wasmi::{Externals, ImportResolver, ModuleInstance, RuntimeValue};
+use specs::host_function::HostFunctionDesc;
+use specs::jtable::StaticFrameEntry;
+use specs::mtable::MTable;
+use specs::CompilationTable;
+use specs::ExecutionTable;
+use specs::Tables;
+use wasmi::Externals;
+use wasmi::ImportResolver;
+use wasmi::ModuleInstance;
+use wasmi::RuntimeValue;
 
-use super::{CompiledImage, ExecutionResult};
+use super::CompiledImage;
+use super::ExecutionResult;
 
 pub trait Execution<R> {
     fn run<E: Externals>(self, externals: &mut E) -> Result<ExecutionResult<R>>;

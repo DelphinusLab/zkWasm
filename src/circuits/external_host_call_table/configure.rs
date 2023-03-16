@@ -1,11 +1,13 @@
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Expression, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use specs::external_host_call_table::encode::encode_host_call_entry;
 use std::marker::PhantomData;
 
-use crate::{circuits::traits::ConfigureLookupTable, curr, fixed_curr};
+use crate::circuits::traits::ConfigureLookupTable;
+use crate::curr;
+use crate::fixed_curr;
 
 use super::ExternalHostCallTableConfig;
 

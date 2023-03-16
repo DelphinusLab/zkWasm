@@ -1,28 +1,26 @@
-use crate::{
-    circuits::{
-        cell::*,
-        etable::{
-            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
-            EventTableOpcodeConfigBuilder,
-        },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
-    },
-    constant, constant_from,
-};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Error, Expression, VirtualCells},
-};
+use crate::circuits::cell::*;
+use crate::circuits::etable::allocator::*;
+use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonConfig;
+use crate::circuits::etable::EventTableOpcodeConfig;
+use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::jtable::expression::JtableLookupEntryEncode;
+use crate::circuits::jtable::JumpTableConfig;
+use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use crate::circuits::utils::Context;
+use crate::constant;
+use crate::constant_from;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
-use specs::{
-    encode::{
-        br_table::encode_elem_entry, frame_table::encode_frame_table_entry,
-        opcode::encode_call_indirect,
-    },
-    mtable::LocationType,
-    step::StepInfo,
-};
+use specs::encode::br_table::encode_elem_entry;
+use specs::encode::frame_table::encode_frame_table_entry;
+use specs::encode::opcode::encode_call_indirect;
+use specs::mtable::LocationType;
+use specs::step::StepInfo;
 
 pub struct CallIndirectConfig<F: FieldExt> {
     type_index: AllocatedCommonRangeCell<F>,

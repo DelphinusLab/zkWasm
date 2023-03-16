@@ -1,9 +1,11 @@
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{ConstraintSystem, Expression, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 
-use crate::{circuits::Lookup, curr, fixed_curr};
+use crate::circuits::Lookup;
+use crate::curr;
+use crate::fixed_curr;
 
 use super::BitTableConfig;
 

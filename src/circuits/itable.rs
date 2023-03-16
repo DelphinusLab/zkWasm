@@ -1,9 +1,11 @@
 use super::utils::bn_to_field;
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::Layouter,
-    plonk::{ConstraintSystem, Error, Expression, TableColumn, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::TableColumn;
+use halo2_proofs::plonk::VirtualCells;
 use specs::itable::InstructionTable;
 use std::marker::PhantomData;
 

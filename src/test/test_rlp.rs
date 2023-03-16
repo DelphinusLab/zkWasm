@@ -1,9 +1,8 @@
-use crate::{
-    foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{
-        host::host_env::HostEnv, wasmi_interpreter::Execution, ExecutionResult, WasmInterpreter,
-    },
-};
+use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::wasmi_interpreter::Execution;
+use crate::runtime::ExecutionResult;
+use crate::runtime::WasmInterpreter;
 
 use anyhow::Result;
 use std::fs::{self};
@@ -171,10 +170,9 @@ fn build_test() -> Result<(ExecutionResult<wasmi::RuntimeValue>, Vec<u64>)> {
 
 mod tests {
     use super::*;
-    use crate::{
-        circuits::{config::set_zkwasm_k, ZkWasmCircuitBuilder},
-        test::run_test_circuit,
-    };
+    use crate::circuits::config::set_zkwasm_k;
+    use crate::circuits::ZkWasmCircuitBuilder;
+    use crate::test::run_test_circuit;
     use halo2_proofs::pairing::bn256::Fr as Fp;
     use rusty_fork::rusty_fork_test;
 

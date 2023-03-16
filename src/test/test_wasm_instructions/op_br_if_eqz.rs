@@ -1,4 +1,3 @@
-
 use crate::test::test_circuit_noexternal;
 
 #[test]

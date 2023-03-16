@@ -1,8 +1,10 @@
 use std::rc::Rc;
 
-use specs::{host_function::HostPlugin, types::ValueType};
+use specs::host_function::HostPlugin;
+use specs::types::ValueType;
 
-use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::host::ForeignContext;
 
 #[cfg(not(feature = "v2"))]
 pub mod etable_op_configure;

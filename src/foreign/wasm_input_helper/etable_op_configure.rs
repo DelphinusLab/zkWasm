@@ -1,37 +1,36 @@
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Error, Expression, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
-use specs::{
-    etable::EventTableEntry,
-    host_function::HostPlugin,
-    itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
-    step::StepInfo,
-};
+use specs::etable::EventTableEntry;
+use specs::host_function::HostPlugin;
+use specs::itable::OpcodeClass;
+use specs::itable::OPCODE_CLASS_SHIFT;
+use specs::mtable::LocationType;
+use specs::mtable::VarType;
+use specs::step::StepInfo;
 
-use crate::{
-    circuits::{
-        cell::{AllocatedBitCell, AllocatedU64Cell, CellExpression},
-        etable::{
-            allocator::{
-                AllocatedMemoryTableLookupReadCell, AllocatedMemoryTableLookupWriteCell,
-                EventTableCellAllocator,
-            },
-            constraint_builder::ConstraintBuilder,
-            EventTableCommonConfig, EventTableOpcodeConfig,
-        },
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
-    },
-    constant_from, constant_from_bn,
-    foreign::{EventTableForeignCallConfigBuilder, InternalHostPluginBuilder},
-};
+use crate::circuits::cell::AllocatedBitCell;
+use crate::circuits::cell::AllocatedU64Cell;
+use crate::circuits::cell::CellExpression;
+use crate::circuits::etable::allocator::AllocatedMemoryTableLookupReadCell;
+use crate::circuits::etable::allocator::AllocatedMemoryTableLookupWriteCell;
+use crate::circuits::etable::allocator::EventTableCellAllocator;
+use crate::circuits::etable::constraint_builder::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonConfig;
+use crate::circuits::etable::EventTableOpcodeConfig;
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use crate::circuits::utils::Context;
+use crate::constant_from;
+use crate::constant_from_bn;
+use crate::foreign::EventTableForeignCallConfigBuilder;
+use crate::foreign::InternalHostPluginBuilder;
 
-use super::circuits::{InputTableEncode, WASM_INPUT_FOREIGN_TABLE_KEY};
+use super::circuits::InputTableEncode;
+use super::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 
 pub struct ETableWasmInputHelperTableConfig<F: FieldExt> {
     plugin_index: usize,

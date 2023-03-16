@@ -1,7 +1,6 @@
-use crate::{
-    foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{host::host_env::HostEnv, ExecutionResult},
-};
+use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::ExecutionResult;
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Fr as Fp;
@@ -30,7 +29,8 @@ fn build_test() -> Result<(ExecutionResult<wasmi::RuntimeValue>, Vec<u64>)> {
 
 mod tests {
     use super::*;
-    use crate::{circuits::ZkWasmCircuitBuilder, test::run_test_circuit};
+    use crate::circuits::ZkWasmCircuitBuilder;
+    use crate::test::run_test_circuit;
     use halo2_proofs::pairing::bn256::Fr as Fp;
 
     #[test]

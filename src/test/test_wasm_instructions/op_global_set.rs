@@ -1,6 +1,5 @@
 use crate::test::test_circuit_noexternal;
 
-
 #[test]
 fn test_global_set() {
     let textual_repr = r#"

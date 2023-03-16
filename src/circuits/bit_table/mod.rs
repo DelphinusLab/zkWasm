@@ -1,15 +1,22 @@
 use std::marker::PhantomData;
 
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Fixed},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Fixed;
 use num_bigint::BigUint;
 use specs::encode::FromBn;
 
-use crate::{constant_from, curr, fixed_curr, fixed_nextn, next, nextn};
+use crate::constant_from;
+use crate::curr;
+use crate::fixed_curr;
+use crate::fixed_nextn;
+use crate::next;
+use crate::nextn;
 
-use super::{config::max_bit_table_rows, rtable::RangeTableConfig};
+use super::config::max_bit_table_rows;
+use super::rtable::RangeTableConfig;
 
 mod assign;
 mod configure;

@@ -1,13 +1,14 @@
 use super::utils::bn_to_field;
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::Layouter,
-    plonk::{ConstraintSystem, Error, Expression, TableColumn, VirtualCells},
-};
-use specs::{
-    encode::init_memory_table::encode_init_memory_table_entry, imtable::InitMemoryTable,
-    mtable::LocationType,
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::TableColumn;
+use halo2_proofs::plonk::VirtualCells;
+use specs::encode::init_memory_table::encode_init_memory_table_entry;
+use specs::imtable::InitMemoryTable;
+use specs::mtable::LocationType;
 use std::marker::PhantomData;
 
 #[derive(Clone)]

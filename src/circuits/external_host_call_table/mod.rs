@@ -1,12 +1,12 @@
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, Fixed},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::Fixed;
 use std::marker::PhantomData;
 
-use crate::circuits::config::{
-    zkwasm_k, ZKWASM_FOREIGN_CALL_TABLE_RATIO, ZKWASM_TABLE_DENOMINATOR,
-};
+use crate::circuits::config::zkwasm_k;
+use crate::circuits::config::ZKWASM_FOREIGN_CALL_TABLE_RATIO;
+use crate::circuits::config::ZKWASM_TABLE_DENOMINATOR;
 
 use super::traits::TableSize;
 

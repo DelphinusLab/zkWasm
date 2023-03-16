@@ -1,6 +1,8 @@
-use serde::{ser::SerializeStruct, Serialize};
+use serde::ser::SerializeStruct;
+use serde::Serialize;
 
-use crate::{host_function::Signature, types::ValueType};
+use crate::host_function::Signature;
+use crate::types::ValueType;
 
 pub mod encode;
 mod table;

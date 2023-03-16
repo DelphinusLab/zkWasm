@@ -1,16 +1,17 @@
 use std::marker::PhantomData;
 
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::AssignedCell,
-    plonk::{Advice, Column, Error, Expression, VirtualCells},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::AssignedCell;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 
-use crate::{
-    circuits::utils::{bn_to_field, Context},
-    nextn,
-};
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::Context;
+use crate::nextn;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedCell<F: FieldExt> {

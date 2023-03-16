@@ -1,14 +1,19 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use specs::host_function::HostFunctionDesc;
-use wasmi::{Externals, ModuleImportResolver, RuntimeArgs, RuntimeValue, Trap};
+use wasmi::Externals;
+use wasmi::ModuleImportResolver;
+use wasmi::RuntimeArgs;
+use wasmi::RuntimeValue;
+use wasmi::Trap;
 
 use crate::runtime::host::HostFunctionExecutionEnv;
 
-use super::{
-    external_circuit_plugin::ExternalCircuitEnv, internal_circuit_plugin::InternalCircuitEnv,
-    HostFunction,
-};
+use super::external_circuit_plugin::ExternalCircuitEnv;
+use super::internal_circuit_plugin::InternalCircuitEnv;
+use super::HostFunction;
 
 pub struct HostEnv {
     pub internal_env: InternalCircuitEnv,

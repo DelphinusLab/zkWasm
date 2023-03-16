@@ -1,5 +1,7 @@
-use super::{ExternalHostCallEntry, ExternalHostCallTable};
-use crate::{etable::EventTable, step::StepInfo};
+use super::ExternalHostCallEntry;
+use super::ExternalHostCallTable;
+use crate::etable::EventTable;
+use crate::step::StepInfo;
 
 impl EventTable {
     pub fn filter_external_host_call_table(&self) -> ExternalHostCallTable {

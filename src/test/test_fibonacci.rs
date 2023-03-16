@@ -1,4 +1,5 @@
-use crate::runtime::{host::host_env::HostEnv, ExecutionResult};
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::ExecutionResult;
 use anyhow::Result;
 use wasmi::RuntimeValue;
 
@@ -70,7 +71,8 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
 
 mod tests {
     use super::*;
-    use crate::{circuits::ZkWasmCircuitBuilder, test::run_test_circuit};
+    use crate::circuits::ZkWasmCircuitBuilder;
+    use crate::test::run_test_circuit;
     use halo2_proofs::pairing::bn256::Fr as Fp;
 
     #[test]

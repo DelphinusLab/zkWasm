@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 
 use log::debug;
-use specs::{
-    etable::EventTable,
-    itable::{Opcode, OpcodeClass},
-};
+use specs::etable::EventTable;
+use specs::itable::Opcode;
+use specs::itable::OpcodeClass;
 
 pub trait InstructionMergingProfile {
     fn estimate_mergeable_instruction(&self);

@@ -1,26 +1,23 @@
-use crate::{
-    circuits::{
-        cell::*,
-        etable::{
-            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
-            EventTableOpcodeConfigBuilder,
-        },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
-    },
-    constant_from,
-};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Error, Expression, VirtualCells},
-};
-use specs::{
-    encode::{frame_table::encode_frame_table_entry, opcode::encode_call},
-    step::StepInfo,
-};
+use crate::circuits::cell::*;
+use crate::circuits::etable::allocator::*;
+use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonConfig;
+use crate::circuits::etable::EventTableOpcodeConfig;
+use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::jtable::expression::JtableLookupEntryEncode;
+use crate::circuits::jtable::JumpTableConfig;
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use crate::circuits::utils::Context;
+use crate::constant_from;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
+use specs::encode::frame_table::encode_frame_table_entry;
+use specs::encode::opcode::encode_call;
+use specs::step::StepInfo;
 
 pub struct CallConfig<F: FieldExt> {
     index_cell: AllocatedCommonRangeCell<F>,

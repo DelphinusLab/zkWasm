@@ -1,25 +1,23 @@
-use crate::{
-    circuits::{
-        cell::*,
-        etable::{
-            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
-            EventTableOpcodeConfigBuilder,
-        },
-        utils::{step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo, Context},
-    },
-    constant_from,
-};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Error, Expression, VirtualCells},
-};
+use crate::circuits::cell::*;
+use crate::circuits::etable::allocator::*;
+use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonConfig;
+use crate::circuits::etable::EventTableOpcodeConfig;
+use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use crate::circuits::utils::Context;
+use crate::constant_from;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
-use specs::{
-    encode::opcode::encode_call_host,
-    external_host_call_table::{encode::encode_host_call_entry, ExternalHostCallSignature},
-    mtable::LocationType,
-    step::StepInfo,
-};
+use specs::encode::opcode::encode_call_host;
+use specs::external_host_call_table::encode::encode_host_call_entry;
+use specs::external_host_call_table::ExternalHostCallSignature;
+use specs::mtable::LocationType;
+use specs::step::StepInfo;
 
 pub struct ExternalCallHostCircuitConfig<F: FieldExt> {
     op: AllocatedCommonRangeCell<F>,

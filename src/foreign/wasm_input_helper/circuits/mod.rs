@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, Fixed, Instance},
-};
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::Instance;
 use num_bigint::BigUint;
 use specs::encode::FromBn;
 

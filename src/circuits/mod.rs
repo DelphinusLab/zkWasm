@@ -1,25 +1,36 @@
-use crate::circuits::{config::zkwasm_k, utils::Context};
-use ark_std::{end_timer, start_timer};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    pairing::bn256::{Bn256, Fr, G1Affine},
-    plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof, ConstraintSystem, Expression, ProvingKey,
-        SingleVerifier, VerifyingKey, VirtualCells,
-    },
-    poly::commitment::{Params, ParamsVerifier},
-    transcript::{Blake2bRead, Blake2bWrite, Challenge255},
-};
+use crate::circuits::config::zkwasm_k;
+use crate::circuits::utils::Context;
+use ark_std::end_timer;
+use ark_std::start_timer;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::pairing::bn256::Bn256;
+use halo2_proofs::pairing::bn256::Fr;
+use halo2_proofs::pairing::bn256::G1Affine;
+use halo2_proofs::plonk::create_proof;
+use halo2_proofs::plonk::keygen_pk;
+use halo2_proofs::plonk::keygen_vk;
+use halo2_proofs::plonk::verify_proof;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::ProvingKey;
+use halo2_proofs::plonk::SingleVerifier;
+use halo2_proofs::plonk::VerifyingKey;
+use halo2_proofs::plonk::VirtualCells;
+use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::poly::commitment::ParamsVerifier;
+use halo2_proofs::transcript::Blake2bRead;
+use halo2_proofs::transcript::Blake2bWrite;
+use halo2_proofs::transcript::Challenge255;
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::{itable::OpcodeClassPlain, Tables};
-use std::{
-    collections::HashSet,
-    fs::File,
-    io::{Cursor, Read},
-    marker::PhantomData,
-    path::PathBuf,
-};
+use specs::itable::OpcodeClassPlain;
+use specs::Tables;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::Cursor;
+use std::io::Read;
+use std::marker::PhantomData;
+use std::path::PathBuf;
 
 pub(crate) mod cell;
 pub(crate) mod etable;

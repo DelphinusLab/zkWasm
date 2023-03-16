@@ -1,9 +1,13 @@
 use super::Context;
-use crate::{circuits::rtable::RangeTableConfig, curr};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Error, Expression, VirtualCells},
-};
+use crate::circuits::rtable::RangeTableConfig;
+use crate::curr;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
 use std::marker::PhantomData;
 
 #[derive(Clone)]

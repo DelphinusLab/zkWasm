@@ -1,30 +1,32 @@
-use crate::{
-    circuits::{
-        cell::*,
-        etable::{
-            allocator::*, ConstraintBuilder, EventTableCommonConfig, EventTableOpcodeConfig,
-            EventTableOpcodeConfigBuilder,
-        },
-        jtable::{expression::JtableLookupEntryEncode, JumpTableConfig},
-        utils::{
-            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
-            Context,
-        },
-    },
-    constant, constant_from,
-};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Error, Expression, VirtualCells},
-};
-use num_bigint::{BigUint, ToBigUint};
-use specs::{
-    encode::frame_table::encode_frame_table_entry,
-    etable::EventTableEntry,
-    itable::{OpcodeClass, OPCODE_ARG0_SHIFT, OPCODE_ARG1_SHIFT, OPCODE_CLASS_SHIFT},
-    mtable::{LocationType, VarType},
-    step::StepInfo,
-};
+use crate::circuits::cell::*;
+use crate::circuits::etable::allocator::*;
+use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonConfig;
+use crate::circuits::etable::EventTableOpcodeConfig;
+use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::jtable::expression::JtableLookupEntryEncode;
+use crate::circuits::jtable::JumpTableConfig;
+use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use crate::circuits::utils::Context;
+use crate::constant;
+use crate::constant_from;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::VirtualCells;
+use num_bigint::BigUint;
+use num_bigint::ToBigUint;
+use specs::encode::frame_table::encode_frame_table_entry;
+use specs::etable::EventTableEntry;
+use specs::itable::OpcodeClass;
+use specs::itable::OPCODE_ARG0_SHIFT;
+use specs::itable::OPCODE_ARG1_SHIFT;
+use specs::itable::OPCODE_CLASS_SHIFT;
+use specs::mtable::LocationType;
+use specs::mtable::VarType;
+use specs::step::StepInfo;
 
 pub struct ReturnConfig<F: FieldExt> {
     keep: AllocatedBitCell<F>,

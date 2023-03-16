@@ -1,23 +1,29 @@
 use super::EVENT_TABLE_ENTRY_ROWS;
+use crate::circuits::cell::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::rtable::RangeTableConfig;
+use crate::circuits::traits::ConfigureLookupTable;
+use crate::circuits::utils::bit::BitColumn;
+use crate::circuits::utils::common_range::CommonRangeColumn;
+use crate::circuits::utils::u16::U16Column;
 use crate::circuits::utils::u8::U8Column;
-use crate::{
-    circuits::{
-        cell::*,
-        rtable::RangeTableConfig,
-        traits::ConfigureLookupTable,
-        utils::{bit::BitColumn, common_range::CommonRangeColumn, u16::U16Column},
-        Context,
-    },
-    constant_from, curr, fixed_curr, nextn,
-};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, VirtualCells},
-};
+use crate::circuits::Context;
+use crate::constant_from;
+use crate::curr;
+use crate::fixed_curr;
+use crate::nextn;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::VirtualCells;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::mtable::LocationType;
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
 pub(super) trait EventTableCellExpression<F: FieldExt> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;

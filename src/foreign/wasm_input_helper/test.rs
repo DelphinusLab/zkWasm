@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::{
-        foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-        runtime::host::host_env::HostEnv, test::test_circuit_with_env,
-    };
+    use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+    use crate::runtime::host::host_env::HostEnv;
+    use crate::test::test_circuit_with_env;
 
     use halo2_proofs::pairing::bn256::Fr as Fp;
 

@@ -1,14 +1,21 @@
 use self::allocator::*;
-use super::{
-    cell::*, config::max_mtable_rows, imtable::InitMemoryTableConfig, rtable::RangeTableConfig,
-    traits::ConfigureLookupTable, CircuitConfigure,
-};
-use crate::{constant_from, fixed_curr};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, VirtualCells},
-};
-use specs::{encode::memory_table::encode_memory_table_entry, mtable::LocationType};
+use super::cell::*;
+use super::config::max_mtable_rows;
+use super::imtable::InitMemoryTableConfig;
+use super::rtable::RangeTableConfig;
+use super::traits::ConfigureLookupTable;
+use super::CircuitConfigure;
+use crate::constant_from;
+use crate::fixed_curr;
+use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::VirtualCells;
+use specs::encode::memory_table::encode_memory_table_entry;
+use specs::mtable::LocationType;
 
 mod allocator;
 mod assign;
