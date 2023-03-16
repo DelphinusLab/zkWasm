@@ -62,7 +62,7 @@ impl<F: FieldExt> InitMemoryTableChip<F> {
         self,
         layouter: &mut impl Layouter<F>,
         init_memory_entries: &InitMemoryTable,
-    ) -> Result<(), Error> {
+    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
         let mut ret = vec![];
 
         layouter.assign_region(
@@ -103,6 +103,6 @@ impl<F: FieldExt> InitMemoryTableChip<F> {
                 Ok(())
             },
         )?;
-        Ok(())
+        Ok(ret)
     }
 }
