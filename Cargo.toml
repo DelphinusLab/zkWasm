@@ -43,3 +43,4 @@ rusty-fork = "0.3.0"
 default = ["v2"]
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
 v2 = []
+uniform_verifier = ["v2"]
