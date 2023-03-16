@@ -16,9 +16,9 @@ pub struct InstructionTableConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> InstructionTableConfig<F> {
-    pub fn configure(col: TableColumn) -> Self {
+    pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         InstructionTableConfig {
-            col,
+            col: meta.lookup_table_column(),
             _mark: PhantomData,
         }
     }
@@ -49,12 +49,12 @@ impl<F: FieldExt> InstructionTableChip<F> {
         instructions: &InstructionTable,
     ) -> Result<(), Error> {
         layouter.assign_table(
-            || "itable",
+            || "instruction table",
             |mut table| {
-                table.assign_cell(|| "inst_init table", self.config.col, 0, || Ok(F::zero()))?;
+                table.assign_cell(|| "instruction table", self.config.col, 0, || Ok(F::zero()))?;
                 for (i, v) in instructions.entries().iter().enumerate() {
                     table.assign_cell(
-                        || "inst_init table",
+                        || "instruction table",
                         self.config.col,
                         i + 1,
                         || Ok(bn_to_field::<F>(&v.encode())),

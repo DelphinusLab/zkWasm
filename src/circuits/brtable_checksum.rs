@@ -1,19 +1,24 @@
 use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::utils::bn_to_field;
+use crate::curr;
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
-use halo2_proofs::plonk::TableColumn;
 use halo2_proofs::plonk::VirtualCells;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use std::marker::PhantomData;
 
+use super::config::max_brtable_rows;
+
 #[derive(Clone)]
 pub struct BrTableConfig<F: FieldExt> {
-    pub(self) col: TableColumn,
+    col: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -28,9 +33,9 @@ impl<F: FieldExt> BrTableChip<F> {
 }
 
 impl<F: FieldExt> BrTableConfig<F> {
-    pub(in crate::circuits) fn configure(col: TableColumn) -> Self {
+    pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
-            col,
+            col: meta.advice_column(),
             _mark: PhantomData,
         }
     }
@@ -43,7 +48,7 @@ impl<F: FieldExt> ConfigureLookupTable<F> for BrTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.col)]);
+        meta.lookup_any(key, |meta| vec![(expr(meta), curr!(meta, self.col))]);
     }
 }
 
@@ -53,38 +58,50 @@ impl<F: FieldExt> BrTableChip<F> {
         layouter: &mut impl Layouter<F>,
         br_table_init: &BrTable,
         elem_table: &ElemTable,
-    ) -> Result<(), Error> {
-        layouter.assign_table(
+    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
+        let mut ret = vec![];
+
+        layouter.assign_region(
             || "br table",
             |mut table| {
-                table.assign_cell(
-                    || "br table empty cell",
-                    self.config.col,
-                    0,
-                    || Ok(F::zero()),
-                )?;
-
-                let mut offset = 1;
+                let mut offset = 0;
 
                 for e in br_table_init.entries() {
-                    table.assign_cell(
+                    let cell = table.assign_advice(
                         || "br table init cell",
                         self.config.col,
                         offset,
                         || Ok(bn_to_field::<F>(&e.encode())),
                     )?;
 
+                    ret.push(cell);
                     offset += 1;
                 }
 
                 for e in elem_table.entries() {
-                    table.assign_cell(
-                        || "call indirect init cell",
+                    let cell = table.assign_advice(
+                        || "br table call indirect cell",
                         self.config.col,
                         offset,
                         || Ok(bn_to_field::<F>(&e.encode())),
                     )?;
 
+                    ret.push(cell);
+                    offset += 1;
+                }
+
+                let max_rows = max_brtable_rows() as usize;
+                assert!(offset < max_rows);
+
+                while offset < max_rows {
+                    let cell = table.assign_advice(
+                        || "br table padding",
+                        self.config.col,
+                        offset,
+                        || Ok(F::zero()),
+                    )?;
+
+                    ret.push(cell);
                     offset += 1;
                 }
 
@@ -92,6 +109,6 @@ impl<F: FieldExt> BrTableChip<F> {
             },
         )?;
 
-        Ok(())
+        Ok(ret)
     }
 }

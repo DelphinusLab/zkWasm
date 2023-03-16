@@ -18,9 +18,9 @@ pub struct InitMemoryTableConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> InitMemoryTableConfig<F> {
-    pub fn configure(col: TableColumn) -> Self {
+    pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
-            col,
+            col: meta.lookup_table_column(),
             _mark: PhantomData,
         }
     }
