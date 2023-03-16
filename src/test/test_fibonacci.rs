@@ -1,9 +1,5 @@
-use crate::{
-    foreign::wasm_input_helper::runtime::register_wasm_input_foreign,
-    runtime::{host::host_env::HostEnv, ExecutionResult},
-};
+use crate::runtime::{host::host_env::HostEnv, ExecutionResult};
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::Fr as Fp;
 use wasmi::RuntimeValue;
 
 use super::test_circuit_with_env;
@@ -23,70 +19,53 @@ use super::test_circuit_with_env;
        return fib(input);
    }
 */
-fn build_test() -> Result<(ExecutionResult<RuntimeValue>, Vec<u64>, i32)> {
+fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
     let textual_repr = r#"
     (module
-        (import "env" "wasm_input" (func $wasm_input (param i32) (result i64)))
-        (export "fib" (func $fib))
-        (export "test" (func $test))
-        (func $fib (; 1 ;) (param $0 i32) (result i32)
-         (block $label$0
-          (br_if $label$0
-           (i32.ne
-            (i32.or
-             (get_local $0)
-             (i32.const 1)
-            )
-            (i32.const 1)
-           )
-          )
-          (return
-           (get_local $0)
-          )
-         )
-         (i32.add
-          (call $fib
-           (i32.add
-            (get_local $0)
-            (i32.const -1)
-           )
-          )
-          (call $fib
-           (i32.add
-            (get_local $0)
-            (i32.const -2)
-           )
-          )
-         )
-        )
-        (func $test (; 2 ;) (result i32)
-         (call $fib
-          (i32.wrap/i64
-           (call $wasm_input
-            (i32.const 1)
-           )
-          )
-         )
-        )
-       )
+        (type (;0;) (func (param i32) (result i32)))
+        (type (;1;) (func (result i32)))
+        (func (;0;) (type 0) (param i32) (result i32)
+          (local i32)
+          local.get 0
+          i32.const 2
+          i32.ge_u
+          if  ;; label = @1
+            loop  ;; label = @2
+              local.get 0
+              i32.const 1
+              i32.sub
+              call 0
+              local.get 1
+              i32.add
+              local.set 1
+              local.get 0
+              i32.const 2
+              i32.sub
+              local.tee 0
+              i32.const 1
+              i32.gt_u
+              br_if 0 (;@2;)
+            end
+          end
+          local.get 0
+          local.get 1
+          i32.add)
+        (func (;1;) (type 1) (result i32)
+          i32.const 10
+          call 0)
+        (memory (;0;) 2 2)
+        (export "memory" (memory 0))
+        (export "zkmain" (func 1)))
     "#;
 
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-    let public_inputs = vec![13];
-
     let mut env = HostEnv::new();
-    register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
     env.finalize();
 
-    let execution_result = test_circuit_with_env(
-        env,
-        wasm,
-        "test",
-        public_inputs.iter().map(|v| Fp::from(*v)).collect(),
-    )?;
+    let execution_result = test_circuit_with_env(env, wasm, "zkmain", vec![])?;
 
-    Ok((execution_result, public_inputs, 233))
+    Ok((execution_result, 55))
 }
 
 mod tests {
@@ -96,23 +75,19 @@ mod tests {
 
     #[test]
     fn test_fibonacci_mock() {
-        let (execution_result, public_inputs, expected_value) = build_test().unwrap();
+        let (execution_result, expected_value) = build_test().unwrap();
 
         assert_eq!(
             execution_result.result.unwrap(),
             RuntimeValue::I32(expected_value)
         );
 
-        run_test_circuit(
-            execution_result,
-            public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
-        )
-        .unwrap();
+        run_test_circuit::<Fp>(execution_result, vec![]).unwrap();
     }
 
     #[test]
     fn test_fibonacci_full() {
-        let (execution_result, public_inputs, expected_value) = build_test().unwrap();
+        let (execution_result, expected_value) = build_test().unwrap();
 
         assert_eq!(
             execution_result.result.unwrap(),
@@ -124,6 +99,6 @@ mod tests {
             tables: execution_result.tables,
         };
 
-        builder.bench(public_inputs.into_iter().map(|v| Fp::from(v)).collect())
+        builder.bench(vec![])
     }
 }

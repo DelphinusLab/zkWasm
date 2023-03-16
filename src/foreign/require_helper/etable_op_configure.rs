@@ -1,140 +1,131 @@
-use crate::{
-    circuits::{
-        etable_compact::{
-            op_configure::{
-                ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfig,
-                MTableLookupCell, U64Cell, UnlimitedCell,
-            },
-            EventTableCommonConfig, MLookupItem, StepStatus,
-        },
-        mtable_compact::encode::MemoryTableLookupEncode,
-        utils::{bn_to_field, Context},
-    },
-    constant, constant_from,
-    foreign::v1::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
-};
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
-use specs::step::StepInfo;
 use specs::{
-    etable::EventTableEntry,
     itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+    mtable::LocationType,
+    step::StepInfo,
 };
-use specs::{host_function::HostPlugin, mtable::VarType};
 
-pub struct RequireForeignCallInfo {}
-impl ForeignCallInfo for RequireForeignCallInfo {
-    fn call_id(&self) -> usize {
-        OpcodeClass::ForeignPluginStart as usize + HostPlugin::Require as usize
+use crate::{
+    circuits::{
+        cell::{AllocatedU64Cell, AllocatedUnlimitedCell, CellExpression},
+        etable::{
+            allocator::{AllocatedMemoryTableLookupReadCell, EventTableCellAllocator},
+            constraint_builder::ConstraintBuilder,
+            EventTableCommonConfig, EventTableOpcodeConfig,
+        },
+        utils::{
+            bn_to_field, step_status::StepStatus, table_entry::EventTableEntryWithMemoryInfo,
+            Context,
+        },
+    },
+    constant_from, constant_from_bn,
+    foreign::{EventTableForeignCallConfigBuilder, InternalHostPluginBuilder},
+};
+
+pub struct ETableRequireHelperTableConfig<F: FieldExt> {
+    plugin_index: usize,
+
+    cond: AllocatedU64Cell<F>,
+    cond_inv: AllocatedUnlimitedCell<F>,
+
+    memory_table_lookup_read_stack: AllocatedMemoryTableLookupReadCell<F>,
+}
+
+pub struct ETableRequireHelperTableConfigBuilder {
+    index: usize,
+}
+
+impl InternalHostPluginBuilder for ETableRequireHelperTableConfigBuilder {
+    fn new(index: usize) -> Self {
+        Self { index }
     }
 }
 
-pub struct ETableRequireHelperTableConfig {
-    cond: U64Cell,
-    cond_inv: UnlimitedCell,
-    cond_lookup: MTableLookupCell,
-}
-
-pub struct ETableRequireHelperTableConfigBuilder {}
-
 impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableRequireHelperTableConfigBuilder {
     fn configure(
-        common: &mut EventTableCellAllocator<F>,
+        self,
+        common_config: &EventTableCommonConfig<F>,
+        allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
-        _info: &impl ForeignCallInfo,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let cond = common.alloc_u64();
-        let cond_inv = common.alloc_unlimited_value();
-        let cond_lookup = common.alloc_mtable_lookup();
+        let cond = allocator.alloc_u64_cell();
+        let cond_inv = allocator.alloc_unlimited_cell();
 
         constraint_builder.push(
             "require: cond is not zero",
             Box::new(move |meta| vec![(cond.expr(meta) * cond_inv.expr(meta) - constant_from!(1))]),
         );
 
+        let eid = common_config.eid_cell;
+        let sp = common_config.sp_cell;
+
+        let memory_table_lookup_read_stack = allocator.alloc_memory_table_lookup_read_cell(
+            "wasm input stack read",
+            constraint_builder,
+            eid,
+            move |_| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |____| constant_from!(1),
+            move |meta| cond.expr(meta),
+            move |_| constant_from!(1),
+        );
+
         Box::new(ETableRequireHelperTableConfig {
+            plugin_index: self.index,
             cond,
             cond_inv,
-            cond_lookup,
+            memory_table_lookup_read_stack,
         })
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableRequireHelperTableConfig {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableRequireHelperTableConfig<F> {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + HostPlugin::Require as u64)
+        constant_from_bn!(
+            &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + self.plugin_index as u64)
                 << OPCODE_CLASS_SHIFT)
-        ))
+        )
     }
 
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step_info: &StepStatus,
-        entry: &EventTableEntry,
+        step: &StepStatus,
+        entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        match &entry.step_info {
-            StepInfo::CallHost { plugin, args, .. } => {
-                assert_eq!(*plugin, HostPlugin::Require);
-
+        match &entry.eentry.step_info {
+            StepInfo::CallHost {
+                args,
+                ..
+            } => {
                 let cond = args[0];
 
                 self.cond.assign(ctx, cond)?;
                 self.cond_inv
                     .assign(ctx, F::from(cond).invert().unwrap_or(F::zero()))?;
-                self.cond_lookup.assign(
+                self.memory_table_lookup_read_stack.assign(
                     ctx,
-                    &MemoryTableLookupEncode::encode_stack_read(
-                        BigUint::from(step_info.current.eid),
-                        BigUint::from(1u64),
-                        BigUint::from(step_info.current.sp + 1),
-                        BigUint::from(VarType::I32 as u64),
-                        BigUint::from(cond),
-                    ),
+                    entry.memory_rw_entires[0].start_eid,
+                    step.current.eid,
+                    entry.memory_rw_entires[0].end_eid,
+                    step.current.sp + 1,
+                    LocationType::Stack,
+                    true,
+                    cond,
                 )?;
 
                 Ok(())
             }
+
             _ => unreachable!(),
         }
     }
 
-    fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1))
-    }
-
-    fn assigned_extra_mops(
-        &self,
-        _ctx: &mut Context<'_, F>,
-        _step: &StepStatus,
-        _entry: &EventTableEntry,
-    ) -> u64 {
-        1
-    }
-
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(1))
-    }
-
-    fn mtable_lookup(
-        &self,
-        meta: &mut VirtualCells<'_, F>,
-        item: MLookupItem,
-        common_config: &EventTableCommonConfig<F>,
-    ) -> Option<Expression<F>> {
-        match item {
-            MLookupItem::First => Some(MemoryTableLookupEncode::encode_stack_read(
-                common_config.eid(meta),
-                constant_from!(1),
-                common_config.sp(meta) + constant_from!(1),
-                constant_from!(VarType::I32),
-                self.cond.expr(meta),
-            )),
-            _ => None,
-        }
     }
 }
