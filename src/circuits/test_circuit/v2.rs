@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -27,15 +25,10 @@ use crate::{
     },
     exec_with_profile,
     foreign::{
-        sha256_helper::{
-            circuits::{assign::Sha256HelperTableChip, Sha256HelperTableConfig},
-            SHA256_FOREIGN_TABLE_KEY,
-        },
+        sha256_helper::circuits::{assign::Sha256HelperTableChip, Sha256HelperTableConfig},
         wasm_input_helper::circuits::{
             assign::WasmInputHelperTableChip, WasmInputHelperTableConfig,
-            WASM_INPUT_FOREIGN_TABLE_KEY,
         },
-        ForeignTableConfig,
     },
 };
 
@@ -101,16 +94,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta, &rtable);
         let sha256_helper_table = Sha256HelperTableConfig::configure(meta, &rtable);
 
-        let mut foreign_tables = BTreeMap::<&'static str, Box<dyn ForeignTableConfig<_>>>::new();
-        foreign_tables.insert(
-            WASM_INPUT_FOREIGN_TABLE_KEY,
-            Box::new(wasm_input_helper_table.clone()),
-        );
-        foreign_tables.insert(
-            SHA256_FOREIGN_TABLE_KEY,
-            Box::new(sha256_helper_table.clone()),
-        );
-
         let etable = EventTableConfig::configure(
             meta,
             &mut cols,
@@ -122,7 +105,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &brtable,
             &bit_table,
             &external_host_call_table,
-            //&foreign_tables,
             &circuit_configure.opcode_selector,
         );
 

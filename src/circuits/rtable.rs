@@ -37,6 +37,7 @@ pub struct RangeTableConfig<F: FieldExt> {
     //        l_u8      << 16
     //        r_u8      <<  8
     //      res_u8
+    #[cfg(feature = "v2")]
     u8_bit_op_col: TableColumn,
 
     _mark: PhantomData<F>,
@@ -55,6 +56,21 @@ pub(crate) fn encode_u8_bit_lookup(op: BitOp, left: u8, right: u8) -> u64 {
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
+    #[cfg(not(feature = "v2"))]
+    pub fn configure(cols: [TableColumn; 7]) -> Self {
+        RangeTableConfig {
+            u16_col: cols[0],
+            u8_col: cols[1],
+            u4_col: cols[2],
+            u4_bop_calc_col: cols[3],
+            u4_bop_col: cols[4],
+            pow_col: cols[5],
+            offset_len_bits_col: cols[6],
+            _mark: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "v2")]
     pub fn configure(cols: [TableColumn; 8]) -> Self {
         RangeTableConfig {
             u16_col: cols[0],
@@ -96,6 +112,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
     }
 
+    #[cfg(feature = "v2")]
     pub fn configure_in_u8_bit_table(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -361,6 +378,7 @@ impl<F: FieldExt> RangeTableChip<F> {
             },
         )?;
 
+        #[cfg(feature = "v2")]
         layouter.assign_table(
             || "u8 bit table",
             |mut table| {

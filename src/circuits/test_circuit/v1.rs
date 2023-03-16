@@ -14,7 +14,7 @@ use crate::{
         brtable::{BrTableChip, BrTableConfig},
         etable_compact::{EventTableChip, EventTableConfig},
         external_host_call_table::{ExternalHostCallChip, ExternalHostCallTableConfig},
-        imtable::{InitMemoryTableConfig, MInitTableChip},
+        imtable::{InitMemoryTableConfig, MInitTableChip, IMTABLE_COLUMN_TWO},
         itable::{InstructionTableChip, InstructionTableConfig},
         jtable::{JumpTableChip, JumpTableConfig},
         mtable_compact::{MemoryTableChip, MemoryTableConfig},
@@ -39,7 +39,7 @@ use crate::{
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     itable: InstructionTableConfig<F>,
-    imtable: InitMemoryTableConfig<F>,
+    imtable: InitMemoryTableConfig<F, IMTABLE_COLUMN_TWO>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -55,10 +55,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit::new(Tables {
-            compilation_tables: self.tables.compilation_tables.clone(),
-            execution_tables: ExecutionTable::default(),
-        })
+        TestCircuit::new(
+            self.fid_of_entry,
+            Tables {
+                compilation_tables: self.tables.compilation_tables.clone(),
+                execution_tables: ExecutionTable::default(),
+            },
+        )
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -77,7 +80,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rtable = RangeTableConfig::configure([0; 7].map(|_| meta.lookup_table_column()));
         let itable = InstructionTableConfig::configure(meta.lookup_table_column());
-        let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
+        let imtable = InitMemoryTableConfig::configure(
+            [(); IMTABLE_COLUMN_TWO].map(|_| meta.lookup_table_column()),
+        );
         let mtable =
             MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable, &circuit_configure);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
@@ -209,7 +214,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 jchip.assign(
                     &mut ctx,
                     &self.tables.execution_tables.jtable,
-                    None, //rest_jops_cell,
+                    rest_jops_cell,
                     &self.tables.compilation_tables.static_jtable,
                 )?;
 

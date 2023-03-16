@@ -1,10 +1,4 @@
-use self::{
-    brtable::BrTableConfig, external_host_call_table::ExternalHostCallTableConfig,
-    jtable::JumpTableConfig, mtable_compact::MemoryTableConfig,
-};
-use crate::circuits::{
-    config::zkwasm_k, itable::InstructionTableConfig, rtable::RangeTableConfig, utils::Context,
-};
+use crate::circuits::{config::zkwasm_k, utils::Context};
 use ark_std::{end_timer, start_timer};
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -18,7 +12,7 @@ use halo2_proofs::{
 };
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::{host_function::HostPlugin, itable::OpcodeClassPlain, Tables};
+use specs::{itable::OpcodeClassPlain, Tables};
 use std::{
     collections::HashSet,
     fs::File,
@@ -27,20 +21,27 @@ use std::{
     path::PathBuf,
 };
 
+#[cfg(feature = "v2")]
 mod bit_table;
-pub(crate) mod cell;
+#[cfg(feature = "v2")]
 pub(crate) mod etable_v2;
-mod external_host_call_table;
+#[cfg(feature = "v2")]
 mod mtable_v2;
+
+#[cfg(not(feature = "v2"))]
+pub mod etable_compact;
+#[cfg(not(feature = "v2"))]
+pub mod mtable_compact;
+
+pub(crate) mod cell;
+mod external_host_call_table;
 mod traits;
 
 pub mod brtable;
 pub mod config;
-pub mod etable_compact;
 pub mod imtable;
 pub mod itable;
 pub mod jtable;
-pub mod mtable_compact;
 pub mod rtable;
 pub mod test_circuit;
 pub mod utils;

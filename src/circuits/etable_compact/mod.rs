@@ -29,10 +29,11 @@ use crate::{
         sha256_helper::etable_op_configure::{
             ETableSha256HelperTableConfigBuilder, Sha256ForeignCallInfo,
         },
+        v1::EventTableForeignCallConfigBuilder,
         wasm_input_helper::etable_op_configure::{
             ETableWasmInputHelperTableConfigBuilder, WasmInputForeignCallInfo,
         },
-        EventTableForeignCallConfigBuilder, ForeignTableConfig,
+        ForeignTableConfig,
     },
     nextn,
 };

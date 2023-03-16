@@ -1,4 +1,4 @@
-use crate::profile::Profiler;
+use crate::{foreign::sha256_helper::runtime::register_sha256_foreign, profile::Profiler};
 use anyhow::Result;
 use halo2_proofs::{
     dev::MockProver,
@@ -24,7 +24,6 @@ use crate::{
     circuits::{TestCircuit, ZkWasmCircuitBuilder},
     foreign::{
         log_helper::register_log_foreign, require_helper::register_require_foreign,
-        sha256_helper::runtime::register_sha256_foreign,
         wasm_input_helper::runtime::register_wasm_input_foreign,
     },
     runtime::{host::host_env::HostEnv, wasmi_interpreter::Execution, WasmInterpreter},

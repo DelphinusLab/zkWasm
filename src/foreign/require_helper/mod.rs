@@ -4,7 +4,9 @@ use specs::{host_function::HostPlugin, types::ValueType};
 
 use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 
+#[cfg(not(feature = "v2"))]
 pub mod etable_op_configure;
+#[cfg(feature = "v2")]
 pub mod etable_op_configure_v2;
 
 struct Context;

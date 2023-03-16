@@ -1,7 +1,9 @@
 use strum_macros::EnumIter;
 
-pub mod circuits;
+#[cfg(not(feature = "v2"))]
 pub mod etable_op_configure;
+
+pub mod circuits;
 pub mod runtime;
 pub mod test;
 

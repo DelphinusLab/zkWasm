@@ -11,7 +11,7 @@ use crate::{
         utils::{bn_to_field, Context},
     },
     constant, constant_from,
-    foreign::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
+    foreign::v1::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,

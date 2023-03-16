@@ -11,19 +11,20 @@ use crate::{
         utils::{bn_to_field, Context},
     },
     constant, constant_from,
-    foreign::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
+    foreign::v1::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
 };
 use halo2_proofs::{
     arithmetic::FieldExt,
     plonk::{Error, Expression, VirtualCells},
 };
 use num_bigint::BigUint;
-use specs::step::StepInfo;
 use specs::{
     etable::EventTableEntry,
+    host_function::HostPlugin,
     itable::{OpcodeClass, OPCODE_CLASS_SHIFT},
+    mtable::VarType,
+    step::StepInfo,
 };
-use specs::{host_function::HostPlugin, mtable::VarType};
 
 use super::circuits::{InputTableEncode, WASM_INPUT_FOREIGN_TABLE_KEY};
 

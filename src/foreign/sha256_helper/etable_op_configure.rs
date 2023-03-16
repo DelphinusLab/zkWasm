@@ -20,7 +20,7 @@ use crate::{
             SHA256_FOREIGN_FUNCTION_NAME_LSIGMA0, SHA256_FOREIGN_FUNCTION_NAME_LSIGMA1,
             SHA256_FOREIGN_FUNCTION_NAME_SSIGMA0, SHA256_FOREIGN_FUNCTION_NAME_SSIGMA1,
         },
-        EventTableForeignCallConfigBuilder, ForeignCallInfo,
+        v1::{EventTableForeignCallConfigBuilder, ForeignCallInfo},
     },
 };
 use halo2_proofs::{
