@@ -18,8 +18,8 @@ use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
 use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
-use crate::circuits::imtable::InitMemoryTableConfig;
 use crate::circuits::imtable::InitMemoryTableChip;
+use crate::circuits::imtable::InitMemoryTableConfig;
 use crate::circuits::itable::InstructionTableChip;
 use crate::circuits::itable::InstructionTableConfig;
 use crate::circuits::jtable::JumpTableChip;
@@ -83,12 +83,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
         let rtable = RangeTableConfig::configure([0; 8].map(|_| meta.lookup_table_column()));
-        let itable = InstructionTableConfig::configure(meta.lookup_table_column());
-        let imtable = InitMemoryTableConfig::configure(meta.lookup_table_column());
+        let itable = InstructionTableConfig::configure(meta);
+        let imtable = InitMemoryTableConfig::configure(meta);
         let mtable =
             MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable, &circuit_configure);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
-        let brtable = BrTableConfig::configure(meta.lookup_table_column());
+        let brtable = BrTableConfig::configure(meta);
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
         let bit_table = BitTableConfig::configure(meta, &rtable);
 

@@ -40,10 +40,33 @@ mod external_host_call_table;
 mod mtable;
 mod traits;
 
-pub mod brtable;
+#[cfg(feature = "checksum")]
+pub mod brtable_checksum;
+#[cfg(feature = "checksum")]
+pub use brtable_checksum as brtable;
+#[cfg(feature = "checksum")]
+pub mod imtable_checksum;
+#[cfg(feature = "checksum")]
+pub use imtable_checksum as imtable;
+#[cfg(feature = "checksum")]
+pub mod itable_checksum;
+#[cfg(feature = "checksum")]
+pub use itable_checksum as itable;
+
+#[cfg(not(feature = "checksum"))]
+pub mod brtable_fixed;
+#[cfg(not(feature = "checksum"))]
+pub use brtable_fixed as brtable;
+#[cfg(not(feature = "checksum"))]
+pub mod itable_fixed;
+#[cfg(not(feature = "checksum"))]
+pub use itable_fixed as itable;
+#[cfg(not(feature = "checksum"))]
+pub mod imtable_fixed;
+#[cfg(not(feature = "checksum"))]
+pub use imtable_fixed as imtable;
+
 pub mod config;
-pub mod imtable;
-pub mod itable;
 pub mod jtable;
 pub mod rtable;
 pub mod test_circuit;

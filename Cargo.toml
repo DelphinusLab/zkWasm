@@ -41,5 +41,6 @@ rusty-fork = "0.3.0"
 
 [features]
 default = []
-uniform_verifier = []
+checksum = []
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
+uniform_verifier = []
