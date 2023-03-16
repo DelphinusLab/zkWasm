@@ -65,8 +65,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 mod assign;
-
-pub(self) mod op_configure;
+mod op_configure;
 
 pub(crate) mod allocator;
 pub(crate) mod constraint_builder;
