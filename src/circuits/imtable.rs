@@ -45,19 +45,19 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
     }
 }
 
-pub struct MInitTableChip<F: FieldExt> {
+pub struct InitMemoryTableChip<F: FieldExt> {
     config: InitMemoryTableConfig<F>,
 }
 
-impl<F: FieldExt> MInitTableChip<F> {
+impl<F: FieldExt> InitMemoryTableChip<F> {
     pub fn new(config: InitMemoryTableConfig<F>) -> Self {
-        MInitTableChip { config }
+        InitMemoryTableChip { config }
     }
 
     pub fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        minit: &InitMemoryTable,
+        init_memory_entries: &InitMemoryTable,
     ) -> Result<(), Error> {
         layouter.assign_table(
             || "init memory table",
@@ -69,8 +69,8 @@ impl<F: FieldExt> MInitTableChip<F> {
                     || Ok(F::zero()),
                 )?;
 
-                let heap_entries = minit.filter(LocationType::Heap);
-                let global_entries = minit.filter(LocationType::Global);
+                let heap_entries = init_memory_entries.filter(LocationType::Heap);
+                let global_entries = init_memory_entries.filter(LocationType::Global);
 
                 let mut idx = 0;
 

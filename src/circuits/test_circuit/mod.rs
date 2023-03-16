@@ -19,7 +19,7 @@ use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
 use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
 use crate::circuits::imtable::InitMemoryTableConfig;
-use crate::circuits::imtable::MInitTableChip;
+use crate::circuits::imtable::InitMemoryTableChip;
 use crate::circuits::itable::InstructionTableChip;
 use crate::circuits::itable::InstructionTableConfig;
 use crate::circuits::jtable::JumpTableChip;
@@ -131,7 +131,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rchip = RangeTableChip::new(config.rtable);
         let ichip = InstructionTableChip::new(config.itable);
-        let imchip = MInitTableChip::new(config.imtable);
+        let imchip = InitMemoryTableChip::new(config.imtable);
         let mchip = MemoryTableChip::new(config.mtable);
         let jchip = JumpTableChip::new(config.jtable);
         let echip = EventTableChip::new(config.etable);
