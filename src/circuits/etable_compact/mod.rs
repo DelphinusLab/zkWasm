@@ -1,5 +1,10 @@
 use self::op_configure::EventTableOpcodeConfig;
-use super::*;
+use super::{
+    brtable::BrTableConfig, external_host_call_table::ExternalHostCallTableConfig,
+    itable::InstructionTableConfig, jtable::JumpTableConfig, mtable_compact::MemoryTableConfig,
+    rtable::RangeTableConfig, *,
+};
+use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::{
     etable_compact::op_configure::{
         op_bin::BinConfigBuilder, op_bin_bit::BinBitConfigBuilder,
@@ -17,7 +22,6 @@ use crate::circuits::{
         op_store::StoreConfigBuilder, op_test::TestConfigBuilder, op_unary::UnaryConfigBuilder,
         ConstraintBuilder, EventTableCellAllocator, EventTableOpcodeConfigBuilder,
     },
-    traits::ConfigureLookupTable,
     utils::bn_to_field,
 };
 use crate::{
@@ -46,6 +50,7 @@ use specs::{
     configure_table::ConfigureTable,
     encode::instruction_table::encode_instruction_table_entry,
     etable::{EventTable, EventTableEntry},
+    host_function::HostPlugin,
     itable::OpcodeClass,
 };
 use std::{collections::BTreeMap, marker::PhantomData, rc::Rc};
