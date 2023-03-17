@@ -3,6 +3,8 @@ use crate::curr;
 
 use super::utils::bn_to_field;
 use halo2_proofs::arithmetic::FieldExt;
+#[cfg(feature = "checksum")]
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;

@@ -38,6 +38,7 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
         });
     }
 
+    #[cfg(not(feature = "checksum"))]
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("c3. jtable rest decrease", |meta| {
             vec![
@@ -50,6 +51,25 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
                     * fixed_curr!(meta, self.sel),
             ]
         });
+    }
+
+    #[cfg(feature = "checksum")]
+    fn configure_rest_jops_decrease(&self, _meta: &mut ConstraintSystem<F>) {
+        todo!();
+
+        // meta.create_gate("c3. jtable rest decrease", |meta| {
+        //     vec![
+        //         (self.rest(meta) - self.next_rest(meta) - constant_from!(2)
+        //             + self.static_bit(meta))
+        //             * self.entry(meta)
+        //             * self.enable(meta)
+        //             * fixed_curr!(meta, self.sel),
+        //         (self.rest(meta) - self.next_rest(meta))
+        //             * self.entry(meta)
+        //             * (self.enable(meta) - constant_from!(1))
+        //             * fixed_curr!(meta, self.sel),
+        //     ]
+        // });
     }
 
     fn disabled_block_should_be_empty(&self, meta: &mut ConstraintSystem<F>) {
