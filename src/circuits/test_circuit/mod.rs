@@ -208,7 +208,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     )
                 );
 
-                let (rest_mops_cell, rest_jops_cell) = exec_with_profile!(
+                let etable_permutation_cells = exec_with_profile!(
                     || "Assign etable",
                     echip.assign(
                         &mut ctx,
@@ -224,7 +224,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         || "Assign mtable",
                         mchip.assign(
                             &mut ctx,
-                            rest_mops_cell,
+                            etable_permutation_cells.rest_mops,
                             &memory_writing_table,
                             self.tables
                                 .compilation_tables
@@ -241,7 +241,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         jchip.assign(
                             &mut ctx,
                             &self.tables.execution_tables.jtable,
-                            rest_jops_cell,
+                            etable_permutation_cells.rest_jops,
                             &self.tables.compilation_tables.static_jtable,
                         )?
                     );

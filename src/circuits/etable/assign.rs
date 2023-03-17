@@ -1,4 +1,5 @@
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
@@ -18,6 +19,12 @@ use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
+
+pub(in crate::circuits) struct EventTablePermutationCells {
+    pub(in crate::circuits) rest_mops: Option<Cell>,
+    pub(in crate::circuits) rest_jops: Option<Cell>,
+    pub(in crate::circuits) fid_of_entry: Cell,
+}
 
 impl<F: FieldExt> EventTableChip<F> {
     fn compute_rest_mops_and_jops(
@@ -95,7 +102,7 @@ impl<F: FieldExt> EventTableChip<F> {
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
         rest_ops: Vec<(u32, u32)>,
-    ) -> Result<(), Error> {
+    ) -> Result<AssignedCell<F, F>, Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.common_config.$cell.assign(ctx, $value)?;
@@ -115,7 +122,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     self.config.common_config.$cell.0.col,
                     ctx.offset + self.config.common_config.$cell.0.rot as usize,
                     $value,
-                )?;
+                )?
             };
         }
 
@@ -135,14 +142,14 @@ impl<F: FieldExt> EventTableChip<F> {
         assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
         assign_constant!(frame_id_cell, F::zero());
         assign_constant!(eid_cell, F::one());
-        assign_constant!(fid_cell, F::from(fid_of_entry as u64));
+        let fid_of_entry_cell = assign_constant!(fid_cell, F::from(fid_of_entry as u64));
         assign_constant!(iid_cell, F::zero());
 
         /*
          * The length of event_table equals 0: without_witness
          */
         if event_table.0.len() == 0 {
-            return Ok(());
+            return Ok(fid_of_entry_cell);
         }
 
         let status = {
@@ -253,16 +260,16 @@ impl<F: FieldExt> EventTableChip<F> {
             F::from(external_host_call_call_index as u64)
         );
 
-        Ok(())
+        Ok(fid_of_entry_cell)
     }
 
-    pub(crate) fn assign(
+    pub(in crate::circuits) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
-    ) -> Result<(Option<Cell>, Option<Cell>), Error> {
+    ) -> Result<EventTablePermutationCells, Error> {
         debug!("size of execution table: {}", event_table.0.len());
 
         let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
@@ -277,7 +284,7 @@ impl<F: FieldExt> EventTableChip<F> {
         )?;
         ctx.reset();
 
-        self.assign_entries(
+        let fid_of_entry_cell = self.assign_entries(
             ctx,
             &self.config.op_configs,
             event_table,
@@ -287,6 +294,10 @@ impl<F: FieldExt> EventTableChip<F> {
         )?;
         ctx.reset();
 
-        Ok((Some(rest_mops_cell), Some(rest_jops_cell)))
+        Ok(EventTablePermutationCells {
+            rest_mops: Some(rest_mops_cell),
+            rest_jops: Some(rest_jops_cell),
+            fid_of_entry: fid_of_entry_cell.cell(),
+        })
     }
 }
