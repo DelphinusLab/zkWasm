@@ -25,8 +25,10 @@ pub struct InitMemoryTableConfig<F: FieldExt> {
 
 impl<F: FieldExt> InitMemoryTableConfig<F> {
     pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
+        let col = meta.advice_column();
+        meta.enable_equality(col);
         Self {
-            col: meta.advice_column(),
+            col,
             _mark: PhantomData,
         }
     }
@@ -65,14 +67,13 @@ impl<F: FieldExt> InitMemoryTableChip<F> {
         layouter: &mut impl Layouter<F>,
         init_memory_entries: &InitMemoryTable,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        let mut ret = vec![];
-
         layouter.assign_region(
             || "init memory table",
             |mut table| {
                 let heap_entries = init_memory_entries.filter(LocationType::Heap);
                 let global_entries = init_memory_entries.filter(LocationType::Global);
 
+                let mut ret = vec![];
                 let mut offset = 0;
 
                 for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
@@ -102,9 +103,8 @@ impl<F: FieldExt> InitMemoryTableChip<F> {
                     offset += 1;
                 }
 
-                Ok(())
+                Ok(ret)
             },
-        )?;
-        Ok(ret)
+        )
     }
 }

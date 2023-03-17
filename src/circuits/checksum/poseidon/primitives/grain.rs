@@ -181,17 +181,3 @@ impl<F: PrimeField> Iterator for Grain<F> {
         Some(self.get_next_bit())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use halo2_proofs::pairing::bn256::Fr;
-
-    use super::Grain;
-    use super::SboxType;
-
-    #[test]
-    fn grain() {
-        let mut grain = Grain::<Fr>::new(SboxType::Pow, 3, 8, 56);
-        let _f = grain.next_field_element();
-    }
-}

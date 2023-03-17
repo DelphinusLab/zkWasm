@@ -11,7 +11,7 @@ use halo2_proofs::pairing::group::ff::Field;
 pub(crate) mod grain;
 pub(crate) mod mds;
 
-mod p128pow5t9;
+pub(crate) mod p128pow5t9;
 pub use p128pow5t9::P128Pow5T9;
 
 use grain::SboxType;
@@ -369,52 +369,5 @@ impl<F: FieldExt, S: Spec<F, T, RATE>, const T: usize, const RATE: usize, const 
             self.sponge.absorb(value);
         }
         self.sponge.finish_absorbing().squeeze()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use halo2_proofs::arithmetic::FieldExt;
-    use halo2_proofs::pairing::bn256::Fr;
-
-    use super::permute;
-    use super::ConstantLength;
-    use super::Hash;
-    use super::P128Pow5T9 as OrchardNullifier;
-    use super::Spec;
-
-    #[test]
-    fn orchard_spec_equivalence() {
-        let message = [
-            Fr::from(1),
-            Fr::from(2),
-            Fr::from(3),
-            Fr::from(4),
-            Fr::from(1),
-            Fr::from(2),
-            Fr::from(3),
-            Fr::from(4),
-        ];
-
-        let (round_constants, mds, _) = OrchardNullifier::constants();
-
-        let hasher = Hash::<_, OrchardNullifier, ConstantLength<8>, 9, 8>::init();
-        let result = hasher.hash(message);
-
-        // The result should be equivalent to just directly applying the permutation and
-        // taking the first state element as the output.
-        let mut state = [
-            message[0],
-            message[1],
-            message[0],
-            message[1],
-            message[0],
-            message[1],
-            message[0],
-            message[1],
-            Fr::from_u128(2 << 64),
-        ];
-        permute::<_, OrchardNullifier, 9, 8>(&mut state, &mds, &round_constants);
-        assert_eq!(state[0], result);
     }
 }

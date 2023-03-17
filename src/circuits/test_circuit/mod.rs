@@ -15,6 +15,7 @@ use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
 use crate::circuits::brtable::BrTableChip;
 use crate::circuits::brtable::BrTableConfig;
+use crate::circuits::checksum::CheckSumChip;
 use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
@@ -40,6 +41,8 @@ use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
 
+use super::checksum::CheckSumConfig;
+
 pub const VAR_COLUMNS: usize = 43;
 
 #[derive(Clone)]
@@ -54,6 +57,9 @@ pub struct TestCircuitConfig<F: FieldExt> {
     bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
     wasm_input_helper_table: WasmInputHelperTableConfig<F>,
+
+    #[cfg(feature = "checksum")]
+    checksum_config: CheckSumConfig<F>,
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -128,6 +134,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             bit_table,
             external_host_call_table,
             wasm_input_helper_table,
+
+            #[cfg(feature = "checksum")]
+            checksum_config: CheckSumConfig::configure(meta),
         }
     }
 
@@ -160,11 +169,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             wasm_input_chip.assign(&mut layouter)?
         );
 
-        exec_with_profile!(
+        let _inst_entries = exec_with_profile!(
             || "Assign instruction table",
             ichip.assign(&mut layouter, &self.tables.compilation_tables.itable)?
         );
-        exec_with_profile!(
+
+        let _br_entries = exec_with_profile!(
             || "Assign br table",
             brchip.assign(
                 &mut layouter,
@@ -173,12 +183,23 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        if self.tables.compilation_tables.imtable.entries().len() > 0 {
-            exec_with_profile!(
-                || "Assign memory initialization table",
-                imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?
-            );
-        }
+        let _im_entries = exec_with_profile!(
+            || "Assign memory initialization table",
+            imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?
+        );
+
+        #[cfg(feature = "checksum")]
+        let _checksum = exec_with_profile!(
+            || "Assign checksum circuit",
+            CheckSumChip::new(config.checksum_config).assign(
+                &mut layouter,
+                vec![
+                    _inst_entries,
+                    _br_entries,
+                    _im_entries
+                ].concat()
+            )?
+        );
 
         exec_with_profile!(
             || "Assign external host call table",

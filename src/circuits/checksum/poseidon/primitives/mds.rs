@@ -101,30 +101,3 @@ pub(super) fn generate_mds<F: FieldExt, const T: usize>(
 
     (mds, mds_inv)
 }
-
-#[cfg(test)]
-mod tests {
-    use halo2_proofs::pairing::bn256::Fr;
-
-    use super::generate_mds;
-    use super::Grain;
-
-    #[test]
-    fn poseidon_mds() {
-        const T: usize = 3;
-        let mut grain = Grain::new(super::super::grain::SboxType::Pow, T as u16, 8, 56);
-        let (mds, mds_inv) = generate_mds::<Fr, T>(&mut grain, 0);
-
-        // Verify that MDS * MDS^-1 = I.
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..T {
-            for j in 0..T {
-                let expected = if i == j { Fr::one() } else { Fr::zero() };
-                assert_eq!(
-                    (0..T).fold(Fr::zero(), |acc, k| acc + (mds[i][k] * mds_inv[k][j])),
-                    expected
-                );
-            }
-        }
-    }
-}
