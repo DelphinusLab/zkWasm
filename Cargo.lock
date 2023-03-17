@@ -406,6 +406,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ark-std",
+ "bitvec",
  "clap",
  "downcast-rs",
  "env_logger",
