@@ -24,6 +24,9 @@ mod test_rlp;
 mod test_rlp_simple;
 mod test_start;
 
+#[cfg(feature = "checksum")]
+mod test_uniform_verifier;
+
 fn test_circuit(
     mut env: HostEnv,
     wasm: Vec<u8>,
