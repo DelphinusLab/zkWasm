@@ -15,6 +15,7 @@ use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
 use crate::circuits::brtable::BrTableChip;
 use crate::circuits::brtable::BrTableConfig;
+#[cfg(feature = "checksum")]
 use crate::circuits::checksum::CheckSumChip;
 use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
@@ -33,6 +34,8 @@ use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
+#[cfg(feature = "checksum")]
+use crate::circuits::CheckSumConfig;
 use crate::circuits::TestCircuit;
 use crate::circuits::CIRCUIT_CONFIGURE;
 use crate::exec_with_profile;
@@ -40,8 +43,6 @@ use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChi
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
-
-use super::checksum::CheckSumConfig;
 
 pub const VAR_COLUMNS: usize = 43;
 
@@ -193,11 +194,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             || "Assign checksum circuit",
             CheckSumChip::new(config.checksum_config).assign(
                 &mut layouter,
-                vec![
-                    _inst_entries,
-                    _br_entries,
-                    _im_entries
-                ].concat()
+                vec![_inst_entries, _br_entries, _im_entries].concat()
             )?
         );
 
