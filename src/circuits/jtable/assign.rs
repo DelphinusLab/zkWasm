@@ -106,6 +106,8 @@ impl<F: FieldExt> JumpTableChip<F> {
 
         #[cfg(feature = "checksum")]
         if static_entries.len() != 2 {
+            *rest_jops += 1;
+
             let rest_f = (*rest_jops).into();
             let entry = bn_to_field(
                 &StaticFrameEntry {
@@ -149,6 +151,8 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             cells.push(entry);
             ctx.next();
+
+            *rest_jops -= 1;
         }
 
         Ok(cells)
