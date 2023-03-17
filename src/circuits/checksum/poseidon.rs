@@ -12,7 +12,7 @@ use halo2_proofs::circuit::Layouter;
 use halo2_proofs::pairing::group::ff::Field;
 use halo2_proofs::plonk::Error;
 
-mod pow5;
+pub(crate) mod pow5;
 pub use pow5::Pow5Chip;
 pub use pow5::Pow5Config;
 pub use pow5::StateWord;

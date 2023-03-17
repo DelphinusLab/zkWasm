@@ -24,16 +24,6 @@ lazy_static! {
         env::var("ZKWASM_SHA256_RATIO").map_or(31, |k| k.parse().unwrap());
 }
 
-#[cfg(feature = "checksum")]
-lazy_static! {
-    static ref ZKWASM_BRTABLE_RATIO: u32 =
-        env::var("ZKWASM_BRTABLE_RATIO").map_or(4, |k| k.parse().unwrap());
-    static ref ZKWASM_ITABLE_RATIO: u32 =
-        env::var("ZKWASM_ITABLE_RATIO").map_or(8, |k| k.parse().unwrap());
-    static ref ZKWASM_IMTABLE_RATIO: u32 =
-        env::var("ZKWASM_IMTABLE_RATIO").map_or(16, |k| k.parse().unwrap());
-}
-
 pub fn set_zkwasm_k(k: u32) {
     assert!(k >= MIN_K);
 
@@ -47,23 +37,17 @@ pub fn zkwasm_k() -> u32 {
 
 #[cfg(feature = "checksum")]
 pub(crate) fn max_imtable_rows() -> u32 {
-    assert!(*ZKWASM_IMTABLE_RATIO < *ZKWASM_TABLE_DENOMINATOR);
-
-    (1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_IMTABLE_RATIO
+    2048 + 128
 }
 
 #[cfg(feature = "checksum")]
 pub(crate) fn max_itable_rows() -> u32 {
-    assert!(*ZKWASM_ITABLE_RATIO < *ZKWASM_TABLE_DENOMINATOR);
-
-    (1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_ITABLE_RATIO
+    2048 + 128
 }
 
 #[cfg(feature = "checksum")]
 pub(crate) fn max_brtable_rows() -> u32 {
-    assert!(*ZKWASM_BRTABLE_RATIO < *ZKWASM_TABLE_DENOMINATOR);
-
-    (1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_BRTABLE_RATIO
+    1024 + 128
 }
 
 pub(crate) fn max_etable_rows() -> u32 {

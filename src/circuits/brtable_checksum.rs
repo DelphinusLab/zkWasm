@@ -34,8 +34,10 @@ impl<F: FieldExt> BrTableChip<F> {
 
 impl<F: FieldExt> BrTableConfig<F> {
     pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
+        let col = meta.advice_column();
+        meta.enable_equality(col);
         Self {
-            col: meta.advice_column(),
+            col,
             _mark: PhantomData,
         }
     }
@@ -59,11 +61,10 @@ impl<F: FieldExt> BrTableChip<F> {
         br_table_init: &BrTable,
         elem_table: &ElemTable,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        let mut ret = vec![];
-
         layouter.assign_region(
             || "br table",
             |mut table| {
+                let mut ret = vec![];
                 let mut offset = 0;
 
                 for e in br_table_init.entries() {
@@ -105,10 +106,8 @@ impl<F: FieldExt> BrTableChip<F> {
                     offset += 1;
                 }
 
-                Ok(())
+                Ok(ret)
             },
-        )?;
-
-        Ok(ret)
+        )
     }
 }

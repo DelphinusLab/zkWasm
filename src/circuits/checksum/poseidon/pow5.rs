@@ -323,7 +323,12 @@ impl<
         layouter.assign_region(
             || format!("add input for domain {}", D::name()),
             |mut region| {
-                region.assign_fixed(|| "s_pad_and_add", config.s_pad_and_add, 1, || Ok(F::one()))?;
+                region.assign_fixed(
+                    || "s_pad_and_add",
+                    config.s_pad_and_add,
+                    1,
+                    || Ok(F::one()),
+                )?;
 
                 // Load the initial state into this region.
                 let load_state_word = |i: usize| {
@@ -403,7 +408,7 @@ impl<
 
 /// A word in the Poseidon state.
 #[derive(Clone, Debug)]
-pub struct StateWord<F: Field>(AssignedCell<F, F>);
+pub struct StateWord<F: Field>(pub(crate) AssignedCell<F, F>);
 
 impl<F: Field> From<StateWord<F>> for AssignedCell<F, F> {
     fn from(state_word: StateWord<F>) -> AssignedCell<F, F> {
@@ -711,7 +716,7 @@ mod tests {
     #[test]
     fn poseidon_permute() {
         let k = 6;
-        let circuit = PermuteCircuit::<OrchardNullifier, 9, 8>(PhantomData);
+        let circuit = PermuteCircuit::<OrchardNullifier<Fr>, 9, 8>(PhantomData);
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         assert_eq!(prover.verify(), Ok(()))
     }
@@ -812,11 +817,11 @@ mod tests {
         let rng = OsRng;
 
         let message = [0; 8].map(|_| Fr::random(rng));
-        let output =
-            poseidon::Hash::<_, OrchardNullifier, ConstantLength<8>, 9, 8>::init().hash(message);
+        let output = poseidon::Hash::<_, OrchardNullifier<Fr>, ConstantLength<8>, 9, 8>::init()
+            .hash(message);
 
         let k = 6;
-        let circuit = HashCircuit::<OrchardNullifier, 9, 8, 8> {
+        let circuit = HashCircuit::<OrchardNullifier<Fr>, 9, 8, 8> {
             message: Some(message),
             output: Some(output),
             _spec: PhantomData,
@@ -830,37 +835,16 @@ mod tests {
         let rng = OsRng;
 
         let message = [0; 13].map(|_| Fr::random(rng));
-        let output =
-            poseidon::Hash::<_, OrchardNullifier, ConstantLength<13>, 9, 8>::init().hash(message);
+        let output = poseidon::Hash::<_, OrchardNullifier<Fr>, ConstantLength<13>, 9, 8>::init()
+            .hash(message);
 
         let k = 7;
-        let circuit = HashCircuit::<OrchardNullifier, 9, 8, 13> {
+        let circuit = HashCircuit::<OrchardNullifier<Fr>, 9, 8, 13> {
             message: Some(message),
             output: Some(output),
             _spec: PhantomData,
         };
         let prover = MockProver::run(k, &circuit, vec![]).unwrap();
         assert_eq!(prover.verify(), Ok(()))
-    }
-
-    #[cfg(feature = "test-dev-graph")]
-    #[test]
-    fn print_poseidon_chip() {
-        use plotters::prelude::*;
-
-        let root = BitMapBackend::new("poseidon-chip-layout.png", (1024, 768)).into_drawing_area();
-        root.fill(&WHITE).unwrap();
-        let root = root
-            .titled("Poseidon Chip Layout", ("sans-serif", 60))
-            .unwrap();
-
-        let circuit = HashCircuit::<OrchardNullifier, 9, 8, 2> {
-            message: Value::unknown(),
-            output: Value::unknown(),
-            _spec: PhantomData,
-        };
-        halo2_proofs::dev::CircuitLayout::default()
-            .render(6, &circuit, &root)
-            .unwrap();
     }
 }

@@ -21,8 +21,10 @@ pub struct InstructionTableConfig<F: FieldExt> {
 
 impl<F: FieldExt> InstructionTableConfig<F> {
     pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
+        let col = meta.advice_column();
+        meta.enable_equality(col);
         Self {
-            col: meta.advice_column(),
+            col,
             _mark: PhantomData,
         }
     }
@@ -52,11 +54,10 @@ impl<F: FieldExt> InstructionTableChip<F> {
         layouter: &mut impl Layouter<F>,
         instructions: &InstructionTable,
     ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        let mut ret = vec![];
-
         layouter.assign_region(
             || "instruction table",
             |mut table| {
+                let mut ret = vec![];
                 let mut offset = 0;
                 for v in instructions.entries().iter() {
                     let cell = table.assign_advice(
@@ -85,9 +86,8 @@ impl<F: FieldExt> InstructionTableChip<F> {
                     offset += 1;
                 }
 
-                Ok(())
+                Ok(ret)
             },
-        )?;
-        Ok(ret)
+        )
     }
 }
