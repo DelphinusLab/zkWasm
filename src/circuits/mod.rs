@@ -52,6 +52,8 @@ pub use imtable_checksum as imtable;
 pub mod itable_checksum;
 #[cfg(feature = "checksum")]
 pub use itable_checksum as itable;
+#[cfg(feature = "checksum")]
+pub mod checksum;
 
 #[cfg(not(feature = "checksum"))]
 pub mod brtable_fixed;
