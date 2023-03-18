@@ -372,7 +372,9 @@ impl<
 
                     Ok(StateWord(cell))
                 };
-                let input: Vec<_> = (0..RATE).map(load_input_word).collect::<Result<_, Error>>()?;
+                let input: Vec<_> = (0..RATE)
+                    .map(load_input_word)
+                    .collect::<Result<_, Error>>()?;
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {
