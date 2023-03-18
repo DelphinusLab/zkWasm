@@ -17,6 +17,8 @@ use crate::circuits::brtable::BrTableChip;
 use crate::circuits::brtable::BrTableConfig;
 #[cfg(feature = "checksum")]
 use crate::circuits::checksum::CheckSumChip;
+#[cfg(feature = "checksum")]
+use crate::circuits::checksum::CheckSumConfig;
 use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
@@ -34,8 +36,6 @@ use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
-#[cfg(feature = "checksum")]
-use crate::circuits::CheckSumConfig;
 use crate::circuits::TestCircuit;
 use crate::circuits::CIRCUIT_CONFIGURE;
 use crate::exec_with_profile;
