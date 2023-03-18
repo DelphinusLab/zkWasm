@@ -66,12 +66,22 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            ctx.region.assign_advice(
-                || "jtable enable",
-                self.config.data,
-                ctx.offset,
-                || Ok(F::one()),
-            )?;
+            let cell = if cfg!(feature = "checksum") {
+                ctx.region.assign_advice(
+                    || "jtable enable",
+                    self.config.data,
+                    ctx.offset,
+                    || Ok(F::one()),
+                )?
+            } else {
+                ctx.region.assign_advice_from_constant(
+                    || "jtable enable",
+                    self.config.data,
+                    ctx.offset,
+                    F::one(),
+                )?
+            };
+            cells.push(cell);
             ctx.next();
 
             ctx.region.assign_advice(
@@ -82,7 +92,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let entry = if cfg!(feature = "checksum") {
+            let cell = if cfg!(feature = "checksum") {
                 ctx.region.assign_advice(
                     || "jtable entry",
                     self.config.data,
@@ -98,7 +108,7 @@ impl<F: FieldExt> JumpTableChip<F> {
                     bn_to_field(&entry.encode()),
                 )?
             };
-            cells.push(entry);
+            cells.push(cell);
             ctx.next();
 
             *rest_jops -= 1;
@@ -106,8 +116,6 @@ impl<F: FieldExt> JumpTableChip<F> {
 
         #[cfg(feature = "checksum")]
         if static_entries.len() != 2 {
-            *rest_jops += 1;
-
             let rest_f = (*rest_jops).into();
             let entry = bn_to_field(
                 &StaticFrameEntry {
@@ -127,12 +135,13 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            ctx.region.assign_advice(
+            let cell = ctx.region.assign_advice(
                 || "jtable enable",
                 self.config.data,
                 ctx.offset,
-                || Ok(F::one()),
+                || Ok(F::zero()),
             )?;
+            cells.push(cell);
             ctx.next();
 
             ctx.region.assign_advice(
@@ -143,16 +152,14 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let entry = ctx.region.assign_advice(
+            let cell = ctx.region.assign_advice(
                 || "jtable entry",
                 self.config.data,
                 ctx.offset,
                 || Ok(entry),
             )?;
-            cells.push(entry);
+            cells.push(cell);
             ctx.next();
-
-            *rest_jops -= 1;
         }
 
         Ok(cells)
