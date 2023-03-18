@@ -50,6 +50,11 @@ pub(crate) fn max_brtable_rows() -> u32 {
     1024 + 128
 }
 
+#[cfg(feature = "checksum")]
+pub(crate) fn max_image_table_rows() -> u32 {
+    5509 - 5
+}
+
 pub(crate) fn max_etable_rows() -> u32 {
     assert!(*ZKWASM_ETABLE_RATIO < *ZKWASM_TABLE_DENOMINATOR);
 

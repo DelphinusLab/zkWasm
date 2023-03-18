@@ -1,11 +1,10 @@
 use self::allocator::*;
 use self::constraint_builder::ConstraintBuilder;
 use super::bit_table::BitTableConfig;
-use super::brtable::BrTableConfig;
 use super::cell::*;
 use super::config::max_etable_rows;
 use super::external_host_call_table::ExternalHostCallTableConfig;
-use super::itable::InstructionTableConfig;
+use super::image_table::ImageTableConfig;
 use super::jtable::JumpTableConfig;
 use super::mtable::MemoryTableConfig;
 use super::rtable::RangeTableConfig;
@@ -218,10 +217,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         circuit_configure: &CircuitConfigure,
         rtable: &RangeTableConfig<F>,
-        itable: &InstructionTableConfig<F>,
+        image_table: &ImageTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
         jtable: &JumpTableConfig<F>,
-        brtable: &BrTableConfig<F>,
         bit_table: &BitTableConfig<F>,
         external_host_call_table: &ExternalHostCallTableConfig<F>,
         foreign_table_configs: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
@@ -281,9 +279,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
-        #[cfg(feature="checksum")]
+        #[cfg(feature = "checksum")]
         const OPTIMIZE_GATES: bool = false;
-        #[cfg(not(feature="checksum"))]
+        #[cfg(not(feature = "checksum"))]
         const OPTIMIZE_GATES: bool = true;
 
         macro_rules! configure {
@@ -586,16 +584,16 @@ impl<F: FieldExt> EventTableConfig<F> {
             ]
         });
 
-        jtable.configure_in_table(meta, "c8a. itable_lookup in itable", |meta| {
-            jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
-        });
-
-        itable.configure_in_table(meta, "c8b. brtable_lookup in brtable", |meta| {
+        image_table.instruction_lookup(meta, "c8a. itable_lookup in itable", |meta| {
             itable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        brtable.configure_in_table(meta, "c8c. jtable_lookup in jtable", |meta| {
+        image_table.br_table_lookup(meta, "c8b. brtable_lookup in brtable", |meta| {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
+        });
+
+        jtable.configure_in_table(meta, "c8c. jtable_lookup in jtable", |meta| {
+            jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
         rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {

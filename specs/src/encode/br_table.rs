@@ -11,6 +11,8 @@ lazy_static! {
     static ref INDIRECT_CLASS_SHIFT: BigUint = BigUint::from(1u64) << 192;
 }
 
+pub(crate) const BR_TABLE_ENCODE_BOUNDARY: u32 = 224;
+
 pub fn encode_br_table_entry<T: FromBn>(
     fid: T,
     iid: T,
@@ -26,6 +28,8 @@ pub fn encode_br_table_entry<T: FromBn>(
     const KEEP_SHIFT: u32 = DST_PC_SHIFT + COMMON_RANGE_OFFSET;
     const DST_PC_SHIFT: u32 = 0;
 
+    assert!(FID_SHIFT + COMMON_RANGE_OFFSET <= BR_TABLE_ENCODE_BOUNDARY);
+
     T::from_bn(&(BigUint::from(IndirectClass::BrTable as u64))) * T::from_bn(&INDIRECT_CLASS_SHIFT)
         + fid * T::from_bn(&(BigUint::from(1u64) << FID_SHIFT))
         + iid * T::from_bn(&(BigUint::from(1u64) << IID_SHIFT))
@@ -40,6 +44,8 @@ pub fn encode_elem_entry<T: FromBn>(table_idx: T, type_idx: T, offset: T, func_i
     const TYPE_INDEX_SHIFT: u32 = OFFSET_SHIFT + COMMON_RANGE_OFFSET;
     const OFFSET_SHIFT: u32 = FUNC_INDEX + COMMON_RANGE_OFFSET;
     const FUNC_INDEX: u32 = 0;
+
+    assert!(TABLE_INDEX_SHIFT + COMMON_RANGE_OFFSET <= BR_TABLE_ENCODE_BOUNDARY);
 
     T::from_bn(&(BigUint::from(IndirectClass::CallIndirect as u64)))
         * T::from_bn(&INDIRECT_CLASS_SHIFT)

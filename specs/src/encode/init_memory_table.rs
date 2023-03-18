@@ -5,6 +5,8 @@ use super::FromBn;
 use crate::encode::COMMON_RANGE_OFFSET;
 use crate::imtable::InitMemoryTableEntry;
 
+pub(crate) const INIT_MEMORY_ENCODE_BOUNDARY: u32 = 224;
+
 pub fn encode_init_memory_table_entry<T: FromBn>(
     ltype: T,
     is_mutable: T,
@@ -17,6 +19,8 @@ pub fn encode_init_memory_table_entry<T: FromBn>(
     const START_OFFSET_SHIFT: u32 = END_OFFSET_SHIFT + 64;
     const END_OFFSET_SHIFT: u32 = VALUE_SHIFT + 64;
     const VALUE_SHIFT: u32 = 0;
+
+    assert!(LTYPE_SHIFT + COMMON_RANGE_OFFSET <= INIT_MEMORY_ENCODE_BOUNDARY);
 
     ltype * T::from_bn(&(1u64.to_biguint().unwrap() << LTYPE_SHIFT))
         + is_mutable * T::from_bn(&(1u64.to_biguint().unwrap() << IS_MUTABLE_SHIFT))
