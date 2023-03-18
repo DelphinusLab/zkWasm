@@ -14,13 +14,13 @@ pub trait JTableConstraint<F: FieldExt> {
         self.enable_is_bit(meta);
         self.enable_rest_jops_permutation(meta);
         self.configure_rest_jops_decrease(meta);
-        self.disabled_block_should_be_empty(meta);
+        self.disabled_block_should_be_end(meta);
     }
 
     fn enable_rest_jops_permutation(&self, meta: &mut ConstraintSystem<F>);
     fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>);
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>);
-    fn disabled_block_should_be_empty(&self, meta: &mut ConstraintSystem<F>);
+    fn disabled_block_should_be_end(&self, meta: &mut ConstraintSystem<F>);
 }
 
 impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
@@ -52,7 +52,7 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
         });
     }
 
-    fn disabled_block_should_be_empty(&self, meta: &mut ConstraintSystem<F>) {
+    fn disabled_block_should_be_end(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("c5. jtable ends up", |meta| {
             vec![
                 (constant_from!(1) - self.enable(meta))
