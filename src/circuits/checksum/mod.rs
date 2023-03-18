@@ -14,7 +14,7 @@ use self::poseidon::Pow5Config;
 
 mod poseidon;
 
-const L: usize = 2048 + 2048 + 1024 + 128 * 3;
+const L: usize = 2048 + 2048 + 1024 + 128 * 3 + 5;
 
 #[derive(Clone)]
 pub(crate) struct CheckSumConfig<F: FieldExt> {
