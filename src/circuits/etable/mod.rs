@@ -281,10 +281,16 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
+        #[cfg(feature="checksum")]
+        const OPTIMIZE_GATES: bool = false;
+        #[cfg(not(feature="checksum"))]
+        const OPTIMIZE_GATES: bool = true;
+
         macro_rules! configure {
             ($op:expr, $x:ident) => {
                 let op = OpcodeClassPlain($op as usize);
-                if opcode_set.contains(&op) {
+
+                if !OPTIMIZE_GATES || opcode_set.contains(&op) {
                     let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
                     let foreign_table_configs = BTreeMap::new();
                     let mut constraint_builder =
@@ -343,7 +349,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClass::ForeignPluginStart as usize + $i;
                 let op = OpcodeClassPlain(op);
 
-                if opcode_set.contains(&op) {
+                if !OPTIMIZE_GATES || opcode_set.contains(&op) {
                     let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
                     let mut constraint_builder =
                         ConstraintBuilder::new(meta, foreign_table_configs);

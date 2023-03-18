@@ -93,8 +93,6 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
         (func (;1;) (type 1) (result i32)
           i32.const 10
           call 0)
-        (memory (;0;) 2 2)
-        (export "memory" (memory 0))
         (export "zkmain" (func 1)))
     "#;
 
