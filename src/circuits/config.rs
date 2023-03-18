@@ -36,23 +36,8 @@ pub fn zkwasm_k() -> u32 {
 }
 
 #[cfg(feature = "checksum")]
-pub(crate) fn max_imtable_rows() -> u32 {
-    2048 + 128
-}
-
-#[cfg(feature = "checksum")]
-pub(crate) fn max_itable_rows() -> u32 {
-    2048 + 128
-}
-
-#[cfg(feature = "checksum")]
-pub(crate) fn max_brtable_rows() -> u32 {
-    1024 + 128
-}
-
-#[cfg(feature = "checksum")]
 pub(crate) fn max_image_table_rows() -> u32 {
-    5509 - 5
+    8192
 }
 
 pub(crate) fn max_etable_rows() -> u32 {

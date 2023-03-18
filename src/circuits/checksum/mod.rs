@@ -14,7 +14,11 @@ use self::poseidon::Pow5Config;
 
 mod poseidon;
 
-const L: usize = 2048 + 2048 + 1024 + 128 * 3 + 5;
+// image data: 8192
+// frame table: 4
+// event table: 1
+
+const L: usize = 8192 + 4 + 1;
 
 #[derive(Clone)]
 pub(crate) struct CheckSumConfig<F: FieldExt> {
