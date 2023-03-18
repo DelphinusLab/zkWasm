@@ -20,10 +20,10 @@ use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
 
-pub(in crate::circuits) struct EventTablePermutationCells {
+pub(in crate::circuits) struct EventTablePermutationCells<F: FieldExt> {
     pub(in crate::circuits) rest_mops: Option<Cell>,
     pub(in crate::circuits) rest_jops: Option<Cell>,
-    pub(in crate::circuits) fid_of_entry: Cell,
+    pub(in crate::circuits) fid_of_entry: AssignedCell<F, F>,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
@@ -272,7 +272,7 @@ impl<F: FieldExt> EventTableChip<F> {
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
-    ) -> Result<EventTablePermutationCells, Error> {
+    ) -> Result<EventTablePermutationCells<F>, Error> {
         debug!("size of execution table: {}", event_table.0.len());
 
         let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
@@ -287,7 +287,7 @@ impl<F: FieldExt> EventTableChip<F> {
         )?;
         ctx.reset();
 
-        let fid_of_entry_cell = self.assign_entries(
+        let fid_of_entry = self.assign_entries(
             ctx,
             &self.config.op_configs,
             event_table,
@@ -300,7 +300,7 @@ impl<F: FieldExt> EventTableChip<F> {
         Ok(EventTablePermutationCells {
             rest_mops: Some(rest_mops_cell),
             rest_jops: Some(rest_jops_cell),
-            fid_of_entry: fid_of_entry_cell.cell(),
+            fid_of_entry,
         })
     }
 }

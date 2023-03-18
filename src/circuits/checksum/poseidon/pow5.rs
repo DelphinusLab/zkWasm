@@ -349,26 +349,30 @@ impl<
                 // Load the input into this region.
                 let load_input_word = |i: usize| {
                     let constraint_var = match input.0[i].clone() {
-                        Some(PaddedWord::Message(word)) => word,
-                        Some(PaddedWord::Padding(padding_value)) => region.assign_fixed(
-                            || format!("load pad_{}", i),
-                            config.rc_b[i],
-                            1,
-                            || Ok(padding_value),
-                        )?,
+                        Some(PaddedWord::Message(word)) => (word.value().copied(), word),
+                        Some(PaddedWord::Padding(padding_value)) => (
+                            Some(padding_value),
+                            region.assign_fixed(
+                                || format!("load pad_{}", i),
+                                config.rc_b[i],
+                                1,
+                                || Ok(padding_value),
+                            )?,
+                        ),
                         _ => panic!("Input is not padded"),
                     };
-                    constraint_var
-                        .copy_advice(
-                            || format!("load input_{}", i),
-                            &mut region,
-                            config.state[i],
-                            1,
-                        )
-                        .map(StateWord)
+
+                    let cell = region.assign_advice(
+                        || format!("load input_{}", i),
+                        config.state[i],
+                        1,
+                        || Ok(constraint_var.0.unwrap()),
+                    )?;
+                    region.constrain_equal(cell.cell(), constraint_var.1.cell())?;
+
+                    Ok(StateWord(cell))
                 };
-                let input: Result<Vec<_>, Error> = (0..RATE).map(load_input_word).collect();
-                let input = input?;
+                let input: Vec<_> = (0..RATE).map(load_input_word).collect::<Result<_, Error>>()?;
 
                 // Constrain the output.
                 let constrain_output_word = |i: usize| {

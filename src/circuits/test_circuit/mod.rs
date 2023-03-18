@@ -189,15 +189,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?
         );
 
-        #[cfg(feature = "checksum")]
-        let _checksum = exec_with_profile!(
-            || "Assign checksum circuit",
-            CheckSumChip::new(config.checksum_config).assign(
-                &mut layouter,
-                vec![_inst_entries, _br_entries, _im_entries].concat()
-            )?
-        );
-
         exec_with_profile!(
             || "Assign external host call table",
             external_host_call_chip.assign(
@@ -210,7 +201,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        layouter.assign_region(
+        let _img_info = layouter.assign_region(
             || "jtable mtable etable",
             |region| {
                 let mut ctx = Context::new(region);
@@ -252,7 +243,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     );
                 }
 
-                {
+                let jtable_info = {
                     ctx.reset();
                     exec_with_profile!(
                         || "Assign frame table",
@@ -262,17 +253,26 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                             etable_permutation_cells.rest_jops,
                             &self.tables.compilation_tables.static_jtable,
                         )?
-                    );
-                }
+                    )
+                };
 
                 {
                     ctx.reset();
                     exec_with_profile!(|| "Assign bit table", bit_chip.assign(&mut ctx, &etable)?);
                 }
 
-                Ok(())
+                Ok(vec![vec![etable_permutation_cells.fid_of_entry], jtable_info].concat())
             },
         )?;
+
+        #[cfg(feature = "checksum")]
+        let _checksum = exec_with_profile!(
+            || "Assign checksum circuit",
+            CheckSumChip::new(config.checksum_config).assign(
+                &mut layouter,
+                vec![_inst_entries, _br_entries, _im_entries, _img_info].concat()
+            )?
+        );
 
         end_timer!(assign_timer);
 
