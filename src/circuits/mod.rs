@@ -78,7 +78,6 @@ pub mod utils;
 pub struct CircuitConfigure {
     pub initial_memory_pages: u32,
     pub maximal_memory_pages: u32,
-    pub first_consecutive_zero_memory_offset: u32,
     pub opcode_selector: HashSet<OpcodeClassPlain>,
 }
 
@@ -96,10 +95,6 @@ impl<F: FieldExt> TestCircuit<F> {
     pub fn new(fid_of_entry: u32, tables: Tables) -> Self {
         unsafe {
             CIRCUIT_CONFIGURE = Some(CircuitConfigure {
-                first_consecutive_zero_memory_offset: tables
-                    .compilation_tables
-                    .imtable
-                    .first_consecutive_zero_memory(),
                 initial_memory_pages: tables.compilation_tables.configure_table.init_memory_pages,
                 maximal_memory_pages: tables
                     .compilation_tables

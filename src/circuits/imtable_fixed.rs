@@ -29,10 +29,11 @@ impl<F: FieldExt> InitMemoryTableConfig<F> {
         &self,
         is_mutable: Expression<F>,
         ltype: Expression<F>,
-        offset: Expression<F>,
+        start_offset: Expression<F>,
+        end_offset: Expression<F>,
         value: Expression<F>,
     ) -> Expression<F> {
-        encode_init_memory_table_entry(ltype, is_mutable, offset, value)
+        encode_init_memory_table_entry(ltype, is_mutable, start_offset, end_offset, value)
     }
 
     pub fn configure_in_table(

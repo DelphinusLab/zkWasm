@@ -36,14 +36,15 @@ pub struct MemoryTableConfig<F: FieldExt> {
     is_i32_cell: AllocatedBitCell<F>,
     is_i64_cell: AllocatedBitCell<F>,
     is_init_cell: AllocatedBitCell<F>,
-    is_imtable_init_cell: AllocatedBitCell<F>,
 
     start_eid_cell: AllocatedCommonRangeCell<F>,
     end_eid_cell: AllocatedCommonRangeCell<F>,
     eid_diff_cell: AllocatedCommonRangeCell<F>,
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    zero_init_proof_cell: AllocatedCommonRangeCell<F>,
-    first_consecutive_zero_memory_offset: AllocatedCommonRangeCell<F>,
+    offset_align_left: AllocatedCommonRangeCell<F>,
+    offset_align_right: AllocatedCommonRangeCell<F>,
+    offset_align_left_diff_cell: AllocatedCommonRangeCell<F>,
+    offset_align_right_diff_cell: AllocatedCommonRangeCell<F>,
     offset_cell: AllocatedCommonRangeCell<F>,
     offset_diff_cell: AllocatedCommonRangeCell<F>,
 
@@ -76,17 +77,19 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let is_i32_cell = allocator.alloc_bit_cell();
         let is_i64_cell = allocator.alloc_bit_cell();
         let is_init_cell = allocator.alloc_bit_cell();
-        let is_imtable_init_cell = allocator.alloc_bit_cell();
 
         let start_eid_cell = allocator.alloc_common_range_cell();
         let end_eid_cell = allocator.alloc_common_range_cell();
         let eid_diff_cell = allocator.alloc_common_range_cell();
         let rest_mops_cell = allocator.alloc_common_range_cell();
-        let zero_init_proof_cell = allocator.alloc_common_range_cell();
-        let first_consecutive_zero_memory_offset = allocator.alloc_common_range_cell();
-        let offset_cell = allocator.alloc_common_range_cell();
-        let offset_diff_cell = allocator.alloc_common_range_cell();
 
+        let offset_align_left = allocator.alloc_common_range_cell();
+        let offset_align_right = allocator.alloc_common_range_cell();
+        let offset_cell = allocator.alloc_common_range_cell();
+        let offset_align_left_diff_cell = allocator.alloc_common_range_cell();
+        let offset_align_right_diff_cell = allocator.alloc_common_range_cell();
+
+        let offset_diff_cell = allocator.alloc_common_range_cell();
         let offset_diff_inv_cell = allocator.alloc_unlimited_cell();
         let encode_cell = allocator.alloc_unlimited_cell();
 
@@ -140,7 +143,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             vec![
                 is_next_same_offset_cell.curr_expr(meta)
                     * (is_next_same_ltype_cell.curr_expr(meta) - constant_from!(1)),
-                is_next_same_offset_cell.curr_expr(meta) * (offset_diff_cell.curr_expr(meta)),
+                is_next_same_offset_cell.curr_expr(meta) * offset_diff_cell.curr_expr(meta),
                 (is_next_same_offset_cell.curr_expr(meta) - constant_from!(1))
                     * is_next_same_ltype_cell.curr_expr(meta)
                     * (offset_diff_cell.curr_expr(meta) * offset_diff_inv_cell.curr_expr(meta)
@@ -179,17 +182,14 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         meta.create_gate("mc7a. init", |meta| {
             vec![
                 is_init_cell.curr_expr(meta) * start_eid_cell.curr_expr(meta),
+                // offset_left_align <= offset && offset <= offset_right_align
                 is_init_cell.curr_expr(meta)
-                    * (is_imtable_init_cell.curr_expr(meta) - constant_from!(1))
-                    * (is_heap_cell.curr_expr(meta) - constant_from!(1)),
+                    * (offset_align_left.curr_expr(meta)
+                        + offset_align_left_diff_cell.curr_expr(meta)
+                        - offset_cell.curr_expr(meta)),
                 is_init_cell.curr_expr(meta)
-                    * (is_imtable_init_cell.curr_expr(meta) - constant_from!(1))
-                    * (offset_cell.curr_expr(meta)
-                        - zero_init_proof_cell.curr_expr(meta)
-                        - first_consecutive_zero_memory_offset.curr_expr(meta)),
-                is_init_cell.curr_expr(meta)
-                    * (is_imtable_init_cell.curr_expr(meta) - constant_from!(1))
-                    * value.u64_cell.curr_expr(meta),
+                    * (offset_cell.curr_expr(meta) + offset_align_right_diff_cell.curr_expr(meta)
+                        - offset_align_right.curr_expr(meta)),
             ]
             .into_iter()
             .map(|x| x * enabled_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel))
@@ -212,14 +212,14 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         imtable.configure_in_table(meta, "mc7c. imtable init", |meta| {
             is_init_cell.curr_expr(meta)
-                * is_imtable_init_cell.curr_expr(meta)
                 * imtable.encode(
                     is_mutable.curr_expr(meta),
                     is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
                         + is_heap_cell.curr_expr(meta) * constant_from!(LocationType::Heap as u64)
                         + is_global_cell.curr_expr(meta)
                             * constant_from!(LocationType::Global as u64),
-                    offset_cell.curr_expr(meta),
+                    offset_align_left.curr_expr(meta),
+                    offset_align_right.curr_expr(meta),
                     value.u64_cell.curr_expr(meta),
                 )
                 * enabled_cell.curr_expr(meta)
@@ -297,19 +297,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
-        meta.create_gate(
-            "mc13. first_consecutive_zero_memory_offset unchanged",
-            |meta| {
-                vec![
-                    first_consecutive_zero_memory_offset.curr_expr(meta)
-                        - first_consecutive_zero_memory_offset.next_expr(meta),
-                ]
-                .into_iter()
-                .map(|x| x * enabled_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel))
-                .collect::<Vec<_>>()
-            },
-        );
-
         Self {
             entry_sel,
             enabled_cell,
@@ -322,16 +309,17 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             is_i32_cell,
             is_i64_cell,
             is_init_cell,
-            is_imtable_init_cell,
             start_eid_cell,
             end_eid_cell,
             eid_diff_cell,
             rest_mops_cell,
-            zero_init_proof_cell,
-            first_consecutive_zero_memory_offset,
             offset_cell,
             offset_diff_cell,
             offset_diff_inv_cell,
+            offset_align_left,
+            offset_align_right,
+            offset_align_left_diff_cell,
+            offset_align_right_diff_cell,
             value,
             encode_cell,
         }

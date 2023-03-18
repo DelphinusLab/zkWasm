@@ -64,7 +64,7 @@ pub(super) enum MemoryTableCellType {
 
 const BIT_COLUMNS: usize = 3;
 const U16_COLUMNS: usize = 1;
-const COMMON_RANGE_COLUMNS: usize = 2;
+const COMMON_RANGE_COLUMNS: usize = 3;
 const UNLIMITED_COLUMNS: usize = 1;
 const U64_CELLS: usize = 1;
 

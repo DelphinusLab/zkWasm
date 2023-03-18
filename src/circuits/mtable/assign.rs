@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
 use specs::encode::memory_table::encode_memory_table_entry;
+use specs::imtable::InitMemoryTable;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 
@@ -57,8 +57,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         mtable: &MemoryWritingTable,
         init_rest_mops: u64,
-        first_consecutive_zero_memory_offset: u32,
-    ) -> Result<AssignedCell<F, F>, Error> {
+        imtable: &InitMemoryTable,
+    ) -> Result<(), Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.$cell.assign(ctx, $value)?
@@ -81,11 +81,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
         let mut rest_mops = init_rest_mops;
 
-        let first_consecutive_zero_memory_offset_cell = assign_advice!(
-            first_consecutive_zero_memory_offset,
-            F::from(first_consecutive_zero_memory_offset as u64)
-        );
-
         for entry in &mtable.0 {
             assign_bit!(enabled_cell);
 
@@ -104,12 +99,20 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
 
-            if entry.entry.atype.is_positive_init() {
-                assign_bit!(is_imtable_init_cell);
-            } else if entry.entry.atype.is_init() {
+            if entry.entry.atype.is_init() {
+                let (left_offset, right_offset, _) = imtable
+                    .try_find(entry.entry.ltype, entry.entry.offset)
+                    .unwrap();
+
+                assign_advice!(offset_align_left, F::from(left_offset as u64));
+                assign_advice!(offset_align_right, F::from(right_offset as u64));
                 assign_advice!(
-                    zero_init_proof_cell,
-                    F::from((entry.entry.offset - first_consecutive_zero_memory_offset) as u64)
+                    offset_align_left_diff_cell,
+                    F::from((entry.entry.offset - left_offset) as u64)
+                );
+                assign_advice!(
+                    offset_align_right_diff_cell,
+                    F::from((right_offset - entry.entry.offset) as u64)
                 );
             }
 
@@ -122,10 +125,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_advice!(rest_mops_cell, F::from(rest_mops));
             assign_advice!(offset_cell, F::from(entry.entry.offset as u64));
             assign_advice!(value, entry.entry.value);
-            assign_advice!(
-                first_consecutive_zero_memory_offset,
-                F::from(first_consecutive_zero_memory_offset as u64)
-            );
 
             assign_advice!(
                 encode_cell,
@@ -148,11 +147,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
             }
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
-
-        assign_advice!(
-            first_consecutive_zero_memory_offset,
-            F::from(first_consecutive_zero_memory_offset as u64)
-        );
 
         ctx.reset();
 
@@ -181,7 +175,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
 
-        Ok(first_consecutive_zero_memory_offset_cell)
+        Ok(())
     }
 
     pub(crate) fn assign(
@@ -189,8 +183,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         etable_rest_mops_cell: Option<Cell>,
         mtable: &MemoryWritingTable,
-        first_consecutive_zero_memory_offset: u32,
-    ) -> Result<AssignedCell<F, F>, Error> {
+        imtable: &InitMemoryTable,
+    ) -> Result<(), Error> {
         debug!("size of memory writing table: {}", mtable.0.len());
 
         let rest_mops = mtable
@@ -203,10 +197,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
         self.constraint_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
 
-        let first_consecutive_zero_memory_offset =
-            self.assign_entries(ctx, mtable, rest_mops, first_consecutive_zero_memory_offset)?;
+        self.assign_entries(ctx, mtable, rest_mops, imtable)?;
         ctx.reset();
 
-        Ok(first_consecutive_zero_memory_offset)
+        Ok(())
     }
 }

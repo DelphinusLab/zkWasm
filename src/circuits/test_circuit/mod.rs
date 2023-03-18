@@ -44,7 +44,7 @@ use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
 
-pub const VAR_COLUMNS: usize = 43;
+pub const VAR_COLUMNS: usize = 44;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
@@ -235,10 +235,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                             &mut ctx,
                             etable_permutation_cells.rest_mops,
                             &memory_writing_table,
-                            self.tables
-                                .compilation_tables
-                                .imtable
-                                .first_consecutive_zero_memory(),
+                            &self.tables.compilation_tables.imtable
                         )?
                     );
                 }
