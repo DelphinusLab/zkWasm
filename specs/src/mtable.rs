@@ -13,51 +13,15 @@ pub enum LocationType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Hash, Eq)]
-pub enum InitType {
-    Positive,
-    Lazy,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Hash, Eq)]
 pub enum AccessType {
-    Read,
-    Write,
-    Init(InitType),
+    Read = 1,
+    Write = 2,
+    Init = 3,
 }
 
 impl AccessType {
-    pub fn into_index(&self) -> u64 {
-        match self {
-            AccessType::Read => Self::read_index(),
-            AccessType::Write => Self::write_index(),
-            AccessType::Init(_) => Self::init_index(),
-        }
-    }
-
-    pub fn read_index() -> u64 {
-        1
-    }
-    pub fn write_index() -> u64 {
-        2
-    }
-    pub fn init_index() -> u64 {
-        3
-    }
-
     pub fn is_init(&self) -> bool {
-        if let AccessType::Init(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn is_positive_init(&self) -> bool {
-        if let AccessType::Init(InitType::Positive) = self {
-            true
-        } else {
-            false
-        }
+        *self == AccessType::Init
     }
 }
 
@@ -199,17 +163,14 @@ impl MTable {
 
         self.0.iter().for_each(|entry| {
             if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
-                let (init_type, value) = match imtable.try_find(entry.ltype, entry.offset) {
-                    Some(value) => (InitType::Positive, value),
-                    None => (InitType::Lazy, 0),
-                };
+                let (_, _, value) = imtable.try_find(entry.ltype, entry.offset).unwrap();
 
                 set.insert(MemoryTableEntry {
                     eid: 0,
                     emid: 0,
                     offset: entry.offset,
                     ltype: entry.ltype,
-                    atype: AccessType::Init(init_type),
+                    atype: AccessType::Init,
                     vtype: entry.vtype,
                     is_mutable: entry.is_mutable,
                     value,
