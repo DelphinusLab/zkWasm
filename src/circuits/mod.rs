@@ -41,32 +41,16 @@ mod mtable;
 mod traits;
 
 #[cfg(feature = "checksum")]
-pub mod brtable_checksum;
-#[cfg(feature = "checksum")]
-pub use brtable_checksum as brtable;
-#[cfg(feature = "checksum")]
-pub mod imtable_checksum;
-#[cfg(feature = "checksum")]
-pub use imtable_checksum as imtable;
-#[cfg(feature = "checksum")]
-pub mod itable_checksum;
-#[cfg(feature = "checksum")]
-pub use itable_checksum as itable;
-#[cfg(feature = "checksum")]
 pub mod checksum;
+#[cfg(feature = "checksum")]
+pub mod image_table_checksum;
+#[cfg(feature = "checksum")]
+pub use image_table_checksum as image_table;
 
 #[cfg(not(feature = "checksum"))]
-pub mod brtable_fixed;
+pub mod image_table_fixed;
 #[cfg(not(feature = "checksum"))]
-pub use brtable_fixed as brtable;
-#[cfg(not(feature = "checksum"))]
-pub mod itable_fixed;
-#[cfg(not(feature = "checksum"))]
-pub use itable_fixed as itable;
-#[cfg(not(feature = "checksum"))]
-pub mod imtable_fixed;
-#[cfg(not(feature = "checksum"))]
-pub use imtable_fixed as imtable;
+pub use image_table_fixed as image_table;
 
 pub mod config;
 pub mod jtable;

@@ -7,6 +7,7 @@ use num_bigint::BigUint;
 
 pub mod br_table;
 pub mod frame_table;
+pub mod image_table;
 pub mod init_memory_table;
 pub mod instruction_table;
 pub mod memory_table;

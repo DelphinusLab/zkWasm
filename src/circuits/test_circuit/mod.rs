@@ -13,8 +13,6 @@ use specs::Tables;
 
 use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
-use crate::circuits::brtable::BrTableChip;
-use crate::circuits::brtable::BrTableConfig;
 #[cfg(feature = "checksum")]
 use crate::circuits::checksum::CheckSumChip;
 #[cfg(feature = "checksum")]
@@ -23,10 +21,7 @@ use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
 use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
-use crate::circuits::imtable::InitMemoryTableChip;
-use crate::circuits::imtable::InitMemoryTableConfig;
-use crate::circuits::itable::InstructionTableChip;
-use crate::circuits::itable::InstructionTableConfig;
+use crate::circuits::image_table::ImageTableChip;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
@@ -44,17 +39,17 @@ use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
 
+use super::image_table::ImageTableConfig;
+
 pub const VAR_COLUMNS: usize = 44;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
-    itable: InstructionTableConfig<F>,
-    imtable: InitMemoryTableConfig<F>,
+    image_table: ImageTableConfig<F>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
-    brtable: BrTableConfig<F>,
     bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
     wasm_input_helper_table: WasmInputHelperTableConfig<F>,
@@ -93,11 +88,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
         let rtable = RangeTableConfig::configure([0; 8].map(|_| meta.lookup_table_column()));
-        let itable = InstructionTableConfig::configure(meta);
-        let imtable = InitMemoryTableConfig::configure(meta);
-        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &imtable);
+        let image_table = ImageTableConfig::configure(meta);
+        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
-        let brtable = BrTableConfig::configure(meta);
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
         let bit_table = BitTableConfig::configure(meta, &rtable);
 
@@ -114,10 +107,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &mut cols,
             &circuit_configure,
             &rtable,
-            &itable,
+            &image_table,
             &mtable,
             &jtable,
-            &brtable,
             &bit_table,
             &external_host_call_table,
             &foreign_table_configs,
@@ -126,12 +118,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         Self::Config {
             rtable,
-            itable,
-            imtable,
+            image_table,
             mtable,
             jtable,
             etable,
-            brtable,
             bit_table,
             external_host_call_table,
             wasm_input_helper_table,
@@ -149,12 +139,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let assign_timer = start_timer!(|| "Assign");
 
         let rchip = RangeTableChip::new(config.rtable);
-        let ichip = InstructionTableChip::new(config.itable);
-        let imchip = InitMemoryTableChip::new(config.imtable);
+        let image_chip = ImageTableChip::new(config.image_table);
         let mchip = MemoryTableChip::new(config.mtable);
         let jchip = JumpTableChip::new(config.jtable);
         let echip = EventTableChip::new(config.etable);
-        let brchip = BrTableChip::new(config.brtable);
         let bit_chip = BitTableChip::new(config.bit_table);
         let external_host_call_chip = ExternalHostCallChip::new(config.external_host_call_table);
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
@@ -170,23 +158,16 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             wasm_input_chip.assign(&mut layouter)?
         );
 
-        let _inst_entries = exec_with_profile!(
-            || "Assign instruction table",
-            ichip.assign(&mut layouter, &self.tables.compilation_tables.itable)?
-        );
-
-        let _br_entries = exec_with_profile!(
-            || "Assign br table",
-            brchip.assign(
+        #[allow(unused_variables)]
+        let image_entries = exec_with_profile!(
+            || "Assign Image Table",
+            image_chip.assign(
                 &mut layouter,
+                &self.tables.compilation_tables.itable,
                 &self.tables.compilation_tables.itable.create_brtable(),
                 &self.tables.compilation_tables.elem_table,
+                &self.tables.compilation_tables.imtable
             )?
-        );
-
-        let _im_entries = exec_with_profile!(
-            || "Assign memory initialization table",
-            imchip.assign(&mut layouter, &self.tables.compilation_tables.imtable)?
         );
 
         exec_with_profile!(
@@ -201,7 +182,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        let _img_info = layouter.assign_region(
+        #[allow(unused_variables)]
+        let img_info = layouter.assign_region(
             || "jtable mtable etable",
             |region| {
                 let mut ctx = Context::new(region);
@@ -265,10 +247,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         #[cfg(feature = "checksum")]
         let _checksum = exec_with_profile!(
             || "Assign checksum circuit",
-            CheckSumChip::new(config.checksum_config).assign(
-                &mut layouter,
-                vec![_inst_entries, _br_entries, _im_entries, _img_info].concat()
-            )?
+            CheckSumChip::new(config.checksum_config)
+                .assign(&mut layouter, vec![image_entries, img_info].concat())?
         );
 
         end_timer!(assign_timer);

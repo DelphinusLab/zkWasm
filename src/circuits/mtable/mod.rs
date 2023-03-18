@@ -1,7 +1,7 @@
 use self::allocator::*;
 use super::cell::*;
 use super::config::max_mtable_rows;
-use super::imtable::InitMemoryTableConfig;
+use super::image_table::ImageTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
 use crate::constant_from;
@@ -13,6 +13,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
+use specs::encode::init_memory_table::encode_init_memory_table_entry;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::mtable::LocationType;
 
@@ -59,7 +60,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
-        imtable: &InitMemoryTableConfig<F>,
+        image_table: &ImageTableConfig<F>,
     ) -> Self {
         let entry_sel = meta.fixed_column();
 
@@ -210,14 +211,14 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             },
         );
 
-        imtable.configure_in_table(meta, "mc7c. imtable init", |meta| {
+        image_table.init_memory_lookup(meta, "mc7c. imtable init", |meta| {
             is_init_cell.curr_expr(meta)
-                * imtable.encode(
-                    is_mutable.curr_expr(meta),
+                * encode_init_memory_table_entry(
                     is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
                         + is_heap_cell.curr_expr(meta) * constant_from!(LocationType::Heap as u64)
                         + is_global_cell.curr_expr(meta)
                             * constant_from!(LocationType::Global as u64),
+                    is_mutable.curr_expr(meta),
                     offset_align_left.curr_expr(meta),
                     offset_align_right.curr_expr(meta),
                     value.u64_cell.curr_expr(meta),
