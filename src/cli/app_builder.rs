@@ -129,6 +129,8 @@ pub trait AppBuilder: CommandBuilder {
                 exec_verify_proof(
                     Self::NAME,
                     zkwasm_k,
+                    &wasm_binary,
+                    &function_name,
                     &output_dir,
                     &proof_path,
                     &public_inputs,
