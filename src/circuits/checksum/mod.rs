@@ -58,7 +58,7 @@ impl<F: FieldExt> CheckSumChip<F> {
         &self,
         layouter: &mut impl Layouter<F>,
         message: Vec<AssignedCell<F, F>>,
-    ) -> Result<(), Error> {
+    ) -> Result<AssignedCell<F, F>, Error> {
         let config = self.config.pow5_config.clone();
         let chip = Pow5Chip::construct(config.clone());
 
@@ -70,17 +70,6 @@ impl<F: FieldExt> CheckSumChip<F> {
         )?;
         let output = hasher.hash(layouter.namespace(|| "hash"), message.try_into().unwrap())?;
 
-        layouter.assign_region(
-            || "constrain output",
-            |mut region| {
-                let expected_var = region.assign_advice(
-                    || "load output",
-                    config.state[0],
-                    0,
-                    || Ok(output.value().unwrap().clone()),
-                )?;
-                region.constrain_equal(output.cell(), expected_var.cell())
-            },
-        )
+        Ok(output)
     }
 }
