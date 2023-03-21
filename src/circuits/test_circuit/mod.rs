@@ -64,13 +64,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit::new(
-            self.fid_of_entry,
-            Tables {
-                compilation_tables: self.tables.compilation_tables.clone(),
-                execution_tables: ExecutionTable::default(),
-            },
-        )
+        TestCircuit::new(Tables {
+            compilation_tables: self.tables.compilation_tables.clone(),
+            execution_tables: ExecutionTable::default(),
+        })
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -200,7 +197,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         &mut ctx,
                         &etable,
                         &self.tables.compilation_tables.configure_table,
-                        self.fid_of_entry,
+                        self.tables.compilation_tables.fid_of_entry,
                     )?
                 );
 
@@ -240,22 +237,20 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         )?;
 
         #[cfg(feature = "checksum")]
-        let _checksum = exec_with_profile!(
+        let checksum = exec_with_profile!(
             || "Assign checksum circuit",
             CheckSumChip::new(config.checksum_config)
                 .assign(&mut layouter, vec![image_entries, img_info].concat())?
         );
 
+        #[allow(unused_mut)]
+        let mut instances = vec![];
+        #[cfg(feature = "checksum")]
+        instances.push(checksum);
+
         exec_with_profile!(
             || "Assign wasm input chip",
-            wasm_input_chip.assign(
-                &mut layouter,
-                if cfg!(feature = "checksum") {
-                    vec![_checksum]
-                } else {
-                    vec![]
-                }
-            )?
+            wasm_input_chip.assign(&mut layouter, instances)?
         );
 
         end_timer!(assign_timer);

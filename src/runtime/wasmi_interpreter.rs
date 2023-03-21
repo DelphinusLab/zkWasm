@@ -63,7 +63,6 @@ impl Execution<RuntimeValue>
                 execution_tables,
             },
             result,
-            fid_of_entry: self.fid_of_entry,
         })
     }
 }
@@ -132,13 +131,13 @@ impl WasmiRuntime {
 
         Ok(CompiledImage {
             entry: entry.to_owned(),
-            fid_of_entry,
             tables: CompilationTable {
                 itable,
                 imtable,
                 elem_table,
                 configure_table,
                 static_jtable,
+                fid_of_entry,
             },
             instance,
             tracer,

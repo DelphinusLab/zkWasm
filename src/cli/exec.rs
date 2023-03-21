@@ -61,7 +61,6 @@ pub fn build_circuit_without_witness(
         .expect("file cannot be complied");
 
     let builder = ZkWasmCircuitBuilder {
-        fid_of_entry: compiled_module.fid_of_entry,
         tables: Tables {
             compilation_tables: compiled_module.tables,
             execution_tables: ExecutionTable::default(),
@@ -96,14 +95,11 @@ fn build_circuit_with_witness(
         )
         .expect("file cannot be complied");
 
-    let fid_of_entry = compiled_module.fid_of_entry;
-
     let execution_result = compiled_module.run(&mut env)?;
 
     execution_result.tables.profile_tables();
 
     let builder = ZkWasmCircuitBuilder {
-        fid_of_entry,
         tables: execution_result.tables,
     };
 
