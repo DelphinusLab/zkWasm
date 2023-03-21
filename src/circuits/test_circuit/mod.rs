@@ -153,11 +153,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             wasm_input_chip.init(&mut layouter)?
         );
 
-        exec_with_profile!(
-            || "Assign wasm input chip",
-            wasm_input_chip.assign(&mut layouter)?
-        );
-
         #[allow(unused_variables)]
         let image_entries = exec_with_profile!(
             || "Assign Image Table",
@@ -249,6 +244,18 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             || "Assign checksum circuit",
             CheckSumChip::new(config.checksum_config)
                 .assign(&mut layouter, vec![image_entries, img_info].concat())?
+        );
+
+        exec_with_profile!(
+            || "Assign wasm input chip",
+            wasm_input_chip.assign(
+                &mut layouter,
+                if cfg!(feature = "checksum") {
+                    vec![_checksum]
+                } else {
+                    vec![]
+                }
+            )?
         );
 
         end_timer!(assign_timer);
