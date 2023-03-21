@@ -1,4 +1,8 @@
+#[cfg(feature = "checksum")]
+use crate::image_hasher::ImageHasher;
+
 use crate::profile::Profiler;
+use crate::runtime::CompiledImage;
 use anyhow::Result;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::pairing::bn256::Bn256;
@@ -24,7 +28,10 @@ use log::info;
 use specs::ExecutionTable;
 use specs::Tables;
 use std::path::PathBuf;
+use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
+use wasmi::Module;
+use wasmi::NotStartedModuleRef;
 
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
@@ -36,6 +43,34 @@ use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::WasmInterpreter;
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
+
+fn compile_image<'a>(
+    module: &'a Module,
+    function_name: &str,
+) -> CompiledImage<NotStartedModuleRef<'a>, Tracer> {
+    let mut env = HostEnv::new();
+    register_wasm_input_foreign(&mut env, vec![], vec![]);
+    register_require_foreign(&mut env);
+    env.finalize();
+    let imports = ImportsBuilder::new().with_resolver("env", &env);
+
+    let compiler = WasmInterpreter::new();
+    compiler
+        .compile(
+            &module,
+            &imports,
+            &env.function_description_table(),
+            function_name,
+        )
+        .expect("file cannot be complied")
+}
+
+#[cfg(feature = "checksum")]
+fn hash_image(wasm_binary: &Vec<u8>, function_name: &str) -> Fr {
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
+    compile_image(&module, function_name).tables.hash()
+}
 
 pub fn build_circuit_without_witness(
     wasm_binary: &Vec<u8>,
@@ -185,22 +220,25 @@ pub fn exec_create_proof(
 ) -> Result<()> {
     let circuit =
         build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs)?;
-    let instances = vec![public_inputs
+    let mut public_inputs = public_inputs
         .iter()
         .map(|v| Fr::from(*v))
         .collect::<Vec<_>>()
-        .clone()];
+        .clone();
+
+    let mut instances = vec![];
+
+    #[cfg(feature = "checksum")]
+    instances.push(circuit.tables.compilation_tables.hash());
+
+    instances.append(&mut public_inputs);
 
     circuit.tables.write_json(Some(output_dir.clone()));
 
     if false {
         info!("Mock test...");
 
-        let prover = MockProver::run(
-            zkwasm_k,
-            &circuit,
-            vec![public_inputs.into_iter().map(|v| Fr::from(*v)).collect()],
-        )?;
+        let prover = MockProver::run(zkwasm_k, &circuit, vec![instances.clone()])?;
 
         assert_eq!(prover.verify(), Ok(()));
 
@@ -221,7 +259,7 @@ pub fn exec_create_proof(
         &params,
         vkey,
         circuit.clone(),
-        &instances.iter().map(|x| &x[..]).collect::<Vec<_>>(),
+        &[&instances],
         Some(&output_dir.join(format!("{}.{}.transcript.data", prefix, 0))),
         TranscriptHash::Poseidon,
         false,
@@ -232,20 +270,34 @@ pub fn exec_create_proof(
     Ok(())
 }
 
+#[allow(unused_variables)]
 pub fn exec_verify_proof(
     prefix: &'static str,
     zkwasm_k: u32,
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
     output_dir: &PathBuf,
     proof_path: &PathBuf,
     public_inputs: &Vec<u64>,
 ) {
-    let public_inputs_size = public_inputs.len();
+    let public_inputs_size = public_inputs.len() + 1;
 
-    let instances = vec![public_inputs
+    let mut public_inputs = public_inputs
         .iter()
         .map(|v| Fr::from(*v))
         .collect::<Vec<_>>()
-        .clone()];
+        .clone();
+
+    let instances = {
+        let mut instances = vec![];
+
+        #[cfg(feature = "checksum")]
+        instances.push(hash_image(wasm_binary, function_name));
+
+        instances.append(&mut public_inputs);
+
+        instances
+    };
 
     let params = load_or_build_unsafe_params::<Bn256>(
         zkwasm_k,
@@ -266,7 +318,7 @@ pub fn exec_verify_proof(
         &params_verifier,
         &vkey,
         strategy,
-        &[&instances.iter().map(|x| &x[..]).collect::<Vec<_>>()[..]],
+        &[&[&instances]],
         &mut PoseidonRead::init(&proof[..]),
     )
     .unwrap();
