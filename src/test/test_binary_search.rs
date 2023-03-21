@@ -49,7 +49,6 @@ mod tests {
         let (execution_result, public_inputs) = build_test().unwrap();
 
         let builder = ZkWasmCircuitBuilder {
-            fid_of_entry: execution_result.fid_of_entry,
             tables: execution_result.tables,
         };
 

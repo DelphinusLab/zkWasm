@@ -14,6 +14,7 @@ impl<F: FieldExt> WasmInputHelperTableConfig<F> {
         let enable = meta.fixed_column();
         let index = meta.fixed_column();
         let input = meta.instance_column();
+        meta.enable_equality(input);
 
         WasmInputHelperTableConfig {
             enable,

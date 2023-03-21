@@ -39,6 +39,7 @@ pub struct CompilationTable {
     pub elem_table: ElemTable,
     pub configure_table: ConfigureTable,
     pub static_jtable: Vec<StaticFrameEntry>,
+    pub fid_of_entry: u32,
 }
 
 #[derive(Default, Serialize, Clone)]

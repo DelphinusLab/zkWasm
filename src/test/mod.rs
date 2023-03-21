@@ -7,6 +7,9 @@ use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
 
+#[cfg(feature = "checksum")]
+use crate::image_hasher::ImageHasher;
+
 use anyhow::Result;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
@@ -46,6 +49,7 @@ fn test_circuit(
             function_name,
         )
         .unwrap();
+
     let execution_result = compiled_module.run(&mut env)?;
 
     run_test_circuit::<Fp>(execution_result.clone(), public_inputs)?;
@@ -81,8 +85,15 @@ pub fn test_circuit_with_env(
 
 pub fn run_test_circuit<F: FieldExt>(
     execution_result: ExecutionResult<wasmi::RuntimeValue>,
-    public_inputs: Vec<F>,
+    mut public_inputs: Vec<F>,
 ) -> Result<()> {
+    let mut instances = vec![];
+
+    #[cfg(feature = "checksum")]
+    instances.push(execution_result.tables.compilation_tables.hash());
+
+    instances.append(&mut public_inputs);
+
     execution_result.tables.write_json(None);
     let memory_writing_table: MemoryWritingTable = execution_result
         .tables
@@ -94,9 +105,8 @@ pub fn run_test_circuit<F: FieldExt>(
 
     execution_result.tables.profile_tables();
 
-    let circuit = TestCircuit::<F>::new(execution_result.fid_of_entry, execution_result.tables);
-
-    let prover = MockProver::run(zkwasm_k(), &circuit, vec![public_inputs])?;
+    let circuit = TestCircuit::<F>::new(execution_result.tables);
+    let prover = MockProver::run(zkwasm_k(), &circuit, vec![instances])?;
     assert_eq!(prover.verify(), Ok(()));
 
     Ok(())

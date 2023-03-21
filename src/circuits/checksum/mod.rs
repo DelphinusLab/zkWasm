@@ -12,13 +12,13 @@ use self::poseidon::Hash;
 use self::poseidon::Pow5Chip;
 use self::poseidon::Pow5Config;
 
-mod poseidon;
+pub mod poseidon;
 
 // image data: 8192
 // frame table: 4
 // event table: 1
 
-const L: usize = 8192 + 4 + 1;
+pub const L: usize = 8192 + 4 + 1;
 
 #[derive(Clone)]
 pub(crate) struct CheckSumConfig<F: FieldExt> {

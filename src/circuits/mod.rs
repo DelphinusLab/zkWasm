@@ -1,5 +1,9 @@
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::Context;
+
+#[cfg(feature = "checksum")]
+use crate::image_hasher::ImageHasher;
+
 use ark_std::end_timer;
 use ark_std::start_timer;
 use halo2_proofs::arithmetic::FieldExt;
@@ -70,13 +74,12 @@ static mut CIRCUIT_CONFIGURE: Option<CircuitConfigure> = None;
 
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
-    pub fid_of_entry: u32,
     pub tables: Tables,
     _data: PhantomData<F>,
 }
 
 impl<F: FieldExt> TestCircuit<F> {
-    pub fn new(fid_of_entry: u32, tables: Tables) -> Self {
+    pub fn new(tables: Tables) -> Self {
         unsafe {
             CIRCUIT_CONFIGURE = Some(CircuitConfigure {
                 initial_memory_pages: tables.compilation_tables.configure_table.init_memory_pages,
@@ -89,7 +92,6 @@ impl<F: FieldExt> TestCircuit<F> {
         }
 
         TestCircuit {
-            fid_of_entry,
             tables,
             _data: PhantomData,
         }
@@ -114,7 +116,6 @@ pub(self) trait Lookup<F: FieldExt> {
 }
 
 pub struct ZkWasmCircuitBuilder {
-    pub fid_of_entry: u32,
     pub tables: Tables,
 }
 
@@ -122,7 +123,7 @@ const PARAMS: &str = "param.data";
 
 impl ZkWasmCircuitBuilder {
     pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-        TestCircuit::new(self.fid_of_entry, self.tables.clone())
+        TestCircuit::new(self.tables.clone())
     }
 
     fn prepare_param(&self) -> Params<G1Affine> {
@@ -221,7 +222,14 @@ impl ZkWasmCircuitBuilder {
         end_timer!(timer);
     }
 
-    pub fn bench(&self, public_inputs: Vec<Fr>) {
+    pub fn bench(&self, mut public_inputs: Vec<Fr>) {
+        let mut instances = vec![];
+
+        #[cfg(feature = "checksum")]
+        instances.push(self.tables.compilation_tables.hash());
+
+        instances.append(&mut public_inputs);
+
         let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
 
         let params = self.prepare_param();
@@ -229,8 +237,8 @@ impl ZkWasmCircuitBuilder {
         let vk = self.prepare_vk(&circuit, &params);
         let pk = self.prepare_pk(&circuit, &params, vk);
 
-        let proof = self.create_proof(&[circuit], &params, &pk, &public_inputs);
+        let proof = self.create_proof(&[circuit], &params, &pk, &instances);
 
-        self.verify_check(pk.get_vk(), &params, &proof, &public_inputs);
+        self.verify_check(pk.get_vk(), &params, &proof, &instances);
     }
 }

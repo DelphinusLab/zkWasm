@@ -31,7 +31,6 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
     let execution_result = test_circuit_with_env(env, wasm, "zkmain", vec![])?;
 
     let builder = ZkWasmCircuitBuilder {
-        fid_of_entry: execution_result.fid_of_entry,
         tables: execution_result.tables,
     };
 
@@ -118,6 +117,7 @@ mod tests {
 
     use super::*;
     use crate::circuits::ZkWasmCircuitBuilder;
+    use crate::image_hasher::ImageHasher;
 
     #[test]
     fn test_uniform_verifier() {
@@ -130,8 +130,10 @@ mod tests {
             RuntimeValue::I32(expected_value)
         );
 
+        let image_hash: Fr = execution_result.tables.compilation_tables.hash();
+        let instances = vec![image_hash];
+
         let builder = ZkWasmCircuitBuilder {
-            fid_of_entry: execution_result.fid_of_entry,
             tables: execution_result.tables,
         };
 
@@ -142,7 +144,7 @@ mod tests {
                 &params,
                 &uniform_verifier_pk,
                 &[builder.build_circuit()],
-                &[&[&[]]],
+                &[&[&instances]],
                 OsRng,
                 &mut transcript,
             )
@@ -152,7 +154,7 @@ mod tests {
         };
 
         {
-            let public_inputs_size = 0;
+            let public_inputs_size = 1;
 
             let params_verifier: ParamsVerifier<Bn256> =
                 params.verifier(public_inputs_size).unwrap();
@@ -164,7 +166,7 @@ mod tests {
                 &params_verifier,
                 uniform_verifier_pk.get_vk(),
                 strategy,
-                &[&[&[]]],
+                &[&[&instances]],
                 &mut transcript,
             )
             .unwrap();
