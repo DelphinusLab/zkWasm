@@ -1,32 +1,19 @@
-use std::ops::{AddAssign, Shl};
 use std::rc::Rc;
 use crate::runtime::host::{host_env::HostEnv, ForeignContext};
-use ark_std::Zero;
-use halo2_proofs::arithmetic::{BaseExt, CurveAffine};
+use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::pairing::bls12_381::{G1Affine, G2Affine,
-    Fp2 as Bls381Fq2,
     Gt as Bls381Gt,
-    Fq as Bls381Fq,
     pairing,
 };
-use num_bigint::BigUint;
 
-const BLSPAIR_G1:usize= 0;
-const BLSPAIR_G2:usize= 1;
-const BLSPAIR_G3:usize= 2;
-
-pub fn bn_to_field<F: BaseExt>(bn: &BigUint) -> F {
-    let mut bytes = bn.to_bytes_le();
-    bytes.resize(48, 0);
-    let mut bytes = &bytes[..];
-    F::read(&mut bytes).unwrap()
-}
-
-pub fn field_to_bn<F: BaseExt>(f: &F) -> BigUint {
-    let mut bytes: Vec<u8> = Vec::new();
-    f.write(&mut bytes).unwrap();
-    BigUint::from_bytes_le(&bytes[..])
-}
+use super::{
+    bls381_fq_to_limbs,
+    BLSPAIR_G1,
+    BLSPAIR_G2,
+    BLSPAIR_G3,
+    fetch_fq,
+    fetch_fq2,
+};
 
 
 #[derive(Default)]
@@ -39,67 +26,38 @@ struct BlsPairContext {
     pub input_cursor: usize,
 }
 
-fn fetch_fq(limbs: &Vec<u64>, index:usize) -> Bls381Fq {
-    let mut bn = BigUint::zero();
-    for i in 0..8 {
-        bn.add_assign(BigUint::from_u64(limbs[index * 8 + i]).unwrap() << (i * 54))
-    }
-    bn_to_field(&bn)
-}
-
 impl BlsPairContext {
-    fn fetch_fq2(&self, index:usize) -> Bls381Fq2 {
-        Bls381Fq2 {
-            c0: fetch_fq(&self.limbs,index),
-            c1: fetch_fq(&self.limbs, index+1),
-        }
-    }
-    fn bls381_fq_to_limbs(&mut self, f: Bls381Fq) {
-        let mut bn = field_to_bn(&f);
-        for _ in 0..8 {
-            let d:BigUint = BigUint::from(2 as u64).shl(54);
-            let r = bn.clone() % d.clone();
-            let value = if r == BigUint::from(0 as u32) {
-                0 as u64
-            } else {
-                r.to_u64_digits()[0]
-            };
-            bn = bn / d;
-            self.result_limbs.append(&mut vec![value]);
-        };
-    }
     fn bls381_gt_to_limbs(&mut self, g: Bls381Gt) {
-       self.bls381_fq_to_limbs(g.0.c0.c0.c0);
-       self.bls381_fq_to_limbs(g.0.c0.c0.c1);
-       self.bls381_fq_to_limbs(g.0.c0.c1.c0);
-       self.bls381_fq_to_limbs(g.0.c0.c1.c1);
-       self.bls381_fq_to_limbs(g.0.c0.c2.c0);
-       self.bls381_fq_to_limbs(g.0.c0.c2.c1);
-       self.bls381_fq_to_limbs(g.0.c0.c0.c0);
-       self.bls381_fq_to_limbs(g.0.c0.c0.c1);
-       self.bls381_fq_to_limbs(g.0.c0.c1.c0);
-       self.bls381_fq_to_limbs(g.0.c0.c1.c1);
-       self.bls381_fq_to_limbs(g.0.c0.c2.c0);
-       self.bls381_fq_to_limbs(g.0.c0.c2.c1);
-       self.bls381_fq_to_limbs(g.0.c1.c0.c0);
-       self.bls381_fq_to_limbs(g.0.c1.c0.c1);
-       self.bls381_fq_to_limbs(g.0.c1.c1.c0);
-       self.bls381_fq_to_limbs(g.0.c1.c1.c1);
-       self.bls381_fq_to_limbs(g.0.c1.c2.c0);
-       self.bls381_fq_to_limbs(g.0.c1.c2.c1);
-       self.bls381_fq_to_limbs(g.0.c1.c0.c0);
-       self.bls381_fq_to_limbs(g.0.c1.c0.c1);
-       self.bls381_fq_to_limbs(g.0.c1.c1.c0);
-       self.bls381_fq_to_limbs(g.0.c1.c1.c1);
-       self.bls381_fq_to_limbs(g.0.c1.c2.c0);
-       self.bls381_fq_to_limbs(g.0.c1.c2.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c0.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c0.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c1.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c1.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c2.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c2.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c0.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c0.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c1.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c1.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c2.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c0.c2.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c0.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c0.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c1.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c1.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c2.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c2.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c0.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c0.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c1.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c1.c1);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c2.c0);
+       bls381_fq_to_limbs(&mut self.result_limbs,g.0.c1.c2.c1);
     }
 
 }
 
 impl ForeignContext for BlsPairContext {}
 
-use num_traits::FromPrimitive;
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_blspair_foreign(env: &mut HostEnv) {
     let foreign_blspair_plugin = env
@@ -149,12 +107,13 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
                         G2Affine::identity()
                     } else {
                         G2Affine {
-                        x: context.fetch_fq2(2),
-                        y: context.fetch_fq2(4),
+                        x: fetch_fq2(&context.limbs,2),
+                        y: fetch_fq2(&context.limbs,4),
                         infinity: (0 as u8).into()
                         }
                     };
                     let ab = pairing(&g1, &g2);
+                    println!("gt {:?}", ab);
                     context.bls381_gt_to_limbs(ab);
                 } else {
                     context.limbs.push(args.nth(0));
