@@ -69,7 +69,7 @@ impl Tables {
         let itable = serde_json::to_string(&self.compilation_tables.itable).unwrap();
         let imtable = serde_json::to_string(&self.compilation_tables.imtable).unwrap();
         let etable = serde_json::to_string(&self.execution_tables.etable).unwrap();
-        let external_host_call_table = serde_json::to_string(
+        let external_host_call_table = serde_json::to_string_pretty(
             &self
                 .execution_tables
                 .etable

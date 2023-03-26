@@ -47,9 +47,11 @@ use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::WasmInterpreter;
 
-use crate::foreign::{
-    blspair_helper::register_blspair_foreign,
-    blssum_helper::register_blssum_foreign,
+use crate::foreign::ecc_helper::{
+    bls381::pair::register_blspair_foreign,
+    bls381::sum::register_blssum_foreign,
+    bn254::pair::register_bn254pair_foreign,
+    bn254::sum::register_bn254sum_foreign,
 };
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
@@ -67,6 +69,8 @@ pub fn compile_image<'a>(
     register_log_foreign(&mut env);
     register_blspair_foreign(&mut env);
     register_blssum_foreign(&mut env);
+    register_bn254pair_foreign(&mut env);
+    register_bn254sum_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
@@ -125,6 +129,8 @@ fn build_circuit_with_witness(
     register_log_foreign(&mut env);
     register_blspair_foreign(&mut env);
     register_blssum_foreign(&mut env);
+    register_bn254pair_foreign(&mut env);
+    register_bn254sum_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 

@@ -99,7 +99,7 @@ impl MemoryWritingTable {
             fd.write(buf.as_bytes()).unwrap();
         }
 
-        let mtable = serde_json::to_string(self).unwrap();
+        let mtable = serde_json::to_string_pretty(self).unwrap();
 
         let dir = dir.unwrap_or(env::current_dir().unwrap());
         write_file(&dir, "memory_writing_table.json", &mtable);

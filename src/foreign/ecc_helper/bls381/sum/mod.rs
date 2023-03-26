@@ -1,27 +1,15 @@
-use std::ops::{AddAssign, Add};
+use std::ops::Add;
 use std::rc::Rc;
 use crate::runtime::host::{host_env::HostEnv, ForeignContext};
-use ark_std::Zero;
-use halo2_proofs::arithmetic::{BaseExt, CurveAffine};
-use halo2_proofs::pairing::bls12_381::{G1Affine, Fq as Bls381Fq};
-use num_bigint::BigUint;
+use halo2_proofs::pairing::bls12_381::G1Affine;
 
-
-const BLSSUM_G1:usize= 3;
-const BLSSUM_RESULT:usize= 4;
-
-pub fn bn_to_field<F: BaseExt>(bn: &BigUint) -> F {
-    let mut bytes = bn.to_bytes_le();
-    bytes.resize(48, 0);
-    let mut bytes = &bytes[..];
-    F::read(&mut bytes).unwrap()
-}
-
-pub fn field_to_bn<F: BaseExt>(f: &F) -> BigUint {
-    let mut bytes: Vec<u8> = Vec::new();
-    f.write(&mut bytes).unwrap();
-    BigUint::from_bytes_le(&bytes[..])
-}
+use super::{
+    //LIMBSZ, BN254SUM_G1, BN254SUM_RESULT,
+    bls381_fq_to_limbs,
+    fetch_g1,
+    BLSSUM_G1,
+    BLSSUM_RESULT,
+};
 
 
 #[derive(Default)]
@@ -33,45 +21,12 @@ struct BlsSumContext {
     pub input_cursor: usize,
 }
 
-fn fetch_fq(limbs: &Vec<u64>, index:usize) -> Bls381Fq {
-    let mut bn = BigUint::zero();
-    for i in 0..8 {
-        bn.add_assign(BigUint::from_u64(limbs[index * 8 + i]).unwrap() << (i * 54))
-    }
-    bn_to_field(&bn)
-}
-
-fn fetch_g1(limbs: &Vec<u64>, g1_identity: bool) -> G1Affine {
-    if g1_identity {
-        G1Affine::identity()
-    } else {
-        let opt:Option<_> = G1Affine::from_xy(
-            fetch_fq(limbs,0),
-            fetch_fq(limbs,1)
-        ).into();
-        opt.expect("from xy failed, not on curve")
-    }
-}
-
 impl BlsSumContext {
-    fn bls381_fq_to_limbs(&mut self, f: Bls381Fq) {
-        let mut bn = field_to_bn(&f);
-        for _ in 0..8 {
-            let d:BigUint = BigUint::from(1u64 << 54);
-            let r = bn.clone() % d.clone();
-            let value = if r == BigUint::from(0 as u32) {
-                0 as u64
-            } else {
-                r.to_u64_digits()[0]
-            };
-            bn = bn / d;
-            self.result_limbs.as_mut().unwrap().append(&mut vec![value]);
-        };
-    }
     fn bls381_result_to_limbs(&mut self, g: G1Affine) {
-        self.result_limbs = Some (vec![]);
-        self.bls381_fq_to_limbs(g.x);
-        self.bls381_fq_to_limbs(g.y);
+        let mut limbs = vec![];
+        bls381_fq_to_limbs(&mut limbs,g.x);
+        bls381_fq_to_limbs(&mut limbs, g.y);
+        self.result_limbs = Some (limbs); 
         if g.is_identity().into() {
             self.result_limbs.as_mut().unwrap().append(&mut vec![1u64]);
         } else {
@@ -82,7 +37,6 @@ impl BlsSumContext {
 
 impl ForeignContext for BlsSumContext {}
 
-use num_traits::FromPrimitive;
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_blssum_foreign(env: &mut HostEnv) {
     let foreign_blssum_plugin = env

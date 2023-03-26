@@ -11,8 +11,7 @@ use halo2_proofs::plonk::VirtualCells;
 pub mod keccak_helper;
 pub mod log_helper;
 pub mod require_helper;
-pub mod blssum_helper;
-pub mod blspair_helper;
+pub mod ecc_helper;
 pub mod wasm_input_helper;
 
 pub trait ForeignTableConfig<F: FieldExt> {
