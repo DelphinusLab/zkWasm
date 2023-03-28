@@ -472,14 +472,13 @@ pub fn exec_solidity_aggregate_proof(
         solidity_render(
             &(path_in.to_str().unwrap().to_owned() + "/*"),
             path_out.to_str().unwrap(),
-            vec![
-                vec!["AggregatorConfig.sol.tera".to_owned()],
-                (0..SOLIDITY_VERIFY_STEPS)
-                    .map(|i| format!("AggregatorVerifierStep{}.sol.tera", i + 1))
-                    .into_iter()
-                    .collect::<Vec<String>>(),
-            ]
-            .concat(),
+            vec![(
+                "AggregatorConfig.sol.tera".to_owned(),
+                "AggregatorConfig.sol".to_owned(),
+            )],
+            "AggregatorVerifierStepStart.sol.tera",
+            "AggregatorVerifierStepEnd.sol.tera",
+            |i| format!("AggregatorVerifierStep{}.sol", i + 1),
             &zkwasm_params_verifier,
             &verifier_params_verifier,
             &vkey,
