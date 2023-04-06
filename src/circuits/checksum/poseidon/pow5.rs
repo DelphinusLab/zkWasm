@@ -31,6 +31,7 @@ use super::PoseidonSpongeInstructions;
 pub struct Pow5Config<F: FieldExt, const WIDTH: usize, const RATE: usize> {
     pub(crate) state: [Column<Advice>; WIDTH],
     partial_sbox: Column<Advice>,
+    mid_0_helper: Column<Advice>,
     rc_a: [Column<Fixed>; WIDTH],
     rc_b: [Column<Fixed>; WIDTH],
     s_full: Column<Fixed>,
@@ -67,6 +68,7 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
         meta: &mut ConstraintSystem<F>,
         state: [Column<Advice>; WIDTH],
         partial_sbox: Column<Advice>,
+        mid_0_helper: Column<Advice>,
         rc_a: [Column<Fixed>; WIDTH],
         rc_b: [Column<Fixed>; WIDTH],
     ) -> Pow5Config<F, WIDTH, RATE> {
@@ -96,6 +98,7 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
         let s_pad_and_add = meta.fixed_column();
 
         let alpha = [5, 0, 0, 0];
+
         let pow_5 = |v: Expression<F>| {
             let v2 = v.clone() * v.clone();
             v2.clone() * v2 * v
@@ -120,12 +123,32 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
                 .collect::<Vec<_>>()
         });
 
+        meta.create_gate("mid_0_helper", |meta| {
+            let mid_0 = meta.query_advice(partial_sbox, Rotation::cur());
+            let rc_b0 = meta.query_fixed(rc_b[0], Rotation::cur());
+            let mid_0_helper_curr = meta.query_advice(mid_0_helper, Rotation::cur());
+
+            let s_partial = meta.query_fixed(s_partial, Rotation::cur());
+
+            use halo2_proofs::plonk::VirtualCells;
+            let mid = |idx: usize, meta: &mut VirtualCells<F>| {
+                let mid = mid_0.clone() * m_reg[idx][0];
+                (1..WIDTH).fold(mid, |acc, cur_idx| {
+                    let cur = meta.query_advice(state[cur_idx], Rotation::cur());
+                    let rc_a = meta.query_fixed(rc_a[cur_idx], Rotation::cur());
+                    acc + (cur + rc_a) * m_reg[idx][cur_idx]
+                })
+            };
+
+            vec![(mid_0_helper_curr - mid(0, meta) - rc_b0) * s_partial]
+        });
+
         meta.create_gate("partial rounds", |meta| {
             let cur_0 = meta.query_advice(state[0], Rotation::cur());
             let mid_0 = meta.query_advice(partial_sbox, Rotation::cur());
+            let mid_0_helper_curr = meta.query_advice(mid_0_helper, Rotation::cur());
 
             let rc_a0 = meta.query_fixed(rc_a[0], Rotation::cur());
-            let rc_b0 = meta.query_fixed(rc_b[0], Rotation::cur());
 
             let s_partial = meta.query_fixed(s_partial, Rotation::cur());
 
@@ -158,7 +181,7 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
                 // state[0] round a
                 .chain(Some(pow_5(cur_0 + rc_a0) - mid_0.clone()))
                 // state[0] round b
-                .chain(Some(pow_5(mid(0, meta) + rc_b0) - next(0, meta)))
+                .chain(Some(pow_5(mid_0_helper_curr) - next(0, meta)))
                 .chain((1..WIDTH).map(|idx| partial_round_linear(idx, meta)))
                 .map(|x| s_partial.clone() * x)
                 .collect::<Vec<_>>()
@@ -190,6 +213,7 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
         Pow5Config {
             state,
             partial_sbox,
+            mid_0_helper,
             rc_a,
             rc_b,
             s_full,
@@ -512,6 +536,13 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                 load_round_constant(i)?;
             }
 
+            region.assign_advice(
+                || format!("round_{} mid_0_helper_curr", round),
+                config.mid_0_helper,
+                offset,
+                || Ok(p_mid.as_ref().unwrap()[0] + config.round_constants[round + 1][0]),
+            )?;
+
             let r_mid: Option<Vec<_>> = p_mid.map(|p| {
                 let r_0 = (p[0] + config.round_constants[round + 1][0]).pow(&config.alpha);
                 let r_i = p[1..]
@@ -639,6 +670,7 @@ mod tests {
         fn configure(meta: &mut ConstraintSystem<Fr>) -> Pow5Config<Fr, WIDTH, RATE> {
             let state = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
             let partial_sbox = meta.advice_column();
+            let mid_0_helper = meta.advice_column();
 
             let rc_a = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
             let rc_b = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
@@ -647,6 +679,7 @@ mod tests {
                 meta,
                 state.try_into().unwrap(),
                 partial_sbox,
+                mid_0_helper,
                 rc_a.try_into().unwrap(),
                 rc_b.try_into().unwrap(),
             )
@@ -757,6 +790,7 @@ mod tests {
         fn configure(meta: &mut ConstraintSystem<Fr>) -> Pow5Config<Fr, WIDTH, RATE> {
             let state = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
             let partial_sbox = meta.advice_column();
+            let mid_0_helper = meta.advice_column();
 
             let rc_a = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
             let rc_b = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
@@ -767,6 +801,7 @@ mod tests {
                 meta,
                 state.try_into().unwrap(),
                 partial_sbox,
+                mid_0_helper,
                 rc_a.try_into().unwrap(),
                 rc_b.try_into().unwrap(),
             )

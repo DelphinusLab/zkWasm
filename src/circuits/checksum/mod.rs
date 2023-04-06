@@ -33,6 +33,7 @@ impl<F: FieldExt> CheckSumConfig<F> {
     pub(crate) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         let state = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
         let partial_sbox = meta.advice_column();
+        let mid_0_helper = meta.advice_column();
 
         let rc_a = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
         let rc_b = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
@@ -42,6 +43,7 @@ impl<F: FieldExt> CheckSumConfig<F> {
                 meta,
                 state.try_into().unwrap(),
                 partial_sbox,
+                mid_0_helper,
                 rc_a.try_into().unwrap(),
                 rc_b.try_into().unwrap(),
             ),
