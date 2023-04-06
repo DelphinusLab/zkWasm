@@ -2,7 +2,10 @@ use clap::{App, AppSettings};
 use log::info;
 use std::{fs, path::PathBuf};
 
-use crate::circuits::config::{set_zkwasm_k, MIN_K};
+use crate::{
+    circuits::config::{set_zkwasm_k, MIN_K},
+    cli::exec::exec_dry_run,
+};
 
 use super::{
     command::CommandBuilder,
@@ -39,6 +42,7 @@ pub trait AppBuilder: CommandBuilder {
             .arg(Self::zkwasm_file_arg());
 
         let app = Self::append_setup_subcommand(app);
+        let app = Self::append_dry_run_subcommand(app);
         let app = Self::append_create_single_proof_subcommand(app);
         let app = Self::append_verify_single_proof_subcommand(app);
         let app = Self::append_create_aggregate_proof_subcommand(app);
@@ -82,6 +86,20 @@ pub trait AppBuilder: CommandBuilder {
                     &function_name,
                     &output_dir,
                 );
+            }
+            Some(("dry-run", sub_matches)) => {
+                let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
+                let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
+
+                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+
+                exec_dry_run(
+                    &wasm_binary,
+                    &function_name,
+                    &public_inputs,
+                    &private_inputs,
+                )
+                .unwrap();
             }
             Some(("single-prove", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);

@@ -155,6 +155,19 @@ pub fn exec_setup(
     };
 }
 
+pub fn exec_dry_run(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<()> {
+    let _ = build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs)?;
+
+    info!("Execution passed.");
+
+    Ok(())
+}
+
 pub fn exec_create_proof(
     prefix: &'static str,
     zkwasm_k: u32,

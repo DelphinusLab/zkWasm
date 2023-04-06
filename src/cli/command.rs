@@ -4,7 +4,15 @@ use super::args::ArgBuilder;
 
 pub trait CommandBuilder: ArgBuilder {
     fn append_setup_subcommand(app: App) -> App {
-        let command = Command::new("setup").arg(Self::output_path_arg());
+        let command = Command::new("setup");
+
+        app.subcommand(command)
+    }
+
+    fn append_dry_run_subcommand(app: App) -> App {
+        let command = Command::new("dry-run")
+            .arg(Self::single_public_arg())
+            .arg(Self::single_private_arg());
 
         app.subcommand(command)
     }
@@ -12,9 +20,7 @@ pub trait CommandBuilder: ArgBuilder {
     fn append_create_single_proof_subcommand(app: App) -> App {
         let command = Command::new("single-prove")
             .arg(Self::single_public_arg())
-            .arg(Self::single_private_arg())
-            .arg(Self::output_path_arg());
-
+            .arg(Self::single_private_arg());
         app.subcommand(command)
     }
 
