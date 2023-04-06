@@ -344,10 +344,15 @@ pub fn exec_aggregate_create_proof(
             let circuit =
                 build_circuit_with_witness(&wasm_binary, &function_name, &public, &private)
                     .unwrap();
-            let instance = vec![public.iter().map(|v| Fr::from(*v)).collect()];
+            let mut instance = vec![];
+
+            #[cfg(feature = "checksum")]
+            instance.push(hash_image(wasm_binary, function_name));
+
+            instance.append(&mut public.iter().map(|v| Fr::from(*v)).collect());
 
             circuits.push(circuit);
-            instances.push(instance);
+            instances.push(vec![instance]);
 
             (circuits, instances)
         },
