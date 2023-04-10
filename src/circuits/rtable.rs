@@ -96,7 +96,6 @@ impl<F: FieldExt> RangeTableConfig<F> {
         meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
     }
 
-    #[cfg(feature = "v2")]
     pub fn configure_in_u8_bit_table(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -362,7 +361,6 @@ impl<F: FieldExt> RangeTableChip<F> {
             },
         )?;
 
-        #[cfg(feature = "v2")]
         layouter.assign_table(
             || "u8 bit table",
             |mut table| {
