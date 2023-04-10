@@ -21,7 +21,7 @@ use super::rtable::RangeTableConfig;
 mod assign;
 mod configure;
 
-const STEP_SIZE: usize = 33;
+const STEP_SIZE: usize = 17;
 
 pub fn encode_bit_table<T: FromBn>(op: T, left: T, right: T, result: T) -> T {
     op * T::from_bn(&(BigUint::from(1u64) << 192))
@@ -34,25 +34,25 @@ pub fn encode_bit_table<T: FromBn>(op: T, left: T, right: T, result: T) -> T {
 pub struct BitTableConfig<F: FieldExt> {
     step_sel: Column<Fixed>,
     lookup_sel: Column<Fixed>,
-    value: Column<Advice>,
+    values: [Column<Advice>; 2],
     _mark: PhantomData<F>,
 }
 /*
-| step_sel  | lookup_sel |   val      |
-|    1      |     0      |  encode    |
-|    0      |     1      |  op        |
-|    0      |     0      |  l_u8_0    |
-|    0      |     0      |  r_u8_0    |
-|    0      |     0      |  res_u8_0  |
-|    0      |     1      |  op        |
-|    0      |     0      |  l_u8_1    |
-|    0      |     0      |  r_u8_1    |
-|    0      |     0      |  res_u8_1  |
+| step_sel  | lookup_sel |  val(col 0) |  val(col 1) |
+|    1      |     0      |  encode     |             |
+|    0      |     1      |  op         |  op         |
+|    0      |     0      |  l_u8_0     |  l_u8_1     |
+|    0      |     0      |  r_u8_0     |  r_u8_1     |
+|    0      |     0      |  res_u8_0   |  res_u8_1   |
+|    0      |     1      |  op         |  op         |
+|    0      |     0      |  l_u8_2     |  l_u8_3     |
+|    0      |     0      |  r_u8_2     |  r_u8_3     |
+|    0      |     0      |  res_u8_2   |  res_u8_3   |
 ...
-|    0      |     1      |  op        |
-|    0      |     0      |  l_u8_7    |
-|    0      |     0      |  r_u8_7    |
-|    0      |     0      |  res_u8_7  |
+|    0      |     1      |  op         |  op         |
+|    0      |     0      |  l_u8_6     |  l_u8_7     |
+|    0      |     0      |  r_u8_6     |  r_u8_7     |
+|    0      |     0      |  res_u8_6   |  res_u8_7   |
 
 |    1      |     0      |  encode    |
 |    0      |     1      |  op        |
@@ -61,58 +61,63 @@ impl<F: FieldExt> BitTableConfig<F> {
     pub(crate) fn configure(meta: &mut ConstraintSystem<F>, rtable: &RangeTableConfig<F>) -> Self {
         let step_sel = meta.fixed_column();
         let lookup_sel = meta.fixed_column();
-        let value = meta.advice_column();
+        let values = [(); 2].map(|_| meta.advice_column());
 
-        rtable.configure_in_u8_range(meta, "bit table u8", |meta| {
-            (constant_from!(1) - fixed_curr!(meta, step_sel)) * curr!(meta, value)
-        });
+        for value in values {
+            rtable.configure_in_u8_range(meta, "bit table u8", |meta| {
+                (constant_from!(1) - fixed_curr!(meta, step_sel)) * curr!(meta, value)
+            });
 
-        rtable.configure_in_u8_bit_table(
-            meta,
-            "bit table u8 bit table lookup",
-            |meta| curr!(meta, value),
-            |meta| nextn!(meta, value, 1),
-            |meta| nextn!(meta, value, 2),
-            |meta| nextn!(meta, value, 3),
-            |meta| fixed_curr!(meta, lookup_sel),
-        );
+            rtable.configure_in_u8_bit_table(
+                meta,
+                "bit table u8 bit table lookup",
+                |meta| curr!(meta, value),
+                |meta| nextn!(meta, value, 1),
+                |meta| nextn!(meta, value, 2),
+                |meta| nextn!(meta, value, 3),
+                |meta| fixed_curr!(meta, lookup_sel),
+            );
+        }
 
         meta.create_gate("bit table encode", |meta| {
             macro_rules! compose_u64 {
                 ($offset:expr) => {
-                    (0..8)
+                    (0..4)
                         .into_iter()
                         .map(|x| {
-                            nextn!(meta, value, 1 + x * 4 + $offset)
-                                * constant_from!(1u64 << (8 * x))
+                            (nextn!(meta, values[0], 1 + x * 4 + $offset)
+                                + nextn!(meta, values[1], 1 + x * 4 + $offset)
+                                    * constant_from!(1u64 << 8))
+                                * constant_from!(1u64 << (16 * x))
                         })
                         .fold(constant_from!(0), |acc, x| acc + x)
                 };
             }
 
-            let op = next!(meta, value);
+            let op = next!(meta, values[0]);
             let left = compose_u64!(1);
             let right = compose_u64!(2);
             let result = compose_u64!(3);
 
             vec![
-                (curr!(meta, value) - encode_bit_table(op, left, right, result))
+                (curr!(meta, values[0]) - encode_bit_table(op, left, right, result))
                     * fixed_curr!(meta, step_sel),
             ]
         });
 
         meta.create_gate("op consistent", |meta| {
             vec![
-                (nextn!(meta, value, 4) - curr!(meta, value))
+                (nextn!(meta, values[0], 4) - curr!(meta, values[0]))
                     * (fixed_nextn!(meta, step_sel, 4) - constant_from!(1))
                     * fixed_curr!(meta, lookup_sel),
+                (curr!(meta, values[0]) - curr!(meta, values[1])) * fixed_curr!(meta, lookup_sel),
             ]
         });
 
         Self {
             step_sel,
             lookup_sel,
-            value,
+            values,
             _mark: PhantomData,
         }
     }
