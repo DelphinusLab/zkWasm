@@ -374,7 +374,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
 
         self.lhs.assign(ctx, left.into(), !is_eight_bytes)?;
         self.rhs.assign(ctx, right)?;
-        self.rhs_round.assign(ctx, F::from((right & 0xff) / size))?;
+        self.rhs_round.assign(ctx, F::from((right & 0xffff) / size))?;
         self.rhs_rem.assign(ctx, F::from(power))?;
         self.rhs_rem_diff.assign(ctx, F::from(size - 1 - power))?;
         self.modulus.assign(ctx, 1 << power)?;
