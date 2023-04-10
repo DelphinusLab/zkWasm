@@ -67,7 +67,6 @@ impl<F: FieldExt> BitTableConfig<F> {
             (constant_from!(1) - fixed_curr!(meta, step_sel)) * curr!(meta, value)
         });
 
-        #[cfg(feature = "v2")]
         rtable.configure_in_u8_bit_table(
             meta,
             "bit table u8 bit table lookup",
