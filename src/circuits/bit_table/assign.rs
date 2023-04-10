@@ -62,7 +62,7 @@ impl<F: FieldExt> BitTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            for o in 0..8 {
+            for o in 0..4 {
                 ctx.region.assign_fixed(
                     || "bit table: lookup sel",
                     self.config.lookup_sel,
@@ -87,7 +87,7 @@ impl<F: FieldExt> BitTableChip<F> {
     ) -> Result<(), Error> {
         ctx.region.assign_advice(
             || "bit table encode",
-            self.config.value,
+            self.config.values[0],
             ctx.offset,
             || {
                 Ok(bn_to_field(&encode_bit_table(
@@ -103,10 +103,17 @@ impl<F: FieldExt> BitTableChip<F> {
     }
 
     fn assign_op(&self, ctx: &mut Context<'_, F>, op: BitOp) -> Result<(), Error> {
-        for i in 0..8 {
+        for i in 0..4 {
             ctx.region.assign_advice(
                 || "bit table op",
-                self.config.value,
+                self.config.values[0],
+                ctx.offset + 4 * i + 1,
+                || Ok(F::from(op as u64)),
+            )?;
+
+            ctx.region.assign_advice(
+                || "bit table op",
+                self.config.values[1],
                 ctx.offset + 4 * i + 1,
                 || Ok(F::from(op as u64)),
             )?;
@@ -124,12 +131,19 @@ impl<F: FieldExt> BitTableChip<F> {
         let mut bytes = value.to_le_bytes().to_vec();
         bytes.resize(8, 0);
 
-        for (index, byte) in bytes.iter().enumerate() {
+        for (index, byte) in bytes.chunks_exact(2).enumerate() {
             ctx.region.assign_advice(
                 || "bit table value",
-                self.config.value,
+                self.config.values[0],
                 ctx.offset + 1 + 4 * index + offset,
-                || Ok(F::from(*byte as u64)),
+                || Ok(F::from(byte[0] as u64)),
+            )?;
+
+            ctx.region.assign_advice(
+                || "bit table value",
+                self.config.values[1],
+                ctx.offset + 1 + 4 * index + offset,
+                || Ok(F::from(byte[1] as u64)),
             )?;
         }
 
