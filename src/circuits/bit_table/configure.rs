@@ -19,12 +19,12 @@ impl<F: FieldExt> Lookup<F> for BitTableConfig<F> {
         meta.lookup_any(key, |meta| {
             vec![(
                 expr(meta),
-                curr!(meta, self.value) * fixed_curr!(meta, self.step_sel),
+                curr!(meta, self.values[0]) * fixed_curr!(meta, self.step_sel),
             )]
         });
     }
 
     fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        curr!(meta, self.value) * fixed_curr!(meta, self.step_sel)
+        curr!(meta, self.values[0]) * fixed_curr!(meta, self.step_sel)
     }
 }
