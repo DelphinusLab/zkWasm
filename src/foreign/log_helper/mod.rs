@@ -2,7 +2,8 @@ use std::rc::Rc;
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 
-use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::host::ForeignContext;
 
 struct Context;
 impl ForeignContext for Context {}
