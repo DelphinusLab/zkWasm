@@ -86,7 +86,6 @@ fn test_clz() {
     test_circuit_noexternal(textual_repr).unwrap()
 }
 
-/*
 #[test]
 fn test_popcnt() {
     let textual_repr = r#"
@@ -113,4 +112,3 @@ fn test_popcnt() {
 
     test_circuit_noexternal(textual_repr).unwrap()
 }
-*/
