@@ -390,16 +390,16 @@ impl<F: FieldExt> EventTableConfig<F> {
                     .into_iter()
                     .reduce(|acc, x| acc + x)
                     .unwrap()
-                    - constant_from!(1),
+                    - enabled_cell.curr_expr(meta),
                 lvl2_bits
                     .map(|x| x.curr_expr(meta))
                     .into_iter()
                     .reduce(|acc, x| acc + x)
                     .unwrap()
-                    - constant_from!(1),
+                    - enabled_cell.curr_expr(meta),
             ]
             .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .map(|expr| expr * fixed_curr!(meta, step_sel))
             .collect::<Vec<_>>()
         });
 
