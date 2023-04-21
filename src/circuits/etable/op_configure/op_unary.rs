@@ -1,3 +1,4 @@
+use crate::circuits::bit_table::encode_bit_table_popcnt;
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
@@ -43,6 +44,8 @@ pub struct UnaryConfig<F: FieldExt> {
     aux2: AllocatedU64Cell<F>,
 
     lookup_pow: AllocatedUnlimitedCell<F>,
+    // To support popcnt
+    bit_table_lookup: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -72,6 +75,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
         let aux2 = allocator.alloc_u64_cell();
 
         let lookup_pow = common_config.pow_table_lookup_cell;
+        let lookup_popcnt = common_config.bit_table_lookup_cell;
 
         constraint_builder.push(
             "op_unary: selector",
@@ -147,6 +151,17 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
             }),
         );
 
+        constraint_builder.push(
+            "op_unary: popcnt",
+            Box::new(move |meta| {
+                vec![
+                    (lookup_popcnt.expr(meta)
+                        - encode_bit_table_popcnt(operand.expr(meta), result.expr(meta)))
+                        * is_popcnt.expr(meta),
+                ]
+            }),
+        );
+
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
@@ -186,6 +201,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
             aux1,
             aux2,
             lookup_pow,
+            bit_table_lookup: lookup_popcnt,
             memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
         })
@@ -299,7 +315,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                     UnaryOp::Popcnt => {
                         self.is_popcnt.assign_bool(ctx, true)?;
 
-                        todo!()
+                        self.bit_table_lookup.assign_bn(
+                            ctx,
+                            &encode_bit_table_popcnt(
+                                BigUint::from(*operand),
+                                BigUint::from(*result),
+                            ),
+                        )?;
                     }
                 }
 

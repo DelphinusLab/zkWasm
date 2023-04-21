@@ -1,4 +1,4 @@
-use crate::circuits::bit_table::encode_bit_table;
+use crate::circuits::bit_table::encode_bit_table_binary;
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
@@ -94,6 +94,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             move |____| constant_from!(1),
         );
 
+        constraint_builder.push(
+            "op_bin_bit: bit table lookup",
+            Box::new(move |meta| {
+                vec![
+                    bit_table_lookup.expr(meta)
+                        - encode_bit_table_binary(
+                            op_class.expr(meta),
+                            lhs.expr(meta),
+                            rhs.expr(meta),
+                            res.expr(meta),
+                        ),
+                ]
+            }),
+        );
+
         Box::new(BinBitConfig {
             lhs,
             rhs,
@@ -159,7 +174,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
 
         self.bit_table_lookup.assign_bn(
             ctx,
-            &encode_bit_table(
+            &encode_bit_table_binary(
                 BigUint::from(class as u64),
                 left.into(),
                 right.into(),

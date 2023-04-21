@@ -1,6 +1,7 @@
 use super::config::zkwasm_k;
 use super::config::POW_TABLE_LIMIT;
 use super::utils::bn_to_field;
+use crate::circuits::bit_table::BitTableOp;
 use crate::constant_from;
 use crate::traits::circuits::bit_range_table::BitRangeTable;
 use halo2_proofs::arithmetic::FieldExt;
@@ -33,9 +34,9 @@ pub struct RangeTableConfig<F: FieldExt> {
     // {0 | 1 | 0b1000000000000000, 0 | 2 | 0b110000000000000 ...}
     offset_len_bits_col: TableColumn,
 
-    // (and | or | xor) << 24
-    //        l_u8      << 16
-    //        r_u8      <<  8
+    // (and | or | xor | popcnt) << 24
+    //        l_u8               << 16
+    //        r_u8               <<  8
     //      res_u8
     u8_bit_op_col: TableColumn,
 
@@ -52,6 +53,12 @@ pub(crate) fn encode_u8_bit_entry<T: FromBn>(op: T, left: T, right: T, res: T) -
 pub(crate) fn encode_u8_bit_lookup(op: BitOp, left: u8, right: u8) -> u64 {
     let res = op.eval(left as u64, right as u64);
     ((op as u64) << 24) + ((left as u64) << 16) + ((right as u64) << 8) + res
+}
+
+pub(crate) fn encode_u8_popcnt_lookup(value: u8) -> u64 {
+    ((BitTableOp::Popcnt.index() as u64) << 24)
+        + ((value as u64) << 16)
+        + (value.count_ones() as u64)
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
@@ -361,26 +368,39 @@ impl<F: FieldExt> RangeTableChip<F> {
             },
         )?;
 
-        layouter.assign_table(
-            || "u8 bit table",
-            |mut table| {
-                let mut offset = 0;
-                for op in BitOp::iter() {
-                    for l in 0..1u16 << 8 {
-                        for r in 0u16..1 << 8 {
-                            table.assign_cell(
-                                || "range table",
-                                self.config.u8_bit_op_col,
-                                offset as usize,
-                                || Ok(F::from(encode_u8_bit_lookup(op, l as u8, r as u8))),
-                            )?;
-                            offset += 1;
+        {
+            let mut offset = 0;
+
+            layouter.assign_table(
+                || "u8 bit table",
+                |mut table| {
+                    for op in BitOp::iter() {
+                        for l in 0..1u16 << 8 {
+                            for r in 0u16..1 << 8 {
+                                table.assign_cell(
+                                    || "range table",
+                                    self.config.u8_bit_op_col,
+                                    offset as usize,
+                                    || Ok(F::from(encode_u8_bit_lookup(op, l as u8, r as u8))),
+                                )?;
+                                offset += 1;
+                            }
                         }
                     }
-                }
-                Ok(())
-            },
-        )?;
+
+                    for value in 0..1u16 << 8 {
+                        table.assign_cell(
+                            || "range table",
+                            self.config.u8_bit_op_col,
+                            offset as usize,
+                            || Ok(F::from(encode_u8_popcnt_lookup(value as u8))),
+                        )?;
+                        offset += 1;
+                    }
+                    Ok(())
+                },
+            )?;
+        }
 
         Ok(())
     }
