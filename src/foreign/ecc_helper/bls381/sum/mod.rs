@@ -4,13 +4,11 @@ use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bls12_381::G1Affine;
 
 use super::{
-    //LIMBSZ, BN254SUM_G1, BN254SUM_RESULT,
     bls381_fq_to_limbs,
     fetch_g1,
-    BLSSUM_G1,
-    BLSSUM_RESULT,
 };
 
+use crate::foreign::ForeignInst;
 
 #[derive(Default)]
 struct BlsSumContext {
@@ -45,7 +43,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blssum_g1",
-        BLSSUM_G1,
+        ForeignInst::BlssumG1 as usize,
         ExternalHostCallSignature::Argument,
         foreign_blssum_plugin.clone(),
         Rc::new(
@@ -66,7 +64,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blssum_pop",
-        BLSSUM_RESULT,
+        ForeignInst::BlssumResult as usize,
         ExternalHostCallSignature::Return,
         foreign_blssum_plugin.clone(),
         Rc::new(
