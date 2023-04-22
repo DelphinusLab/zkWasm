@@ -8,9 +8,18 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 
+enum ForeignInst {
+    BlspairG1 = 0,
+    BlspairG2,
+    BlspairG3,
+    BlssumG1,
+    BlssumResult,
+}
+
 pub mod keccak_helper;
 pub mod log_helper;
 pub mod require_helper;
+pub mod kv_helper;
 pub mod ecc_helper;
 pub mod wasm_input_helper;
 

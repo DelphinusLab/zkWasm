@@ -10,13 +10,9 @@ use halo2_proofs::pairing::bls12_381::{G1Affine,
     Fq as Bls381Fq,
 };
 
-const BLSPAIR_G1:usize= 0;
-const BLSPAIR_G2:usize= 1;
-const BLSPAIR_G3:usize= 2;
-const BLSSUM_G1:usize= 3;
-const BLSSUM_RESULT:usize= 4;
-
-use super::{bn_to_field, field_to_bn};
+use super::{
+    bn_to_field, field_to_bn
+};
 
 fn fetch_fq(limbs: &Vec<u64>, index:usize) -> Bls381Fq {
     let mut bn = BigUint::zero();

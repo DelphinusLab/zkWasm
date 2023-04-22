@@ -11,14 +11,14 @@ use std::ops::{AddAssign, Shl};
 use num_traits::FromPrimitive;
 use halo2_proofs::arithmetic::CurveAffine;
 
-const BN254SUM_G1:usize= 5;
-const BN254SUM_RESULT:usize= 6;
-const BN254PAIR_G1:usize= 7;
-const BN254PAIR_G2:usize= 8;
-const BN254PAIR_G3:usize= 9;
+const BN254SUM_G1:usize = 5;
+const BN254SUM_RESULT:usize = 6;
+const BN254PAIR_G1:usize = 7;
+const BN254PAIR_G2:usize = 8;
+const BN254PAIR_G3:usize = 9;
 
-const LIMBSZ:usize= 45;
-const LIMBNB:usize= 6;
+const LIMBSZ:usize = 45;
+const LIMBNB:usize = 6;
 
 use super::{bn_to_field, field_to_bn};
 

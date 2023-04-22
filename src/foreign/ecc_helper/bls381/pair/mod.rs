@@ -8,12 +8,13 @@ use halo2_proofs::pairing::bls12_381::{G1Affine, G2Affine,
 
 use super::{
     bls381_fq_to_limbs,
-    BLSPAIR_G1,
-    BLSPAIR_G2,
-    BLSPAIR_G3,
     fetch_fq,
     fetch_fq2,
 };
+
+
+use super::super::super::ForeignInst;
+
 
 
 #[derive(Default)]
@@ -66,7 +67,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blspair_g1",
-        BLSPAIR_G1,
+        ForeignInst::BlspairG1 as usize,
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
@@ -86,7 +87,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
     );
     env.external_env.register_function(
         "blspair_g2",
-        BLSPAIR_G2,
+        ForeignInst::BlspairG2 as usize,
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
@@ -126,7 +127,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blspair_pop",
-        BLSPAIR_G3,
+        ForeignInst::BlspairG3 as usize,
         ExternalHostCallSignature::Return,
         foreign_blspair_plugin.clone(),
         Rc::new(
