@@ -3314,7 +3314,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#886af03f0ef20baf95580d6f1066b0e320b6920e"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#6a00169ba7bca327f8677140409bacd49249cc91"
 dependencies = [
  "ark-std",
  "clap",
