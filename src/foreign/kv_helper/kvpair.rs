@@ -1,5 +1,7 @@
 use std::rc::Rc;
 use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use zkwasm_host_circuits::host::merkle::MerkleTree;
+use zkwasm_host_circuits::host::{kvpair as kvpairhelper};
 
 #[derive(Default)]
 struct KVPairContext {
@@ -10,10 +12,12 @@ struct KVPairContext {
     pub result_cursor: usize,
 }
 
-const LIMBNB:usize = 4;
+const ADDRESS_LIMBNB:usize = 1;
+const VALUE_LIMBNB:usize = 1;
 const KVPAIR_ADDR:usize= 7;
 const KVPAIR_SET:usize= 8;
 const KVPAIR_GET:usize= 9;
+
 
 impl KVPairContext {
 }
@@ -26,6 +30,8 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
             .external_env
             .register_plugin("foreign_kvpair", Box::new(KVPairContext::default()));
 
+    let _kv = kvpairhelper::MongoMerkle::construct([0;32]);
+
     env.external_env.register_function(
         "kvpair_addr",
         KVPAIR_ADDR,
@@ -34,7 +40,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
-                if context.input_cursor < LIMBNB {
+                if context.input_cursor < ADDRESS_LIMBNB {
                     context.address_limbs.push(args.nth(0));
                     context.input_cursor += 1;
                 } else {
@@ -54,7 +60,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
-                if context.input_cursor < LIMBNB {
+                if context.input_cursor < VALUE_LIMBNB {
                     context.value_limbs.push(args.nth(0));
                     context.input_cursor += 1;
                 } else {
