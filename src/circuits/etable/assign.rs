@@ -196,6 +196,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 next: &status[index + 1],
                 current_external_host_call_index: external_host_call_call_index,
                 configure_table: *configure_table,
+                host_public_inputs,
             };
 
             {
