@@ -382,33 +382,28 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
 
         if op_is_sign {
             self.op_is_sign.assign(ctx, F::one())?;
+        }
 
-            // let l_neg = if var_type == VarType::I32 {
-            //     (lhs as i32).is_negative()
-            // } else {
-            //     (lhs as i64).is_negative()
-            // };
-            // let r_neg = if var_type == VarType::I32 {
-            //     (rhs as i32).is_negative()
-            // } else {
-            //     (rhs as i64).is_negative()
-            // };
-
-            let (l_pos, r_pos, l_neg, r_neg) = if var_type == VarType::I32 {
-                let lhs = (lhs >> 31) & 0x1;
-                let rhs = (rhs >> 31) & 0x1;
-
-                (lhs == 0, rhs == 0, lhs == 1, rhs == 1)
+        {
+            let (l_neg, r_neg) = if op_is_sign {
+                let l_neg = if var_type == VarType::I32 {
+                    (lhs as i32).is_negative()
+                } else {
+                    (lhs as i64).is_negative()
+                };
+                let r_neg = if var_type == VarType::I32 {
+                    (rhs as i32).is_negative()
+                } else {
+                    (rhs as i64).is_negative()
+                };
+                (l_neg, r_neg)
             } else {
-                let lhs = (lhs >> 63) & 0x1;
-                let rhs = (rhs >> 63) & 0x1;
-
-                (lhs == 0, rhs == 0, lhs == 1, rhs == 1)
+                (false, false)
             };
 
-            self.l_pos_r_pos.assign(ctx, F::from(l_pos && r_pos))?;
-            self.l_pos_r_neg.assign(ctx, F::from(l_pos && r_neg))?;
-            self.l_neg_r_pos.assign(ctx, F::from(l_neg && r_pos))?;
+            self.l_pos_r_pos.assign(ctx, F::from(!l_neg && !r_neg))?;
+            self.l_pos_r_neg.assign(ctx, F::from(!l_neg && r_neg))?;
+            self.l_neg_r_pos.assign(ctx, F::from(l_neg && !r_neg))?;
             self.l_neg_r_neg.assign(ctx, F::from(l_neg && r_neg))?;
         }
 
