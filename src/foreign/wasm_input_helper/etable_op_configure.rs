@@ -66,7 +66,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
-        let public_input_index = common_config.input_index_cell;
+        //let public_input_index = common_config.input_index_cell;
 
         let is_public = allocator.alloc_bit_cell();
         let value = allocator.alloc_u64_cell();
@@ -95,6 +95,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
             move |____| constant_from!(1),
         );
 
+        /*
         constraint_builder.push(
             "wasm input lookup aux",
             Box::new(move |meta| {
@@ -105,6 +106,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
                 ]
             }),
         );
+ */
 
         // constraint_builder.lookup(
         //     WASM_INPUT_FOREIGN_TABLE_KEY,
