@@ -72,6 +72,8 @@ pub(crate) mod constraint_builder;
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
 pub(crate) const OP_CAPABILITY: usize = 32;
 
+const FOREIGN_LOOKUP_CAPABILITY: usize = 2;
+
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
     enabled_cell: AllocatedBitCell<F>,
@@ -226,6 +228,10 @@ impl<F: FieldExt> EventTableConfig<F> {
         let bit_table_lookup_cell = allocator.alloc_bit_table_lookup_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
 
+        let mut lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
+            .map(|_| allocator.alloc_unlimited_cell())
+            .into_iter();
+
         let common_config = EventTableCommonConfig {
             enabled_cell,
             ops,
@@ -273,7 +279,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                     );
 
                     constraint_builder.finalize(|meta| {
-                        fixed_curr!(meta, step_sel) * ops[op.index()].curr_expr(meta)
+                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
                     });
 
                     op_bitmaps.insert(op, op.index());
@@ -325,10 +331,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                         &common_config,
                         &mut allocator.clone(),
                         &mut constraint_builder,
+                        &mut lookup_cells,
                     );
 
                     constraint_builder.finalize(|meta| {
-                        fixed_curr!(meta, step_sel) * ops[op.index()].curr_expr(meta)
+                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
                     });
 
                     op_bitmaps.insert(op, op.index());

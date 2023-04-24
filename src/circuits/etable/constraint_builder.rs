@@ -58,12 +58,19 @@ impl<'a, 'b, F: FieldExt> ConstraintBuilder<'a, 'b, F> {
         }
     }
 
-    pub(super) fn finalize(self, enable: impl Fn(&mut VirtualCells<F>) -> Expression<F>) {
+    pub(super) fn finalize(
+        self,
+        selector: impl Fn(&mut VirtualCells<F>) -> (Expression<F>, Expression<F>),
+    ) {
         for (name, builder) in self.constraints {
             self.meta.create_gate(&name, |meta| {
                 builder(meta)
                     .into_iter()
-                    .map(|constraint| constraint * enable(meta))
+                    .map(|constraint| {
+                        let (step_sel, op_sel) = selector(meta);
+
+                        constraint * step_sel * op_sel
+                    })
                     .collect::<Vec<_>>()
             });
         }
@@ -75,7 +82,10 @@ impl<'a, 'b, F: FieldExt> ConstraintBuilder<'a, 'b, F> {
                 config.configure_in_table(self.meta, key, &|meta| {
                     expr(meta)
                         .into_iter()
-                        .map(|expr| expr * enable(meta))
+                        .map(|expr| {
+                            let (step_sel, _op_sel) = selector(meta);
+                            expr * step_sel
+                        })
                         .collect()
                 });
             }
