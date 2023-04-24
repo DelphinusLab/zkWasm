@@ -99,6 +99,12 @@ impl OpcodeClass {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct OpcodeClassPlain(pub usize);
 
+impl OpcodeClassPlain {
+    pub fn index(self) -> usize {
+        self.0
+    }
+}
+
 #[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnaryOp {
     Ctz,
