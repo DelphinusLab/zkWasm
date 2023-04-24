@@ -234,7 +234,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                         * (constant_from!(1) - res_flag.expr(meta))
                         * is_div_s.expr(meta),
                     degree_helper1.expr(meta)
-                        - (d.u64_cell.expr(meta) + res.u64_cell.expr(meta)) * res_flag.expr(meta),
+                        - (d.u64_cell.expr(meta) + res.u64_cell.expr(meta))
+                            * res_flag.expr(meta)
+                            * is_div_s.expr(meta),
+                    /*
+                     * If only one of the left and the right is negative,
+                     * `res` must equal to `size_modulus - normalized quotient(d)`, or
+                     * `res` and `d` are both zero.
+                     */
                     (res.u64_cell.expr(meta) + d.u64_cell.expr(meta) - size_modulus.expr(meta))
                         * degree_helper1.expr(meta)
                         * is_div_s.expr(meta),
@@ -440,11 +447,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
         self.size_modulus
             .assign_bn(ctx, &(BigUint::from(1u64) << shift))?;
 
-        let shift = if var_type == VarType::I32 { 31 } else { 63 };
-        let lhs_flag = left >> shift;
-        let rhs_flag = right >> shift;
-        let res_flag = lhs_flag ^ rhs_flag;
-        self.res_flag.assign(ctx, res_flag.into())?;
+        let (lhs_flag, res_flag) = {
+            let shift = if var_type == VarType::I32 { 31 } else { 63 };
+            let lhs_flag = left >> shift;
+            let rhs_flag = right >> shift;
+            let res_flag = lhs_flag ^ rhs_flag;
+            self.res_flag.assign(ctx, res_flag.into())?;
+
+            (lhs_flag, res_flag)
+        };
 
         match class {
             BinOp::Add => {
@@ -509,7 +520,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 let d_leading_u16 = d >> (shift - 16);
 
                 self.degree_helper1
-                    .assign(ctx, ((d + value) * res_flag).into())?;
+                    .assign(ctx, (F::from(d) + F::from(value)) * F::from(res_flag))?;
 
                 self.degree_helper2.assign_bn(
                     ctx,
