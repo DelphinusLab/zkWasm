@@ -45,7 +45,9 @@ pub struct UnaryConfig<F: FieldExt> {
 
     lookup_pow: AllocatedUnlimitedCell<F>,
     // To support popcnt
-    bit_table_lookup: AllocatedUnlimitedCell<F>,
+    bit_table_lookup: AllocatedBitTableLookupCell<F>,
+
+    ctz_degree_helper: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -73,6 +75,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
         let boundary = allocator.alloc_unlimited_cell();
         let aux1 = allocator.alloc_u64_cell();
         let aux2 = allocator.alloc_u64_cell();
+
+        let ctz_degree_helper = allocator.alloc_unlimited_cell();
 
         let lookup_pow = common_config.pow_table_lookup_cell;
         let lookup_popcnt = common_config.bit_table_lookup_cell;
@@ -137,10 +141,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
                 let operand_is_not_zero = constant_from!(1) - operand_is_zero.expr(meta);
 
                 vec![
+                    ctz_degree_helper.expr(meta)
+                        - (aux1.u64_cell.expr(meta) * boundary.expr(meta) * constant_from!(2)),
                     operand_is_zero.expr(meta) * (result.u64_cell.expr(meta) - bits.expr(meta)),
                     operand_is_not_zero
-                        * (aux1.u64_cell.expr(meta) * boundary.expr(meta) * constant_from!(2)
-                            + boundary.expr(meta)
+                        * (ctz_degree_helper.expr(meta) + boundary.expr(meta)
                             - operand.u64_cell.expr(meta)),
                     lookup_pow.expr(meta)
                         - pow_table_encode(boundary.expr(meta), result.u64_cell.expr(meta)),
@@ -155,7 +160,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
             "op_unary: popcnt",
             Box::new(move |meta| {
                 vec![
-                    (lookup_popcnt.expr(meta)
+                    (lookup_popcnt.0.expr(meta)
                         - encode_bit_table_popcnt(operand.expr(meta), result.expr(meta)))
                         * is_popcnt.expr(meta),
                 ]
@@ -201,6 +206,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
             aux1,
             aux2,
             lookup_pow,
+            ctz_degree_helper,
             bit_table_lookup: lookup_popcnt,
             memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
@@ -273,10 +279,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         let hd = (*operand)
                             .checked_shr(least_one_pos as u32 + 1)
                             .unwrap_or(0);
+                        let boundary = bn_to_field(&BigUint::from(1u128 << least_one_pos));
 
                         self.aux1.assign(ctx, hd)?;
-                        self.boundary
-                            .assign(ctx, bn_to_field(&BigUint::from(1u128 << least_one_pos)))?;
+                        self.boundary.assign(ctx, boundary)?;
                         self.lookup_pow.assign(
                             ctx,
                             bn_to_field(&pow_table_encode(
@@ -284,6 +290,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                                 BigUint::from(least_one_pos),
                             )),
                         )?;
+
+                        self.ctz_degree_helper
+                            .assign(ctx, F::from(hd) * boundary * F::from(2))?;
                     }
                     UnaryOp::Clz => {
                         self.is_clz.assign_bool(ctx, true)?;
@@ -315,7 +324,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                     UnaryOp::Popcnt => {
                         self.is_popcnt.assign_bool(ctx, true)?;
 
-                        self.bit_table_lookup.assign_bn(
+                        self.bit_table_lookup.0.assign_bn(
                             ctx,
                             &encode_bit_table_popcnt(
                                 BigUint::from(*operand),
