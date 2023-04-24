@@ -9,6 +9,7 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 
+use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 use crate::nextn;
@@ -104,7 +105,7 @@ pub(crate) struct AllocatedU64CellWithFlagBitDynSign<F: FieldExt> {
 }
 
 macro_rules! define_cell {
-    ($x: ident) => {
+    ($x: ident, $limit: expr) => {
         #[derive(Debug, Clone, Copy)]
         pub(crate) struct $x<F: FieldExt>(pub(crate) AllocatedCell<F>);
 
@@ -118,17 +119,29 @@ macro_rules! define_cell {
                 ctx: &mut Context<'_, F>,
                 value: F,
             ) -> Result<AssignedCell<F, F>, Error> {
+                if let Some(limit) = $limit {
+                    assert!(
+                        value <= limit,
+                        "assigned value {:?} exceeds the limit {:?}",
+                        value,
+                        limit
+                    );
+                };
+
                 self.0.assign(ctx, value)
             }
         }
     };
 }
 
-define_cell!(AllocatedBitCell);
-define_cell!(AllocatedCommonRangeCell);
-define_cell!(AllocatedU8Cell);
-define_cell!(AllocatedU16Cell);
-define_cell!(AllocatedUnlimitedCell);
+define_cell!(AllocatedBitCell, Some(F::one()));
+define_cell!(
+    AllocatedCommonRangeCell,
+    Some(F::from((1u64 << (zkwasm_k() - 1)) - 1))
+);
+define_cell!(AllocatedU8Cell, Some(F::from(u8::MAX as u64)));
+define_cell!(AllocatedU16Cell, Some(F::from(u16::MAX as u64)));
+define_cell!(AllocatedUnlimitedCell, None);
 
 impl<F: FieldExt> AllocatedU64Cell<F> {
     pub(crate) fn assign(&self, ctx: &mut Context<'_, F>, value: u64) -> Result<(), Error> {
