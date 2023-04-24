@@ -98,7 +98,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             "op_bin_bit: bit table lookup",
             Box::new(move |meta| {
                 vec![
-                    bit_table_lookup.expr(meta)
+                    bit_table_lookup.0.expr(meta)
                         - encode_bit_table_binary(
                             op_class.expr(meta),
                             lhs.expr(meta),
