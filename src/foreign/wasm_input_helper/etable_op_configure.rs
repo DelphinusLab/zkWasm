@@ -30,7 +30,7 @@ use crate::constant_from_bn;
 use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::InternalHostPluginBuilder;
 
-use super::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
+// use super::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 
 pub struct ETableWasmInputHelperTableConfig<F: FieldExt> {
     plugin_index: usize,
