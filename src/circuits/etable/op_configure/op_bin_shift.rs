@@ -50,6 +50,7 @@ pub struct BinShiftConfig<F: FieldExt> {
     is_rotl: AllocatedBitCell<F>,
     is_rotr: AllocatedBitCell<F>,
 
+    degree_helper: AllocatedUnlimitedCell<F>,
     lookup_pow: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
@@ -87,6 +88,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let is_shr_s = allocator.alloc_bit_cell();
         let is_rotl = allocator.alloc_bit_cell();
         let is_rotr = allocator.alloc_bit_cell();
+
+        let degree_helper = allocator.alloc_unlimited_cell();
 
         let lookup_pow = common_config.pow_table_lookup_cell;
 
@@ -167,11 +170,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                             - modulus.u64_cell.expr(meta)),
                     is_shr_s.expr(meta)
                         * (res.expr(meta) - round.u64_cell.expr(meta) - pad.u64_cell.expr(meta)),
+                    degree_helper.expr(meta)
+                        - (modulus.u64_cell.expr(meta) - constant_from!(1))
+                            * size_modulus.expr(meta),
                     is_shr_s.expr(meta)
                         * (pad.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
-                            - lhs.flag_bit_cell.expr(meta)
-                                * (modulus.u64_cell.expr(meta) - constant_from!(1))
-                                * size_modulus.expr(meta)),
+                            - lhs.flag_bit_cell.expr(meta) * degree_helper.expr(meta)),
                 ]
             }),
         );
@@ -290,6 +294,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             memory_table_lookup_stack_write,
             rhs_modulus,
             size_modulus,
+            degree_helper,
         })
     }
 }
@@ -372,13 +377,20 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             u32::MAX as u64
         };
 
+        let modulus = 1u64 << power;
+        let size_modulus = if is_eight_bytes {
+            BigUint::from(1u64) << 64usize
+        } else {
+            BigUint::from(1u64) << 32usize
+        };
+
         self.lhs.assign(ctx, left.into(), !is_eight_bytes)?;
         self.rhs.assign(ctx, right)?;
         self.rhs_round
             .assign(ctx, F::from((right & 0xffff) / size))?;
         self.rhs_rem.assign(ctx, F::from(power))?;
         self.rhs_rem_diff.assign(ctx, F::from(size - 1 - power))?;
-        self.modulus.assign(ctx, 1 << power)?;
+        self.modulus.assign(ctx, modulus)?;
         self.lookup_pow
             .assign_bn(ctx, &((BigUint::from(1u64) << (power + 16)) + power))?;
         self.is_i32
@@ -386,14 +398,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
         self.res.assign(ctx, F::from(value))?;
         self.rhs_modulus
             .assign_u32(ctx, if is_eight_bytes { 64 } else { 32 })?;
-        self.size_modulus.assign_bn(
-            ctx,
-            &if is_eight_bytes {
-                BigUint::from(1u64) << 64usize
-            } else {
-                BigUint::from(1u64) << 32usize
-            },
-        )?;
+        self.size_modulus.assign_bn(ctx, &size_modulus)?;
+        self.degree_helper
+            .assign_bn(ctx, &(size_modulus * (modulus - 1)))?;
 
         match class {
             ShiftOp::Shl => {
