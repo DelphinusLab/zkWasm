@@ -33,7 +33,7 @@ pub struct ReturnConfig<F: FieldExt> {
     drop: AllocatedCommonRangeCell<F>,
     is_i32: AllocatedBitCell<F>,
     value: AllocatedU64Cell<F>,
-    frame_table_lookup: AllocatedUnlimitedCell<F>,
+    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
@@ -84,7 +84,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             "return frame table lookups",
             Box::new(move |meta| {
                 vec![
-                    frame_table_lookup.expr(meta)
+                    frame_table_lookup.0.expr(meta)
                         - JumpTableConfig::encode_lookup(
                             frame_id_cell.expr(meta),
                             frame_id_cell.next_expr(meta),
@@ -167,7 +167,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                     )?;
                 }
 
-                self.frame_table_lookup.assign_bn(
+                self.frame_table_lookup.0.assign_bn(
                     ctx,
                     &encode_frame_table_entry(
                         step.current.last_jump_eid.to_biguint().unwrap(),

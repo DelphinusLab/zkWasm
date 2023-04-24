@@ -13,7 +13,6 @@ use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
 use super::utils::Context;
 use super::CircuitConfigure;
-use super::Lookup;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_shift::BinShiftConfigBuilder;
@@ -91,9 +90,9 @@ pub struct EventTableCommonConfig<F: FieldExt> {
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
-    jtable_lookup_cell: AllocatedUnlimitedCell<F>,
+    jtable_lookup_cell: AllocatedJumpTableLookupCell<F>,
     pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
-    bit_table_lookup_cell: AllocatedUnlimitedCell<F>,
+    bit_table_lookup_cell: AllocatedBitTableLookupCell<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
 
     circuit_configure: CircuitConfigure,
@@ -202,7 +201,8 @@ impl<F: FieldExt> EventTableConfig<F> {
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
-        let mut allocator = EventTableCellAllocator::new(meta, step_sel, rtable, mtable, cols);
+        let mut allocator =
+            EventTableCellAllocator::new(meta, step_sel, rtable, mtable, jtable, bit_table, cols);
         allocator.enable_equality(meta, &EventTableCellType::CommonRange);
 
         let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
@@ -221,9 +221,9 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
-        let jtable_lookup_cell = allocator.alloc_unlimited_cell();
+        let jtable_lookup_cell = allocator.alloc_jump_table_lookup_cell();
         let pow_table_lookup_cell = allocator.alloc_unlimited_cell();
-        let bit_table_lookup_cell = allocator.alloc_unlimited_cell();
+        let bit_table_lookup_cell = allocator.alloc_bit_table_lookup_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
 
         let common_config = EventTableCommonConfig {
@@ -543,16 +543,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        jtable.configure_in_table(meta, "c8c. jtable_lookup in jtable", |meta| {
-            jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
-        });
-
         rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {
             pow_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
-        });
-
-        bit_table.configure_in_table(meta, "c8f: bit_table_lookup in bit_table", |meta| {
-            bit_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
         external_host_call_table.configure_in_table(

@@ -34,7 +34,7 @@ pub struct BinBitConfig<F: FieldExt> {
 
     is_i32: AllocatedBitCell<F>,
 
-    bit_table_lookup: AllocatedUnlimitedCell<F>,
+    bit_table_lookup: AllocatedBitTableLookupCell<F>,
 
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
@@ -172,7 +172,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
         self.rhs.assign(ctx, right)?;
         self.res.assign(ctx, value)?;
 
-        self.bit_table_lookup.assign_bn(
+        self.bit_table_lookup.0.assign_bn(
             ctx,
             &encode_bit_table_binary(
                 BigUint::from(class as u64),
