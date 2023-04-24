@@ -71,7 +71,7 @@ pub(crate) mod allocator;
 pub(crate) mod constraint_builder;
 
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
-pub(crate) const OP_CAPABILITY: usize = 30;
+pub(crate) const OP_CAPABILITY: usize = 32;
 
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
