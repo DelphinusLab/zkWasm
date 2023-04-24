@@ -372,9 +372,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             op_bitmaps
                 .iter()
                 .filter_map(|(op, op_index)| {
-                    get_expr(meta, op_configs.get(op).unwrap()).map(|expr| {
-                        expr * fixed_curr!(meta, step_sel) * ops[*op_index].curr_expr(meta)
-                    })
+                    get_expr(meta, op_configs.get(op).unwrap())
+                        .map(|expr| expr * ops[*op_index].curr_expr(meta))
                 })
                 .fold(init, |acc, x| acc + x)
         };
@@ -451,11 +450,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
             )]
             .into_iter()
-            .map(|expr| {
-                expr * enabled_cell.curr_expr(meta)
-                    * enabled_cell.next_expr(meta)
-                    * fixed_curr!(meta, step_sel)
-            })
+            .map(|expr| expr * enabled_cell.next_expr(meta) * fixed_curr!(meta, step_sel))
             .collect::<Vec<_>>()
         });
 

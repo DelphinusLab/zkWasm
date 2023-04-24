@@ -49,6 +49,7 @@ pub struct BinConfig<F: FieldExt> {
     is_div_s: AllocatedBitCell<F>,
     is_rem_s: AllocatedBitCell<F>,
 
+    res_flag: AllocatedUnlimitedCell<F>,
     size_modulus: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
@@ -87,6 +88,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let is_rem_u = allocator.alloc_bit_cell();
         let is_rem_s = allocator.alloc_bit_cell();
 
+        let res_flag = allocator.alloc_unlimited_cell();
         let size_modulus = allocator.alloc_unlimited_cell();
 
         constraint_builder.push(
@@ -163,6 +165,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         );
 
         constraint_builder.push(
+            "bin: res flag",
+            Box::new(move |meta| {
+                vec![
+                    res_flag.expr(meta)
+                        - (lhs.flag_bit_cell.expr(meta) + rhs.flag_bit_cell.expr(meta)
+                            - constant_from!(2)
+                                * lhs.flag_bit_cell.expr(meta)
+                                * rhs.flag_bit_cell.expr(meta)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
             "bin: div_s/rem_s constraints common",
             Box::new(move |meta| {
                 let enable = is_div_s.expr(meta) + is_rem_s.expr(meta);
@@ -176,18 +191,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                     + (size_modulus.expr(meta) - rhs.u64_cell.expr(meta))
                         * rhs.flag_bit_cell.expr(meta);
 
-                let res_flag = lhs.flag_bit_cell.expr(meta) + rhs.flag_bit_cell.expr(meta)
-                    - constant_from!(2)
-                        * lhs.flag_bit_cell.expr(meta)
-                        * rhs.flag_bit_cell.expr(meta);
-
                 let d_leading_u16 = d.u16_cells_le[3].expr(meta)
                     + is_i32.expr(meta)
                         * (d.u16_cells_le[1].expr(meta) - d.u16_cells_le[3].expr(meta));
                 vec![
                     // d_flag must be zero if res_flag is zero
                     (d_leading_u16 + d_flag_helper_diff.expr(meta) - constant_from!(0x7fff))
-                        * (constant_from!(1) - res_flag.clone()),
+                        * (constant_from!(1) - res_flag.expr(meta)),
                     normalized_lhs
                         - normalized_rhs.clone() * d.u64_cell.expr(meta)
                         - aux1.u64_cell.expr(meta),
@@ -203,18 +213,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         constraint_builder.push(
             "bin: div_s constraints res",
             Box::new(move |meta| {
-                let res_flag = lhs.flag_bit_cell.expr(meta) + rhs.flag_bit_cell.expr(meta)
-                    - constant_from!(2)
-                        * lhs.flag_bit_cell.expr(meta)
-                        * rhs.flag_bit_cell.expr(meta);
-
                 vec![
                     (res.u64_cell.expr(meta) - d.u64_cell.expr(meta))
-                        * (constant_from!(1) - res_flag.clone())
+                        * (constant_from!(1) - res_flag.expr(meta))
                         * is_div_s.expr(meta),
                     (res.u64_cell.expr(meta) + d.u64_cell.expr(meta) - size_modulus.expr(meta))
                         * (d.u64_cell.expr(meta) + res.u64_cell.expr(meta))
-                        * res_flag.clone()
+                        * res_flag.expr(meta)
                         * is_div_s.expr(meta),
                 ]
             }),
@@ -293,6 +298,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
             size_modulus,
+            res_flag,
         })
     }
 }
@@ -378,6 +384,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
         self.res.assign(ctx, value.into())?;
         self.size_modulus
             .assign_bn(ctx, &(BigUint::from(1u64) << shift))?;
+
+        let shift = if var_type == VarType::I32 { 31 } else { 63 };
+        let lhs_flag = left >> shift;
+        let rhs_flag = right >> shift;
+        self.res_flag.assign(ctx, (lhs_flag ^ rhs_flag).into())?;
 
         match class {
             BinOp::Add => {
