@@ -170,6 +170,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     f
                 };
                 assign_advice!(offset_diff_inv_cell, invert);
+                assign_advice!(offset_diff_inv_helper_cell, invert * F::from(offset_diff));
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
