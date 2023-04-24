@@ -1,3 +1,4 @@
+use crate::circuits::cell::AllocatedUnlimitedCell;
 use crate::circuits::etable::allocator::EventTableCellAllocator;
 use crate::circuits::etable::constraint_builder::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
@@ -27,6 +28,7 @@ pub(crate) trait EventTableForeignCallConfigBuilder<F: FieldExt> {
         common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
+        lookup_cells: &mut (impl Iterator<Item = AllocatedUnlimitedCell<F>> + Clone),
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 
