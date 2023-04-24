@@ -27,12 +27,12 @@ pub struct BrTableConfig<F: FieldExt> {
     drop: AllocatedCommonRangeCell<F>,
     dst_iid: AllocatedCommonRangeCell<F>,
 
-    expected_index: AllocatedCommonRangeCell<F>,
+    expected_index: AllocatedU64Cell<F>,
     effective_index: AllocatedCommonRangeCell<F>,
     targets_len: AllocatedCommonRangeCell<F>,
     is_out_of_bound: AllocatedBitCell<F>,
     is_not_out_of_bound: AllocatedBitCell<F>,
-    diff: AllocatedCommonRangeCell<F>,
+    diff: AllocatedU64Cell<F>,
 
     br_table_lookup: AllocatedUnlimitedCell<F>,
 
@@ -54,12 +54,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
         let keep_value = allocator.alloc_u64_cell();
         let drop = allocator.alloc_common_range_cell();
         let dst_iid = allocator.alloc_common_range_cell();
-        let expected_index = allocator.alloc_common_range_cell();
+        let expected_index = allocator.alloc_u64_cell();
         let effective_index = allocator.alloc_common_range_cell();
         let targets_len = allocator.alloc_common_range_cell();
         let is_out_of_bound = allocator.alloc_bit_cell();
         let is_not_out_of_bound = allocator.alloc_bit_cell();
-        let diff = allocator.alloc_common_range_cell();
+        let diff = allocator.alloc_u64_cell();
 
         constraint_builder.push(
             "op_br_table oob",
@@ -248,7 +248,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                 } else {
                     targets_len - 1
                 };
-                self.expected_index.assign(ctx, F::from(index))?;
+                self.expected_index.assign(ctx, index)?;
                 self.effective_index.assign(ctx, F::from(effective_index))?;
                 self.is_out_of_bound
                     .assign_bool(ctx, index != effective_index)?;
