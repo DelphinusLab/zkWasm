@@ -15,12 +15,14 @@ pub trait JTableConstraint<F: FieldExt> {
         self.enable_rest_jops_permutation(meta);
         self.configure_rest_jops_decrease(meta);
         self.disabled_block_should_be_end(meta);
+        self.disabled_block_has_no_entry_value(meta);
     }
 
     fn enable_rest_jops_permutation(&self, meta: &mut ConstraintSystem<F>);
     fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>);
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>);
     fn disabled_block_should_be_end(&self, meta: &mut ConstraintSystem<F>);
+    fn disabled_block_has_no_entry_value(&self, meta: &mut ConstraintSystem<F>);
 }
 
 impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
@@ -62,6 +64,16 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
             ]
         });
     }
+
+    fn disabled_block_has_no_entry_value(&self, meta: &mut ConstraintSystem<F>) {
+        meta.create_gate("c6. jtable entry is zero on disabled", |meta| {
+            vec![
+                (constant_from!(1) - self.enable(meta))
+                    * self.entry(meta)
+                    * fixed_curr!(meta, self.sel),
+            ]
+        });
+    }
 }
 
 impl<F: FieldExt> Lookup<F> for JumpTableConfig<F> {
@@ -73,15 +85,12 @@ impl<F: FieldExt> Lookup<F> for JumpTableConfig<F> {
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup_any(key, |meta| {
-            vec![(
-                expr(meta),
-                self.entry(meta) * self.enable(meta) * fixed_curr!(meta, self.sel),
-            )]
+            vec![(expr(meta), self.entry(meta) * fixed_curr!(meta, self.sel))]
         });
     }
 
-    fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.entry(meta) * self.enable(meta) * fixed_curr!(meta, self.sel)
+    fn encode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        unimplemented!()
     }
 }
 

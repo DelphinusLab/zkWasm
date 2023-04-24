@@ -21,7 +21,7 @@ use specs::step::StepInfo;
 
 pub struct CallConfig<F: FieldExt> {
     index_cell: AllocatedCommonRangeCell<F>,
-    frame_table_lookup: AllocatedUnlimitedCell<F>,
+    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
 }
 
 pub struct CallConfigBuilder {}
@@ -44,7 +44,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
             "return frame table lookups",
             Box::new(move |meta| {
                 vec![
-                    frame_table_lookup.expr(meta)
+                    frame_table_lookup.0.expr(meta)
                         - JumpTableConfig::encode_lookup(
                             eid.expr(meta),
                             frame_id_cell.expr(meta),
@@ -77,7 +77,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig<F> {
         match &entry.eentry.step_info {
             StepInfo::Call { index } => {
                 self.index_cell.assign(ctx, F::from(*index as u64))?;
-                self.frame_table_lookup.assign(
+                self.frame_table_lookup.0.assign(
                     ctx,
                     bn_to_field(&encode_frame_table_entry(
                         step.current.eid.into(),
