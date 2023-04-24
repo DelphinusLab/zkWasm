@@ -683,7 +683,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/junyu0312/halo2?branch=gpu#7e9986e976bb74246cb9c820154e6a0efc9d3770"
+source = "git+https://github.com/junyu0312/halo2?branch=gpu#2af71a920d66330750c7b5e60d573d99430c3303"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -723,7 +723,7 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.2.0"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=bisect-lookup#066abf3e39fc9d6efd8df8bb2f9f8d4e4cb62549"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=bisect-lookup#f6346e176e044236e9dfe32254e4c618d3f5ce97"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
@@ -1021,7 +1021,7 @@ dependencies = [
 [[package]]
 name = "pairing_bn256"
 version = "0.1.1"
-source = "git+https://github.com/lanbones/pairing#e8fba4f4ae884dfbc0b7a132c6ef7bd231c99518"
+source = "git+https://github.com/lanbones/pairing#5ab08062f53cd29c946f96572aefdb688952d725"
 dependencies = [
  "bls12_381",
  "ec-gpu",
