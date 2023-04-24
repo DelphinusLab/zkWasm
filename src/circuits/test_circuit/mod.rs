@@ -41,7 +41,7 @@ use crate::foreign::ForeignTableConfig;
 
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 51;
+pub const VAR_COLUMNS: usize = 52;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {

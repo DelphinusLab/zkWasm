@@ -52,6 +52,7 @@ pub struct MemoryTableConfig<F: FieldExt> {
     offset_diff_inv_cell: AllocatedUnlimitedCell<F>,
     offset_diff_inv_helper_cell: AllocatedUnlimitedCell<F>,
     encode_cell: AllocatedUnlimitedCell<F>,
+    init_encode_cell: AllocatedUnlimitedCell<F>,
 
     value: AllocatedU64Cell<F>,
 }
@@ -95,6 +96,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let offset_diff_inv_cell = allocator.alloc_unlimited_cell();
         let offset_diff_inv_helper_cell = allocator.alloc_unlimited_cell();
         let encode_cell = allocator.alloc_unlimited_cell();
+        let init_encode_cell = allocator.alloc_unlimited_cell();
 
         let value = allocator.alloc_u64_cell();
 
@@ -214,19 +216,29 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             },
         );
 
+        meta.create_gate("mc7c. init encode.", |meta| {
+            vec![
+                is_init_cell.curr_expr(meta)
+                    * encode_init_memory_table_entry(
+                        is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
+                            + is_heap_cell.curr_expr(meta)
+                                * constant_from!(LocationType::Heap as u64)
+                            + is_global_cell.curr_expr(meta)
+                                * constant_from!(LocationType::Global as u64),
+                        is_mutable.curr_expr(meta),
+                        offset_align_left.curr_expr(meta),
+                        offset_align_right.curr_expr(meta),
+                        value.u64_cell.curr_expr(meta),
+                    )
+                    - init_encode_cell.curr_expr(meta),
+            ]
+            .into_iter()
+            .map(|x| x * fixed_curr!(meta, entry_sel))
+            .collect::<Vec<_>>()
+        });
+
         image_table.init_memory_lookup(meta, "mc7c. imtable init", |meta| {
-            is_init_cell.curr_expr(meta)
-                * encode_init_memory_table_entry(
-                    is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
-                        + is_heap_cell.curr_expr(meta) * constant_from!(LocationType::Heap as u64)
-                        + is_global_cell.curr_expr(meta)
-                            * constant_from!(LocationType::Global as u64),
-                    is_mutable.curr_expr(meta),
-                    offset_align_left.curr_expr(meta),
-                    offset_align_right.curr_expr(meta),
-                    value.u64_cell.curr_expr(meta),
-                )
-                * fixed_curr!(meta, entry_sel)
+            init_encode_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel)
         });
 
         meta.create_gate("mc8. vtype", |meta| {
@@ -326,6 +338,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             offset_align_left_diff_cell,
             offset_align_right_diff_cell,
             value,
+            init_encode_cell,
             encode_cell,
         }
     }
