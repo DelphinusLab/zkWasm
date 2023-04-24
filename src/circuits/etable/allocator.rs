@@ -148,7 +148,7 @@ pub(crate) enum EventTableCellType {
     MTableLookup,
 }
 
-const BIT_COLUMNS: usize = 7;
+const BIT_COLUMNS: usize = 11;
 const U8_COLUMNS: usize = 1;
 const U16_COLUMNS: usize = 10;
 const COMMON_RANGE_COLUMNS: usize = 9;

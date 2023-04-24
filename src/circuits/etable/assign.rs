@@ -198,18 +198,14 @@ impl<F: FieldExt> EventTableChip<F> {
                 configure_table: *configure_table,
             };
 
-            assign_advice!(enabled_cell, F::one());
-
             {
-                let (op_lvl1, op_lvl2) = self
-                    .config
-                    .common_config
-                    .allocate_opcode_bit_cell(entry.eentry.inst.opcode.clone().into());
+                let class: OpcodeClassPlain = entry.eentry.inst.opcode.clone().into();
 
-                assign_advice_cell!(op_lvl1, F::one());
-                assign_advice_cell!(op_lvl2, F::one());
+                let op = self.config.common_config.ops[class.index()];
+                assign_advice_cell!(op, F::one());
             }
 
+            assign_advice!(enabled_cell, F::one());
             assign_advice!(rest_mops_cell, F::from(*rest_mops as u64));
             assign_advice!(rest_jops_cell, F::from(*rest_jops as u64));
             assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
