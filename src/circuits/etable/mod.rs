@@ -13,7 +13,6 @@ use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
 use super::utils::Context;
 use super::CircuitConfigure;
-use super::Lookup;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_shift::BinShiftConfigBuilder;
@@ -71,15 +70,14 @@ pub(crate) mod allocator;
 pub(crate) mod constraint_builder;
 
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
-pub(crate) const OP_LVL1_BITS: usize = 6;
-pub(crate) const OP_LVL2_BITS: usize = 6;
+pub(crate) const OP_CAPABILITY: usize = 32;
+
+const FOREIGN_LOOKUP_CAPABILITY: usize = 2;
 
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
     enabled_cell: AllocatedBitCell<F>,
-
-    lvl1_bits: [AllocatedBitCell<F>; 6],
-    lvl2_bits: [AllocatedBitCell<F>; 6],
+    ops: [AllocatedBitCell<F>; OP_CAPABILITY],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     rest_jops_cell: AllocatedCommonRangeCell<F>,
@@ -94,34 +92,12 @@ pub struct EventTableCommonConfig<F: FieldExt> {
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
-    jtable_lookup_cell: AllocatedUnlimitedCell<F>,
+    jtable_lookup_cell: AllocatedJumpTableLookupCell<F>,
     pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
-    bit_table_lookup_cell: AllocatedUnlimitedCell<F>,
+    bit_table_lookup_cell: AllocatedBitTableLookupCell<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
 
     circuit_configure: CircuitConfigure,
-}
-
-impl<F: FieldExt> EventTableCommonConfig<F> {
-    pub(self) fn allocate_opcode_bit_cell(
-        &self,
-        opcode_class_plain: OpcodeClassPlain,
-    ) -> (AllocatedBitCell<F>, AllocatedBitCell<F>) {
-        let (lvl1, lvl2) = Self::opclass_to_two_level(opcode_class_plain);
-
-        (
-            *self.lvl1_bits.get(lvl1).unwrap(),
-            *self.lvl2_bits.get(lvl2).unwrap(),
-        )
-    }
-
-    fn opclass_to_two_level(opcode_class_plain: OpcodeClassPlain) -> (usize, usize) {
-        // OpcodeClassPlain starts from 1.
-        let idx = opcode_class_plain.0 - 1;
-
-        assert!(idx < OP_LVL1_BITS * OP_LVL2_BITS);
-        (idx / OP_LVL2_BITS, idx % OP_LVL2_BITS)
-    }
 }
 
 pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
@@ -227,13 +203,13 @@ impl<F: FieldExt> EventTableConfig<F> {
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
-        let mut allocator = EventTableCellAllocator::new(meta, step_sel, rtable, mtable, cols);
+        let mut allocator =
+            EventTableCellAllocator::new(meta, step_sel, rtable, mtable, jtable, bit_table, cols);
         allocator.enable_equality(meta, &EventTableCellType::CommonRange);
 
-        let lvl1_bits = [0; OP_LVL1_BITS].map(|_| allocator.alloc_bit_cell());
-        let lvl2_bits = [0; OP_LVL2_BITS].map(|_| allocator.alloc_bit_cell());
-
+        let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();
+
         let rest_mops_cell = allocator.alloc_common_range_cell();
         let rest_jops_cell = allocator.alloc_common_range_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
@@ -247,15 +223,18 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
-        let jtable_lookup_cell = allocator.alloc_unlimited_cell();
+        let jtable_lookup_cell = allocator.alloc_jump_table_lookup_cell();
         let pow_table_lookup_cell = allocator.alloc_unlimited_cell();
-        let bit_table_lookup_cell = allocator.alloc_unlimited_cell();
+        let bit_table_lookup_cell = allocator.alloc_bit_table_lookup_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
+
+        let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
+            .map(|_| allocator.alloc_unlimited_cell())
+            .into_iter();
 
         let common_config = EventTableCommonConfig {
             enabled_cell,
-            lvl1_bits,
-            lvl2_bits,
+            ops,
             rest_mops_cell,
             rest_jops_cell,
             input_index_cell,
@@ -275,7 +254,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             circuit_configure: circuit_configure.clone(),
         };
 
-        let mut op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)> = BTreeMap::new();
+        let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
         let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
@@ -289,7 +268,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClassPlain($op as usize);
 
                 if !OPTIMIZE_GATES || opcode_set.contains(&op) {
-                    let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
                     let foreign_table_configs = BTreeMap::new();
                     let mut constraint_builder =
                         ConstraintBuilder::new(meta, &foreign_table_configs);
@@ -301,12 +279,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                     );
 
                     constraint_builder.finalize(|meta| {
-                        fixed_curr!(meta, step_sel)
-                            * lvl1_bits[op_lvl1].curr_expr(meta)
-                            * lvl2_bits[op_lvl2].curr_expr(meta)
+                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
                     });
 
-                    op_bitmaps.insert(op, (op_lvl1, op_lvl2));
+                    op_bitmaps.insert(op, op.index());
                     op_configs.insert(op, Rc::new(config));
                 }
             };
@@ -348,7 +324,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClassPlain(op);
 
                 if !OPTIMIZE_GATES || opcode_set.contains(&op) {
-                    let (op_lvl1, op_lvl2) = EventTableCommonConfig::<F>::opclass_to_two_level(op);
                     let mut constraint_builder =
                         ConstraintBuilder::new(meta, foreign_table_configs);
 
@@ -356,15 +331,14 @@ impl<F: FieldExt> EventTableConfig<F> {
                         &common_config,
                         &mut allocator.clone(),
                         &mut constraint_builder,
+                        &mut foreign_table_reserved_lookup_cells,
                     );
 
                     constraint_builder.finalize(|meta| {
-                        fixed_curr!(meta, step_sel)
-                            * lvl1_bits[op_lvl1].curr_expr(meta)
-                            * lvl2_bits[op_lvl2].curr_expr(meta)
+                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
                     });
 
-                    op_bitmaps.insert(op, (op_lvl1, op_lvl2));
+                    op_bitmaps.insert(op, op.index());
                     op_configs.insert(op, Rc::new(config));
                 }
 
@@ -385,24 +359,22 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c4. opcode_bit lvl sum equals to 1", |meta| {
             vec![
-                lvl1_bits
-                    .map(|x| x.curr_expr(meta))
+                ops.map(|x| x.curr_expr(meta))
                     .into_iter()
                     .reduce(|acc, x| acc + x)
                     .unwrap()
-                    - constant_from!(1),
-                lvl2_bits
-                    .map(|x| x.curr_expr(meta))
-                    .into_iter()
-                    .reduce(|acc, x| acc + x)
-                    .unwrap()
-                    - constant_from!(1),
+                    - enabled_cell.curr_expr(meta),
             ]
             .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .map(|expr| expr * fixed_curr!(meta, step_sel))
             .collect::<Vec<_>>()
         });
 
+        /*
+         * How `* enabled_cell.curr_expr(meta)` effects on the separate step:
+         *    1. constrains the relation between the last step and termination.
+         *    2. ignores rows following the termination step.
+         */
         let sum_ops_expr_with_init = |init: Expression<F>,
                                       meta: &mut VirtualCells<'_, F>,
                                       get_expr: &dyn Fn(
@@ -411,14 +383,13 @@ impl<F: FieldExt> EventTableConfig<F> {
         ) -> Option<Expression<F>>| {
             op_bitmaps
                 .iter()
-                .filter_map(|(op, (lvl1, lvl2))| {
-                    get_expr(meta, op_configs.get(op).unwrap()).map(|expr| {
-                        expr * fixed_curr!(meta, step_sel)
-                            * lvl1_bits[*lvl1].curr_expr(meta)
-                            * lvl2_bits[*lvl2].curr_expr(meta)
-                    })
+                .filter_map(|(op, op_index)| {
+                    get_expr(meta, op_configs.get(op).unwrap())
+                        .map(|expr| expr * ops[*op_index].curr_expr(meta))
                 })
                 .fold(init, |acc, x| acc + x)
+                * enabled_cell.curr_expr(meta)
+                * fixed_curr!(meta, step_sel)
         };
 
         let sum_ops_expr = |meta: &mut VirtualCells<'_, F>,
@@ -428,12 +399,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         ) -> Option<Expression<F>>| {
             op_bitmaps
                 .iter()
-                .filter_map(|(op, (lvl1, lvl2))| {
-                    get_expr(meta, op_configs.get(op).unwrap()).map(|expr| {
-                        expr * fixed_curr!(meta, step_sel)
-                            * lvl1_bits[*lvl1].curr_expr(meta)
-                            * lvl2_bits[*lvl2].curr_expr(meta)
-                    })
+                .filter_map(|(op, op_index)| {
+                    get_expr(meta, op_configs.get(op).unwrap())
+                        .map(|expr| expr * ops[*op_index].curr_expr(meta))
                 })
                 .reduce(|acc, x| acc + x)
                 .unwrap()
@@ -445,9 +413,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.mops(meta),
             )]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5b. rest_jops change", |meta| {
@@ -456,9 +421,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
             )]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5c. input_index change", |meta| {
@@ -469,9 +431,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                     config.input_index_increase(meta, &common_config)
                 },
             )]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5d. external_host_call_index change", |meta| {
@@ -483,9 +442,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                     config.external_host_call_index_increase(meta, &common_config)
                 },
             )]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5e. sp change", |meta| {
@@ -494,13 +450,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
             )]
-            .into_iter()
-            .map(|expr| {
-                expr * enabled_cell.curr_expr(meta)
-                    * enabled_cell.next_expr(meta)
-                    * fixed_curr!(meta, step_sel)
-            })
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c5f. mpages change", |meta| {
@@ -511,16 +460,14 @@ impl<F: FieldExt> EventTableConfig<F> {
                     config.allocated_memory_pages_diff(meta)
                 },
             )]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6a. eid change", |meta| {
-            vec![(eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))]
-                .into_iter()
-                .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-                .collect::<Vec<_>>()
+            vec![
+                (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
+                    * enabled_cell.curr_expr(meta)
+                    * fixed_curr!(meta, step_sel),
+            ]
         });
 
         meta.create_gate("c6b. fid change", |meta| {
@@ -533,13 +480,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .map(|x| x - fid_cell.curr_expr(meta))
                 },
             )]
-            .into_iter()
-            .map(|expr| {
-                expr * enabled_cell.curr_expr(meta)
-                    * enabled_cell.next_expr(meta)
-                    * fixed_curr!(meta, step_sel)
-            })
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6c. iid change", |meta| {
@@ -552,9 +492,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .map(|x| iid_cell.curr_expr(meta) + constant_from!(1) - x)
                 },
             )]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c6d. frame_id change", |meta| {
@@ -567,9 +504,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .map(|x| x - frame_id_cell.curr_expr(meta))
                 },
             )]
-            .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
-            .collect::<Vec<_>>()
         });
 
         meta.create_gate("c7. itable_lookup_encode", |meta| {
@@ -592,21 +526,13 @@ impl<F: FieldExt> EventTableConfig<F> {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        jtable.configure_in_table(meta, "c8c. jtable_lookup in jtable", |meta| {
-            jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
-        });
-
         rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {
             pow_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        bit_table.configure_in_table(meta, "c8f: bit_table_lookup in bit_table", |meta| {
-            bit_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
-        });
-
         external_host_call_table.configure_in_table(
             meta,
-            "c8e. external_foreign_call_lookup in foreign table",
+            "c8g. external_foreign_call_lookup in foreign table",
             |meta| external_foreign_call_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
         );
 

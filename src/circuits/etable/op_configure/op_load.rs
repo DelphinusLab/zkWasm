@@ -81,6 +81,8 @@ pub struct LoadConfig<F: FieldExt> {
     lookup_pow: AllocatedUnlimitedCell<F>,
 
     address_within_allocated_pages_helper: AllocatedCommonRangeCell<F>,
+
+    degree_helper: AllocatedBitCell<F>,
 }
 
 pub struct LoadConfigBuilder;
@@ -132,6 +134,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
 
         let is_sign = allocator.alloc_bit_cell();
         let is_i32 = allocator.alloc_bit_cell();
+
+        let degree_helper = allocator.alloc_bit_cell();
 
         constraint_builder.push(
             "op_load length",
@@ -270,8 +274,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             "op_load extension",
             Box::new(move |meta| {
                 vec![
-                    is_sign.expr(meta)
-                        * load_picked_flag.expr(meta)
+                    load_picked_flag.expr(meta) * is_sign.expr(meta) - degree_helper.expr(meta),
+                    degree_helper.expr(meta)
                         * (is_one_byte.expr(meta) * constant_from!(0xffffff00)
                             + is_two_bytes.expr(meta) * constant_from!(0xffff0000)
                             + (constant_from!(1) - is_eight_bytes.expr(meta))
@@ -403,6 +407,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             load_value_in_heap1,
             pos_modulus,
             load_tailing_diff,
+
+            degree_helper,
         })
     }
 }
@@ -530,6 +536,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 self.is_sign.assign_bool(ctx, load_size.is_sign())?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
+
+                self.degree_helper.assign(
+                    ctx,
+                    F::from(load_size.is_sign()) * F::from(load_picked_leading_u8 >> 7),
+                )?;
 
                 self.address_within_allocated_pages_helper.assign(
                     ctx,

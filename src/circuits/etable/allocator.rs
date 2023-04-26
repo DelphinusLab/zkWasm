@@ -1,6 +1,8 @@
 use super::EVENT_TABLE_ENTRY_ROWS;
+use crate::circuits::bit_table::BitTableConfig;
 use crate::circuits::cell::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::utils::bit::BitColumn;
@@ -8,6 +10,7 @@ use crate::circuits::utils::common_range::CommonRangeColumn;
 use crate::circuits::utils::u16::U16Column;
 use crate::circuits::utils::u8::U8Column;
 use crate::circuits::Context;
+use crate::circuits::Lookup;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
@@ -59,6 +62,14 @@ impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedU8Cell);
 impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedUnlimitedCell);
+impl_cell!(AllocatedJumpTableLookupCell);
+impl_cell!(AllocatedBitTableLookupCell);
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AllocatedJumpTableLookupCell<F: FieldExt>(pub(crate) AllocatedCell<F>);
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AllocatedBitTableLookupCell<F: FieldExt>(pub(crate) AllocatedCell<F>);
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedMemoryTableLookupReadCell<F: FieldExt> {
@@ -146,14 +157,18 @@ pub(crate) enum EventTableCellType {
     CommonRange,
     Unlimited,
     MTableLookup,
+    JTableLookup,
+    BitTableLookup,
 }
 
-const BIT_COLUMNS: usize = 7;
+const BIT_COLUMNS: usize = 12;
 const U8_COLUMNS: usize = 1;
 const U16_COLUMNS: usize = 10;
 const COMMON_RANGE_COLUMNS: usize = 9;
 const UNLIMITED_COLUMNS: usize = 6;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
+const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
+const BIT_TABLE_LOOKUP_COLUMNS: usize = 1;
 const U64_CELLS: usize = 10;
 
 #[derive(Debug, Clone)]
@@ -199,9 +214,11 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
+        jtable: &JumpTableConfig<F>,
+        bit_table: &BitTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, sel, rtable, mtable, cols);
+        let mut allocator = Self::_new(meta, sel, rtable, mtable, jtable, bit_table, cols);
         for _ in 0..U64_CELLS {
             let cell = allocator.prepare_alloc_u64_cell(meta, |meta| fixed_curr!(meta, sel));
             allocator.free_u64_cells.push(cell);
@@ -214,6 +231,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
+        jtable: &JumpTableConfig<F>,
+        bit_table: &BitTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut all_cols = BTreeMap::new();
@@ -255,6 +274,19 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .collect(),
         );
         all_cols.insert(
+            EventTableCellType::JTableLookup,
+            [0; JUMP_TABLE_LOOKUP_COLUMNS]
+                .map(|_| {
+                    let col = cols.next().unwrap();
+                    jtable.configure_in_table(meta, "c8c. jtable_lookup in jtable", |meta| {
+                        curr!(meta, col)
+                    });
+                    col
+                })
+                .into_iter()
+                .collect(),
+        );
+        all_cols.insert(
             EventTableCellType::MTableLookup,
             [0; MEMORY_TABLE_LOOKUP_COLUMNS]
                 .map(|_| {
@@ -262,6 +294,21 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     mtable.configure_in_table(meta, "c8e. mtable_lookup in mtable", |meta| {
                         curr!(meta, col)
                     });
+                    col
+                })
+                .into_iter()
+                .collect(),
+        );
+        all_cols.insert(
+            EventTableCellType::BitTableLookup,
+            [0; BIT_TABLE_LOOKUP_COLUMNS]
+                .map(|_| {
+                    let col = cols.next().unwrap();
+                    bit_table.configure_in_table(
+                        meta,
+                        "c8f: bit_table_lookup in bit_table",
+                        |meta| curr!(meta, col),
+                    );
                     col
                 })
                 .into_iter()
@@ -278,6 +325,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (EventTableCellType::CommonRange, (0, 0)),
                     (EventTableCellType::Unlimited, (0, 0)),
                     (EventTableCellType::MTableLookup, (0, 0)),
+                    (EventTableCellType::JTableLookup, (0, 0)),
+                    (EventTableCellType::BitTableLookup, (0, 0)),
                 ]
                 .into_iter(),
             ),
@@ -322,6 +371,14 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     pub(crate) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell(self.alloc(&EventTableCellType::Unlimited))
+    }
+
+    pub(crate) fn alloc_jump_table_lookup_cell(&mut self) -> AllocatedJumpTableLookupCell<F> {
+        AllocatedJumpTableLookupCell(self.alloc(&EventTableCellType::JTableLookup))
+    }
+
+    pub(crate) fn alloc_bit_table_lookup_cell(&mut self) -> AllocatedBitTableLookupCell<F> {
+        AllocatedBitTableLookupCell(self.alloc(&EventTableCellType::BitTableLookup))
     }
 
     pub(crate) fn alloc_memory_table_lookup_read_cell(

@@ -48,6 +48,11 @@ pub struct RelConfig<F: FieldExt> {
     op_is_ge: AllocatedBitCell<F>,
     op_is_sign: AllocatedBitCell<F>,
 
+    l_pos_r_pos: AllocatedUnlimitedCell<F>,
+    l_pos_r_neg: AllocatedUnlimitedCell<F>,
+    l_neg_r_pos: AllocatedUnlimitedCell<F>,
+    l_neg_r_neg: AllocatedUnlimitedCell<F>,
+
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -121,41 +126,50 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             }),
         );
 
+        let l_pos_r_pos = allocator.alloc_unlimited_cell();
+        let l_pos_r_neg = allocator.alloc_unlimited_cell();
+        let l_neg_r_pos = allocator.alloc_unlimited_cell();
+        let l_neg_r_neg = allocator.alloc_unlimited_cell();
+
         constraint_builder.push(
             "rel: compare op res",
             Box::new(move |meta| {
-                let l_pos_r_pos = (constant_from!(1) - lhs.flag_bit_cell.expr(meta))
-                    * (constant_from!(1) - rhs.flag_bit_cell.expr(meta));
-                let l_pos_r_neg = (constant_from!(1) - lhs.flag_bit_cell.expr(meta))
-                    * rhs.flag_bit_cell.expr(meta);
-                let l_neg_r_pos = lhs.flag_bit_cell.expr(meta)
-                    * (constant_from!(1) - rhs.flag_bit_cell.expr(meta));
-                let l_neg_r_neg = lhs.flag_bit_cell.expr(meta) * rhs.flag_bit_cell.expr(meta);
                 vec![
+                    l_pos_r_pos.expr(meta)
+                        - ((constant_from!(1) - lhs.flag_bit_cell.expr(meta))
+                            * (constant_from!(1) - rhs.flag_bit_cell.expr(meta))),
+                    l_pos_r_neg.expr(meta)
+                        - ((constant_from!(1) - lhs.flag_bit_cell.expr(meta))
+                            * rhs.flag_bit_cell.expr(meta)),
+                    l_neg_r_pos.expr(meta)
+                        - (lhs.flag_bit_cell.expr(meta)
+                            * (constant_from!(1) - rhs.flag_bit_cell.expr(meta))),
+                    l_neg_r_neg.expr(meta)
+                        - (lhs.flag_bit_cell.expr(meta) * rhs.flag_bit_cell.expr(meta)),
                     op_is_eq.expr(meta) * (res.expr(meta) - res_is_eq.expr(meta)),
                     op_is_ne.expr(meta)
                         * (res.expr(meta) - constant_from!(1) + res_is_eq.expr(meta)),
                     op_is_lt.expr(meta)
                         * (res.expr(meta)
-                            - l_neg_r_pos.clone()
-                            - l_pos_r_pos.clone() * res_is_lt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)),
+                            - l_neg_r_pos.expr(meta)
+                            - l_pos_r_pos.expr(meta) * res_is_lt.expr(meta)
+                            - l_neg_r_neg.expr(meta) * res_is_lt.expr(meta)),
                     op_is_le.expr(meta)
                         * (res.expr(meta)
-                            - l_neg_r_pos.clone()
-                            - l_pos_r_pos.clone() * res_is_lt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_lt.expr(meta)
+                            - l_neg_r_pos.expr(meta)
+                            - l_pos_r_pos.expr(meta) * res_is_lt.expr(meta)
+                            - l_neg_r_neg.expr(meta) * res_is_lt.expr(meta)
                             - res_is_eq.expr(meta)),
                     op_is_gt.expr(meta)
                         * (res.expr(meta)
-                            - l_pos_r_neg.clone()
-                            - l_pos_r_pos.clone() * res_is_gt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)),
+                            - l_pos_r_neg.expr(meta)
+                            - l_pos_r_pos.expr(meta) * res_is_gt.expr(meta)
+                            - l_neg_r_neg.expr(meta) * res_is_gt.expr(meta)),
                     op_is_ge.expr(meta)
                         * (res.expr(meta)
-                            - l_pos_r_neg.clone()
-                            - l_pos_r_pos.clone() * res_is_gt.expr(meta)
-                            - l_neg_r_neg.clone() * res_is_gt.expr(meta)
+                            - l_pos_r_neg.expr(meta)
+                            - l_pos_r_pos.expr(meta) * res_is_gt.expr(meta)
+                            - l_neg_r_neg.expr(meta) * res_is_gt.expr(meta)
                             - res_is_eq.expr(meta)),
                 ]
             }),
@@ -214,6 +228,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             op_is_le,
             op_is_ge,
             op_is_sign,
+            l_pos_r_pos,
+            l_neg_r_pos,
+            l_pos_r_neg,
+            l_neg_r_neg,
             memory_table_lookup_stack_read_lhs,
             memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
@@ -364,6 +382,29 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
 
         if op_is_sign {
             self.op_is_sign.assign(ctx, F::one())?;
+        }
+
+        {
+            let (l_neg, r_neg) = if op_is_sign {
+                let l_neg = if var_type == VarType::I32 {
+                    (lhs as i32).is_negative()
+                } else {
+                    (lhs as i64).is_negative()
+                };
+                let r_neg = if var_type == VarType::I32 {
+                    (rhs as i32).is_negative()
+                } else {
+                    (rhs as i64).is_negative()
+                };
+                (l_neg, r_neg)
+            } else {
+                (false, false)
+            };
+
+            self.l_pos_r_pos.assign(ctx, F::from(!l_neg && !r_neg))?;
+            self.l_pos_r_neg.assign(ctx, F::from(!l_neg && r_neg))?;
+            self.l_neg_r_pos.assign(ctx, F::from(l_neg && !r_neg))?;
+            self.l_neg_r_neg.assign(ctx, F::from(l_neg && r_neg))?;
         }
 
         self.lhs

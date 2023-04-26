@@ -48,8 +48,15 @@ pub struct BinConfig<F: FieldExt> {
     is_rem_u: AllocatedBitCell<F>,
     is_div_s: AllocatedBitCell<F>,
     is_rem_s: AllocatedBitCell<F>,
+    is_div_s_or_rem_s: AllocatedBitCell<F>,
 
+    res_flag: AllocatedUnlimitedCell<F>,
     size_modulus: AllocatedUnlimitedCell<F>,
+    normalized_lhs: AllocatedUnlimitedCell<F>,
+    normalized_rhs: AllocatedUnlimitedCell<F>,
+    d_leading_u16: AllocatedUnlimitedCell<F>,
+    degree_helper1: AllocatedUnlimitedCell<F>,
+    degree_helper2: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
@@ -87,7 +94,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let is_rem_u = allocator.alloc_bit_cell();
         let is_rem_s = allocator.alloc_bit_cell();
 
+        let is_div_s_or_rem_s = allocator.alloc_bit_cell();
+
+        let d_leading_u16 = allocator.alloc_unlimited_cell();
+        let normalized_lhs = allocator.alloc_unlimited_cell();
+        let normalized_rhs = allocator.alloc_unlimited_cell();
+        let res_flag = allocator.alloc_unlimited_cell();
         let size_modulus = allocator.alloc_unlimited_cell();
+        let degree_helper1 = allocator.alloc_unlimited_cell();
+        let degree_helper2 = allocator.alloc_unlimited_cell();
 
         constraint_builder.push(
             "bin: selector",
@@ -163,58 +178,72 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         );
 
         constraint_builder.push(
+            "bin: res flag",
+            Box::new(move |meta| {
+                vec![
+                    res_flag.expr(meta)
+                        - (lhs.flag_bit_cell.expr(meta) + rhs.flag_bit_cell.expr(meta)
+                            - constant_from!(2)
+                                * lhs.flag_bit_cell.expr(meta)
+                                * rhs.flag_bit_cell.expr(meta)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
             "bin: div_s/rem_s constraints common",
             Box::new(move |meta| {
-                let enable = is_div_s.expr(meta) + is_rem_s.expr(meta);
-
-                let normalized_lhs = lhs.u64_cell.expr(meta)
+                let normalized_lhs_expr = lhs.u64_cell.expr(meta)
                     * (constant_from!(1) - lhs.flag_bit_cell.expr(meta))
                     + (size_modulus.expr(meta) - lhs.u64_cell.expr(meta))
                         * lhs.flag_bit_cell.expr(meta);
-                let normalized_rhs = rhs.u64_cell.expr(meta)
+                let normalized_rhs_expr = rhs.u64_cell.expr(meta)
                     * (constant_from!(1) - rhs.flag_bit_cell.expr(meta))
                     + (size_modulus.expr(meta) - rhs.u64_cell.expr(meta))
                         * rhs.flag_bit_cell.expr(meta);
 
-                let res_flag = lhs.flag_bit_cell.expr(meta) + rhs.flag_bit_cell.expr(meta)
-                    - constant_from!(2)
-                        * lhs.flag_bit_cell.expr(meta)
-                        * rhs.flag_bit_cell.expr(meta);
-
-                let d_leading_u16 = d.u16_cells_le[3].expr(meta)
+                let d_leading_u16_expr = d.u16_cells_le[3].expr(meta)
                     + is_i32.expr(meta)
                         * (d.u16_cells_le[1].expr(meta) - d.u16_cells_le[3].expr(meta));
                 vec![
                     // d_flag must be zero if res_flag is zero
-                    (d_leading_u16 + d_flag_helper_diff.expr(meta) - constant_from!(0x7fff))
-                        * (constant_from!(1) - res_flag.clone()),
-                    normalized_lhs
-                        - normalized_rhs.clone() * d.u64_cell.expr(meta)
-                        - aux1.u64_cell.expr(meta),
-                    aux1.u64_cell.expr(meta) + aux2.u64_cell.expr(meta) + constant_from!(1)
-                        - normalized_rhs,
+                    is_div_s_or_rem_s.expr(meta) - (is_div_s.expr(meta) + is_rem_s.expr(meta)),
+                    normalized_lhs.expr(meta) - normalized_lhs_expr,
+                    normalized_rhs.expr(meta) - normalized_rhs_expr,
+                    d_leading_u16.expr(meta) - d_leading_u16_expr,
+                    (d_leading_u16.expr(meta) + d_flag_helper_diff.expr(meta)
+                        - constant_from!(0x7fff))
+                        * (constant_from!(1) - res_flag.expr(meta))
+                        * is_div_s_or_rem_s.expr(meta),
+                    (normalized_lhs.expr(meta)
+                        - normalized_rhs.expr(meta) * d.u64_cell.expr(meta)
+                        - aux1.u64_cell.expr(meta))
+                        * is_div_s_or_rem_s.expr(meta),
+                    (aux1.u64_cell.expr(meta) + aux2.u64_cell.expr(meta) + constant_from!(1)
+                        - normalized_rhs.expr(meta))
+                        * is_div_s_or_rem_s.expr(meta),
                 ]
-                .into_iter()
-                .map(|x| x * enable.clone())
-                .collect()
             }),
         );
 
         constraint_builder.push(
             "bin: div_s constraints res",
             Box::new(move |meta| {
-                let res_flag = lhs.flag_bit_cell.expr(meta) + rhs.flag_bit_cell.expr(meta)
-                    - constant_from!(2)
-                        * lhs.flag_bit_cell.expr(meta)
-                        * rhs.flag_bit_cell.expr(meta);
-
                 vec![
                     (res.u64_cell.expr(meta) - d.u64_cell.expr(meta))
-                        * (constant_from!(1) - res_flag.clone())
+                        * (constant_from!(1) - res_flag.expr(meta))
                         * is_div_s.expr(meta),
+                    (degree_helper1.expr(meta)
+                        - (d.u64_cell.expr(meta) + res.u64_cell.expr(meta))
+                            * res_flag.expr(meta))
+                            * is_div_s.expr(meta),
+                    /*
+                     * If only one of the left and the right is negative,
+                     * `res` must equal to `size_modulus - normalized quotient(d)`, or
+                     * `res` and `d` are both zero.
+                     */
                     (res.u64_cell.expr(meta) + d.u64_cell.expr(meta) - size_modulus.expr(meta))
-                        * (d.u64_cell.expr(meta) + res.u64_cell.expr(meta))
-                        * res_flag.clone()
+                        * degree_helper1.expr(meta)
                         * is_div_s.expr(meta),
                 ]
             }),
@@ -227,9 +256,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                     (res.u64_cell.expr(meta) - aux1.u64_cell.expr(meta))
                         * (constant_from!(1) - lhs.flag_bit_cell.expr(meta))
                         * is_rem_s.expr(meta),
+                    (degree_helper2.expr(meta)
+                        - (aux1.u64_cell.expr(meta) + res.u64_cell.expr(meta))
+                            * lhs.flag_bit_cell.expr(meta)) // The sign of the left operator determines the flag bit of the result value.
+                        * is_rem_s.expr(meta),
                     (res.u64_cell.expr(meta) + aux1.u64_cell.expr(meta) - size_modulus.expr(meta))
-                        * (aux1.u64_cell.expr(meta) + res.u64_cell.expr(meta))
-                        * lhs.flag_bit_cell.expr(meta)
+                        * degree_helper2.expr(meta)
                         * is_rem_s.expr(meta),
                 ]
             }),
@@ -289,10 +321,17 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             is_rem_u,
             is_div_s,
             is_rem_s,
+            is_div_s_or_rem_s,
             memory_table_lookup_stack_read_lhs,
             memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
             size_modulus,
+            res_flag,
+            normalized_lhs,
+            normalized_rhs,
+            d_leading_u16,
+            degree_helper1,
+            degree_helper2,
         })
     }
 }
@@ -375,9 +414,48 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             .assign(ctx, left.into(), var_type == VarType::I32)?;
         self.rhs
             .assign(ctx, right.into(), var_type == VarType::I32)?;
+
+        let (normalized_lhs, normalized_rhs) = if var_type == VarType::I32 {
+            let normalized_lhs = if left >> 31 == 1 {
+                u32::MAX as u64 - left + 1
+            } else {
+                left
+            };
+            let normalized_rhs = if right >> 31 == 1 {
+                u32::MAX as u64 - right + 1
+            } else {
+                right
+            };
+            (normalized_lhs, normalized_rhs)
+        } else {
+            let normalized_lhs = if left >> 63 == 1 {
+                u64::MAX as u64 - left + 1
+            } else {
+                left
+            };
+            let normalized_rhs = if right >> 63 == 1 {
+                u64::MAX as u64 - right + 1
+            } else {
+                right
+            };
+            (normalized_lhs, normalized_rhs)
+        };
+        self.normalized_lhs.assign(ctx, normalized_lhs.into())?;
+        self.normalized_rhs.assign(ctx, normalized_rhs.into())?;
+
         self.res.assign(ctx, value.into())?;
         self.size_modulus
             .assign_bn(ctx, &(BigUint::from(1u64) << shift))?;
+
+        let (lhs_flag, res_flag) = {
+            let shift = if var_type == VarType::I32 { 31 } else { 63 };
+            let lhs_flag = left >> shift;
+            let rhs_flag = right >> shift;
+            let res_flag = lhs_flag ^ rhs_flag;
+            self.res_flag.assign(ctx, res_flag.into())?;
+
+            (lhs_flag, res_flag)
+        };
 
         match class {
             BinOp::Add => {
@@ -407,9 +485,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             }
             BinOp::SignedDiv => {
                 self.is_div_s.assign(ctx, F::one())?;
+                self.is_div_s_or_rem_s.assign(ctx, F::one())?;
             }
             BinOp::SignedRem => {
                 self.is_rem_s.assign(ctx, F::one())?;
+                self.is_div_s_or_rem_s.assign(ctx, F::one())?;
             }
         };
 
@@ -437,6 +517,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 let d = normalized_lhs / normalized_rhs;
                 let rem = normalized_lhs % normalized_rhs;
                 let d_leading_u16 = d >> (shift - 16);
+
+                self.degree_helper1
+                    .assign(ctx, (F::from(d) + F::from(value)) * F::from(res_flag))?;
+
+                self.degree_helper2.assign_bn(
+                    ctx,
+                    &((BigUint::from(rem) + BigUint::from(value)) * lhs_flag),
+                )?;
+                self.d_leading_u16.assign(ctx, d_leading_u16.into())?;
                 self.d_flag_helper_diff.assign(
                     ctx,
                     if d_leading_u16 >= 0x7fff {

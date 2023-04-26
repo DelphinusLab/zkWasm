@@ -110,6 +110,7 @@ impl<F: FieldExt> BitTableConfig<F> {
                 |meta| nextn!(meta, value, 1),
                 |meta| nextn!(meta, value, 2),
                 |meta| nextn!(meta, value, 3),
+                // Constrain bit relation for all steps, enable bit is not necessary.
                 |meta| fixed_curr!(meta, lookup_sel),
             );
         }

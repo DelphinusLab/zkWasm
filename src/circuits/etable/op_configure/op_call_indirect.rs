@@ -30,7 +30,7 @@ pub struct CallIndirectConfig<F: FieldExt> {
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     elem_lookup: AllocatedUnlimitedCell<F>,
-    frame_table_lookup: AllocatedUnlimitedCell<F>,
+    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
 }
 
 pub struct CallIndirectConfigBuilder {}
@@ -93,7 +93,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
             "return frame table lookups",
             Box::new(move |meta| {
                 vec![
-                    frame_table_lookup.expr(meta)
+                    frame_table_lookup.0.expr(meta)
                         - JumpTableConfig::encode_lookup(
                             eid.expr(meta),
                             frame_id_cell.expr(meta),
@@ -161,7 +161,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                     *offset as u64,
                 )?;
 
-                self.frame_table_lookup.assign_bn(
+                self.frame_table_lookup.0.assign_bn(
                     ctx,
                     &encode_frame_table_entry(
                         step.current.eid.into(),

@@ -4,6 +4,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
+use specs::encode::init_memory_table::encode_init_memory_table_entry;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::imtable::InitMemoryTable;
 use specs::mtable::LocationType;
@@ -100,7 +101,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
 
             if entry.entry.atype.is_init() {
-                let (left_offset, right_offset, _) = imtable
+                let (left_offset, right_offset, value) = imtable
                     .try_find(entry.entry.ltype, entry.entry.offset)
                     .unwrap();
 
@@ -113,6 +114,17 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 assign_advice!(
                     offset_align_right_diff_cell,
                     F::from((right_offset - entry.entry.offset) as u64)
+                );
+
+                assign_advice!(
+                    init_encode_cell,
+                    bn_to_field(&encode_init_memory_table_entry(
+                        (entry.entry.ltype as u64).into(),
+                        (entry.entry.is_mutable as u64).into(),
+                        left_offset.into(),
+                        right_offset.into(),
+                        value.into()
+                    ))
                 );
             }
 
@@ -145,6 +157,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
             if !entry.entry.atype.is_init() {
                 rest_mops -= 1;
             }
+
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
 
@@ -170,6 +183,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     f
                 };
                 assign_advice!(offset_diff_inv_cell, invert);
+                assign_advice!(offset_diff_inv_helper_cell, invert * F::from(offset_diff));
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);

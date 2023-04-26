@@ -11,8 +11,11 @@ use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
 
+use super::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
+
 use crate::circuits::cell::AllocatedBitCell;
 use crate::circuits::cell::AllocatedU64Cell;
+use crate::circuits::cell::AllocatedUnlimitedCell;
 use crate::circuits::cell::CellExpression;
 use crate::circuits::etable::allocator::AllocatedMemoryTableLookupReadCell;
 use crate::circuits::etable::allocator::AllocatedMemoryTableLookupWriteCell;
@@ -29,13 +32,14 @@ use crate::constant_from_bn;
 use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::InternalHostPluginBuilder;
 
-use super::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
-
 pub struct ETableWasmInputHelperTableConfig<F: FieldExt> {
     plugin_index: usize,
 
     is_public: AllocatedBitCell<F>,
     value: AllocatedU64Cell<F>,
+
+    public_input_index_for_lookup: AllocatedUnlimitedCell<F>,
+    value_for_lookup: AllocatedUnlimitedCell<F>,
 
     lookup_read_stack: AllocatedMemoryTableLookupReadCell<F>,
     lookup_write_stack: AllocatedMemoryTableLookupWriteCell<F>,
@@ -59,6 +63,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
         common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
+        lookup_cells: &mut (impl Iterator<Item = AllocatedUnlimitedCell<F>> + Clone),
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
@@ -66,6 +71,10 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
 
         let is_public = allocator.alloc_bit_cell();
         let value = allocator.alloc_u64_cell();
+
+        let public_input_index_for_lookup = lookup_cells.next().unwrap();
+        let value_for_lookup = lookup_cells.next().unwrap();
+
         let lookup_read_stack = allocator.alloc_memory_table_lookup_read_cell(
             "wasm input stack read",
             constraint_builder,
@@ -87,13 +96,24 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
             move |____| constant_from!(1),
         );
 
+        constraint_builder.push(
+            "wasm input lookup aux",
+            Box::new(move |meta| {
+                vec![
+                    is_public.expr(meta) * public_input_index.expr(meta)
+                        - public_input_index_for_lookup.expr(meta),
+                    is_public.expr(meta) * value.expr(meta) - value_for_lookup.expr(meta),
+                ]
+            }),
+        );
+
         constraint_builder.lookup(
             WASM_INPUT_FOREIGN_TABLE_KEY,
             "lookup input table",
             Box::new(move |meta| {
                 vec![
-                    is_public.expr(meta) * public_input_index.expr(meta),
-                    is_public.expr(meta) * value.u64_cell.expr(meta),
+                    public_input_index_for_lookup.expr(meta),
+                    value_for_lookup.expr(meta),
                 ]
             }),
         );
@@ -102,6 +122,8 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
             plugin_index: self.index,
             is_public,
             value,
+            public_input_index_for_lookup,
+            value_for_lookup,
             lookup_read_stack,
             lookup_write_stack,
         })
@@ -136,9 +158,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
                 assert_eq!(arg_type, VarType::I32);
                 assert_eq!(ret_type, VarType::I64);
 
-                self.is_public
-                    .assign(ctx, F::from(*args.get(0).unwrap() == 1))?;
-                self.value.assign(ctx, ret_val.unwrap())?;
+                let is_public = *args.get(0).unwrap() == 1;
+                let value = ret_val.unwrap();
+
+                self.is_public.assign(ctx, F::from(is_public))?;
+                self.value.assign(ctx, value)?;
+
+                self.public_input_index_for_lookup.assign(
+                    ctx,
+                    (is_public as u64 * step.host_public_inputs as u64).into(),
+                )?;
+                self.value_for_lookup
+                    .assign(ctx, ((is_public as u64) * value).into())?;
 
                 self.lookup_read_stack.assign(
                     ctx,

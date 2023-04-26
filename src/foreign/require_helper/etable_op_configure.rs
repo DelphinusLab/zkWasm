@@ -50,6 +50,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableRequireHelperT
         common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
+        _lookup_cells: &mut (impl Iterator<Item = AllocatedUnlimitedCell<F>> + Clone),
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let cond = allocator.alloc_u64_cell();
         let cond_inv = allocator.alloc_unlimited_cell();
@@ -63,7 +64,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableRequireHelperT
         let sp = common_config.sp_cell;
 
         let memory_table_lookup_read_stack = allocator.alloc_memory_table_lookup_read_cell(
-            "wasm input stack read",
+            "require stack read",
             constraint_builder,
             eid,
             move |_| constant_from!(LocationType::Stack as u64),
