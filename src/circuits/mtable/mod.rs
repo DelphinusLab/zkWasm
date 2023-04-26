@@ -296,6 +296,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         meta.create_gate("mc12. lookup encode", |meta| {
             vec![
+                (constant_from!(1) - enabled_cell.curr_expr(meta)) * encode_cell.curr_expr(meta),
                 encode_memory_table_entry(
                     start_eid_cell.curr_expr(meta),
                     end_eid_cell.curr_expr(meta),

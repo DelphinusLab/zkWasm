@@ -233,9 +233,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                     (res.u64_cell.expr(meta) - d.u64_cell.expr(meta))
                         * (constant_from!(1) - res_flag.expr(meta))
                         * is_div_s.expr(meta),
-                    degree_helper1.expr(meta)
+                    (degree_helper1.expr(meta)
                         - (d.u64_cell.expr(meta) + res.u64_cell.expr(meta))
-                            * res_flag.expr(meta)
+                            * res_flag.expr(meta))
                             * is_div_s.expr(meta),
                     /*
                      * If only one of the left and the right is negative,
@@ -258,7 +258,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                         * is_rem_s.expr(meta),
                     (degree_helper2.expr(meta)
                         - (aux1.u64_cell.expr(meta) + res.u64_cell.expr(meta))
-                            * lhs.flag_bit_cell.expr(meta))
+                            * lhs.flag_bit_cell.expr(meta)) // The sign of the left operator determines the flag bit of the result value.
                         * is_rem_s.expr(meta),
                     (res.u64_cell.expr(meta) + aux1.u64_cell.expr(meta) - size_modulus.expr(meta))
                         * degree_helper2.expr(meta)
@@ -498,7 +498,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 self.aux1.assign(ctx, left / right)?;
                 self.aux2.assign(ctx, left % right)?;
                 self.aux3.assign(ctx, right - left % right - 1)?;
-                self.degree_helper1.assign(ctx, (value * res_flag).into())?;
             }
             BinOp::SignedDiv | BinOp::SignedRem => {
                 let left_flag = left >> (shift - 1) != 0;
