@@ -59,7 +59,9 @@ impl<F: FieldExt> EventTableChip<F> {
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        for _ in 0..self.max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize {
+        let capability = self.max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize;
+
+        for _ in 0..capability {
             ctx.region.assign_fixed(
                 || "etable: step sel",
                 self.config.step_sel,
@@ -69,6 +71,20 @@ impl<F: FieldExt> EventTableChip<F> {
 
             ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
         }
+
+        ctx.region.assign_advice_from_constant(
+            || "etable: rest mops terminates",
+            self.config.common_config.rest_mops_cell.0.col,
+            ctx.offset,
+            F::zero(),
+        )?;
+
+        ctx.region.assign_advice_from_constant(
+            || "etable: rest jops terminates",
+            self.config.common_config.rest_jops_cell.0.col,
+            ctx.offset,
+            F::zero(),
+        )?;
 
         Ok(())
     }
@@ -271,6 +287,7 @@ impl<F: FieldExt> EventTableChip<F> {
         fid_of_entry: u32,
     ) -> Result<EventTablePermutationCells<F>, Error> {
         debug!("size of execution table: {}", event_table.0.len());
+        assert!(event_table.0.len() * EVENT_TABLE_ENTRY_ROWS as usize <= self.max_available_rows);
 
         let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
 

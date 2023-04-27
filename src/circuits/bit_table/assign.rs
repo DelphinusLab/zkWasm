@@ -194,6 +194,8 @@ impl<F: FieldExt> BitTableChip<F> {
         ctx: &mut Context<'_, F>,
         entries: Vec<BitTableAssign>,
     ) -> Result<(), Error> {
+        assert!(entries.len() <= self.max_available_rows / STEP_SIZE);
+
         for entry in entries {
             self.assign_encode(ctx, entry.op, entry.left, entry.right, entry.result)?;
             self.assign_unary_selector(ctx, entry.op)?;
