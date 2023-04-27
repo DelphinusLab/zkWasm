@@ -25,7 +25,7 @@ pub fn register_log_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "log",
-        0,
+        super::ForeignInst::Log as usize,
         ExternalHostCallSignature::Argument,
         foreign_log_plugin,
         print,

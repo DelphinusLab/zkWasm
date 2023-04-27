@@ -57,6 +57,8 @@ impl HostEnv {
                 "Specify op index too large."
             );
 
+            println!("op_index {}", op.op_index);
+
             lookup
                 .insert(
                     op.op_index,
