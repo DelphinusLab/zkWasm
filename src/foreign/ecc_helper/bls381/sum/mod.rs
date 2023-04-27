@@ -43,7 +43,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blssum_g1",
-        ForeignInst::BlssumG1 as usize,
+        ForeignInst::BlsSumG1 as usize,
         ExternalHostCallSignature::Argument,
         foreign_blssum_plugin.clone(),
         Rc::new(
@@ -64,7 +64,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blssum_pop",
-        ForeignInst::BlssumResult as usize,
+        ForeignInst::BlsSumResult as usize,
         ExternalHostCallSignature::Return,
         foreign_blssum_plugin.clone(),
         Rc::new(

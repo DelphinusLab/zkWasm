@@ -12,8 +12,16 @@ enum ForeignInst {
     BlspairG1 = 0,
     BlspairG2,
     BlspairG3,
-    BlssumG1,
-    BlssumResult,
+    BlsSumG1,
+    BlsSumResult,
+    Bn254SumG1,
+    Bn254SumResult,
+    Bn254PairG1,
+    Bn254PairG2,
+    Bn254PairG3,
+    KVPairAddr,
+    KVPairSet,
+    KVPairGet,
 }
 
 pub mod keccak_helper;

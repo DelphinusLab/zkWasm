@@ -3,6 +3,8 @@ use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use zkwasm_host_circuits::host::merkle::MerkleTree;
 use zkwasm_host_circuits::host::kvpair as kvpairhelper;
 
+use super::super::ForeignInst;
+
 #[derive(Default)]
 struct KVPairContext {
     pub address_limbs: Vec<u64>,
@@ -14,10 +16,6 @@ struct KVPairContext {
 
 const ADDRESS_LIMBNB:usize = 2 + 1; //4 for db id and 1 for address
 const VALUE_LIMBNB:usize = 4;
-const KVPAIR_ADDR:usize= 7;
-const KVPAIR_SET:usize= 8;
-const KVPAIR_GET:usize= 9;
-
 
 impl KVPairContext {
 }
@@ -44,7 +42,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "kvpair_addr",
-        KVPAIR_ADDR,
+        ForeignInst::KVPairAddr as usize,
         ExternalHostCallSignature::Argument,
         foreign_kvpair_plugin.clone(),
         Rc::new(
@@ -63,7 +61,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "kvpair_set",
-        KVPAIR_SET,
+        ForeignInst::KVPairSet as usize,
         ExternalHostCallSignature::Argument,
         foreign_kvpair_plugin.clone(),
         Rc::new(
@@ -94,8 +92,8 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
 
 
     env.external_env.register_function(
-        "kv254pair_get",
-        KVPAIR_GET,
+        "kvpair_get",
+        ForeignInst::KVPairGet as usize,
         ExternalHostCallSignature::Return,
         foreign_kvpair_plugin.clone(),
         Rc::new(
