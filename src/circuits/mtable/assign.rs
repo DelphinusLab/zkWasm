@@ -20,13 +20,24 @@ use super::MEMORY_TABLE_ENTRY_ROWS;
 
 impl<F: FieldExt> MemoryTableChip<F> {
     fn assign_fixed(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        for _ in 0..(self.maximal_available_rows / MEMORY_TABLE_ENTRY_ROWS as usize) {
+        let capability = self.maximal_available_rows / MEMORY_TABLE_ENTRY_ROWS as usize;
+
+        for i in 0..capability {
             ctx.region.assign_fixed(
                 || "mtable: sel",
                 self.config.entry_sel,
                 ctx.offset,
                 || Ok(F::one()),
             )?;
+
+            if i == capability - 1 {
+                ctx.region.assign_advice_from_constant(
+                    || "rest_mops terminate",
+                    self.config.rest_mops_cell.0.col,
+                    ctx.offset,
+                    F::zero(),
+                )?;
+            }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
@@ -200,6 +211,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         imtable: &InitMemoryTable,
     ) -> Result<(), Error> {
         debug!("size of memory writing table: {}", mtable.0.len());
+        assert!(mtable.0.len() * (MEMORY_TABLE_ENTRY_ROWS as usize) < self.maximal_available_rows);
 
         let rest_mops = mtable
             .0
