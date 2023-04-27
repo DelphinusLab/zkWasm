@@ -9,7 +9,8 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 
 enum ForeignInst {
-    BlspairG1 = 0,
+    Log = 0,
+    BlspairG1,
     BlspairG2,
     BlspairG3,
     BlsSumG1,
