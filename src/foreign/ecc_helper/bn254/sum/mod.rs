@@ -4,8 +4,12 @@ use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bn256::{Fr, G1Affine};
 use halo2_proofs::pairing::group::prime::PrimeCurveAffine;
 
+use super::super::super::ForeignInst::{
+    Bn254SumG1, Bn254SumResult,
+};
+
 use super::{
-    LIMBNB, BN254SUM_G1, BN254SUM_RESULT,
+    LIMBNB,
     bn254_fq_to_limbs,
     fetch_g1,
 };
@@ -52,7 +56,7 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "bn254msm_g1",
-        BN254SUM_G1,
+        Bn254SumG1 as usize,
         ExternalHostCallSignature::Argument,
         foreign_bn254sum_plugin.clone(),
         Rc::new(
@@ -79,7 +83,7 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "bn254msm_pop",
-        BN254SUM_RESULT,
+        Bn254SumResult as usize,
         ExternalHostCallSignature::Return,
         foreign_bn254sum_plugin.clone(),
         Rc::new(

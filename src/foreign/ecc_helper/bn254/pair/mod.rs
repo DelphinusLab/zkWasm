@@ -8,10 +8,16 @@ use halo2_proofs::pairing::bn256::{G1Affine, G2Affine,
 use halo2_proofs::pairing::group::prime::PrimeCurveAffine;
 
 use super::{
-    LIMBNB, BN254PAIR_G1, BN254PAIR_G2, BN254PAIR_G3,
+    LIMBNB,
     bn254_fq_to_limbs,
     fetch_fq,
     fetch_fq2,
+};
+
+use super::super::super::ForeignInst::{
+    Bn254PairG1,
+    Bn254PairG2,
+    Bn254PairG3,
 };
 
 #[derive(Default)]
@@ -65,7 +71,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "bn254pair_g1",
-        BN254PAIR_G1,
+        Bn254PairG1 as usize,
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
@@ -85,7 +91,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
     );
     env.external_env.register_function(
         "bn254pair_g2",
-        BN254PAIR_G2,
+        Bn254PairG2 as usize,
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
@@ -131,7 +137,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "bn254pair_pop",
-        BN254PAIR_G3,
+        Bn254PairG3 as usize,
         ExternalHostCallSignature::Return,
         foreign_blspair_plugin.clone(),
         Rc::new(
