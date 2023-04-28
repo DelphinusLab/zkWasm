@@ -16,6 +16,7 @@ struct KVPairContext {
 
 const ADDRESS_LIMBNB:usize = 2 + 1; //4 for db id and 1 for address
 const VALUE_LIMBNB:usize = 4;
+const MERKLE_TREE_HEIGHT:usize = 20;
 
 impl KVPairContext {
 }
@@ -35,7 +36,7 @@ fn get_merkle_db_address(address_limbs: &Vec<u64>) -> ([u8; 32], u64) {
 }
 
 use specs::external_host_call_table::ExternalHostCallSignature;
-pub fn register_bn254pair_foreign(env: &mut HostEnv) {
+pub fn register_kvpair_foreign(env: &mut HostEnv) {
     let foreign_kvpair_plugin = env
             .external_env
             .register_plugin("foreign_kvpair", Box::new(KVPairContext::default()));
@@ -51,7 +52,8 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
                 if context.input_cursor < ADDRESS_LIMBNB {
                     context.address_limbs.push(args.nth(0));
                     context.input_cursor += 1;
-                } else {
+                }
+                if context.input_cursor == ADDRESS_LIMBNB {
                     context.input_cursor = 0;
                 }
                 None
@@ -70,20 +72,22 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
                 if context.input_cursor < VALUE_LIMBNB {
                     context.value_limbs.push(args.nth(0));
                     context.input_cursor += 1;
-                } else {
+                }
+                if context.input_cursor == VALUE_LIMBNB {
                     let (id, address) = get_merkle_db_address(&context.address_limbs);
                     let mut kv = kvpairhelper::MongoMerkle::construct(id.try_into().unwrap());
                     let bytes = context.value_limbs.iter().fold(vec![], |acc:Vec<u8>, x| {
                         let mut v = acc.clone();
                         let mut bytes: Vec<u8> = x.to_le_bytes().to_vec();
+                        //bytes.resize(8, 0);
                         v.append(&mut bytes);
                         v
                     });
-                    let index = address as u32;
+                    let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
                     kv.update_leaf_data_with_proof(index, &bytes)
                         .expect("Unexpected failure: update leaf with proof fail");
                     context.input_cursor = 0;
-
+                    context.value_limbs = vec![];
                 }
                 None
             },
@@ -102,7 +106,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
                 if context.result_cursor == 0 {
                     let (id, address) = get_merkle_db_address(&context.address_limbs);
                     let kv = kvpairhelper::MongoMerkle::construct(id);
-                    let index = address as u32;
+                    let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
                     let leaf = kv.get_leaf(index)
                         .expect("Unexpected failure: get leaf fail");
                     context.result_limbs = leaf.data_as_u64().to_vec();

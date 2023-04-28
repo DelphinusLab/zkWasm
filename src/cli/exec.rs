@@ -44,6 +44,7 @@ use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
+use crate::foreign::kv_helper::kvpair::register_kvpair_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
@@ -69,6 +70,7 @@ pub fn compile_image<'a>(
     let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
     register_require_foreign(&mut env);
     register_log_foreign(&mut env);
+    register_kvpair_foreign(&mut env);
     register_blspair_foreign(&mut env);
     register_blssum_foreign(&mut env);
     register_bn254pair_foreign(&mut env);
@@ -129,6 +131,7 @@ fn exec_image(
         register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
     register_require_foreign(&mut env);
     register_log_foreign(&mut env);
+    register_kvpair_foreign(&mut env);
     register_blspair_foreign(&mut env);
     register_blssum_foreign(&mut env);
     register_bn254pair_foreign(&mut env);
