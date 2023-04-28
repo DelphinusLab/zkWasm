@@ -114,6 +114,10 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
                 }
                 let ret = Some(wasmi::RuntimeValue::I64(context.result_limbs[context.result_cursor] as i64));
                 context.result_cursor += 1;
+                // Change the cursor to 0 if a full value buffer has been read
+                if context.result_cursor == VALUE_LIMBNB {
+                    context.result_cursor = 0;
+                }
                 ret
             },
         ),
