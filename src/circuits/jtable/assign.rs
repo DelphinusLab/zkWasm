@@ -38,11 +38,26 @@ impl<F: FieldExt> JumpTableChip<F> {
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        for i in 0..jtable_rows() {
-            if (i as u32) % (JtableOffset::JtableOffsetMax as u32) == 0 {
-                ctx.region
-                    .assign_fixed(|| "jtable sel", self.config.sel, i, || Ok(F::one()))?;
+        let capability = jtable_rows() / JtableOffset::JtableOffsetMax as usize;
+
+        for i in 0..capability {
+            ctx.region.assign_fixed(
+                || "jtable sel",
+                self.config.sel,
+                ctx.offset,
+                || Ok(F::one()),
+            )?;
+
+            if i == capability - 1 {
+                ctx.region.assign_advice_from_constant(
+                    || "jtable entry terminate",
+                    self.config.data,
+                    ctx.offset + JtableOffset::JtableOffsetRest as usize,
+                    F::zero(),
+                )?;
             }
+
+            ctx.step(JtableOffset::JtableOffsetMax as usize);
         }
 
         Ok(())
@@ -243,6 +258,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         }
 
         self.init(ctx)?;
+        ctx.reset();
 
         let mut rest_jops = jtable.entries().len() as u64 * 2 + static_entries.len() as u64;
 
