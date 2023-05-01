@@ -12,14 +12,14 @@ struct KVPairContext {
     pub result_limbs: Vec<u64>,
     pub input_cursor: usize,
     pub result_cursor: usize,
+    pub mongo_merkle: Option<kvpairhelper::MongoMerkle>,
 }
 
 const ADDRESS_LIMBNB:usize = 2 + 1; //4 for db id and 1 for address
 const VALUE_LIMBNB:usize = 4;
 const MERKLE_TREE_HEIGHT:usize = 20;
 
-impl KVPairContext {
-}
+impl KVPairContext {}
 
 impl ForeignContext for KVPairContext {}
 
@@ -75,7 +75,12 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
                 }
                 if context.input_cursor == VALUE_LIMBNB {
                     let (id, address) = get_merkle_db_address(&context.address_limbs);
-                    let mut kv = kvpairhelper::MongoMerkle::construct(id, kvpairhelper::MongoMerkle::default_root_hash());
+                    match context.mongo_merkle {
+                        None => {
+                            context.mongo_merkle = Some(kvpairhelper::MongoMerkle::construct(id, None));
+                        },
+                        Some(_) => {}
+                    }
                     let bytes = context.value_limbs.iter().fold(vec![], |acc:Vec<u8>, x| {
                         let mut v = acc.clone();
                         let mut bytes: Vec<u8> = x.to_le_bytes().to_vec();
@@ -84,8 +89,10 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
                         v
                     });
                     let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
-                    kv.update_leaf_data_with_proof(index, &bytes)
-                        .expect("Unexpected failure: update leaf with proof fail");
+                    if let Some (ref mut m) = context.mongo_merkle {
+                        m.update_leaf_data_with_proof(index, &bytes)
+                            .expect("Unexpected failure: update leaf with proof fail");
+                    }
                     context.input_cursor = 0;
                     context.value_limbs = vec![];
                 }
@@ -105,11 +112,18 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
                 if context.result_cursor == 0 {
                     let (id, address) = get_merkle_db_address(&context.address_limbs);
-                    let kv = kvpairhelper::MongoMerkle::construct(id, kvpairhelper::MongoMerkle::default_root_hash());
+                    match context.mongo_merkle {
+                        None => {
+                            context.mongo_merkle = Some(kvpairhelper::MongoMerkle::construct(id, None));
+                        },
+                        Some(_) => {}
+                    }
                     let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
-                    let leaf = kv.get_leaf(index)
-                        .expect("Unexpected failure: get leaf fail");
-                    context.result_limbs = leaf.data_as_u64().to_vec();
+                    if let Some(ref mut m) = context.mongo_merkle {
+                        let (leaf, _) = m.get_leaf_with_proof(index)
+                            .expect("Unexpected failure: get leaf fail");
+                        context.result_limbs = leaf.data_as_u64().to_vec();
+                    };
                     context.input_cursor = 0;
                 }
                 let ret = Some(wasmi::RuntimeValue::I64(context.result_limbs[context.result_cursor] as i64));
