@@ -11,7 +11,7 @@ use std::ops::{AddAssign, Shl};
 use num_traits::FromPrimitive;
 use halo2_proofs::arithmetic::CurveAffine;
 
-const LIMBSZ:usize = 45;
+const LIMBSZ:usize = 54;
 const LIMBNB:usize = 6;
 
 use super::{bn_to_field, field_to_bn};
