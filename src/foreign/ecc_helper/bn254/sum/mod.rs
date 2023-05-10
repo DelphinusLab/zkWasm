@@ -4,7 +4,7 @@ use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bn256::{Fr, G1Affine};
 use halo2_proofs::pairing::group::prime::PrimeCurveAffine;
 
-use super::super::super::ForeignInst::{
+use zkwasm_host_circuits::host::ForeignInst::{
     Bn254SumG1, Bn254SumResult,
 };
 

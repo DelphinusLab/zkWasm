@@ -5,17 +5,12 @@ use halo2_proofs::pairing::bls12_381::{G1Affine, G2Affine,
     Gt as Bls381Gt,
     pairing,
 };
-
 use super::{
     bls381_fq_to_limbs,
     fetch_fq,
     fetch_fq2,
 };
-
-
-use super::super::super::ForeignInst;
-
-
+use zkwasm_host_circuits::host::ForeignInst;
 
 #[derive(Default)]
 struct BlsPairContext {

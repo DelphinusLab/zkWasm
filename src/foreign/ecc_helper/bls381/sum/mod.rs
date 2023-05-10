@@ -8,7 +8,7 @@ use super::{
     fetch_g1,
 };
 
-use crate::foreign::ForeignInst;
+use zkwasm_host_circuits::host::ForeignInst;
 
 #[derive(Default)]
 struct BlsSumContext {
