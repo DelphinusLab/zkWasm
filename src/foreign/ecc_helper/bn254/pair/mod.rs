@@ -14,7 +14,7 @@ use super::{
     fetch_fq2,
 };
 
-use super::super::super::ForeignInst::{
+use zkwasm_host_circuits::host::ForeignInst::{
     Bn254PairG1,
     Bn254PairG2,
     Bn254PairG3,

@@ -1,18 +1,61 @@
 use std::rc::Rc;
 use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use zkwasm_host_circuits::host::merkle::MerkleTree;
-use zkwasm_host_circuits::host::kvpair as kvpairhelper;
+use zkwasm_host_circuits::host::{
+    kvpair as kvpairhelper,
+    Reduce, ReduceRule
+};
+use zkwasm_host_circuits::host::ForeignInst::{
+    KVPairSet,
+    KVPairGet,
+    KVPairAddress,
+    KVPairGetRoot,
+    KVPairSetRoot,
+};
 
-use super::super::ForeignInst;
+use halo2_proofs::pairing::bn256::Fr;
 
-#[derive(Default)]
 struct KVPairContext {
-    pub address_limbs: Vec<u64>,
-    pub value_limbs: Vec<u64>,
-    pub result_limbs: Vec<u64>,
-    pub input_cursor: usize,
-    pub result_cursor: usize,
+    pub set_root: Reduce<Fr>,
+    pub get_root: Reduce<Fr>,
+    pub address: Reduce<Fr>,
+    pub set: Reduce<Fr>,
+    pub get: Reduce<Fr>,
     pub mongo_merkle: Option<kvpairhelper::MongoMerkle>,
+}
+
+fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
+    Reduce {
+        cursor: 0,
+        rules
+    }
+}
+
+impl KVPairContext {
+    fn default() -> Self {
+        KVPairContext {
+            set_root: new_reduce(vec![
+                ReduceRule::Bytes(vec![], 4),
+            ]),
+            get_root: new_reduce(vec![
+                ReduceRule::Bytes(vec![], 4),
+            ]),
+            address: new_reduce(vec![
+                ReduceRule::U64(0),
+            ]),
+            set: new_reduce(vec![
+                ReduceRule::Bytes(vec![], 4),
+            ]),
+            get: new_reduce(vec![
+                ReduceRule::U64(0),
+                ReduceRule::U64(0),
+                ReduceRule::U64(0),
+                ReduceRule::U64(0),
+            ]),
+
+            mongo_merkle: None,
+        }
+    }
 }
 
 const ADDRESS_LIMBNB:usize = 2 + 1; //4 for db id and 1 for address
@@ -42,19 +85,23 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
             .register_plugin("foreign_kvpair", Box::new(KVPairContext::default()));
 
     env.external_env.register_function(
-        "kvpair_addr",
-        ForeignInst::KVPairAddr as usize,
+        "kvpair_setroot",
+        KVPairSetRoot as usize,
         ExternalHostCallSignature::Argument,
         foreign_kvpair_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
-                if context.input_cursor < ADDRESS_LIMBNB {
-                    context.address_limbs.push(args.nth(0));
-                    context.input_cursor += 1;
-                }
-                if context.input_cursor == ADDRESS_LIMBNB {
-                    context.input_cursor = 0;
+                context.set_root.reduce(args.nth(0));
+                if context.set_root.cursor == 0 {
+                    context.mongo_merkle = Some(
+                        kvpairhelper::MongoMerkle::construct(
+                            context.set_root.rules[0].bytes_value()
+                            .unwrap()
+                            .try_into()
+                            .unwrap()
+                        )
+                    );
                 }
                 None
             },
@@ -62,39 +109,57 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
     );
 
     env.external_env.register_function(
-        "kvpair_set",
-        ForeignInst::KVPairSet as usize,
+        "kvpair_getroot",
+        KVPairGetRoot as usize,
+        ExternalHostCallSignature::Return,
+        foreign_kvpair_plugin.clone(),
+        Rc::new(
+            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+                let context = context.downcast_mut::<KVPairContext>().unwrap();
+                let mt = context.mongo_merkle.as_ref().expect("merkle db not initialized");
+                let hash = mt.get_root_hash();
+                let values = hash.chunks(8).into_iter().map(|x| {
+                    u64::from_le_bytes(x.to_vec().try_into().unwrap())
+                }).collect::<Vec<u64>>();
+                let cursor = context.get_root.cursor;
+                context.get_root.reduce(values[context.get_root.cursor]);
+                Some(wasmi::RuntimeValue::I64(values[cursor] as i64))
+            },
+        ),
+    );
+
+    env.external_env.register_function(
+        "kvpair_address",
+        KVPairAddress as usize,
         ExternalHostCallSignature::Argument,
         foreign_kvpair_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
-                if context.input_cursor < VALUE_LIMBNB {
-                    context.value_limbs.push(args.nth(0));
-                    context.input_cursor += 1;
-                }
-                if context.input_cursor == VALUE_LIMBNB {
-                    let (id, address) = get_merkle_db_address(&context.address_limbs);
-                    match context.mongo_merkle {
-                        None => {
-                            context.mongo_merkle = Some(kvpairhelper::MongoMerkle::construct(id, None));
-                        },
-                        Some(_) => {}
-                    }
-                    let bytes = context.value_limbs.iter().fold(vec![], |acc:Vec<u8>, x| {
-                        let mut v = acc.clone();
-                        let mut bytes: Vec<u8> = x.to_le_bytes().to_vec();
-                        //bytes.resize(8, 0);
-                        v.append(&mut bytes);
-                        v
-                    });
+                context.address.reduce(args.nth(0));
+                None
+            },
+        ),
+    );
+
+
+    env.external_env.register_function(
+        "kvpair_set",
+        KVPairSet as usize,
+        ExternalHostCallSignature::Argument,
+        foreign_kvpair_plugin.clone(),
+        Rc::new(
+            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+                let context = context.downcast_mut::<KVPairContext>().unwrap();
+                context.set.reduce(args.nth(0));
+                if context.set.cursor == 0 {
+                    let address = context.address.rules[0].u64_value().unwrap() as u32;
                     let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
-                    if let Some (ref mut m) = context.mongo_merkle {
-                        m.update_leaf_data_with_proof(index, &bytes)
-                            .expect("Unexpected failure: update leaf with proof fail");
-                    }
-                    context.input_cursor = 0;
-                    context.value_limbs = vec![];
+                    let mt = context.mongo_merkle.as_mut().expect("merkle db not initialized");
+                    mt.update_leaf_data_with_proof(
+                        index,
+                        &context.set.rules[1].bytes_value().unwrap()
+                    ).expect("Unexpected failure: update leaf with proof fail");
                 }
                 None
             },
@@ -104,34 +169,21 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "kvpair_get",
-        ForeignInst::KVPairGet as usize,
+        KVPairGet as usize,
         ExternalHostCallSignature::Return,
         foreign_kvpair_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
-                if context.result_cursor == 0 {
-                    let (id, address) = get_merkle_db_address(&context.address_limbs);
-                    match context.mongo_merkle {
-                        None => {
-                            context.mongo_merkle = Some(kvpairhelper::MongoMerkle::construct(id, None));
-                        },
-                        Some(_) => {}
-                    }
-                    let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
-                    if let Some(ref mut m) = context.mongo_merkle {
-                        let (leaf, _) = m.get_leaf_with_proof(index)
-                            .expect("Unexpected failure: get leaf fail");
-                        context.result_limbs = leaf.data_as_u64().to_vec();
-                    };
-                    context.input_cursor = 0;
-                }
-                let ret = Some(wasmi::RuntimeValue::I64(context.result_limbs[context.result_cursor] as i64));
-                context.result_cursor += 1;
-                // Change the cursor to 0 if a full value buffer has been read
-                if context.result_cursor == VALUE_LIMBNB {
-                    context.result_cursor = 0;
-                }
+                let address = context.address.rules[0].u64_value().unwrap() as u32;
+                let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
+                let mt = context.mongo_merkle.as_ref().expect("merkle db not initialized");
+                let (leaf, _) = mt.get_leaf_with_proof(index)
+                    .expect("Unexpected failure: get leaf fail");
+                let cursor = context.get_root.cursor;
+                let values = leaf.data_as_u64();
+                context.get.reduce(values[context.get.cursor]);
+                let ret = Some(wasmi::RuntimeValue::I64(values[cursor] as i64));
                 ret
             },
         ),
