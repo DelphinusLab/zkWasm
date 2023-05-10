@@ -93,6 +93,7 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
                 context.set_root.reduce(args.nth(0));
+                println!("set root, cursor {}", context.set_root.cursor);
                 if context.set_root.cursor == 0 {
                     context.mongo_merkle = Some(
                         kvpairhelper::MongoMerkle::construct(
@@ -158,7 +159,7 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
                     let mt = context.mongo_merkle.as_mut().expect("merkle db not initialized");
                     mt.update_leaf_data_with_proof(
                         index,
-                        &context.set.rules[1].bytes_value().unwrap()
+                        &context.set.rules[0].bytes_value().unwrap()
                     ).expect("Unexpected failure: update leaf with proof fail");
                 }
                 None
