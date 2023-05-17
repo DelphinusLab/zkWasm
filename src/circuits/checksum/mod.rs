@@ -34,6 +34,12 @@ impl<F: FieldExt> CheckSumConfig<F> {
         let state = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
         let partial_sbox = meta.advice_column();
         let mid_0_helper = meta.advice_column();
+        let mid_0_helper_sqr = meta.advice_column();
+        let cur_0_rc_a0 = meta.advice_column();
+        let cur_0_rc_a0_sqr = meta.advice_column();
+
+        let state_rc_a = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
+        let state_rc_a_sqr = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
 
         let rc_a = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
         let rc_b = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
@@ -42,8 +48,13 @@ impl<F: FieldExt> CheckSumConfig<F> {
             pow5_config: Pow5Chip::configure::<P128Pow5T9<F>>(
                 meta,
                 state.try_into().unwrap(),
+                state_rc_a.try_into().unwrap(),
+                state_rc_a_sqr.try_into().unwrap(),
                 partial_sbox,
                 mid_0_helper,
+                mid_0_helper_sqr,
+                cur_0_rc_a0,
+                cur_0_rc_a0_sqr,
                 rc_a.try_into().unwrap(),
                 rc_b.try_into().unwrap(),
             ),
