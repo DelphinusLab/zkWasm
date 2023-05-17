@@ -12,7 +12,6 @@ use halo2_proofs::plonk::Any;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
-use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::poly::Rotation;
 
@@ -30,8 +29,13 @@ use super::PoseidonSpongeInstructions;
 #[derive(Clone, Debug)]
 pub struct Pow5Config<F: FieldExt, const WIDTH: usize, const RATE: usize> {
     pub(crate) state: [Column<Advice>; WIDTH],
+    pub(crate) state_rc_a: [Column<Advice>; WIDTH],
+    pub(crate) state_rc_a_sqr: [Column<Advice>; WIDTH],
     partial_sbox: Column<Advice>,
     mid_0_helper: Column<Advice>,
+    mid_0_helper_sqr: Column<Advice>,
+    cur_0_rc_a0: Column<Advice>,
+    cur_0_rc_a0_sqr: Column<Advice>,
     rc_a: [Column<Fixed>; WIDTH],
     rc_b: [Column<Fixed>; WIDTH],
     s_full: Column<Fixed>,
@@ -67,8 +71,13 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
     pub fn configure<S: Spec<F, WIDTH, RATE>>(
         meta: &mut ConstraintSystem<F>,
         state: [Column<Advice>; WIDTH],
+        state_rc_a: [Column<Advice>; WIDTH],
+        state_rc_a_sqr: [Column<Advice>; WIDTH],
         partial_sbox: Column<Advice>,
         mid_0_helper: Column<Advice>,
+        mid_0_helper_sqr: Column<Advice>,
+        cur_0_rc_a0: Column<Advice>,
+        cur_0_rc_a0_sqr: Column<Advice>,
         rc_a: [Column<Fixed>; WIDTH],
         rc_b: [Column<Fixed>; WIDTH],
     ) -> Pow5Config<F, WIDTH, RATE> {
@@ -99,10 +108,33 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
 
         let alpha = [5, 0, 0, 0];
 
-        let pow_5 = |v: Expression<F>| {
-            let v2 = v.clone() * v.clone();
-            v2.clone() * v2 * v
-        };
+        meta.create_gate("full round state_rc_a", |meta| {
+            let s_full = meta.query_fixed(s_full, Rotation::cur());
+
+            (0..WIDTH)
+                .map(|idx| {
+                    let state_cur = meta.query_advice(state[idx], Rotation::cur());
+                    let rc_a = meta.query_fixed(rc_a[idx], Rotation::cur());
+                    let state_rc_a_cur = meta.query_advice(state_rc_a[idx], Rotation::cur());
+                    (state_cur + rc_a - state_rc_a_cur) * s_full.clone()
+                })
+                .into_iter()
+                .collect::<Vec<_>>()
+        });
+
+        meta.create_gate("full round state_rc_a_sqr", |meta| {
+            let s_full = meta.query_fixed(s_full, Rotation::cur());
+
+            (0..WIDTH)
+                .map(|idx| {
+                    let state_rc_a_sqr_cur =
+                        meta.query_advice(state_rc_a_sqr[idx], Rotation::cur());
+                    let state_rc_a_cur = meta.query_advice(state_rc_a[idx], Rotation::cur());
+                    (state_rc_a_cur.clone() * state_rc_a_cur - state_rc_a_sqr_cur) * s_full.clone()
+                })
+                .into_iter()
+                .collect::<Vec<_>>()
+        });
 
         meta.create_gate("full round", |meta| {
             let s_full = meta.query_fixed(s_full, Rotation::cur());
@@ -112,9 +144,14 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
                     let state_next = meta.query_advice(state[next_idx], Rotation::next());
                     let expr = (0..WIDTH)
                         .map(|idx| {
-                            let state_cur = meta.query_advice(state[idx], Rotation::cur());
-                            let rc_a = meta.query_fixed(rc_a[idx], Rotation::cur());
-                            pow_5(state_cur + rc_a) * m_reg[next_idx][idx]
+                            let state_rc_a_sqr_cur =
+                                meta.query_advice(state_rc_a_sqr[idx], Rotation::cur());
+                            let state_rc_a_cur =
+                                meta.query_advice(state_rc_a[idx], Rotation::cur());
+                            state_rc_a_cur
+                                * state_rc_a_sqr_cur.clone()
+                                * state_rc_a_sqr_cur
+                                * m_reg[next_idx][idx]
                         })
                         .reduce(|acc, term| acc + term)
                         .expect("WIDTH > 0");
@@ -123,11 +160,24 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
                 .collect::<Vec<_>>()
         });
 
+        meta.create_gate("cur0_rc_a0", |meta| {
+            let cur_0 = meta.query_advice(state[0], Rotation::cur());
+            let rc_a0 = meta.query_fixed(rc_a[0], Rotation::cur());
+            let cur0_rc_a0 = meta.query_advice(cur_0_rc_a0, Rotation::cur());
+            let cur0_rc_a0_sqr = meta.query_advice(cur_0_rc_a0_sqr, Rotation::cur());
+            let s_partial = meta.query_fixed(s_partial, Rotation::cur());
+
+            vec![
+                (cur0_rc_a0.clone() - cur_0 - rc_a0) * s_partial.clone(),
+                (cur0_rc_a0_sqr - cur0_rc_a0.clone() * cur0_rc_a0) * s_partial,
+            ]
+        });
+
         meta.create_gate("mid_0_helper", |meta| {
             let mid_0 = meta.query_advice(partial_sbox, Rotation::cur());
             let rc_b0 = meta.query_fixed(rc_b[0], Rotation::cur());
             let mid_0_helper_curr = meta.query_advice(mid_0_helper, Rotation::cur());
-
+            let mid_0_helper_sqr_curr = meta.query_advice(mid_0_helper_sqr, Rotation::cur());
             let s_partial = meta.query_fixed(s_partial, Rotation::cur());
 
             use halo2_proofs::plonk::VirtualCells;
@@ -140,15 +190,18 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
                 })
             };
 
-            vec![(mid_0_helper_curr - mid(0, meta) - rc_b0) * s_partial]
+            vec![
+                (mid_0_helper_curr.clone() - mid(0, meta) - rc_b0) * s_partial.clone(),
+                (mid_0_helper_sqr_curr - mid_0_helper_curr.clone() * mid_0_helper_curr) * s_partial,
+            ]
         });
 
         meta.create_gate("partial rounds", |meta| {
-            let cur_0 = meta.query_advice(state[0], Rotation::cur());
             let mid_0 = meta.query_advice(partial_sbox, Rotation::cur());
             let mid_0_helper_curr = meta.query_advice(mid_0_helper, Rotation::cur());
-
-            let rc_a0 = meta.query_fixed(rc_a[0], Rotation::cur());
+            let mid_0_helper_sqr_curr = meta.query_advice(mid_0_helper_sqr, Rotation::cur());
+            let cur_0_rc_a0_curr = meta.query_advice(cur_0_rc_a0, Rotation::cur());
+            let cur_0_rc_a0_sqr_curr = meta.query_advice(cur_0_rc_a0_sqr, Rotation::cur());
 
             let s_partial = meta.query_fixed(s_partial, Rotation::cur());
 
@@ -179,9 +232,15 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
 
             std::iter::empty()
                 // state[0] round a
-                .chain(Some(pow_5(cur_0 + rc_a0) - mid_0.clone()))
+                .chain(Some(
+                    cur_0_rc_a0_sqr_curr.clone() * cur_0_rc_a0_sqr_curr * cur_0_rc_a0_curr
+                        - mid_0.clone(),
+                ))
                 // state[0] round b
-                .chain(Some(pow_5(mid_0_helper_curr) - next(0, meta)))
+                .chain(Some(
+                    mid_0_helper_sqr_curr.clone() * mid_0_helper_sqr_curr * mid_0_helper_curr
+                        - next(0, meta),
+                ))
                 .chain((1..WIDTH).map(|idx| partial_round_linear(idx, meta)))
                 .map(|x| s_partial.clone() * x)
                 .collect::<Vec<_>>()
@@ -212,8 +271,13 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
 
         Pow5Config {
             state,
+            state_rc_a,
+            state_rc_a_sqr,
             partial_sbox,
             mid_0_helper,
+            mid_0_helper_sqr,
+            cur_0_rc_a0,
+            cur_0_rc_a0_sqr,
             rc_a,
             rc_b,
             s_full,
@@ -463,13 +527,32 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
         round: usize,
         offset: usize,
     ) -> Result<Self, Error> {
-        Self::round(region, config, round, offset, config.s_full, |_| {
+        Self::round(region, config, round, offset, config.s_full, |region| {
             let q = self.0.iter().enumerate().map(|(idx, word)| {
                 word.0
                     .value()
                     .map(|v| *v + config.round_constants[round][idx])
             });
-            let r: Option<Vec<F>> = q.map(|q| q.map(|q| q.pow(&config.alpha))).collect();
+
+            let state_rc_a: Option<Vec<F>> = q.collect();
+            for i in 0..WIDTH {
+                region.assign_advice(
+                    || format!("round_{} state_rc_a", round),
+                    config.state_rc_a[i],
+                    offset,
+                    || Ok(state_rc_a.as_ref().unwrap()[i]),
+                )?;
+
+                region.assign_advice(
+                    || format!("round_{} state_rc_a_sqr", round),
+                    config.state_rc_a_sqr[i],
+                    offset,
+                    || Ok(state_rc_a.as_ref().unwrap()[i].square()),
+                )?;
+            }
+
+            let r: Option<Vec<F>> =
+                state_rc_a.map(|q| q.into_iter().map(|q| q.pow(&config.alpha)).collect());
             let m = &config.m_reg;
             let state = m.iter().map(|m_i| {
                 r.as_ref()
@@ -536,11 +619,42 @@ impl<F: FieldExt, const WIDTH: usize> Pow5State<F, WIDTH> {
                 load_round_constant(i)?;
             }
 
+            let mid_0_helper_curr = p_mid
+                .as_ref()
+                .and_then(|x| Some(x[0] + config.round_constants[round + 1][0]));
+
             region.assign_advice(
                 || format!("round_{} mid_0_helper_curr", round),
                 config.mid_0_helper,
                 offset,
-                || Ok(p_mid.as_ref().unwrap()[0] + config.round_constants[round + 1][0]),
+                || Ok(mid_0_helper_curr.unwrap()),
+            )?;
+
+            region.assign_advice(
+                || format!("round_{} mid_0_helper_sqr_curr", round),
+                config.mid_0_helper_sqr,
+                offset,
+                || Ok(mid_0_helper_curr.unwrap().square()),
+            )?;
+
+            let cur_0_rc_a0 = self.0[0]
+                .0
+                .value()
+                .cloned()
+                .and_then(|x| Some(config.round_constants[round][0] + x));
+
+            region.assign_advice(
+                || format!("round_{} mid_0_helper_curr", round),
+                config.cur_0_rc_a0,
+                offset,
+                || Ok(cur_0_rc_a0.unwrap()),
+            )?;
+
+            region.assign_advice(
+                || format!("round_{} mid_0_helper_sqr_curr", round),
+                config.cur_0_rc_a0_sqr,
+                offset,
+                || Ok(cur_0_rc_a0.unwrap().square()),
             )?;
 
             let r_mid: Option<Vec<_>> = p_mid.map(|p| {
@@ -671,6 +785,12 @@ mod tests {
             let state = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
             let partial_sbox = meta.advice_column();
             let mid_0_helper = meta.advice_column();
+            let mid_0_helper_sqr = meta.advice_column();
+            let cur_0_rc_a0 = meta.advice_column();
+            let cur_0_rc_a0_sqr = meta.advice_column();
+
+            let state_rc_a = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
+            let state_rc_a_sqr = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
 
             let rc_a = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
             let rc_b = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
@@ -678,8 +798,13 @@ mod tests {
             Pow5Chip::configure::<S>(
                 meta,
                 state.try_into().unwrap(),
+                state_rc_a.try_into().unwrap(),
+                state_rc_a_sqr.try_into().unwrap(),
                 partial_sbox,
                 mid_0_helper,
+                mid_0_helper_sqr,
+                cur_0_rc_a0,
+                cur_0_rc_a0_sqr,
                 rc_a.try_into().unwrap(),
                 rc_b.try_into().unwrap(),
             )
@@ -791,17 +916,26 @@ mod tests {
             let state = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
             let partial_sbox = meta.advice_column();
             let mid_0_helper = meta.advice_column();
+            let mid_0_helper_sqr = meta.advice_column();
+            let cur_0_rc_a0 = meta.advice_column();
+            let cur_0_rc_a0_sqr = meta.advice_column();
+
+            let state_rc_a = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
+            let state_rc_a_sqr = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
 
             let rc_a = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
             let rc_b = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
 
-            meta.enable_constant(rc_b[0]);
-
             Pow5Chip::configure::<S>(
                 meta,
                 state.try_into().unwrap(),
+                state_rc_a.try_into().unwrap(),
+                state_rc_a_sqr.try_into().unwrap(),
                 partial_sbox,
                 mid_0_helper,
+                mid_0_helper_sqr,
+                cur_0_rc_a0,
+                cur_0_rc_a0_sqr,
                 rc_a.try_into().unwrap(),
                 rc_b.try_into().unwrap(),
             )
