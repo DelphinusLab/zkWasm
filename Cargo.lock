@@ -706,7 +706,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=bisect-lookup-0.1.2#e86b8d1f22c1992e620262598a26e18cc138eea6"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=bisect-lookup-0.2.1#2db58881aecff8f5a9c95ce9a8e1c023c92a9ce7"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -723,7 +723,7 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.2.0"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=bisect-lookup-fix#3b3ed4e6a5d4ec223c56ada9605a1a08eaaccdbf"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.2.1#11059fc86b1d9773a6ffca1a44b119c9f0841ded"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
