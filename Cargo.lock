@@ -1196,7 +1196,7 @@ dependencies = [
  "ark-std",
  "blake2b_simd",
  "halo2_proofs",
- "halo2ecc-s",
+ "halo2ecc-s 0.2.0 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.2.1)",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1209,6 +1209,17 @@ dependencies = [
 name = "halo2ecc-s"
 version = "0.2.0"
 source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.2.1#11059fc86b1d9773a6ffca1a44b119c9f0841ded"
+dependencies = [
+ "halo2_proofs",
+ "num-bigint",
+ "num-integer",
+ "rayon",
+]
+
+[[package]]
+name = "halo2ecc-s"
+version = "0.2.0"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=bisect-lookup#f6346e176e044236e9dfe32254e4c618d3f5ce97"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
@@ -3314,13 +3325,13 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#48c613b0ef59e10129a7f902d800cae48b0b3593"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#5473bf36cc650f451c2d36ee78991c30e46eb9e0"
 dependencies = [
  "ark-std",
  "clap",
  "futures",
  "halo2_proofs",
- "halo2ecc-s",
+ "halo2ecc-s 0.2.0 (git+https://github.com/lanbones/halo2ecc-s.git?branch=bisect-lookup)",
  "hex",
  "lazy_static",
  "mongodb",
