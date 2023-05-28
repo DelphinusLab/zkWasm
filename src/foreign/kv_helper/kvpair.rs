@@ -93,8 +93,8 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<KVPairContext>().unwrap();
                 context.set_root.reduce(args.nth(0));
-                println!("set root, cursor {}", context.set_root.cursor);
                 if context.set_root.cursor == 0 {
+                    println!("set root: {:?}", &context.set_root.rules[0].bytes_value());
                     context.mongo_merkle = Some(
                         kvpairhelper::MongoMerkle::construct(
                             context.set_root.rules[0].bytes_value()
@@ -181,7 +181,7 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
                 let mt = context.mongo_merkle.as_ref().expect("merkle db not initialized");
                 let (leaf, _) = mt.get_leaf_with_proof(index)
                     .expect("Unexpected failure: get leaf fail");
-                let cursor = context.get_root.cursor;
+                let cursor = context.get.cursor;
                 let values = leaf.data_as_u64();
                 context.get.reduce(values[context.get.cursor]);
                 let ret = Some(wasmi::RuntimeValue::I64(values[cursor] as i64));

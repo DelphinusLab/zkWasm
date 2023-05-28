@@ -25,7 +25,7 @@ pub fn register_log_foreign(env: &mut HostEnv) {
     );
 
     env.external_env.register_function(
-        "log",
+        "wasm_dbg",
         Log as usize,
         ExternalHostCallSignature::Argument,
         foreign_log_plugin,
