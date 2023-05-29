@@ -19,14 +19,36 @@ use wasmi::RuntimeValue;
 use super::CompiledImage;
 use super::ExecutionResult;
 
+pub struct WasmRuntimeIO {
+    pub public_inputs_and_outputs: Rc<RefCell<Vec<u64>>>,
+    pub outputs: Rc<RefCell<Vec<u64>>>,
+}
+
+impl WasmRuntimeIO {
+    pub fn empty() -> Self {
+        Self {
+            public_inputs_and_outputs: Rc::new(RefCell::new(vec![])),
+            outputs: Rc::new(RefCell::new(vec![])),
+        }
+    }
+}
+
 pub trait Execution<R> {
-    fn run<E: Externals>(self, externals: &mut E) -> Result<ExecutionResult<R>>;
+    fn run<E: Externals>(
+        self,
+        externals: &mut E,
+        wasm_io: WasmRuntimeIO,
+    ) -> Result<ExecutionResult<R>>;
 }
 
 impl Execution<RuntimeValue>
     for CompiledImage<wasmi::NotStartedModuleRef<'_>, wasmi::tracer::Tracer>
 {
-    fn run<E: Externals>(self, externals: &mut E) -> Result<ExecutionResult<RuntimeValue>> {
+    fn run<E: Externals>(
+        self,
+        externals: &mut E,
+        wasm_io: WasmRuntimeIO,
+    ) -> Result<ExecutionResult<RuntimeValue>> {
         let instance = self
             .instance
             .run_start_tracer(externals, self.tracer.clone())
@@ -63,6 +85,8 @@ impl Execution<RuntimeValue>
                 execution_tables,
             },
             result,
+            public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
+            outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
         })
     }
 }

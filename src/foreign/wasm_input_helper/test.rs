@@ -4,8 +4,6 @@ mod tests {
     use crate::runtime::host::host_env::HostEnv;
     use crate::test::test_circuit_with_env;
 
-    use halo2_proofs::pairing::bn256::Fr as Fp;
-
     #[test]
     fn test_foreign_wasm_input() {
         let textual_repr = r#" 
@@ -23,16 +21,10 @@ mod tests {
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
         let mut env = HostEnv::new();
-        register_wasm_input_foreign(&mut env, public_inputs.clone(), vec![]);
+        let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, vec![]);
         env.finalize();
 
-        test_circuit_with_env(
-            env,
-            wasm,
-            "main",
-            public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
-        )
-        .unwrap();
+        test_circuit_with_env(env, wasm_runtime_io, wasm, "main").unwrap();
     }
 
     #[test]
@@ -64,15 +56,9 @@ mod tests {
         let public_inputs = vec![1, 2];
 
         let mut env = HostEnv::new();
-        register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+        let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
         env.finalize();
 
-        test_circuit_with_env(
-            env,
-            wasm,
-            "main",
-            public_inputs.into_iter().map(|v| Fp::from(v)).collect(),
-        )
-        .unwrap();
+        test_circuit_with_env(env, wasm_runtime_io, wasm, "main").unwrap();
     }
 }

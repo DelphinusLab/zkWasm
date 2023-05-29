@@ -9,11 +9,12 @@ use crate::runtime::WasmInterpreter;
 
 #[cfg(feature = "checksum")]
 use crate::image_hasher::ImageHasher;
+use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use anyhow::Result;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::pairing::bn256::Fr as Fp;
+use halo2_proofs::pairing::bn256::Fr;
 use wasmi::ImportsBuilder;
 use wasmi::RuntimeValue;
 
@@ -30,11 +31,51 @@ mod test_start;
 #[cfg(feature = "checksum")]
 mod test_uniform_verifier;
 
-fn test_circuit(
+/// Create circuit with trace and run mock test.
+fn test_circuit_mock<F: FieldExt>(
+    execution_result: ExecutionResult<wasmi::RuntimeValue>,
+) -> Result<()> {
+    let instance = {
+        let mut v: Vec<F> = vec![];
+
+        #[cfg(feature = "checksum")]
+        v.push(execution_result.tables.compilation_tables.hash());
+
+        v.append(
+            &mut execution_result
+                .public_inputs_and_outputs
+                .iter()
+                .map(|v| (*v).into())
+                .collect(),
+        );
+
+        v
+    };
+
+    execution_result.tables.write_json(None);
+    let memory_writing_table: MemoryWritingTable = execution_result
+        .tables
+        .execution_tables
+        .mtable
+        .clone()
+        .into();
+    memory_writing_table.write_json(None);
+
+    execution_result.tables.profile_tables();
+
+    let circuit = TestCircuit::new(execution_result.tables);
+    let prover = MockProver::run(zkwasm_k(), &circuit, vec![instance])?;
+    assert_eq!(prover.verify(), Ok(()));
+
+    Ok(())
+}
+
+/// Run function and generate trace.
+fn compile_then_execute_wasm(
     mut env: HostEnv,
+    wasm_runtime_io: WasmRuntimeIO,
     wasm: Vec<u8>,
     function_name: &str,
-    public_inputs: Vec<Fp>,
 ) -> Result<ExecutionResult<RuntimeValue>> {
     let module = wasmi::Module::from_buffer(&wasm).expect("failed to load wasm");
 
@@ -50,64 +91,33 @@ fn test_circuit(
         )
         .unwrap();
 
-    let execution_result = compiled_module.run(&mut env)?;
-
-    run_test_circuit::<Fp>(execution_result.clone(), public_inputs)?;
+    let execution_result = compiled_module.run(&mut env, wasm_runtime_io)?;
 
     Ok(execution_result)
 }
 
-fn test_circuit_noexternal_function(textual_repr: &str, function_name: &str) -> Result<()> {
+/// Run the function and generate trace, then test circuit with mock prover.
+pub fn test_circuit_with_env(
+    env: HostEnv,
+    wasm_runtime_io: WasmRuntimeIO,
+    wasm: Vec<u8>,
+    function_name: &str,
+) -> Result<ExecutionResult<RuntimeValue>> {
+    let trace = compile_then_execute_wasm(env, wasm_runtime_io, wasm, function_name)?;
+    test_circuit_mock::<Fr>(trace.clone())?;
+
+    Ok(trace)
+}
+
+/// Run test function and generate trace, then test circuit with mock prover. Only tests should
+/// use this function.
+fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
     let mut env = HostEnv::new();
     env.finalize();
 
-    test_circuit(env, wasm, function_name, vec![]).unwrap();
-
-    Ok(())
-}
-
-pub fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
-    test_circuit_noexternal_function(textual_repr, "test").unwrap();
-
-    Ok(())
-}
-
-pub fn test_circuit_with_env(
-    env: HostEnv,
-    wasm: Vec<u8>,
-    function_name: &str,
-    public_inputs: Vec<Fp>,
-) -> Result<ExecutionResult<RuntimeValue>> {
-    test_circuit(env, wasm, function_name, public_inputs)
-}
-
-pub fn run_test_circuit<F: FieldExt>(
-    execution_result: ExecutionResult<wasmi::RuntimeValue>,
-    mut public_inputs: Vec<F>,
-) -> Result<()> {
-    let mut instances = vec![];
-
-    #[cfg(feature = "checksum")]
-    instances.push(execution_result.tables.compilation_tables.hash());
-
-    instances.append(&mut public_inputs);
-
-    execution_result.tables.write_json(None);
-    let memory_writing_table: MemoryWritingTable = execution_result
-        .tables
-        .execution_tables
-        .mtable
-        .clone()
-        .into();
-    memory_writing_table.write_json(None);
-
-    execution_result.tables.profile_tables();
-
-    let circuit = TestCircuit::<F>::new(execution_result.tables);
-    let prover = MockProver::run(zkwasm_k(), &circuit, vec![instances])?;
-    assert_eq!(prover.verify(), Ok(()));
+    test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "test")?;
 
     Ok(())
 }

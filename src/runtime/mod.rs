@@ -27,6 +27,8 @@ pub struct CompiledImage<I, T> {
 pub struct ExecutionResult<R> {
     pub tables: Tables,
     pub result: Option<R>,
+    pub public_inputs_and_outputs: Vec<u64>,
+    pub outputs: Vec<u64>,
 }
 
 // TODO: use feature
