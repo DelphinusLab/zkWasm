@@ -1,9 +1,10 @@
 use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::ExecutionResult;
 use anyhow::Result;
 use wasmi::RuntimeValue;
 
-use super::test_circuit_with_env;
+use super::compile_then_execute_wasm;
 
 /*
    unsigned long long wasm_input(int);
@@ -64,27 +65,24 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
     let mut env = HostEnv::new();
     env.finalize();
 
-    let execution_result = test_circuit_with_env(env, wasm, "zkmain", vec![])?;
+    let trace = compile_then_execute_wasm(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;
 
-    Ok((execution_result, 55))
+    Ok((trace, 55))
 }
 
 mod tests {
     use super::*;
     use crate::circuits::ZkWasmCircuitBuilder;
-    use crate::test::run_test_circuit;
+    use crate::test::test_circuit_mock;
     use halo2_proofs::pairing::bn256::Fr as Fp;
 
     #[test]
     fn test_fibonacci_mock() {
-        let (execution_result, expected_value) = build_test().unwrap();
+        let (trace, expected_value) = build_test().unwrap();
 
-        assert_eq!(
-            execution_result.result.unwrap(),
-            RuntimeValue::I32(expected_value)
-        );
+        assert_eq!(trace.result.unwrap(), RuntimeValue::I32(expected_value));
 
-        run_test_circuit::<Fp>(execution_result, vec![]).unwrap();
+        test_circuit_mock::<Fp>(trace).unwrap();
     }
 
     #[test]
@@ -98,8 +96,9 @@ mod tests {
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
+            public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
         };
 
-        builder.bench(vec![])
+        builder.bench()
     }
 }

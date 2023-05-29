@@ -1,5 +1,5 @@
 mod tests {
-    use crate::test::test_circuit_noexternal_function;
+    use crate::test::test_circuit_noexternal;
 
     #[test]
     fn test_start_mock() {
@@ -16,10 +16,10 @@ mod tests {
             )
 
             (start 0)
-            (export "zkmain" (func 1))
+            (export "test" (func 1))
            )
         "#;
 
-        test_circuit_noexternal_function(textual_repr, "zkmain").unwrap();
+        test_circuit_noexternal(textual_repr).unwrap();
     }
 }

@@ -117,9 +117,8 @@ pub(self) trait Lookup<F: FieldExt> {
 
 pub struct ZkWasmCircuitBuilder {
     pub tables: Tables,
+    pub public_inputs_and_outputs: Vec<u64>,
 }
-
-const PARAMS: &str = "param.data";
 
 impl ZkWasmCircuitBuilder {
     pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
@@ -127,7 +126,7 @@ impl ZkWasmCircuitBuilder {
     }
 
     fn prepare_param(&self) -> Params<G1Affine> {
-        let path = PathBuf::from(PARAMS);
+        let path = PathBuf::from(format!("test_param.{}.data", zkwasm_k()));
 
         if path.exists() {
             let mut fd = File::open(path.as_path()).unwrap();
@@ -177,20 +176,13 @@ impl ZkWasmCircuitBuilder {
         circuits: &[TestCircuit<Fr>],
         params: &Params<G1Affine>,
         pk: &ProvingKey<G1Affine>,
-        public_inputs: &Vec<Fr>,
+        instance: &Vec<Fr>,
     ) -> Vec<u8> {
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
         let timer = start_timer!(|| "create proof");
-        create_proof(
-            params,
-            pk,
-            circuits,
-            &[&[public_inputs]],
-            OsRng,
-            &mut transcript,
-        )
-        .expect("proof generation should not fail");
+        create_proof(params, pk, circuits, &[&[instance]], OsRng, &mut transcript)
+            .expect("proof generation should not fail");
         end_timer!(timer);
 
         transcript.finalize()
@@ -201,9 +193,9 @@ impl ZkWasmCircuitBuilder {
         vk: &VerifyingKey<G1Affine>,
         params: &Params<G1Affine>,
         proof: &Vec<u8>,
-        public_inputs: &Vec<Fr>,
+        instance: &Vec<Fr>,
     ) {
-        let public_inputs_size = public_inputs.len();
+        let public_inputs_size = instance.len();
 
         let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
 
@@ -215,20 +207,26 @@ impl ZkWasmCircuitBuilder {
             &params_verifier,
             vk,
             strategy,
-            &[&[public_inputs]],
+            &[&[instance]],
             &mut transcript,
         )
         .unwrap();
         end_timer!(timer);
     }
 
-    pub fn bench(&self, mut public_inputs: Vec<Fr>) {
+    pub fn bench(&self) {
         let mut instances = vec![];
 
         #[cfg(feature = "checksum")]
         instances.push(self.tables.compilation_tables.hash());
 
-        instances.append(&mut public_inputs);
+        instances.append(
+            &mut self
+                .public_inputs_and_outputs
+                .iter()
+                .map(|v| (*v).into())
+                .collect(),
+        );
 
         let circuit: TestCircuit<Fr> = self.build_circuit::<Fr>();
 

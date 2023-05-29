@@ -1,6 +1,7 @@
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::ExecutionResult;
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
@@ -28,10 +29,11 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
     let mut env = HostEnv::new();
     env.finalize();
 
-    let execution_result = test_circuit_with_env(env, wasm, "zkmain", vec![])?;
+    let execution_result = test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;
 
     let builder = ZkWasmCircuitBuilder {
         tables: execution_result.tables,
+        public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
     };
 
     let circuit: TestCircuit<Fr> = builder.build_circuit();
@@ -100,7 +102,7 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
     let mut env = HostEnv::new();
     env.finalize();
 
-    let execution_result = test_circuit_with_env(env, wasm, "zkmain", vec![])?;
+    let execution_result = test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;
 
     Ok((execution_result, 55))
 }
@@ -135,6 +137,7 @@ mod tests {
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
+            public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
         };
 
         let proof = {

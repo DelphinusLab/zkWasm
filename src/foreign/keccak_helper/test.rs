@@ -5,7 +5,6 @@ pub(crate) mod tests {
     use crate::test::test_circuit_with_env;
 
     use crate::circuits::config::set_zkwasm_k;
-    use halo2_proofs::pairing::bn256::Fr as Fp;
     use rusty_fork::rusty_fork_test;
     use std::fs;
 
@@ -42,11 +41,10 @@ pub(crate) mod tests {
             let wasm = fs::read("wasm/keccak.wasm").unwrap();
 
             let mut env = HostEnv::new();
-            register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+            let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
             env.finalize();
 
-
-            test_circuit_with_env(env, wasm, "keccak_digest", public_inputs.into_iter().map(|v| Fp::from(v)).collect()).unwrap();
+            test_circuit_with_env(env, wasm_runtime_io, wasm, "keccak_digest").unwrap();
         }
     }
 }
