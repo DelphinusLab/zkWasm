@@ -122,18 +122,17 @@ pub trait AppBuilder: CommandBuilder {
             }
             Some(("single-verify", sub_matches)) => {
                 let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
-
-                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+                let instance_path: PathBuf = Self::parse_single_instance_arg(&sub_matches);
 
                 exec_verify_proof(
                     Self::NAME,
+                    Self::MAX_PUBLIC_INPUT_SIZE,
                     zkwasm_k,
                     &wasm_binary,
                     &function_name,
                     &output_dir,
                     &proof_path,
-                    &public_inputs,
+                    &instance_path,
                 );
             }
             Some(("aggregate-prove", sub_matches)) => {

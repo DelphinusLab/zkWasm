@@ -93,6 +93,19 @@ pub trait ArgBuilder {
     fn aggregate_private_args<'a>() -> Arg<'a>;
     fn parse_aggregate_private_args(matches: &ArgMatches) -> Vec<Vec<u64>>;
 
+    fn single_instance_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            -i --instance <INSTANCE_PATH> "Path of circuit instance."
+        )
+        .value_parser(value_parser!(PathBuf))
+    }
+    fn parse_single_instance_arg(matches: &ArgMatches) -> PathBuf {
+        matches
+            .get_one::<PathBuf>("instance")
+            .expect("instance is required.")
+            .clone()
+    }
+
     fn instances_path_arg<'a>() -> Arg<'a> {
         arg!(
             -i --instances <AGGREGATE_INSTANCE_PATH> "Path of aggregate instances."
