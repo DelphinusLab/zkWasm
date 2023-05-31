@@ -144,7 +144,6 @@ impl<F: FieldExt> EventTableChip<F> {
 
         let mut host_public_inputs = 0u32;
         let mut external_host_call_call_index = 1u32;
-        let mut index = 0;
 
         assign_constant!(input_index_cell, F::from(host_public_inputs as u64));
         assign_constant!(
@@ -163,6 +162,16 @@ impl<F: FieldExt> EventTableChip<F> {
         #[cfg(not(feature = "checksum"))]
         let fid_of_entry_cell = assign_constant!(fid_cell, F::from(fid_of_entry as u64));
         assign_constant!(iid_cell, F::zero());
+
+        /*
+         * Skip subsequent advice assignment in the first pass to enhance performance.
+         */
+        {
+            let assigned_cell = assign_advice!(enabled_cell, F::zero());
+            if assigned_cell.value().is_none() {
+                return Ok(fid_of_entry_cell);
+            }
+        }
 
         /*
          * The length of event_table equals 0: without_witness
@@ -206,7 +215,9 @@ impl<F: FieldExt> EventTableChip<F> {
             status
         };
 
-        for (entry, (rest_mops, rest_jops)) in event_table.0.iter().zip(rest_ops.iter()) {
+        for (index, (entry, (rest_mops, rest_jops))) in
+            event_table.0.iter().zip(rest_ops.iter()).enumerate()
+        {
             let step_status = StepStatus {
                 current: &status[index],
                 next: &status[index + 1],
@@ -254,7 +265,6 @@ impl<F: FieldExt> EventTableChip<F> {
             }
 
             ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
-            index += 1;
         }
 
         // Assign terminate status
