@@ -119,14 +119,12 @@ macro_rules! define_cell {
                 ctx: &mut Context<'_, F>,
                 value: F,
             ) -> Result<AssignedCell<F, F>, Error> {
-                if let Some(limit) = $limit {
-                    assert!(
-                        value <= limit,
-                        "assigned value {:?} exceeds the limit {:?}",
-                        value,
-                        limit
-                    );
-                };
+                debug_assert!(
+                    value <= $limit,
+                    "assigned value {:?} exceeds the limit {:?}",
+                    value,
+                    $limit
+                );
 
                 self.0.assign(ctx, value)
             }
@@ -134,14 +132,14 @@ macro_rules! define_cell {
     };
 }
 
-define_cell!(AllocatedBitCell, Some(F::one()));
+define_cell!(AllocatedBitCell, F::one());
 define_cell!(
     AllocatedCommonRangeCell,
-    Some(F::from((1u64 << (zkwasm_k() - 1)) - 1))
+    F::from((1u64 << (zkwasm_k() - 1)) - 1)
 );
-define_cell!(AllocatedU8Cell, Some(F::from(u8::MAX as u64)));
-define_cell!(AllocatedU16Cell, Some(F::from(u16::MAX as u64)));
-define_cell!(AllocatedUnlimitedCell, None);
+define_cell!(AllocatedU8Cell, F::from(u8::MAX as u64));
+define_cell!(AllocatedU16Cell, F::from(u16::MAX as u64));
+define_cell!(AllocatedUnlimitedCell, -F::one());
 
 impl<F: FieldExt> AllocatedU64Cell<F> {
     pub(crate) fn assign(&self, ctx: &mut Context<'_, F>, value: u64) -> Result<(), Error> {
