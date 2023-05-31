@@ -44,3 +44,6 @@ rusty-fork = "0.3.0"
 default = []
 checksum = []
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
+
+[profile.dev]
+opt-level = 3

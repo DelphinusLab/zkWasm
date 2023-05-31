@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
@@ -50,7 +51,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         etable_rest_mops_cell: Option<Cell>,
         init_rest_mops: u64,
-    ) -> Result<(), Error> {
+    ) -> Result<AssignedCell<F, F>, Error> {
         let cell = self
             .config
             .rest_mops_cell
@@ -61,7 +62,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
         }
 
-        Ok(())
+        Ok(cell)
     }
 
     fn assign_entries(
@@ -221,10 +222,16 @@ impl<F: FieldExt> MemoryTableChip<F> {
         self.assign_fixed(ctx)?;
         ctx.reset();
 
-        self.constraint_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
+        let rest_mops_cell =
+            self.constraint_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
 
-        self.assign_entries(ctx, mtable, rest_mops, imtable)?;
-        ctx.reset();
+        /*
+         * Skip subsequent advice assignment in the first pass to enhance performance.
+         */
+        if rest_mops_cell.value().is_some() {
+            self.assign_entries(ctx, mtable, rest_mops, imtable)?;
+            ctx.reset();
+        }
 
         Ok(())
     }
