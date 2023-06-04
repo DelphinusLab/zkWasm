@@ -46,6 +46,7 @@ use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::kv_helper::kvpair::register_kvpair_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::foreign::hash_helper::sha256::register_sha256_foreign;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::WasmInterpreter;
@@ -75,6 +76,7 @@ pub fn compile_image<'a>(
     register_blssum_foreign(&mut env);
     register_bn254pair_foreign(&mut env);
     register_bn254sum_foreign(&mut env);
+    register_sha256_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
@@ -136,6 +138,7 @@ fn exec_image(
     register_blssum_foreign(&mut env);
     register_bn254pair_foreign(&mut env);
     register_bn254sum_foreign(&mut env);
+    register_sha256_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 

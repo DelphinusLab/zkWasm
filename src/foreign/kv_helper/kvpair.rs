@@ -97,6 +97,7 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
                     println!("set root: {:?}", &context.set_root.rules[0].bytes_value());
                     context.mongo_merkle = Some(
                         kvpairhelper::MongoMerkle::construct(
+                            [0;32],
                             context.set_root.rules[0].bytes_value()
                             .unwrap()
                             .try_into()

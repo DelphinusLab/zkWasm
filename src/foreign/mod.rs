@@ -14,6 +14,7 @@ pub mod log_helper;
 pub mod require_helper;
 pub mod kv_helper;
 pub mod ecc_helper;
+pub mod hash_helper;
 pub mod wasm_input_helper;
 
 pub trait ForeignTableConfig<F: FieldExt> {
