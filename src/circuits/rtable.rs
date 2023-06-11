@@ -19,6 +19,8 @@ use strum::IntoEnumIterator;
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
+    // [0 .. 1 << zkwasm_k() - 1)
+    common_range_col: TableColumn,
     // [0 .. 65536)
     u16_col: TableColumn,
     // [0 .. 256)
@@ -62,16 +64,17 @@ pub(crate) fn encode_u8_popcnt_lookup(value: u8) -> u64 {
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(cols: [TableColumn; 8]) -> Self {
+    pub fn configure(mut cols: impl Iterator<Item = TableColumn>) -> Self {
         RangeTableConfig {
-            u16_col: cols[0],
-            u8_col: cols[1],
-            u4_col: cols[2],
-            u4_bop_calc_col: cols[3],
-            u4_bop_col: cols[4],
-            pow_col: cols[5],
-            offset_len_bits_col: cols[6],
-            u8_bit_op_col: cols[7],
+            common_range_col: cols.next().unwrap(),
+            u16_col: cols.next().unwrap(),
+            u8_col: cols.next().unwrap(),
+            u4_col: cols.next().unwrap(),
+            u4_bop_calc_col: cols.next().unwrap(),
+            u4_bop_col: cols.next().unwrap(),
+            pow_col: cols.next().unwrap(),
+            offset_len_bits_col: cols.next().unwrap(),
+            u8_bit_op_col: cols.next().unwrap(),
             _mark: PhantomData,
         }
     }
@@ -82,7 +85,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u16_col)]);
+        meta.lookup(key, |meta| vec![(expr(meta), self.common_range_col)]);
     }
 
     pub fn configure_in_u16_range(
@@ -216,6 +219,21 @@ impl<F: FieldExt> RangeTableChip<F> {
             || "common range table",
             |mut table| {
                 for i in 0..(1 << (zkwasm_k() - 1)) {
+                    table.assign_cell(
+                        || "range table",
+                        self.config.common_range_col,
+                        i,
+                        || Ok(F::from(i as u64)),
+                    )?;
+                }
+                Ok(())
+            },
+        )?;
+
+        layouter.assign_table(
+            || "u16 range table",
+            |mut table| {
+                for i in 0..(1 << 16) {
                     table.assign_cell(
                         || "range table",
                         self.config.u16_col,
