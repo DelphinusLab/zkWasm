@@ -13,7 +13,7 @@ is_bit = Function('IsBit', IntSort(), BoolSort())
 is_u32 = Function('IsU32', IntSort(), BoolSort())
 is_u64 = Function('IsU64', IntSort(), BoolSort())
 is_field = Function('IsField', IntSort(), BoolSort())
-is_common_range = Function('IsCommonRnage', IntSort(), BoolSort())
+is_common_range = Function('IsCommonRange', IntSort(), BoolSort())
 
 def init_z3_solver():
     s = Solver()
