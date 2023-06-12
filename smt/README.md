@@ -9,5 +9,5 @@ Setup
 Run
 
 ```
-    python3 addu64.py
+    python3 addi64.py
 ```
