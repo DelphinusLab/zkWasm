@@ -29,6 +29,8 @@ use halo2aggregator_s::transcript::sha256::ShaRead;
 use log::info;
 use specs::ExecutionTable;
 use specs::Tables;
+#[cfg(feature = "checksum")]
+use std::io::Write;
 use std::path::PathBuf;
 use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
@@ -209,6 +211,19 @@ pub fn exec_setup(
 
         load_or_build_unsafe_params::<Bn256>(aggregate_k, Some(params_path))
     };
+}
+
+#[cfg(feature = "checksum")]
+pub fn exec_image_checksum(wasm_binary: &Vec<u8>, entry: &str, output_dir: &PathBuf) {
+    let circuit = build_circuit_without_witness(wasm_binary, entry);
+    let hash: Fr = circuit.tables.compilation_tables.hash();
+
+    let mut fd =
+        std::fs::File::create(&output_dir.join(format!("checksum.data",)).as_path()).unwrap();
+
+    let hash = hash.to_string();
+    write!(fd, "{}", hash).unwrap();
+    println!("{}", hash);
 }
 
 pub fn exec_dry_run(

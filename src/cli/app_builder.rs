@@ -12,6 +12,8 @@ use super::command::CommandBuilder;
 use super::exec::build_circuit_without_witness;
 use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
+#[cfg(feature = "checksum")]
+use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_solidity_aggregate_proof;
 use super::exec::exec_verify_aggregate_proof;
@@ -51,6 +53,9 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_verify_aggregate_verify_subcommand(app);
         let app = Self::append_generate_solidity_verifier(app);
 
+        #[cfg(feature = "checksum")]
+        let app = Self::append_image_checksum_subcommand(app);
+
         app
     }
 
@@ -88,6 +93,10 @@ pub trait AppBuilder: CommandBuilder {
                     &function_name,
                     &output_dir,
                 );
+            }
+            #[cfg(feature = "checksum")]
+            Some(("checksum", _)) => {
+                exec_image_checksum(&wasm_binary, &function_name, &output_dir);
             }
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
