@@ -7,6 +7,7 @@ rm -rf output/*.data
 
 # Single test
 RUST_LOG=info cargo run --release --features cuda --features checksum -- -k 18 --function zkmain --output ./output --wasm wasm/wasm_output.wasm setup
+RUST_LOG=info cargo run --release --features cuda --features checksum -- -k 18 --function zkmain --output ./output --wasm wasm/wasm_output.wasm checksum
 
 RUST_LOG=info cargo run --release --features cuda --features checksum -- -k 18 --function zkmain --output ./output --wasm wasm/wasm_output.wasm dry-run --public 133:i64 --public 2:i64
 
