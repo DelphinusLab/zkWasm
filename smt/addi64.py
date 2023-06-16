@@ -1,4 +1,3 @@
-# c.bin.add
 from z3 import *
 from utils import *
 from functools import reduce
@@ -20,6 +19,7 @@ overflow = Int('overflow')
 constrain = Function('Constrain', IntSort(), BoolSort())
 constraints = [
     is_bit(overflow),
+    # c.bin.add
     fr_sub(fr_sub(fr_add(fr_mul(overflow, I64_MODULUS), res), rhs), lhs) == 0
 ]
 
