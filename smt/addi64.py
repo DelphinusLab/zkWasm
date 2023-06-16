@@ -1,3 +1,4 @@
+# c.bin.add
 from z3 import *
 from utils import *
 from functools import reduce
@@ -17,7 +18,6 @@ s.add(ForAll([lhs, rhs], wasm_add_i64(lhs, rhs) == (lhs + rhs) % I64_MODULUS))
 overflow = Int('overflow')
 
 constrain = Function('Constrain', IntSort(), BoolSort())
-# c.bin.add
 constraints = [
     is_bit(overflow),
     fr_sub(fr_sub(fr_add(fr_mul(overflow, I64_MODULUS), res), rhs), lhs) == 0
