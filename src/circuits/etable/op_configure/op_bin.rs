@@ -131,7 +131,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin: add/sub constraints",
+            "c.bin.add",
             Box::new(move |meta| {
                 // The range of res can be limited with is_i32 in memory table
                 vec![
@@ -139,6 +139,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                         - res.u64_cell.expr(meta)
                         - overflow.expr(meta) * size_modulus.expr(meta))
                         * is_add.expr(meta),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "c.bin.sub",
+            Box::new(move |meta| {
+                // The range of res can be limited with is_i32 in memory table
+                vec![
                     (rhs.u64_cell.expr(meta) + res.u64_cell.expr(meta)
                         - lhs.u64_cell.expr(meta)
                         - overflow.expr(meta) * size_modulus.expr(meta))
