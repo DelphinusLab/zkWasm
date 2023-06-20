@@ -704,6 +704,7 @@ dependencies = [
  "clap",
  "downcast-rs",
  "env_logger",
+ "ff",
  "halo2_proofs",
  "halo2aggregator-s",
  "hex",
@@ -713,6 +714,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "poseidon",
  "quote",
  "rand",
  "rusty-fork",
@@ -3325,12 +3327,14 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#5d65a863aa9d050bccbb4120fd32a8791e1ebc9d"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#eacca23d02c079191fbdaacc8e6ababab9401404"
 dependencies = [
  "ark-std",
  "clap",
+ "ff",
  "futures",
  "halo2_proofs",
+ "halo2aggregator-s",
  "halo2ecc-s 0.2.0 (git+https://github.com/lanbones/halo2ecc-s.git?branch=bisect-lookup)",
  "hex",
  "lazy_static",
