@@ -1898,7 +1898,7 @@ dependencies = [
 [[package]]
 name = "poseidon"
 version = "0.2.0"
-source = "git+https://github.com/lanbones/poseidon#20d881c2125199749055f305d73d514084b65e02"
+source = "git+https://github.com/lanbones/poseidon#ade94877c8285cc251107418c5effbce36684aa4"
 dependencies = [
  "halo2_proofs",
  "subtle",
@@ -3327,7 +3327,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#eacca23d02c079191fbdaacc8e6ababab9401404"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#1516e2fa51c63605860e52138e2f44f42381885a"
 dependencies = [
  "ark-std",
  "clap",
