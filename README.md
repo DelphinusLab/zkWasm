@@ -48,11 +48,11 @@ with OPTIONS:
 
         --private [<PRIVATE_INPUT>...]
             Private arguments of your wasm program arguments of format value:type where
-            type=i64|bytes|bytes-packed, multiple values should be separated with ','
+            type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
 
         --public [<PUBLIC_INPUT>...]
             Public arguments of your wasm program arguments of format value:type where
-            type=i64|bytes|bytes-packed, multiple values should be separated with ','
+            type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
 ```
 ## Batch prove and verify:
 ```
