@@ -4,12 +4,12 @@ use log::info;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::circuits::config::set_zkwasm_k;
+use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::MIN_K;
 use crate::cli::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
-use super::exec::build_circuit_without_witness;
+use super::exec::compile_image;
 use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
 #[cfg(feature = "checksum")]
@@ -65,17 +65,18 @@ pub trait AppBuilder: CommandBuilder {
         let top_matches = command.get_matches();
 
         let zkwasm_k = Self::parse_zkwasm_k_arg(&top_matches).unwrap_or(MIN_K);
-        set_zkwasm_k(zkwasm_k);
 
         let wasm_file_path = Self::parse_zkwasm_file_arg(&top_matches);
         let wasm_binary = fs::read(&wasm_file_path).unwrap();
 
         let function_name = Self::parse_function_name(&top_matches);
 
-        /*
-         * FIXME: trigger CIRCUIT_CONFIGURE initialization.
-         */
-        build_circuit_without_witness(&wasm_binary, &function_name);
+        {
+            let module = wasmi::Module::from_buffer(&wasm_binary).expect("failed to load wasm");
+
+            let (_, table) = compile_image(&module, &function_name);
+            init_zkwasm_runtime(zkwasm_k, &table.tables);
+        }
 
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
 
