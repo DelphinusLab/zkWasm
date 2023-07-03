@@ -32,13 +32,13 @@ use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
 use crate::circuits::TestCircuit;
-use crate::circuits::CIRCUIT_CONFIGURE;
 use crate::exec_with_profile;
 use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChip;
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
 
+use super::config::CircuitConfigure;
 use super::image_table::ImageTableConfig;
 
 pub const VAR_COLUMNS: usize = 52;
@@ -71,7 +71,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let circuit_configure = unsafe { CIRCUIT_CONFIGURE.clone().unwrap() };
+        let circuit_configure = CircuitConfigure::get();
 
         /*
          * Allocate a column to enable assign_advice_from_constant.

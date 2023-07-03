@@ -2,6 +2,7 @@
 use crate::image_hasher::ImageHasher;
 
 use crate::profile::Profiler;
+use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::CompiledImage;
 use anyhow::Result;
 use halo2_proofs::arithmetic::BaseExt;
@@ -48,40 +49,13 @@ use crate::runtime::WasmInterpreter;
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
-fn compile_image<'a>(
+pub fn compile_image<'a>(
     module: &'a Module,
     function_name: &str,
-) -> CompiledImage<NotStartedModuleRef<'a>, Tracer> {
-    let mut env = HostEnv::new();
-    register_wasm_input_foreign(&mut env, vec![], vec![]);
-    register_require_foreign(&mut env);
-    env.finalize();
-    let imports = ImportsBuilder::new().with_resolver("env", &env);
-
-    let compiler = WasmInterpreter::new();
-    compiler
-        .compile(
-            &module,
-            &imports,
-            &env.function_description_table(),
-            function_name,
-        )
-        .expect("file cannot be complied")
-}
-
-#[cfg(feature = "checksum")]
-fn hash_image(wasm_binary: &Vec<u8>, function_name: &str) -> Fr {
-    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
-
-    compile_image(&module, function_name).tables.hash()
-}
-
-pub fn build_circuit_without_witness(
-    wasm_binary: &Vec<u8>,
-    function_name: &str,
-) -> TestCircuit<Fr> {
-    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
-
+) -> (
+    WasmRuntimeIO,
+    CompiledImage<NotStartedModuleRef<'a>, Tracer>,
+) {
     let mut env = HostEnv::new();
     let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
     register_require_foreign(&mut env);
@@ -90,14 +64,34 @@ pub fn build_circuit_without_witness(
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();
-    let compiled_module = compiler
-        .compile(
-            &module,
-            &imports,
-            &env.function_description_table(),
-            function_name,
-        )
-        .expect("file cannot be complied");
+    (
+        wasm_runtime_io,
+        compiler
+            .compile(
+                &module,
+                &imports,
+                &env.function_description_table(),
+                function_name,
+            )
+            .expect("file cannot be complied"),
+    )
+}
+
+#[cfg(feature = "checksum")]
+fn hash_image(wasm_binary: &Vec<u8>, function_name: &str) -> Fr {
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
+    let (_, compiled_image) = compile_image(&module, function_name);
+    compiled_image.tables.hash()
+}
+
+pub fn build_circuit_without_witness(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+) -> TestCircuit<Fr> {
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
+    let (wasm_runtime_io, compiled_module) = compile_image(&module, function_name);
 
     let builder = ZkWasmCircuitBuilder {
         tables: Tables {

@@ -27,9 +27,7 @@ use halo2_proofs::transcript::Blake2bWrite;
 use halo2_proofs::transcript::Challenge255;
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::itable::OpcodeClassPlain;
 use specs::Tables;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::Cursor;
 use std::io::Read;
@@ -56,21 +54,13 @@ pub mod image_table_fixed;
 #[cfg(not(feature = "checksum"))]
 pub use image_table_fixed as image_table;
 
+use self::config::CircuitConfigure;
+
 pub mod config;
 pub mod jtable;
 pub mod rtable;
 pub mod test_circuit;
 pub mod utils;
-
-#[derive(Clone)]
-pub struct CircuitConfigure {
-    pub initial_memory_pages: u32,
-    pub maximal_memory_pages: u32,
-    pub opcode_selector: HashSet<OpcodeClassPlain>,
-}
-
-#[thread_local]
-static mut CIRCUIT_CONFIGURE: Option<CircuitConfigure> = None;
 
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
@@ -80,16 +70,7 @@ pub struct TestCircuit<F: FieldExt> {
 
 impl<F: FieldExt> TestCircuit<F> {
     pub fn new(tables: Tables) -> Self {
-        unsafe {
-            CIRCUIT_CONFIGURE = Some(CircuitConfigure {
-                initial_memory_pages: tables.compilation_tables.configure_table.init_memory_pages,
-                maximal_memory_pages: tables
-                    .compilation_tables
-                    .configure_table
-                    .maximal_memory_pages,
-                opcode_selector: tables.compilation_tables.itable.opcode_class(),
-            });
-        }
+        CircuitConfigure::from(&tables.compilation_tables).set_global_CIRCUIT_CONFIGURE();
 
         TestCircuit {
             tables,
