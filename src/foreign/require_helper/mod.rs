@@ -17,7 +17,11 @@ pub fn register_require_foreign(env: &mut HostEnv) {
             let cond: u32 = args.nth(0);
 
             if cond == 0 {
-                unreachable!()
+                panic!(
+                    "require is not satisfied, which is a \
+                false assertion in the wasm code. Please check \
+                the logic of your image or input."
+                )
             }
 
             None
