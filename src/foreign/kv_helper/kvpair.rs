@@ -58,25 +58,11 @@ impl KVPairContext {
     }
 }
 
-const ADDRESS_LIMBNB:usize = 2 + 1; //4 for db id and 1 for address
-const VALUE_LIMBNB:usize = 4;
 const MERKLE_TREE_HEIGHT:usize = 20;
 
 impl KVPairContext {}
 
 impl ForeignContext for KVPairContext {}
-
-fn get_merkle_db_address(address_limbs: &Vec<u64>) -> ([u8; 32], u64) {
-    let (id, address) = address_limbs.split_at(2);
-    let mut id = id.iter().fold(vec![], |acc:Vec<u8>, x| {
-        let mut v = acc.clone();
-        let mut bytes: Vec<u8> = x.to_le_bytes().to_vec();
-        v.append(&mut bytes);
-        v
-    });
-    id.append(&mut [0u8;16].to_vec());
-    (id.try_into().unwrap(), address[0])
-}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_kvpair_foreign(env: &mut HostEnv) {
