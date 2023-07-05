@@ -1,7 +1,6 @@
 use super::JtableOffset;
 use super::JumpTableConfig;
 use crate::fixed_curr;
-use crate::fixed_nextn;
 use crate::nextn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
@@ -29,20 +28,8 @@ impl<F: FieldExt> JumpTableConfig<F> {
         nextn!(meta, self.data, JtableOffset::JtableOffsetEntry as i32)
     }
 
-    pub(super) fn next_entry(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.data,
-            JtableOffset::JtableOffsetEntry as i32 + JtableOffset::JtableOffsetMax as i32
-        )
-    }
-
     pub(super) fn static_bit(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         fixed_curr!(meta, self.static_bit)
-    }
-
-    pub(super) fn next_static_bit(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        fixed_nextn!(meta, self.static_bit, JtableOffset::JtableOffsetMax as i32)
     }
 }
 

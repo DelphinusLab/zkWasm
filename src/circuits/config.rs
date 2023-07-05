@@ -112,9 +112,3 @@ pub(crate) fn max_bit_table_rows() -> u32 {
 
     (1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_BIT_TABLE_RATIO
 }
-
-pub(crate) fn max_sha256_rows() -> u32 {
-    assert!(*ZKWASM_SHA256_RATIO < *ZKWASM_TABLE_DENOMINATOR);
-
-    (1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_SHA256_RATIO
-}

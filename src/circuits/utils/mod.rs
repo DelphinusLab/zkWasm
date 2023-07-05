@@ -10,7 +10,7 @@ pub mod step_status;
 pub mod u16;
 pub mod u8;
 
-pub(crate) mod table_entry;
+pub mod table_entry;
 
 pub struct Context<'a, F: FieldExt> {
     pub region: Box<Region<'a, F>>,

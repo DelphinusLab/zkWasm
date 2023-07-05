@@ -455,8 +455,6 @@ pub fn exec_verify_aggregate_proof(
     info!("Verifing Aggregate Proof Passed.")
 }
 
-const SOLIDITY_VERIFY_STEPS: usize = 2;
-
 pub fn exec_solidity_aggregate_proof(
     zkwasm_k: u32,
     aggregate_k: u32,
