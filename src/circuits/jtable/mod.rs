@@ -1,5 +1,4 @@
 use self::configure::JTableConstraint;
-use super::config::max_jtable_rows;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
@@ -16,11 +15,6 @@ pub enum JtableOffset {
     JtableOffsetRest = 1,
     JtableOffsetEntry = 2,
     JtableOffsetMax = 3,
-}
-
-fn jtable_rows() -> usize {
-    max_jtable_rows() as usize / JtableOffset::JtableOffsetMax as usize
-        * JtableOffset::JtableOffsetMax as usize
 }
 
 #[derive(Clone)]
@@ -44,10 +38,14 @@ impl<F: FieldExt> JumpTableConfig<F> {
 
 pub struct JumpTableChip<F: FieldExt> {
     config: JumpTableConfig<F>,
+    max_available_rows: usize,
 }
 
 impl<F: FieldExt> JumpTableChip<F> {
-    pub fn new(config: JumpTableConfig<F>) -> Self {
-        JumpTableChip { config }
+    pub fn new(config: JumpTableConfig<F>, max_available_rows: usize) -> Self {
+        JumpTableChip {
+            config,
+            max_available_rows,
+        }
     }
 }

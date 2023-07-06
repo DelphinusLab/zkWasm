@@ -18,13 +18,12 @@ use crate::fixed_nextn;
 use crate::next;
 use crate::nextn;
 
-use super::config::max_bit_table_rows;
 use super::rtable::RangeTableConfig;
 
 mod assign;
 mod configure;
 
-const STEP_SIZE: usize = 17;
+pub(in crate::circuits) const STEP_SIZE: usize = 17;
 
 #[derive(Clone, Copy)]
 pub(crate) enum BitTableOp {
@@ -193,10 +192,10 @@ pub struct BitTableChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> BitTableChip<F> {
-    pub fn new(config: BitTableConfig<F>) -> Self {
+    pub fn new(config: BitTableConfig<F>, max_available_rows: usize) -> Self {
         BitTableChip {
             config,
-            max_available_rows: max_bit_table_rows() as usize / STEP_SIZE * STEP_SIZE,
+            max_available_rows: max_available_rows / STEP_SIZE * STEP_SIZE,
         }
     }
 }

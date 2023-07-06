@@ -3,8 +3,6 @@ use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
 use specs::external_host_call_table::ExternalHostCallTable;
 
-use crate::circuits::traits::TableSize;
-
 use super::ExternalHostCallChip;
 
 impl<F: FieldExt> ExternalHostCallChip<F> {
@@ -18,7 +16,7 @@ impl<F: FieldExt> ExternalHostCallChip<F> {
             |mut region| {
                 // Assign Fixed Column
                 {
-                    for offset in 0..self.config.max_available_size() {
+                    for offset in 0..self.maximal_available_rows {
                         region.assign_fixed(
                             || "external host call idx",
                             self.config.idx,

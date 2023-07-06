@@ -2,7 +2,6 @@ use self::allocator::*;
 use self::constraint_builder::ConstraintBuilder;
 use super::bit_table::BitTableConfig;
 use super::cell::*;
-use super::config::max_etable_rows;
 use super::external_host_call_table::ExternalHostCallTableConfig;
 use super::image_table::ImageTableConfig;
 use super::jtable::JumpTableConfig;
@@ -562,10 +561,10 @@ pub struct EventTableChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> EventTableChip<F> {
-    pub(super) fn new(config: EventTableConfig<F>) -> Self {
+    pub(super) fn new(config: EventTableConfig<F>, max_available_rows: usize) -> Self {
         Self {
             config,
-            max_available_rows: max_etable_rows() as usize / EVENT_TABLE_ENTRY_ROWS as usize
+            max_available_rows: max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize
                 * EVENT_TABLE_ENTRY_ROWS as usize,
         }
     }
