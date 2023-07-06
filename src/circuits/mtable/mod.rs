@@ -1,6 +1,5 @@
 use self::allocator::*;
 use super::cell::*;
-use super::config::max_mtable_rows;
 use super::image_table::ImageTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
@@ -367,10 +366,10 @@ pub(super) struct MemoryTableChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> MemoryTableChip<F> {
-    pub(super) fn new(config: MemoryTableConfig<F>) -> Self {
+    pub(super) fn new(config: MemoryTableConfig<F>, maximal_available_rows: usize) -> Self {
         Self {
             config,
-            maximal_available_rows: max_mtable_rows() as usize / MEMORY_TABLE_ENTRY_ROWS as usize
+            maximal_available_rows: maximal_available_rows / MEMORY_TABLE_ENTRY_ROWS as usize
                 * MEMORY_TABLE_ENTRY_ROWS as usize,
         }
     }

@@ -4,12 +4,6 @@ use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Fixed;
 use std::marker::PhantomData;
 
-use crate::circuits::config::zkwasm_k;
-use crate::circuits::config::ZKWASM_FOREIGN_CALL_TABLE_RATIO;
-use crate::circuits::config::ZKWASM_TABLE_DENOMINATOR;
-
-use super::traits::TableSize;
-
 mod assign;
 mod configure;
 
@@ -22,20 +16,16 @@ pub struct ExternalHostCallTableConfig<F: FieldExt> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: FieldExt> TableSize for ExternalHostCallTableConfig<F> {
-    fn max_available_size(&self) -> usize {
-        assert!(*ZKWASM_FOREIGN_CALL_TABLE_RATIO < *ZKWASM_TABLE_DENOMINATOR);
-
-        ((1 << zkwasm_k()) / *ZKWASM_TABLE_DENOMINATOR * *ZKWASM_FOREIGN_CALL_TABLE_RATIO) as usize
-    }
-}
-
 pub struct ExternalHostCallChip<F: FieldExt> {
     config: ExternalHostCallTableConfig<F>,
+    maximal_available_rows: usize,
 }
 
 impl<F: FieldExt> ExternalHostCallChip<F> {
-    pub fn new(config: ExternalHostCallTableConfig<F>) -> Self {
-        Self { config }
+    pub fn new(config: ExternalHostCallTableConfig<F>, maximal_available_rows: usize) -> Self {
+        Self {
+            config,
+            maximal_available_rows,
+        }
     }
 }

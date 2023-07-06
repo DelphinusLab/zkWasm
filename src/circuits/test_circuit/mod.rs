@@ -8,6 +8,7 @@ use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
+use log::debug;
 use specs::ExecutionTable;
 use specs::Tables;
 
@@ -38,10 +39,15 @@ use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
 
+use super::config::zkwasm_k;
 use super::config::CircuitConfigure;
 use super::image_table::ImageTableConfig;
 
 pub const VAR_COLUMNS: usize = 52;
+
+// Reserve a few rows to keep usable rows away from blind rows.
+// The maximal step size of all tables is bit_table::STEP_SIZE.
+const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
@@ -53,6 +59,8 @@ pub struct TestCircuitConfig<F: FieldExt> {
     bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
     wasm_input_helper_table: WasmInputHelperTableConfig<F>,
+
+    max_available_rows: usize,
 
     #[cfg(feature = "checksum")]
     checksum_config: CheckSumConfig<F>,
@@ -114,6 +122,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &circuit_configure.opcode_selector,
         );
 
+        #[cfg(feature = "checksum")]
+        let checksum_config = CheckSumConfig::configure(meta);
+
+        let max_available_rows = (1 << zkwasm_k()) - (meta.blinding_factors() + 1 + RESERVE_ROWS);
+        debug!("max_available_rows: {:?}", max_available_rows);
+
         Self::Config {
             rtable,
             image_table,
@@ -124,8 +138,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             external_host_call_table,
             wasm_input_helper_table,
 
+            max_available_rows,
+
             #[cfg(feature = "checksum")]
-            checksum_config: CheckSumConfig::configure(meta),
+            checksum_config,
         }
     }
 
@@ -138,11 +154,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rchip = RangeTableChip::new(config.rtable);
         let image_chip = ImageTableChip::new(config.image_table);
-        let mchip = MemoryTableChip::new(config.mtable);
-        let jchip = JumpTableChip::new(config.jtable);
-        let echip = EventTableChip::new(config.etable);
-        let bit_chip = BitTableChip::new(config.bit_table);
-        let external_host_call_chip = ExternalHostCallChip::new(config.external_host_call_table);
+        let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
+        let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
+        let echip = EventTableChip::new(config.etable, config.max_available_rows);
+        let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
+        let external_host_call_chip =
+            ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
 
         exec_with_profile!(|| "Init range chip", rchip.init(&mut layouter)?);

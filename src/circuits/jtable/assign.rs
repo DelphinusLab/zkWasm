@@ -5,7 +5,6 @@ use halo2_proofs::plonk::Error;
 use specs::jtable::JumpTable;
 use specs::jtable::StaticFrameEntry;
 
-use super::jtable_rows;
 use super::JtableOffset;
 use super::JumpTableChip;
 use crate::circuits::utils::bn_to_field;
@@ -38,7 +37,7 @@ impl<F: FieldExt> JumpTableChip<F> {
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        let capability = jtable_rows() / JtableOffset::JtableOffsetMax as usize;
+        let capability = self.max_available_rows / JtableOffset::JtableOffsetMax as usize;
 
         for i in 0..capability {
             ctx.region.assign_fixed(
