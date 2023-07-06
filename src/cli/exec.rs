@@ -29,6 +29,7 @@ use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use halo2aggregator_s::transcript::sha256::ShaRead;
 use log::info;
 use specs::ExecutionTable;
+use specs::CompilationTable;
 use specs::Tables;
 #[cfg(feature = "checksum")]
 use std::io::Write;
@@ -175,6 +176,51 @@ fn build_circuit_with_witness(
     Ok((builder.build_circuit(), instance))
 }
 
+fn build_circuit_with_witness_and_output(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<(TestCircuit<Fr>, Vec<u64>, Vec<u64>)> {
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
+    let mut env = HostEnv::new();
+    let wasm_runtime_io =
+        register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+    register_require_foreign(&mut env);
+    register_log_foreign(&mut env);
+    register_kvpair_foreign(&mut env);
+    register_blspair_foreign(&mut env);
+    register_blssum_foreign(&mut env);
+    register_bn254pair_foreign(&mut env);
+    register_bn254sum_foreign(&mut env);
+    register_sha256_foreign(&mut env);
+    register_poseidon_foreign(&mut env);
+    env.finalize();
+    let imports = ImportsBuilder::new().with_resolver("env", &env);
+
+    let compiler = WasmInterpreter::new();
+    let compiled_module = compiler
+        .compile(
+            &module,
+            &imports,
+            &env.function_description_table(),
+            function_name,
+        )
+        .expect("file cannot be complied");
+
+    let execution_result = compiled_module.run(&mut env, wasm_runtime_io)?;
+
+    execution_result.tables.profile_tables();
+
+    let builder = ZkWasmCircuitBuilder {
+        tables: execution_result.tables,
+        public_inputs_and_outputs: execution_result.public_inputs_and_outputs.clone(),
+    };
+
+    Ok((builder.build_circuit_without_configure(), execution_result.public_inputs_and_outputs, execution_result.outputs))
+}
+
 pub fn exec_setup(
     zkwasm_k: u32,
     aggregate_k: u32,
@@ -252,6 +298,67 @@ pub fn exec_dry_run(
     let _ = build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs)?;
 
     info!("Execution passed.");
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+pub fn exec_gen_witness(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<(TestCircuit<Fr>, Vec<u64>, Vec<u64>)> {
+    build_circuit_with_witness_and_output(wasm_binary, function_name, public_inputs, private_inputs)
+}
+
+#[allow(dead_code)]
+pub fn exec_create_proof_from_witness(
+    prefix: &'static str,
+    zkwasm_k: u32,
+    compilation_tables: CompilationTable,
+    execution_tables: ExecutionTable,
+    instance: Vec<u64>,
+    output_dir: &PathBuf,
+) -> Result<()> {
+    let circuit = TestCircuit::new_without_configure(Tables{
+        compilation_tables,
+        execution_tables,
+    });
+    let mut instance: Vec<Fr> = instance
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+
+    let mut instances = vec![];
+
+    #[cfg(feature = "checksum")]
+    instances.push(tables.compilation_tables.hash());
+
+    instances.append(&mut instance);
+
+
+    let params = load_or_build_unsafe_params::<Bn256>(
+        zkwasm_k,
+        Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
+    );
+
+    let vkey = load_vkey::<Bn256, TestCircuit<_>>(
+        &params,
+        &output_dir.join(format!("{}.{}.vkey.data", prefix, 0)),
+    );
+
+    load_or_create_proof::<Bn256, _>(
+        &params,
+        vkey,
+        circuit,
+        &[&instances],
+        Some(&output_dir.join(format!("{}.{}.transcript.data", prefix, 0))),
+        TranscriptHash::Poseidon,
+        false,
+    );
+
+    info!("Proof has been created.");
 
     Ok(())
 }
