@@ -243,9 +243,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                         * (constant_from!(1) - res_flag.expr(meta))
                         * is_div_s.expr(meta),
                     (degree_helper1.expr(meta)
-                        - (d.u64_cell.expr(meta) + res.u64_cell.expr(meta))
-                            * res_flag.expr(meta))
-                            * is_div_s.expr(meta),
+                        - (d.u64_cell.expr(meta) + res.u64_cell.expr(meta)) * res_flag.expr(meta))
+                        * is_div_s.expr(meta),
                     /*
                      * If only one of the left and the right is negative,
                      * `res` must equal to `size_modulus - normalized quotient(d)`, or
