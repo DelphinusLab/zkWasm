@@ -201,7 +201,7 @@ fn build_tables_and_outputs(
 pub fn exec_setup(
     zkwasm_k: u32,
     aggregate_k: u32,
-    prefix: &'static str,
+    prefix: &str,
     wasm_binary: &Vec<u8>,
     entry: &str,
     output_dir: &PathBuf,
@@ -289,7 +289,7 @@ pub fn exec_gen_witness(
 }
 
 pub fn exec_create_proof_from_witness(
-    prefix: &'static str,
+    prefix: &str,
     zkwasm_k: u32,
     compilation_tables: CompilationTable,
     execution_tables: ExecutionTable,
@@ -309,7 +309,7 @@ pub fn exec_create_proof_from_witness(
 }
 
 fn exec_create_proof_from_circuit(
-    prefix: &'static str,
+    prefix: &str,
     zkwasm_k: u32,
     output_dir: &PathBuf,
     circuit: TestCircuit<Fr>,
