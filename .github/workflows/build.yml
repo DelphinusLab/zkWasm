@@ -16,6 +16,8 @@ jobs:
         submodules: recursive
     - uses: actions-rs/toolchain@v1
       with:
-        components: clippy
+        components: rustfmt, clippy
+    - name: Code Style Check
+      run: cargo fmt --check
     - name: Build
-      run: cargo build --verbose
+      run: cargo build
