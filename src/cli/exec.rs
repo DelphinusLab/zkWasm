@@ -56,6 +56,7 @@ use crate::foreign::ecc_helper::{
     bls381::sum::register_blssum_foreign,
     bn254::pair::register_bn254pair_foreign,
     bn254::sum::register_bn254sum_foreign,
+    jubjub::sum::register_babyjubjubsum_foreign,
 };
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
@@ -78,6 +79,7 @@ pub fn compile_image<'a>(
     register_bn254sum_foreign(&mut env);
     register_sha256_foreign(&mut env);
     register_poseidon_foreign(&mut env);
+    register_babyjubjubsum_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
@@ -141,6 +143,7 @@ fn build_circuit_builder(
     register_bn254sum_foreign(&mut env);
     register_sha256_foreign(&mut env);
     register_poseidon_foreign(&mut env);
+    register_babyjubjubsum_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 

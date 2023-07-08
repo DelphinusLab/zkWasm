@@ -1,5 +1,6 @@
 pub mod bn254;
 pub mod bls381;
+pub mod jubjub;
 pub mod test;
 
 use num_bigint::BigUint;
