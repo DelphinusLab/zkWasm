@@ -28,9 +28,9 @@ use halo2aggregator_s::solidity_verifier::solidity_render;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use halo2aggregator_s::transcript::sha256::ShaRead;
 use log::info;
-use specs::ExecutionTable;
-use specs::CompilationTable;
-use specs::Tables;
+pub use specs::ExecutionTable;
+pub use specs::CompilationTable;
+pub use specs::Tables;
 #[cfg(feature = "checksum")]
 use std::io::Write;
 use std::path::PathBuf;
