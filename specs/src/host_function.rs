@@ -28,6 +28,16 @@ pub enum HostFunctionDesc {
     },
 }
 
+impl HostFunctionDesc {
+    pub fn name(&self) -> &String {
+        match self {
+            HostFunctionDesc::Internal { name, .. } | HostFunctionDesc::External { name, .. } => {
+                name
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HostPlugin {
     HostInput = 0,

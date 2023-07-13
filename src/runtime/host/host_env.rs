@@ -1,7 +1,10 @@
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::Instant;
 
+use log::debug;
 use specs::host_function::HostFunctionDesc;
 use wasmi::Externals;
 use wasmi::ModuleImportResolver;
@@ -21,6 +24,9 @@ pub struct HostEnv {
 
     finalized: Rc<RefCell<bool>>,
     cached_lookup: Option<HashMap<usize, HostFunction>>,
+
+    /// Profile foreign function time
+    time_profile: BTreeMap<String, u128>,
 }
 
 impl HostEnv {
@@ -41,6 +47,7 @@ impl HostEnv {
             external_env: ExternalCircuitEnv::new(finalized.clone()),
             cached_lookup: None,
             finalized,
+            time_profile: BTreeMap::new(),
         }
     }
 
@@ -121,6 +128,13 @@ impl HostEnv {
             .map(|(idx, host_function)| (*idx, host_function.desc.clone()))
             .collect()
     }
+
+    pub fn display_time_profile(&self) {
+        debug!("Execution time(ms) of Foreign Functions:");
+        self.time_profile.iter().for_each(|(func, ms)| {
+            debug!("{}:\t{}", func, ms);
+        })
+    }
 }
 
 impl ModuleImportResolver for HostEnv {
@@ -147,7 +161,16 @@ impl Externals for HostEnv {
                 let mut ctx = (*ctx).borrow_mut();
                 let ctx = ctx.as_mut();
 
-                Ok((function.execution_env.cb)(ctx, args))
+                let start = Instant::now();
+                let r = (function.execution_env.cb)(ctx, args);
+                let duration = start.elapsed();
+
+                self.time_profile
+                    .entry(function.desc.name().to_string())
+                    .and_modify(|d| *d += duration.as_millis())
+                    .or_insert(duration.as_millis());
+
+                Ok(r)
             }
             None => unreachable!(),
         }

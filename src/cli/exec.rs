@@ -132,7 +132,11 @@ fn exec_image(
         )
         .expect("file cannot be complied");
 
-    compiled_module.run(&mut env, wasm_runtime_io)
+    let r = compiled_module.run(&mut env, wasm_runtime_io);
+
+    env.display_time_profile();
+
+    r
 }
 
 fn build_circuit_with_witness(
