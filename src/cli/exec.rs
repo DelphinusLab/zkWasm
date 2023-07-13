@@ -4,6 +4,7 @@ use crate::image_hasher::ImageHasher;
 use crate::profile::Profiler;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::CompiledImage;
+use crate::runtime::ExecutionResult;
 use anyhow::Result;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::dev::MockProver;
@@ -37,6 +38,7 @@ use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
 use wasmi::Module;
 use wasmi::NotStartedModuleRef;
+use wasmi::RuntimeValue;
 
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
@@ -104,12 +106,12 @@ pub fn build_circuit_without_witness(
     builder.build_circuit::<Fr>()
 }
 
-fn build_circuit_with_witness(
+fn exec_image(
     wasm_binary: &Vec<u8>,
     function_name: &str,
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
-) -> Result<(TestCircuit<Fr>, Vec<Fr>)> {
+) -> Result<ExecutionResult<RuntimeValue>> {
     let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
 
     let mut env = HostEnv::new();
@@ -130,7 +132,16 @@ fn build_circuit_with_witness(
         )
         .expect("file cannot be complied");
 
-    let execution_result = compiled_module.run(&mut env, wasm_runtime_io)?;
+    compiled_module.run(&mut env, wasm_runtime_io)
+}
+
+fn build_circuit_with_witness(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<(TestCircuit<Fr>, Vec<Fr>)> {
+    let execution_result = exec_image(wasm_binary, function_name, public_inputs, private_inputs)?;
 
     execution_result.tables.profile_tables();
 
@@ -226,9 +237,9 @@ pub fn exec_dry_run(
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
 ) -> Result<()> {
-    let _ = build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs)?;
+    let _ = exec_image(wasm_binary, function_name, public_inputs, private_inputs)?;
 
-    info!("Execution passed.");
+    println!("Execution passed.");
 
     Ok(())
 }
