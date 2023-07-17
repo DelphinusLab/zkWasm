@@ -3,10 +3,16 @@ use crate::circuits::etable::allocator::EventTableCellAllocator;
 use crate::circuits::etable::constraint_builder::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
+use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+
+use self::log_helper::register_log_foreign;
+use self::require_helper::register_require_foreign;
+use self::wasm_input_helper::runtime::register_wasm_input_foreign;
 
 pub mod keccak_helper;
 pub mod log_helper;
@@ -34,4 +40,20 @@ pub(crate) trait EventTableForeignCallConfigBuilder<F: FieldExt> {
 
 pub(crate) trait InternalHostPluginBuilder {
     fn new(index: usize) -> Self;
+}
+
+impl HostEnv {
+    pub fn new_with_full_foreign_plugins(
+        public_inputs: Vec<u64>,
+        private_inputs: Vec<u64>,
+    ) -> (Self, WasmRuntimeIO) {
+        let mut env = HostEnv::new();
+        let wasm_runtime_io =
+            register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+        register_require_foreign(&mut env);
+        register_log_foreign(&mut env);
+        env.finalize();
+
+        (env, wasm_runtime_io)
+    }
 }
