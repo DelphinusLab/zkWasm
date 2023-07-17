@@ -111,15 +111,42 @@ fn exec_image(
     function_name: &str,
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
-) -> Result<ExecutionResult<RuntimeValue>> {
+) -> Result<Option<RuntimeValue>> {
+    let (mut env, _) =
+        HostEnv::new_with_full_foreign_plugins(public_inputs.clone(), private_inputs.clone());
+
     let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
 
-    let mut env = HostEnv::new();
-    let wasm_runtime_io =
-        register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
-    register_require_foreign(&mut env);
-    register_log_foreign(&mut env);
-    env.finalize();
+    let imports = ImportsBuilder::new().with_resolver("env", &env);
+
+    let compiler = WasmInterpreter::new();
+    let compiled_module = compiler
+        .compile(
+            &module,
+            &imports,
+            &env.function_description_table(),
+            function_name,
+        )
+        .expect("file cannot be complied");
+
+    let r = compiled_module.dry_run(&mut env);
+
+    env.display_time_profile();
+
+    r
+}
+
+fn exec_image_trace(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<ExecutionResult<RuntimeValue>> {
+    let (mut env, wasm_runtime_io) =
+        HostEnv::new_with_full_foreign_plugins(public_inputs.clone(), private_inputs.clone());
+
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiler = WasmInterpreter::new();
@@ -145,7 +172,8 @@ fn build_circuit_with_witness(
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
 ) -> Result<(TestCircuit<Fr>, Vec<Fr>)> {
-    let execution_result = exec_image(wasm_binary, function_name, public_inputs, private_inputs)?;
+    let execution_result =
+        exec_image_trace(wasm_binary, function_name, public_inputs, private_inputs)?;
 
     execution_result.tables.profile_tables();
 
