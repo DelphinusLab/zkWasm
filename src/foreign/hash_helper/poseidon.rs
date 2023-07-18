@@ -3,10 +3,7 @@ use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bn256::Fr;
 use ff::PrimeField;
 use poseidon::Poseidon;
-use zkwasm_host_circuits::host::poseidon::{
-    gen_hasher,
-    T, RATE
-};
+use zkwasm_host_circuits::host::poseidon::POSEIDON_HASHER;
 
 use zkwasm_host_circuits::host::{
     Reduce, ReduceRule
@@ -63,7 +60,7 @@ fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
 }
 
 struct PoseidonContext {
-    pub hasher: Option<Poseidon<Fr, T, RATE>>,
+    pub hasher: Option<Poseidon<Fr, 9, 8>>,
     pub generator: Generator,
     pub buf: Vec<Fr>,
     pub fieldreducer:Reduce<Fr>,
@@ -104,7 +101,7 @@ pub fn register_poseidon_foreign(env: &mut HostEnv) {
                 context.buf = vec![];
                 let new = args.nth::<u64>(0) as usize;
                 if new != 0 {
-                    context.hasher = Some(gen_hasher());
+                    context.hasher = Some(POSEIDON_HASHER.clone());
                 }
                 None
             },

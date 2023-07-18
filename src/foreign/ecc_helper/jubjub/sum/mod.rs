@@ -94,7 +94,7 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
                 if context.input_cursor < LIMBNB*2  {
                     context.limbs.push(args.nth(0));
                     context.input_cursor += 1;
-                } else if context.input_cursor < LIMBNB*2 + 3 {
+                } else if context.input_cursor < LIMBNB*2 + 4 {
                     context.coeffs.push(args.nth(0));
                     context.input_cursor += 1;
                     if context.input_cursor == LIMBNB*2 + 4 {
@@ -120,7 +120,9 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
                         assert!(context.limbs.len() == LIMBNB*2);
                         let coeff = fetch_biguint(&context.coeffs.to_vec());
                         let g1 = fetch_g1(&context.limbs.to_vec());
-                        println!("coeff is {:?}", coeff);
+                        println!("acc is {:?}", context.acc);
+                        println!("g1 is {:?}", g1);
+                        println!("coeff is {:?} {}", coeff, context.coeffs.len());
                         context.acc = context.acc.projective().add(&g1.mul_scalar(&coeff).projective()).affine();
                         println!("msm result: {:?}", context.acc);
                         context.babyjubjub_result_to_limbs(context.acc.clone());

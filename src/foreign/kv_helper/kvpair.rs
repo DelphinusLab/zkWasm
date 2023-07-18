@@ -15,13 +15,15 @@ use zkwasm_host_circuits::host::ForeignInst::{
 
 use halo2_proofs::pairing::bn256::Fr;
 
+const MERKLE_TREE_HEIGHT:usize = 20;
+
 struct KVPairContext {
     pub set_root: Reduce<Fr>,
     pub get_root: Reduce<Fr>,
     pub address: Reduce<Fr>,
     pub set: Reduce<Fr>,
     pub get: Reduce<Fr>,
-    pub mongo_merkle: Option<kvpairhelper::MongoMerkle>,
+    pub mongo_merkle: Option<kvpairhelper::MongoMerkle<MERKLE_TREE_HEIGHT>>,
 }
 
 fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
@@ -57,8 +59,6 @@ impl KVPairContext {
         }
     }
 }
-
-const MERKLE_TREE_HEIGHT:usize = 20;
 
 impl KVPairContext {}
 
