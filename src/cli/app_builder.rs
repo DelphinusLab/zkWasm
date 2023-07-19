@@ -1,6 +1,7 @@
 use clap::App;
 use clap::AppSettings;
 use log::info;
+use log::warn;
 use std::fs;
 use std::path::PathBuf;
 
@@ -12,6 +13,7 @@ use super::command::CommandBuilder;
 use super::exec::compile_image;
 use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
+use super::exec::exec_dry_run_service;
 #[cfg(feature = "checksum")]
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
@@ -102,16 +104,25 @@ pub trait AppBuilder: CommandBuilder {
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
+                let service_mode = Self::parse_dry_run_service_arg(&sub_matches);
 
-                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+                if let Some(listen) = service_mode {
+                    if !public_inputs.is_empty() || !private_inputs.is_empty() {
+                        warn!("All private/public inputs are ignored when dry-run is running in service mode.");
+                    }
 
-                exec_dry_run(
-                    &wasm_binary,
-                    &function_name,
-                    &public_inputs,
-                    &private_inputs,
-                )
-                .unwrap();
+                    exec_dry_run_service(wasm_binary, function_name, &listen).unwrap()
+                } else {
+                    assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+
+                    exec_dry_run(
+                        &wasm_binary,
+                        &function_name,
+                        &public_inputs,
+                        &private_inputs,
+                    )
+                    .unwrap();
+                }
             }
             Some(("single-prove", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);

@@ -21,6 +21,7 @@ md5 = "0.7.0"
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-traits = "0.2.15"
+notify = "6.0.1"
 wabt = "0.10.0"
 wasmi = { path = "./wasmi" }
 lazy_static = "1.4.0"
