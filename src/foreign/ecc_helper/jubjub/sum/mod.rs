@@ -20,7 +20,7 @@ fn fetch_biguint(_limbs: &Vec<u64>) -> BigUint {
 
 
 
-struct BabyJubjubSumContext {
+pub struct BabyJubjubSumContext {
     pub acc: jubjub::Point,
     pub limbs: Vec<u64>,
     pub coeffs: Vec<u64>,
@@ -30,7 +30,7 @@ struct BabyJubjubSumContext {
 }
 
 impl BabyJubjubSumContext {
-    fn default() -> Self {
+    pub fn default() -> Self {
         BabyJubjubSumContext {
             acc: jubjub::Point::identity(),
             limbs: vec![],
@@ -40,8 +40,53 @@ impl BabyJubjubSumContext {
             input_cursor: 0,
         }
     }
-}
 
+    pub fn babyjubjub_sum_new(&mut self, new: usize) {
+        self.result_limbs = None;
+        self.result_cursor = 0;
+        self.limbs = vec![];
+        self.input_cursor = 0;
+        self.coeffs = vec![];
+        if new != 0 {
+            self.acc = jubjub::Point::identity();
+        }
+    }
+
+    pub fn babyjubjub_sum_push(&mut self, v: u64) {
+        if self.input_cursor < LIMBNB*2  {
+            self.limbs.push(v);
+            self.input_cursor += 1;
+        } else if self.input_cursor < LIMBNB*2 + 4 {
+            self.coeffs.push(v);
+            self.input_cursor += 1;
+            if self.input_cursor == LIMBNB*2 + 4 {
+                self.input_cursor = 0;
+            }
+        }
+    }
+
+    pub fn babyjubjub_sum_finalize(&mut self) -> u64 {
+        let limbs = self.result_limbs.clone();
+        match limbs {
+            None => {
+                assert!(self.limbs.len() == LIMBNB*2);
+                let coeff = fetch_biguint(&self.coeffs.to_vec());
+                let g1 = fetch_g1(&self.limbs.to_vec());
+                println!("acc is {:?}", self.acc);
+                println!("g1 is {:?}", g1);
+                println!("coeff is {:?} {}", coeff, self.coeffs.len());
+                self.acc = self.acc.projective().add(&g1.mul_scalar(&coeff).projective()).affine();
+                println!("msm result: {:?}", self.acc);
+                self.babyjubjub_result_to_limbs(self.acc.clone());
+            },
+            _ => {()}
+        };
+        let ret = self.result_limbs.as_ref().unwrap()[self.result_cursor];
+        self.result_cursor += 1;
+
+        ret
+    }
+}
 
 impl BabyJubjubSumContext {
     fn babyjubjub_result_to_limbs(&mut self, g: jubjub::Point) {
@@ -68,20 +113,11 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BabyJubjubSumContext>().unwrap();
-                context.result_limbs = None;
-                context.result_cursor = 0;
-                context.limbs = vec![];
-                context.input_cursor = 0;
-                context.coeffs = vec![];
-                let new = args.nth::<u64>(0) as usize;
-                if new != 0 {
-                    context.acc = jubjub::Point::identity();
-                }
+                context.babyjubjub_sum_new(args.nth::<u64>(0) as usize);
                 None
             },
         ),
     );
-
 
     env.external_env.register_function(
         "babyjubjub_sum_push",
@@ -91,16 +127,7 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BabyJubjubSumContext>().unwrap();
-                if context.input_cursor < LIMBNB*2  {
-                    context.limbs.push(args.nth(0));
-                    context.input_cursor += 1;
-                } else if context.input_cursor < LIMBNB*2 + 4 {
-                    context.coeffs.push(args.nth(0));
-                    context.input_cursor += 1;
-                    if context.input_cursor == LIMBNB*2 + 4 {
-                        context.input_cursor = 0;
-                    }
-                }
+                context.babyjubjub_sum_push(args.nth(0));
                 None
             },
         ),
@@ -114,26 +141,10 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BabyJubjubSumContext>().unwrap();
-                let limbs = context.result_limbs.clone();
-                match limbs {
-                    None => {
-                        assert!(context.limbs.len() == LIMBNB*2);
-                        let coeff = fetch_biguint(&context.coeffs.to_vec());
-                        let g1 = fetch_g1(&context.limbs.to_vec());
-                        println!("acc is {:?}", context.acc);
-                        println!("g1 is {:?}", g1);
-                        println!("coeff is {:?} {}", coeff, context.coeffs.len());
-                        context.acc = context.acc.projective().add(&g1.mul_scalar(&coeff).projective()).affine();
-                        println!("msm result: {:?}", context.acc);
-                        context.babyjubjub_result_to_limbs(context.acc.clone());
-                    },
-                    _ => {()}
-                };
                 let ret = Some(wasmi::RuntimeValue::I64(
-                    context.result_limbs.as_ref().unwrap()[context.result_cursor]
+                    context.babyjubjub_sum_finalize()
                     as i64
                 ));
-                context.result_cursor += 1;
                 ret
             },
         ),
