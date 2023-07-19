@@ -1,3 +1,4 @@
+use crate::cli::args::parse_args;
 #[cfg(feature = "checksum")]
 use crate::image_hasher::ImageHasher;
 
@@ -28,11 +29,20 @@ use halo2aggregator_s::solidity_verifier::codegen::solidity_aux_gen;
 use halo2aggregator_s::solidity_verifier::solidity_render;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use halo2aggregator_s::transcript::sha256::ShaRead;
+use log::debug;
+use log::error;
 use log::info;
+use notify::event::AccessMode;
+use notify::RecursiveMode;
+use notify::Watcher;
+use serde::Deserialize;
+use serde::Serialize;
 use specs::ExecutionTable;
 use specs::Tables;
+use std::fs;
 #[cfg(feature = "checksum")]
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
@@ -261,6 +271,106 @@ pub fn exec_image_checksum(wasm_binary: &Vec<u8>, entry: &str, output_dir: &Path
     let hash = hash.to_string();
     write!(fd, "{}", hash).unwrap();
     println!("{}", hash);
+}
+
+pub fn exec_dry_run_service(
+    wasm_binary: Vec<u8>,
+    function_name: String,
+    listen: &PathBuf,
+) -> Result<()> {
+    use notify::event::AccessKind;
+    use notify::event::EventKind;
+    use notify::event::ModifyKind;
+    use notify::event::RenameMode;
+    use notify::Event;
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct Sequence {
+        private_inputs: Vec<String>,
+        public_inputs: Vec<String>,
+    }
+
+    info!("Dry-run service is running.");
+    info!("{:?} is watched", listen);
+
+    let module = wasmi::Module::from_buffer(wasm_binary.clone()).expect("failed to load wasm");
+    let compiler = WasmInterpreter::new();
+
+    let mut watcher =
+        notify::recommended_watcher(move |handler: Result<Event, _>| match handler {
+            Ok(event) => {
+                debug!("Event {:?}", event);
+
+                match event.kind {
+                    EventKind::Access(AccessKind::Close(AccessMode::Write))
+                    | EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
+                        assert_eq!(event.paths.len(), 1);
+                        let path = event.paths.first().unwrap();
+
+                        if let Some(ext) = path.extension() {
+                            if ext.eq("done") {
+                                return;
+                            };
+                        }
+
+                        info!("Receive a request from file {:?}", path);
+
+                        let json = fs::read_to_string(path).unwrap();
+                        if let Ok(sequence) = serde_json::from_str::<Sequence>(&json) {
+                            debug!("{:?}", sequence);
+
+                            let private_inputs = parse_args(
+                                sequence.private_inputs.iter().map(|s| s.as_str()).collect(),
+                            );
+                            let public_inputs = parse_args(
+                                sequence.public_inputs.iter().map(|s| s.as_str()).collect(),
+                            );
+
+                            let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
+                                public_inputs,
+                                private_inputs,
+                            );
+
+                            let imports = ImportsBuilder::new().with_resolver("env", &env);
+
+                            let compiled_module = compiler
+                                .compile(
+                                    &module,
+                                    &imports,
+                                    &env.function_description_table(),
+                                    &function_name,
+                                )
+                                .expect("file cannot be complied");
+
+                            let r = compiled_module.dry_run(&mut env).unwrap();
+                            println!("return value: {:?}", r);
+
+                            fs::write(
+                                Path::new(&format!("{}.done", path.to_str().unwrap())),
+                                if let Some(r) = r {
+                                    match r {
+                                        RuntimeValue::I32(v) => v.to_string(),
+                                        RuntimeValue::I64(v) => v.to_string(),
+                                        _ => unreachable!(),
+                                    }
+                                } else {
+                                    "".to_owned()
+                                },
+                            )
+                            .unwrap();
+                        } else {
+                            error!("Failed to parse file {:?}, the request is ignored.", path);
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            Err(e) => println!("watch error: {:?}", e),
+        })?;
+
+    loop {
+        watcher.watch(listen.as_path(), RecursiveMode::NonRecursive)?;
+    }
 }
 
 pub fn exec_dry_run(

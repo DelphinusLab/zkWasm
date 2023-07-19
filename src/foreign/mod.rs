@@ -48,8 +48,7 @@ impl HostEnv {
         private_inputs: Vec<u64>,
     ) -> (Self, WasmRuntimeIO) {
         let mut env = HostEnv::new();
-        let wasm_runtime_io =
-            register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs.clone());
+        let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
         env.finalize();

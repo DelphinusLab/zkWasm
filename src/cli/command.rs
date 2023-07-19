@@ -20,7 +20,8 @@ pub trait CommandBuilder: ArgBuilder {
     fn append_dry_run_subcommand(app: App) -> App {
         let command = Command::new("dry-run")
             .arg(Self::single_public_arg())
-            .arg(Self::single_private_arg());
+            .arg(Self::single_private_arg())
+            .arg(Self::dry_run_service_arg());
 
         app.subcommand(command)
     }
