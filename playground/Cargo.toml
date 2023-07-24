@@ -1,0 +1,15 @@
+[package]
+name = "playground"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.72"
+delphinus-zkwasm = { path = "../" }
+pairing_bn256 = { git = "https://github.com/lanbones/pairing.git" }
+wasmi = { path = "../wasmi" }
+
+[build-dependencies]
+cc = { version = "1.0.79", features = ["parallel"] }

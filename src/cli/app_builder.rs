@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::App;
 use clap::AppSettings;
 use log::info;
@@ -5,12 +6,10 @@ use log::warn;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::MIN_K;
 use crate::cli::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
-use super::exec::compile_image;
 use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
 use super::exec::exec_dry_run_service;
@@ -45,6 +44,7 @@ pub trait AppBuilder: CommandBuilder {
             .arg(Self::zkwasm_k_arg())
             .arg(Self::output_path_arg())
             .arg(Self::function_name_arg())
+            .arg(Self::phantom_functions_arg())
             .arg(Self::zkwasm_file_arg());
 
         let app = Self::append_setup_subcommand(app);
@@ -61,7 +61,7 @@ pub trait AppBuilder: CommandBuilder {
         app
     }
 
-    fn exec(command: App) {
+    fn exec(command: App) -> Result<()> {
         env_logger::init();
 
         let top_matches = command.get_matches();
@@ -72,15 +72,10 @@ pub trait AppBuilder: CommandBuilder {
         let wasm_binary = fs::read(&wasm_file_path).unwrap();
 
         let function_name = Self::parse_function_name(&top_matches);
-
-        {
-            let module = wasmi::Module::from_buffer(&wasm_binary).expect("failed to load wasm");
-
-            let (_, table) = compile_image(&module, &function_name);
-            init_zkwasm_runtime(zkwasm_k, &table.tables);
-        }
+        assert_eq!(function_name, "zkmain");
 
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
+        let phantom_functions = Self::parse_phantom_functions(&top_matches);
 
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
@@ -92,14 +87,14 @@ pub trait AppBuilder: CommandBuilder {
                     zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
-                    &wasm_binary,
-                    &function_name,
+                    wasm_binary,
+                    vec![], // TODO
                     &output_dir,
-                );
+                )
             }
             #[cfg(feature = "checksum")]
             Some(("checksum", _)) => {
-                exec_image_checksum(&wasm_binary, &function_name, &output_dir);
+                exec_image_checksum(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
             }
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
@@ -111,17 +106,17 @@ pub trait AppBuilder: CommandBuilder {
                         warn!("All private/public inputs are ignored when dry-run is running in service mode.");
                     }
 
-                    exec_dry_run_service(wasm_binary, function_name, &listen).unwrap()
+                    exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
                     exec_dry_run(
-                        &wasm_binary,
-                        &function_name,
-                        &public_inputs,
-                        &private_inputs,
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        public_inputs,
+                        private_inputs,
                     )
-                    .unwrap();
                 }
             }
             Some(("single-prove", sub_matches)) => {
@@ -133,13 +128,12 @@ pub trait AppBuilder: CommandBuilder {
                 exec_create_proof(
                     Self::NAME,
                     zkwasm_k,
-                    &wasm_binary,
-                    &function_name,
+                    wasm_binary,
+                    phantom_functions,
                     &output_dir,
-                    &public_inputs,
-                    &private_inputs,
+                    public_inputs,
+                    private_inputs,
                 )
-                .unwrap();
             }
             Some(("single-verify", sub_matches)) => {
                 let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
@@ -147,14 +141,13 @@ pub trait AppBuilder: CommandBuilder {
 
                 exec_verify_proof(
                     Self::NAME,
-                    Self::MAX_PUBLIC_INPUT_SIZE,
                     zkwasm_k,
-                    &wasm_binary,
-                    &function_name,
+                    wasm_binary,
+                    phantom_functions,
                     &output_dir,
                     &proof_path,
                     &instance_path,
-                );
+                )
             }
             Some(("aggregate-prove", sub_matches)) => {
                 let public_inputs: Vec<Vec<u64>> = Self::parse_aggregate_public_args(&sub_matches);
@@ -172,12 +165,12 @@ pub trait AppBuilder: CommandBuilder {
                     zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
-                    &wasm_binary,
-                    &function_name,
+                    wasm_binary,
+                    phantom_functions,
                     &output_dir,
-                    &public_inputs,
-                    &private_inputs,
-                );
+                    public_inputs,
+                    private_inputs,
+                )
             }
 
             Some(("aggregate-verify", sub_matches)) => {
@@ -190,7 +183,7 @@ pub trait AppBuilder: CommandBuilder {
                     &proof_path,
                     &instances_path,
                     Self::N_PROOFS,
-                );
+                )
             }
 
             Some(("solidity-aggregate-verifier", sub_matches)) => {
@@ -209,7 +202,7 @@ pub trait AppBuilder: CommandBuilder {
                     &instances_path,
                     Self::N_PROOFS,
                     aux_only,
-                );
+                )
             }
 
             Some((_, _)) => todo!(),
