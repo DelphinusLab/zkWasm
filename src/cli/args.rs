@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::arg;
 use clap::value_parser;
 use clap::Arg;
+use clap::ArgAction;
 use clap::ArgMatches;
 
 pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
@@ -91,6 +92,23 @@ pub trait ArgBuilder {
             .get_one::<String>("function")
             .expect("function is required")
             .to_string()
+    }
+
+    fn phantom_functions_arg<'a>() -> Arg<'a> {
+        Arg::new("phantom")
+            .long("phantom")
+            .value_parser(value_parser!(String))
+            .action(ArgAction::Append)
+            .help("Specify phantom functions.")
+            .min_values(0)
+    }
+    fn parse_phantom_functions(matches: &ArgMatches) -> Vec<String> {
+        matches
+            .get_many("phantom")
+            .unwrap_or_default()
+            .into_iter()
+            .map(|s: &String| s.to_owned())
+            .collect()
     }
 
     fn output_path_arg<'a>() -> Arg<'a> {

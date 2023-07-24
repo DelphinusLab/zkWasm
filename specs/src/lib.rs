@@ -66,18 +66,18 @@ impl Tables {
             fd.write(buf.as_bytes()).unwrap();
         }
 
-        let itable = serde_json::to_string(&self.compilation_tables.itable).unwrap();
-        let imtable = serde_json::to_string(&self.compilation_tables.imtable).unwrap();
-        let etable = serde_json::to_string(&self.execution_tables.etable).unwrap();
-        let external_host_call_table = serde_json::to_string(
+        let itable = serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap();
+        let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
+        let etable = serde_json::to_string_pretty(&self.execution_tables.etable).unwrap();
+        let external_host_call_table = serde_json::to_string_pretty(
             &self
                 .execution_tables
                 .etable
                 .filter_external_host_call_table(),
         )
         .unwrap();
-        let mtable = serde_json::to_string(&self.execution_tables.mtable).unwrap();
-        let jtable = serde_json::to_string(&self.execution_tables.jtable).unwrap();
+        let mtable = serde_json::to_string_pretty(&self.execution_tables.mtable).unwrap();
+        let jtable = serde_json::to_string_pretty(&self.execution_tables.jtable).unwrap();
 
         let dir = dir.unwrap_or(env::current_dir().unwrap());
         write_file(&dir, "itable.json", &itable);

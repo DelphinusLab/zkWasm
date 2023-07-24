@@ -22,8 +22,6 @@ use wasmi::RuntimeValue;
 mod test_wasm_instructions;
 
 mod spec;
-mod test_binary_search;
-mod test_fibonacci;
 mod test_rlp;
 mod test_rlp_simple;
 mod test_start;
@@ -81,15 +79,14 @@ fn compile_then_execute_wasm(
 
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
-    let compiler = WasmInterpreter::new();
-    let compiled_module = compiler
-        .compile(
-            &module,
-            &imports,
-            &env.function_description_table(),
-            function_name,
-        )
-        .unwrap();
+    let compiled_module = WasmInterpreter::compile(
+        &module,
+        &imports,
+        &env.function_description_table(),
+        function_name,
+        &vec![],
+    )
+    .unwrap();
 
     let execution_result = compiled_module.run(&mut env, wasm_runtime_io)?;
 

@@ -44,7 +44,6 @@ pub enum StepInfo {
     Return {
         drop: u32,
         keep: Vec<ValueType>,
-        drop_values: Vec<u64>,
         keep_values: Vec<u64>,
     },
 

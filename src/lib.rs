@@ -6,6 +6,7 @@
 pub mod circuits;
 pub mod cli;
 pub mod foreign;
+pub mod loader;
 pub mod runtime;
 pub mod traits;
 
