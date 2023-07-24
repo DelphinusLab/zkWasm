@@ -304,10 +304,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::Return {
             drop,
             keep,
-            drop_values,
             keep_values,
         } => {
-            assert_eq!(*drop as usize, drop_values.len());
             assert_eq!(keep.len(), keep_values.len());
             assert!(keep.len() <= 1);
 

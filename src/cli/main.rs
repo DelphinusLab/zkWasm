@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::value_parser;
 use clap::Arg;
 use clap::ArgAction;
@@ -83,7 +84,7 @@ impl AppBuilder for SampleApp {
 }
 
 /// Simple program to greet a person
-fn main() {
+fn main() -> Result<()> {
     let app = SampleApp::app_builder();
 
     SampleApp::exec(app)

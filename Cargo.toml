@@ -37,6 +37,7 @@ uuid = { version = "1.2.2", features = ["serde", "v4"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 bitvec = "1.0.1"
+parity-wasm = { version = "0.42.0", default-features = false }
 
 [dev-dependencies]
 rusty-fork = "0.3.0"
