@@ -8,6 +8,7 @@ s = init_z3_solver()
 lhs, rhs, res_d, res_m = Ints('lhs rhs res_d res_m')
 s.add(is_i64(lhs))
 s.add(is_i64(rhs))
+s.add(rhs != 0)
 
 wasm_div_u_i64 = Function('WasmDivUI64', IntSort(), IntSort(), IntSort())
 s.add(ForAll([lhs, rhs], wasm_div_u_i64(lhs, rhs) == lhs / rhs))
