@@ -22,12 +22,12 @@ use self::ecc_helper::{
 };
 use self::hash_helper::sha256::register_sha256_foreign;
 use self::hash_helper::poseidon::register_poseidon_foreign;
-use self::kv_helper::kvpair::register_kvpair_foreign;
+use self::merkle_helper::merkle::register_merkle_foreign;
 
 pub mod keccak_helper;
 pub mod log_helper;
 pub mod require_helper;
-pub mod kv_helper;
+pub mod merkle_helper;
 pub mod ecc_helper;
 pub mod hash_helper;
 pub mod wasm_input_helper;
@@ -64,7 +64,7 @@ impl HostEnv {
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
-        register_kvpair_foreign(&mut env);
+        register_merkle_foreign(&mut env);
         register_blspair_foreign(&mut env);
         register_blssum_foreign(&mut env);
         register_bn254pair_foreign(&mut env);

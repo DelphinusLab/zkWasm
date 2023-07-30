@@ -987,7 +987,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/junyu0312/halo2?branch=gpu#d641021e6813de5314469862c6c4be08d4a639fd"
+source = "git+https://github.com/junyu0312/halo2?branch=gpu#e02af42177650c1df552f8a6614d4358621e067e"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -998,8 +998,11 @@ dependencies = [
  "ec-gpu-gen",
  "ff",
  "group",
+ "num",
  "num-bigint",
+ "num-derive",
  "num-integer",
+ "num-traits",
  "pairing_bn256",
  "rand",
  "rand_core",
@@ -1495,6 +1498,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "num"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b05180d69e3da0e530ba2a1dae5110317e49e3b7f3d41be227dc5f92e49ee7af"
+dependencies = [
+ "num-bigint",
+ "num-complex",
+ "num-integer",
+ "num-iter",
+ "num-rational",
+ "num-traits",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1507,12 +1524,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-complex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02e0d21255c828d6f128a1e41534206671e8c3ea0c62f32291e808dc82cff17d"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "num-derive"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.107",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
 dependencies = [
  "autocfg",
+ "num-traits",
+]
+
+[[package]]
+name = "num-iter"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d03e6c028c5dc5cac6e2dec0efda81fc887605bb3d884578bb6d6bf7514e252"
+dependencies = [
+ "autocfg",
+ "num-integer",
  "num-traits",
 ]
 
@@ -3148,7 +3196,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#c7b44c3eaff72455eadb9d43b0fcfb78f8a53aae"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=heng/poseidon-opt#34e81a3b44cf2f607b5fecdb91717cd15dff90ee"
 dependencies = [
  "ark-std",
  "clap",
