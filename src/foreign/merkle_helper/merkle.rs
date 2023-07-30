@@ -1,8 +1,10 @@
 use std::rc::Rc;
 use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use zkwasm_host_circuits::host::datahash::DataHashRecord;
 use zkwasm_host_circuits::host::merkle::MerkleTree;
 use zkwasm_host_circuits::host::{
     mongomerkle as merklehelper,
+    datahash as datahelper,
     Reduce, ReduceRule
 };
 use zkwasm_host_circuits::host::ForeignInst::{
@@ -11,11 +13,13 @@ use zkwasm_host_circuits::host::ForeignInst::{
     MerkleAddress,
     MerkleGetRoot,
     MerkleSetRoot,
+    MerklePutData,
+    MerkleFetchData,
 };
 
 use halo2_proofs::pairing::bn256::Fr;
 
-const MERKLE_TREE_HEIGHT:usize = 20;
+const MERKLE_TREE_HEIGHT:usize = 31;
 
 pub struct MerkleContext {
     pub set_root: Reduce<Fr>,
@@ -23,7 +27,11 @@ pub struct MerkleContext {
     pub address: Reduce<Fr>,
     pub set: Reduce<Fr>,
     pub get: Reduce<Fr>,
+    pub data: Vec<u64>,
+    pub data_cursor: usize,
+    pub fetch: bool,
     pub mongo_merkle: Option<merklehelper::MongoMerkle<MERKLE_TREE_HEIGHT>>,
+    pub mongo_datahash: datahelper::MongoDataHash,
 }
 
 fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
@@ -54,8 +62,11 @@ impl MerkleContext {
                 ReduceRule::U64(0),
                 ReduceRule::U64(0),
             ]),
-
+            fetch: false,
+            data: vec![],
+            data_cursor: 0,
             mongo_merkle: None,
+            mongo_datahash: datahelper::MongoDataHash::construct([0;32]),
         }
     }
 
@@ -96,10 +107,18 @@ impl MerkleContext {
             let address = self.address.rules[0].u64_value().unwrap() as u32;
             let index = (address as u64) + (1u64<<MERKLE_TREE_HEIGHT) - 1;
             let mt = self.mongo_merkle.as_mut().expect("merkle db not initialized");
+            let hash = self.set.rules[0].bytes_value().unwrap();
             mt.update_leaf_data_with_proof(
                 index,
-                &self.set.rules[0].bytes_value().unwrap()
+                &hash
             ).expect("Unexpected failure: update leaf with proof fail");
+            // put data and hash into mongo_datahash
+            self.mongo_datahash.update_record({
+                DataHashRecord {
+                    hash: hash.try_into().unwrap(),
+                    data: self.data.iter().map(|x| x.to_le_bytes()).flatten().collect::<Vec<u8>>(),
+                }
+            }).unwrap();
         }
     }
 
@@ -112,7 +131,23 @@ impl MerkleContext {
         let cursor = self.get.cursor;
         let values = leaf.data_as_u64();
         self.get.reduce(values[self.get.cursor]);
+        // fetch data if we get the target hash
+        if self.get.cursor == 0 {
+            let hash:[u8; 32] = vec![
+                self.get.rules[0].u64_value().unwrap().to_le_bytes().to_vec(),
+                self.get.rules[1].u64_value().unwrap().to_le_bytes().to_vec(),
+                self.get.rules[2].u64_value().unwrap().to_le_bytes().to_vec(),
+                self.get.rules[3].u64_value().unwrap().to_le_bytes().to_vec(),
+            ].into_iter().flatten().collect::<Vec<u8>>().try_into().unwrap();
+            let datahashrecord = self.mongo_datahash.get_record(&hash).unwrap();
+            self.data = datahashrecord.map_or(vec![], |r| {
+                r.data
+                .chunks_exact(8).into_iter()
+                .into_iter()
+                .map(|x| u64::from_le_bytes(x.try_into().unwrap())).collect::<Vec<u64>>()
+            });
 
+        }
         values[cursor]
     }
 }
@@ -155,6 +190,27 @@ pub fn register_merkle_foreign(env: &mut HostEnv) {
     );
 
     env.external_env.register_function(
+        "merkle_fetch_data",
+        MerkleFetchData as usize,
+        ExternalHostCallSignature::Return,
+        foreign_merkle_plugin.clone(),
+        Rc::new(
+            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+                let context = context.downcast_mut::<MerkleContext>().unwrap();
+                if context.fetch == false {
+                    context.fetch = true;
+                    context.data.reverse();
+                    Some(wasmi::RuntimeValue::I64(context.data.len() as i64))
+                } else {
+                    let r = context.data.pop().unwrap();
+                    Some(wasmi::RuntimeValue::I64(r as i64))
+                }
+            },
+        ),
+    );
+
+
+    env.external_env.register_function(
         "merkle_address",
         MerkleAddress as usize,
         ExternalHostCallSignature::Argument,
@@ -162,11 +218,28 @@ pub fn register_merkle_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
+                context.data = vec![];
+                context.fetch = false;
                 context.merkle_address(args.nth(0));
                 None
             },
         ),
     );
+
+    env.external_env.register_function(
+        "merkle_put_data",
+        MerklePutData as usize,
+        ExternalHostCallSignature::Argument,
+        foreign_merkle_plugin.clone(),
+        Rc::new(
+            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+                let context = context.downcast_mut::<MerkleContext>().unwrap();
+                context.data.push(args.nth(0));
+                None
+            },
+        ),
+    );
+
 
 
     env.external_env.register_function(
