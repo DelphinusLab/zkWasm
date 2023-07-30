@@ -2,28 +2,28 @@ use std::rc::Rc;
 use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use zkwasm_host_circuits::host::merkle::MerkleTree;
 use zkwasm_host_circuits::host::{
-    kvpair as kvpairhelper,
+    mongomerkle as merklehelper,
     Reduce, ReduceRule
 };
 use zkwasm_host_circuits::host::ForeignInst::{
-    KVPairSet,
-    KVPairGet,
-    KVPairAddress,
-    KVPairGetRoot,
-    KVPairSetRoot,
+    MerkleSet,
+    MerkleGet,
+    MerkleAddress,
+    MerkleGetRoot,
+    MerkleSetRoot,
 };
 
 use halo2_proofs::pairing::bn256::Fr;
 
 const MERKLE_TREE_HEIGHT:usize = 20;
 
-pub struct KVPairContext {
+pub struct MerkleContext {
     pub set_root: Reduce<Fr>,
     pub get_root: Reduce<Fr>,
     pub address: Reduce<Fr>,
     pub set: Reduce<Fr>,
     pub get: Reduce<Fr>,
-    pub mongo_merkle: Option<kvpairhelper::MongoMerkle<MERKLE_TREE_HEIGHT>>,
+    pub mongo_merkle: Option<merklehelper::MongoMerkle<MERKLE_TREE_HEIGHT>>,
 }
 
 fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
@@ -33,9 +33,9 @@ fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
     }
 }
 
-impl KVPairContext {
+impl MerkleContext {
     pub fn default() -> Self {
-        KVPairContext {
+        MerkleContext {
             set_root: new_reduce(vec![
                 ReduceRule::Bytes(vec![], 4),
             ]),
@@ -59,12 +59,12 @@ impl KVPairContext {
         }
     }
 
-    pub fn kvpair_setroot(&mut self, v: u64) {
+    pub fn merkle_setroot(&mut self, v: u64) {
         self.set_root.reduce(v);
         if self.set_root.cursor == 0 {
             println!("set root: {:?}", &self.set_root.rules[0].bytes_value());
             self.mongo_merkle = Some(
-                kvpairhelper::MongoMerkle::construct(
+                merklehelper::MongoMerkle::construct(
                     [0;32],
                     self.set_root.rules[0].bytes_value()
                         .unwrap()
@@ -75,7 +75,7 @@ impl KVPairContext {
         }
     }
 
-    pub fn kvpair_getroot(&mut self) -> u64 {
+    pub fn merkle_getroot(&mut self) -> u64 {
         let mt = self.mongo_merkle.as_ref().expect("merkle db not initialized");
         let hash = mt.get_root_hash();
         let values = hash.chunks(8).into_iter().map(|x| {
@@ -86,15 +86,15 @@ impl KVPairContext {
         values[cursor]
     }
 
-    pub fn kvpair_address(&mut self, v: u64) {
+    pub fn merkle_address(&mut self, v: u64) {
         self.address.reduce(v);
     }
 
-    pub fn kvpair_set(&mut self, v: u64) {
+    pub fn merkle_set(&mut self, v: u64) {
         self.set.reduce(v);
         if self.set.cursor == 0 {
             let address = self.address.rules[0].u64_value().unwrap() as u32;
-            let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
+            let index = (address as u64) + (1u64<<MERKLE_TREE_HEIGHT) - 1;
             let mt = self.mongo_merkle.as_mut().expect("merkle db not initialized");
             mt.update_leaf_data_with_proof(
                 index,
@@ -103,9 +103,9 @@ impl KVPairContext {
         }
     }
 
-    pub fn kvpair_get(&mut self) -> u64 {
+    pub fn merkle_get(&mut self) -> u64 {
         let address = self.address.rules[0].u64_value().unwrap() as u32;
-        let index = (address as u32) + (1u32<<MERKLE_TREE_HEIGHT) - 1;
+        let index = (address as u64) + (1u64<<MERKLE_TREE_HEIGHT) - 1;
         let mt = self.mongo_merkle.as_ref().expect("merkle db not initialized");
         let (leaf, _) = mt.get_leaf_with_proof(index)
             .expect("Unexpected failure: get leaf fail");
@@ -117,52 +117,52 @@ impl KVPairContext {
     }
 }
 
-impl KVPairContext {}
+impl MerkleContext {}
 
-impl ForeignContext for KVPairContext {}
+impl ForeignContext for MerkleContext {}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
-pub fn register_kvpair_foreign(env: &mut HostEnv) {
-    let foreign_kvpair_plugin = env
+pub fn register_merkle_foreign(env: &mut HostEnv) {
+    let foreign_merkle_plugin = env
             .external_env
-            .register_plugin("foreign_kvpair", Box::new(KVPairContext::default()));
+            .register_plugin("foreign_merkle", Box::new(MerkleContext::default()));
 
     env.external_env.register_function(
-        "kvpair_setroot",
-        KVPairSetRoot as usize,
+        "merkle_setroot",
+        MerkleSetRoot as usize,
         ExternalHostCallSignature::Argument,
-        foreign_kvpair_plugin.clone(),
+        foreign_merkle_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
-                let context = context.downcast_mut::<KVPairContext>().unwrap();
-                context.kvpair_setroot(args.nth(0));
+                let context = context.downcast_mut::<MerkleContext>().unwrap();
+                context.merkle_setroot(args.nth(0));
                 None
             },
         ),
     );
 
     env.external_env.register_function(
-        "kvpair_getroot",
-        KVPairGetRoot as usize,
+        "merkle_getroot",
+        MerkleGetRoot as usize,
         ExternalHostCallSignature::Return,
-        foreign_kvpair_plugin.clone(),
+        foreign_merkle_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
-                let context = context.downcast_mut::<KVPairContext>().unwrap();
-                Some(wasmi::RuntimeValue::I64(context.kvpair_getroot() as i64))
+                let context = context.downcast_mut::<MerkleContext>().unwrap();
+                Some(wasmi::RuntimeValue::I64(context.merkle_getroot() as i64))
             },
         ),
     );
 
     env.external_env.register_function(
-        "kvpair_address",
-        KVPairAddress as usize,
+        "merkle_address",
+        MerkleAddress as usize,
         ExternalHostCallSignature::Argument,
-        foreign_kvpair_plugin.clone(),
+        foreign_merkle_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
-                let context = context.downcast_mut::<KVPairContext>().unwrap();
-                context.kvpair_address(args.nth(0));
+                let context = context.downcast_mut::<MerkleContext>().unwrap();
+                context.merkle_address(args.nth(0));
                 None
             },
         ),
@@ -170,14 +170,14 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
 
 
     env.external_env.register_function(
-        "kvpair_set",
-        KVPairSet as usize,
+        "merkle_set",
+        MerkleSet as usize,
         ExternalHostCallSignature::Argument,
-        foreign_kvpair_plugin.clone(),
+        foreign_merkle_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
-                let context = context.downcast_mut::<KVPairContext>().unwrap();
-                context.kvpair_set(args.nth(0));
+                let context = context.downcast_mut::<MerkleContext>().unwrap();
+                context.merkle_set(args.nth(0));
                 None
             },
         ),
@@ -185,14 +185,14 @@ pub fn register_kvpair_foreign(env: &mut HostEnv) {
 
 
     env.external_env.register_function(
-        "kvpair_get",
-        KVPairGet as usize,
+        "merkle_get",
+        MerkleGet as usize,
         ExternalHostCallSignature::Return,
-        foreign_kvpair_plugin.clone(),
+        foreign_merkle_plugin.clone(),
         Rc::new(
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
-                let context = context.downcast_mut::<KVPairContext>().unwrap();
-                let ret = Some(wasmi::RuntimeValue::I64(context.kvpair_get() as i64));
+                let context = context.downcast_mut::<MerkleContext>().unwrap();
+                let ret = Some(wasmi::RuntimeValue::I64(context.merkle_get() as i64));
                 ret
             },
         ),
