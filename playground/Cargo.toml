@@ -10,6 +10,3 @@ anyhow = "1.0.72"
 delphinus-zkwasm = { path = "../" }
 pairing_bn256 = { git = "https://github.com/lanbones/pairing.git" }
 wasmi = { path = "../wasmi" }
-
-[build-dependencies]
-cc = { version = "1.0.79", features = ["parallel"] }
