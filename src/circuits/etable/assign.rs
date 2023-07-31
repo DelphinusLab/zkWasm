@@ -19,6 +19,7 @@ use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
+use crate::foreign::wasm_input_helper::RESERVED_INSTANCES_NUMBER;
 
 pub(in crate::circuits) struct EventTablePermutationCells<F: FieldExt> {
     pub(in crate::circuits) rest_mops: Option<Cell>,
@@ -142,10 +143,20 @@ impl<F: FieldExt> EventTableChip<F> {
             };
         }
 
-        let mut host_public_inputs = 0u32;
+        let mut host_public_inputs = RESERVED_INSTANCES_NUMBER as u32;
+        let mut context_in_index = 1u32;
+        let mut context_out_index = 1u32;
         let mut external_host_call_call_index = 1u32;
 
         assign_constant!(input_index_cell, F::from(host_public_inputs as u64));
+        assign_constant!(
+            context_cont_input_index_cell,
+            F::from(context_in_index as u64)
+        );
+        assign_constant!(
+            context_cont_output_index_cell,
+            F::from(context_out_index as u64)
+        );
         assign_constant!(
             external_host_call_index_cell,
             F::from(external_host_call_call_index as u64)
@@ -224,6 +235,8 @@ impl<F: FieldExt> EventTableChip<F> {
                 current_external_host_call_index: external_host_call_call_index,
                 configure_table: *configure_table,
                 host_public_inputs,
+                context_in_index,
+                context_out_index,
             };
 
             {
@@ -237,6 +250,14 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_advice!(rest_mops_cell, F::from(*rest_mops as u64));
             assign_advice!(rest_jops_cell, F::from(*rest_jops as u64));
             assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
+            assign_advice!(
+                context_cont_input_index_cell,
+                F::from(context_in_index as u64)
+            );
+            assign_advice!(
+                context_cont_output_index_cell,
+                F::from(context_out_index as u64)
+            );
             assign_advice!(
                 external_host_call_index_cell,
                 F::from(external_host_call_call_index as u64)
@@ -260,6 +281,12 @@ impl<F: FieldExt> EventTableChip<F> {
             if op_config.is_host_public_input(&entry.eentry) {
                 host_public_inputs += 1;
             }
+            if op_config.is_context_cont_input_op(&entry.eentry) {
+                context_in_index += 1;
+            }
+            if op_config.is_context_cont_output_op(&entry.eentry) {
+                context_out_index += 1;
+            }
             if op_config.is_external_host_call(&entry.eentry) {
                 external_host_call_call_index += 1;
             }
@@ -281,6 +308,14 @@ impl<F: FieldExt> EventTableChip<F> {
             F::from(status.last().unwrap().allocated_memory_pages as u64)
         );
         assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
+        assign_advice!(
+            context_cont_input_index_cell,
+            F::from(context_in_index as u64)
+        );
+        assign_advice!(
+            context_cont_output_index_cell,
+            F::from(context_out_index as u64)
+        );
         assign_advice!(
             external_host_call_index_cell,
             F::from(external_host_call_call_index as u64)

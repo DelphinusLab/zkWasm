@@ -56,7 +56,6 @@ impl Context {
 
 impl ForeignContext for Context {}
 
-// TODO: invoke this in WasmRuntime
 pub fn register_wasm_input_foreign(
     env: &mut HostEnv,
     public_inputs: Vec<u64>,

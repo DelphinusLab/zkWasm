@@ -15,5 +15,7 @@ pub struct StepStatus<'a> {
     pub next: &'a Status,
     pub current_external_host_call_index: u32,
     pub host_public_inputs: u32,
+    pub context_in_index: u32,
+    pub context_out_index: u32,
     pub configure_table: ConfigureTable,
 }

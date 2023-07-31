@@ -266,7 +266,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
     }
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1) - self.is_wasm_output_op.expr(meta))
+        Some(self.is_wasm_input_op.expr(meta))
     }
 
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {

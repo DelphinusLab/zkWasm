@@ -79,19 +79,17 @@ pub trait AppBuilder: CommandBuilder {
 
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
-        fs::create_dir_all(&output_dir).unwrap();
+        fs::create_dir_all(&output_dir)?;
 
         match top_matches.subcommand() {
-            Some(("setup", _)) => {
-                exec_setup(
-                    zkwasm_k,
-                    Self::AGGREGATE_K,
-                    Self::NAME,
-                    wasm_binary,
-                    vec![], // TODO
-                    &output_dir,
-                )
-            }
+            Some(("setup", _)) => exec_setup(
+                zkwasm_k,
+                Self::AGGREGATE_K,
+                Self::NAME,
+                wasm_binary,
+                phantom_functions,
+                &output_dir,
+            ),
             #[cfg(feature = "checksum")]
             Some(("checksum", _)) => {
                 exec_image_checksum(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
@@ -99,11 +97,17 @@ pub trait AppBuilder: CommandBuilder {
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
+                let context_in: Option<PathBuf> = Self::parse_context_in_path_arg(&sub_matches);
+                let context_out: Option<PathBuf> = Self::parse_context_out_path_arg(&sub_matches);
                 let service_mode = Self::parse_dry_run_service_arg(&sub_matches);
 
                 if let Some(listen) = service_mode {
                     if !public_inputs.is_empty() || !private_inputs.is_empty() {
                         warn!("All private/public inputs are ignored when dry-run is running in service mode.");
+                    }
+
+                    if !context_in.is_some() || !context_out.is_some() {
+                        warn!("All context paths are ignored when dry-run is running in service mode.");
                     }
 
                     exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
@@ -116,12 +120,16 @@ pub trait AppBuilder: CommandBuilder {
                         phantom_functions,
                         public_inputs,
                         private_inputs,
+                        context_in,
+                        context_out,
                     )
                 }
             }
             Some(("single-prove", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
+                let context_in: Option<PathBuf> = Self::parse_context_in_path_arg(&sub_matches);
+                let context_out: Option<PathBuf> = Self::parse_context_out_path_arg(&sub_matches);
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
@@ -133,6 +141,8 @@ pub trait AppBuilder: CommandBuilder {
                     &output_dir,
                     public_inputs,
                     private_inputs,
+                    context_in,
+                    context_out,
                 )
             }
             Some(("single-verify", sub_matches)) => {
@@ -153,6 +163,8 @@ pub trait AppBuilder: CommandBuilder {
                 let public_inputs: Vec<Vec<u64>> = Self::parse_aggregate_public_args(&sub_matches);
                 let private_inputs: Vec<Vec<u64>> =
                     Self::parse_aggregate_private_args(&sub_matches);
+                let context_inputs = public_inputs.iter().map(|_| None).collect();
+                let context_outputs = public_inputs.iter().map(|_| None).collect();
 
                 for instances in &public_inputs {
                     assert!(instances.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
@@ -170,6 +182,8 @@ pub trait AppBuilder: CommandBuilder {
                     &output_dir,
                     public_inputs,
                     private_inputs,
+                    context_inputs,
+                    context_outputs,
                 )
             }
 
