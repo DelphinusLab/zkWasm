@@ -78,8 +78,8 @@ impl<'a, 'b, F: FieldExt> ConstraintBuilder<'a, 'b, F> {
         for (id, lookups) in self.lookups {
             let config = self.foreign_table_configs.get(&id).unwrap();
 
-            for (key, expr) in lookups {
-                config.configure_in_table(self.meta, key, &|meta| {
+            for (name, expr) in lookups {
+                config.configure_in_table(self.meta, name, &|meta| {
                     expr(meta)
                         .into_iter()
                         .map(|expr| {

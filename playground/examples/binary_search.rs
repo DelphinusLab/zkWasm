@@ -7,6 +7,6 @@ fn main() -> Result<()> {
 
     let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
 
-    let (circuit, instances) = loader.circuit_with_witness(vec![0], vec![])?;
+    let (circuit, instances) = loader.circuit_with_witness(vec![0], vec![], None, None)?;
     loader.mock_test(&circuit, &instances)
 }

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
@@ -5,26 +7,29 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 
+use crate::curr;
 use crate::fixed_curr;
 use crate::foreign::ForeignTableConfig;
-use crate::instance_curr;
 
-use super::WasmInputHelperTableConfig;
+use super::ContextContHelperTableConfig;
 
-impl<F: FieldExt> WasmInputHelperTableConfig<F> {
+impl<F: FieldExt> ContextContHelperTableConfig<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>, from_zero_index: Column<Fixed>) -> Self {
-        let input = meta.instance_column();
+        let input = meta.advice_column();
+        let output = meta.advice_column();
         meta.enable_equality(input);
+        meta.enable_equality(output);
 
-        WasmInputHelperTableConfig {
+        ContextContHelperTableConfig {
             from_zero_index,
             input,
-            _mark: std::marker::PhantomData,
+            output,
+            _mark: PhantomData,
         }
     }
 }
 
-impl<F: FieldExt> ForeignTableConfig<F> for WasmInputHelperTableConfig<F> {
+impl<F: FieldExt> ForeignTableConfig<F> for ContextContHelperTableConfig<F> {
     fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
@@ -36,7 +41,19 @@ impl<F: FieldExt> ForeignTableConfig<F> for WasmInputHelperTableConfig<F> {
 
             vec![
                 (exprs.remove(0), fixed_curr!(meta, self.from_zero_index)),
-                (exprs.remove(0), instance_curr!(meta, self.input)),
+                (exprs.remove(0), curr!(meta, self.input)),
+            ]
+        });
+
+        meta.lookup_any(key, |meta| {
+            let mut exprs = expr(meta);
+
+            let _ = exprs.remove(0);
+            let _ = exprs.remove(0);
+
+            vec![
+                (exprs.remove(0), fixed_curr!(meta, self.from_zero_index)),
+                (exprs.remove(0), curr!(meta, self.output)),
             ]
         });
     }

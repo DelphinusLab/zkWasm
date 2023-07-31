@@ -41,6 +41,7 @@ use crate::circuits::etable::op_configure::op_test::TestConfigBuilder;
 use crate::circuits::etable::op_configure::op_unary::UnaryConfigBuilder;
 use crate::constant_from;
 use crate::fixed_curr;
+use crate::foreign::context_cont::etable_op_configure::ETableContextContHelperTableConfigBuilder;
 use crate::foreign::require_helper::etable_op_configure::ETableRequireHelperTableConfigBuilder;
 use crate::foreign::wasm_input_helper::etable_op_configure::ETableWasmInputHelperTableConfigBuilder;
 use crate::foreign::EventTableForeignCallConfigBuilder;
@@ -71,7 +72,7 @@ pub(crate) mod constraint_builder;
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
 pub(crate) const OP_CAPABILITY: usize = 32;
 
-const FOREIGN_LOOKUP_CAPABILITY: usize = 2;
+const FOREIGN_LOOKUP_CAPABILITY: usize = 6;
 
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
@@ -81,6 +82,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     rest_jops_cell: AllocatedCommonRangeCell<F>,
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) context_cont_input_index_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) context_cont_output_index_cell: AllocatedCommonRangeCell<F>,
     external_host_call_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) sp_cell: AllocatedCommonRangeCell<F>,
     mpages_cell: AllocatedCommonRangeCell<F>,
@@ -167,6 +170,28 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn is_host_public_input(&self, _entry: &EventTableEntry) -> bool {
         false
     }
+
+    fn context_cont_input_index_increase(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        None
+    }
+    fn is_context_cont_input_op(&self, _entry: &EventTableEntry) -> bool {
+        false
+    }
+    fn context_cont_output_index_increase(
+        &self,
+        _meta: &mut VirtualCells<'_, F>,
+        _common_config: &EventTableCommonConfig<F>,
+    ) -> Option<Expression<F>> {
+        None
+    }
+    fn is_context_cont_output_op(&self, _entry: &EventTableEntry) -> bool {
+        false
+    }
+
     fn external_host_call_index_increase(
         &self,
         _meta: &mut VirtualCells<'_, F>,
@@ -212,6 +237,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let rest_mops_cell = allocator.alloc_common_range_cell();
         let rest_jops_cell = allocator.alloc_common_range_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
+        let context_cont_input_index_cell = allocator.alloc_common_range_cell();
+        let context_cont_output_index_cell = allocator.alloc_common_range_cell();
         let external_host_call_index_cell = allocator.alloc_common_range_cell();
         let sp_cell = allocator.alloc_common_range_cell();
         let mpages_cell = allocator.alloc_common_range_cell();
@@ -237,6 +264,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             rest_mops_cell,
             rest_jops_cell,
             input_index_cell,
+            context_cont_input_index_cell,
+            context_cont_output_index_cell,
             external_host_call_index_cell,
             sp_cell,
             mpages_cell,
@@ -345,6 +374,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
+        configure_foreign!(ETableContextContHelperTableConfigBuilder, 1);
         configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
         drop(plugin_index);
 
@@ -465,6 +495,30 @@ impl<F: FieldExt> EventTableConfig<F> {
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.allocated_memory_pages_diff(meta)
+                },
+                Some(&|meta| enabled_cell.curr_expr(meta)),
+            )]
+        });
+
+        meta.create_gate("c5g. context_cnt_input_index change", |meta| {
+            vec![sum_ops_expr_with_init(
+                context_cont_input_index_cell.curr_expr(meta)
+                    - context_cont_input_index_cell.next_expr(meta),
+                meta,
+                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
+                    config.context_cont_input_index_increase(meta, &common_config)
+                },
+                Some(&|meta| enabled_cell.curr_expr(meta)),
+            )]
+        });
+
+        meta.create_gate("c5h. context_cnt_output_index change", |meta| {
+            vec![sum_ops_expr_with_init(
+                context_cont_output_index_cell.curr_expr(meta)
+                    - context_cont_output_index_cell.next_expr(meta),
+                meta,
+                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
+                    config.context_cont_output_index_increase(meta, &common_config)
                 },
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]

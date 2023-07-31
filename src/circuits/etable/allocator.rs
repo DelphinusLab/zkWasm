@@ -164,8 +164,8 @@ pub(crate) enum EventTableCellType {
 const BIT_COLUMNS: usize = 12;
 const U8_COLUMNS: usize = 1;
 const U16_COLUMNS: usize = 10;
-const COMMON_RANGE_COLUMNS: usize = 9;
-const UNLIMITED_COLUMNS: usize = 6;
+const COMMON_RANGE_COLUMNS: usize = 10;
+const UNLIMITED_COLUMNS: usize = 7;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
 const BIT_TABLE_LOOKUP_COLUMNS: usize = 1;

@@ -66,6 +66,20 @@ impl ArgBuilder for SampleApp {
 
         vec![inputs]
     }
+
+    fn aggregate_context_in_args<'a>() -> Arg<'a> {
+        todo!("Context feature is not supported in aggregate prove");
+    }
+    fn parse_aggregate_context_in_args(_matches: &ArgMatches) -> Vec<Option<std::path::PathBuf>> {
+        todo!("Context feature is not supported in aggregate prove");
+    }
+
+    fn aggregate_context_out_args<'a>() -> Arg<'a> {
+        todo!("Context feature is not supported in aggregate prove");
+    }
+    fn parse_aggregate_context_out_args(_matches: &ArgMatches) -> Vec<Option<std::path::PathBuf>> {
+        todo!("Context feature is not supported in aggregate prove");
+    }
 }
 impl CommandBuilder for SampleApp {}
 impl AppBuilder for SampleApp {

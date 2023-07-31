@@ -122,6 +122,8 @@ pub fn exec_dry_run_service(
     struct Sequence {
         private_inputs: Vec<String>,
         public_inputs: Vec<String>,
+        context_input: Option<PathBuf>,
+        context_output: Option<PathBuf>,
     }
 
     info!("Dry-run service is running.");
@@ -164,7 +166,14 @@ pub fn exec_dry_run_service(
                             )
                             .unwrap();
 
-                            let r = loader.dry_run(public_inputs, private_inputs).unwrap();
+                            let r = loader
+                                .dry_run(
+                                    public_inputs,
+                                    private_inputs,
+                                    sequence.context_input,
+                                    sequence.context_output,
+                                )
+                                .unwrap();
                             println!("return value: {:?}", r);
 
                             fs::write(
@@ -201,10 +210,12 @@ pub fn exec_dry_run(
     phantom_functions: Vec<String>,
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
+    context_input: Option<PathBuf>,
+    context_output: Option<PathBuf>,
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-    loader.dry_run(public_inputs, private_inputs)?;
+    loader.dry_run(public_inputs, private_inputs, context_input, context_output)?;
 
     Ok(())
 }
@@ -217,6 +228,8 @@ pub fn exec_create_proof(
     output_dir: &PathBuf,
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
+    context_input: Option<PathBuf>,
+    context_output: Option<PathBuf>,
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
@@ -230,7 +243,12 @@ pub fn exec_create_proof(
         &output_dir.join(format!("{}.{}.vkey.data", prefix, 0)),
     );
 
-    let (circuit, instances) = loader.circuit_with_witness(public_inputs, private_inputs)?;
+    let (circuit, instances) = loader.circuit_with_witness(
+        public_inputs,
+        private_inputs,
+        context_input,
+        context_output,
+    )?;
 
     {
         store_instance(
@@ -307,6 +325,8 @@ pub fn exec_aggregate_create_proof(
     output_dir: &PathBuf,
     public_inputs: Vec<Vec<u64>>,
     private_inputs: Vec<Vec<u64>>,
+    context_inputs: Vec<Option<PathBuf>>,
+    context_outputs: Vec<Option<PathBuf>>,
 ) -> Result<()> {
     assert_eq!(public_inputs.len(), private_inputs.len());
 
@@ -315,12 +335,18 @@ pub fn exec_aggregate_create_proof(
     let (circuits, instances) = public_inputs
         .into_iter()
         .zip(private_inputs.into_iter())
+        .zip(context_inputs.into_iter())
+        .zip(context_outputs.into_iter())
         .fold(
             Ok::<_, anyhow::Error>((vec![], vec![])),
-            |acc, (public_inputs, private_inputs)| {
+            |acc, (((public_inputs, private_inputs), context_input), context_output)| {
                 acc.and_then(|(mut circuits, mut instances)| {
-                    let (circuit, instance) =
-                        loader.circuit_with_witness(public_inputs, private_inputs)?;
+                    let (circuit, instance) = loader.circuit_with_witness(
+                        public_inputs,
+                        private_inputs,
+                        context_input,
+                        context_output,
+                    )?;
 
                     circuits.push(circuit);
                     instances.push(vec![instance]);

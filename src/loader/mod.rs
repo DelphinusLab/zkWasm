@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
@@ -91,7 +92,8 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
-        let (env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(vec![], vec![]);
+        let (env, wasm_runtime_io) =
+            HostEnv::new_with_full_foreign_plugins(vec![], vec![], None, None);
 
         let compiled_module = self.compile(&env)?;
 
@@ -144,8 +146,15 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         &self,
         public_inputs: Vec<u64>,
         private_inputs: Vec<u64>,
+        context_input: Option<PathBuf>,
+        context_output: Option<PathBuf>,
     ) -> Result<Option<RuntimeValue>> {
-        let (mut env, _) = HostEnv::new_with_full_foreign_plugins(public_inputs, private_inputs);
+        let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
+            public_inputs,
+            private_inputs,
+            context_input,
+            context_output,
+        );
 
         let compiled_module = self.compile(&env)?;
 
@@ -156,9 +165,15 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         &self,
         public_inputs: Vec<u64>,
         private_inputs: Vec<u64>,
+        context_input: Option<PathBuf>,
+        context_output: Option<PathBuf>,
     ) -> Result<ExecutionResult<RuntimeValue>> {
-        let (mut env, wasm_runtime_io) =
-            HostEnv::new_with_full_foreign_plugins(public_inputs, private_inputs);
+        let (mut env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
+            public_inputs,
+            private_inputs,
+            context_input,
+            context_output,
+        );
 
         let compiled_module = self.compile(&env)?;
 
@@ -174,8 +189,11 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         &self,
         public_inputs: Vec<u64>,
         private_inputs: Vec<u64>,
+        context_input: Option<PathBuf>,
+        context_output: Option<PathBuf>,
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
-        let execution_result = self.run(public_inputs, private_inputs)?;
+        let execution_result =
+            self.run(public_inputs, private_inputs, context_input, context_output)?;
 
         #[allow(unused_mut)]
         let mut instance: Vec<E::Scalar> = execution_result
@@ -229,7 +247,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     pub fn init_env(&self) -> Result<()> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(vec![], vec![]);
+        let (env, _) = HostEnv::new_with_full_foreign_plugins(vec![], vec![], None, None);
 
         let c = self.compile(&env)?;
 

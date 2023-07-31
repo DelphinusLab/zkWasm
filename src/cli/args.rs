@@ -163,6 +163,11 @@ pub trait ArgBuilder {
     fn aggregate_private_args<'a>() -> Arg<'a>;
     fn parse_aggregate_private_args(matches: &ArgMatches) -> Vec<Vec<u64>>;
 
+    fn aggregate_context_in_args<'a>() -> Arg<'a>;
+    fn parse_aggregate_context_in_args(matches: &ArgMatches) -> Vec<Option<PathBuf>>;
+    fn aggregate_context_out_args<'a>() -> Arg<'a>;
+    fn parse_aggregate_context_out_args(matches: &ArgMatches) -> Vec<Option<PathBuf>>;
+
     fn single_instance_path_arg<'a>() -> Arg<'a> {
         arg!(
             -i --instance <INSTANCE_PATH> "Path of circuit instance."
@@ -174,6 +179,26 @@ pub trait ArgBuilder {
             .get_one::<PathBuf>("instance")
             .expect("instance is required.")
             .clone()
+    }
+
+    fn context_in_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            --ctxin <CONTEXT_IN> "Path of Context Input."
+        )
+        .value_parser(value_parser!(PathBuf))
+    }
+    fn parse_context_in_path_arg(matches: &ArgMatches) -> Option<PathBuf> {
+        matches.get_one::<PathBuf>("ctxin").cloned()
+    }
+
+    fn context_out_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            --ctxout <CONTEXT_OUT> "Path of Context Output."
+        )
+        .value_parser(value_parser!(PathBuf))
+    }
+    fn parse_context_out_path_arg(matches: &ArgMatches) -> Option<PathBuf> {
+        matches.get_one::<PathBuf>("ctxout").cloned()
     }
 
     fn instances_path_arg<'a>() -> Arg<'a> {

@@ -6,8 +6,10 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::plonk::Circuit;
+use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Fixed;
 use log::debug;
 use specs::ExecutionTable;
 use specs::Tables;
@@ -34,16 +36,21 @@ use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
 use crate::circuits::TestCircuit;
 use crate::exec_with_profile;
+use crate::foreign::context_cont::circuits::assign::ContextContHelperTableChip;
+use crate::foreign::context_cont::circuits::assign::ExtractContextFromTrace;
+use crate::foreign::context_cont::circuits::ContextContHelperTableConfig;
+use crate::foreign::context_cont::circuits::CONTEXT_CONT_FOREIGN_TABLE_KEY;
 use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChip;
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
+use crate::foreign::ENABLE_LINES;
 
 use super::config::zkwasm_k;
 use super::config::CircuitConfigure;
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 52;
+pub const VAR_COLUMNS: usize = 54;
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
@@ -59,6 +66,9 @@ pub struct TestCircuitConfig<F: FieldExt> {
     bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
     wasm_input_helper_table: WasmInputHelperTableConfig<F>,
+    context_cont_helper_table: ContextContHelperTableConfig<F>,
+
+    foreign_table_from_zero_index: Column<Fixed>,
 
     max_available_rows: usize,
 
@@ -89,6 +99,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             meta.enable_constant(constants);
             meta.enable_equality(constants);
         }
+        let foreign_table_from_zero_index = meta.fixed_column();
 
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
@@ -100,12 +111,20 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
         let bit_table = BitTableConfig::configure(meta, &rtable);
 
-        let wasm_input_helper_table = WasmInputHelperTableConfig::configure(meta);
+        let wasm_input_helper_table =
+            WasmInputHelperTableConfig::configure(meta, foreign_table_from_zero_index);
+        let context_cont_helper_table =
+            ContextContHelperTableConfig::configure(meta, foreign_table_from_zero_index);
+
         let mut foreign_table_configs: BTreeMap<_, Box<(dyn ForeignTableConfig<F>)>> =
             BTreeMap::new();
         foreign_table_configs.insert(
             WASM_INPUT_FOREIGN_TABLE_KEY,
             Box::new(wasm_input_helper_table.clone()),
+        );
+        foreign_table_configs.insert(
+            CONTEXT_CONT_FOREIGN_TABLE_KEY,
+            Box::new(context_cont_helper_table.clone()),
         );
 
         let etable = EventTableConfig::configure(
@@ -137,6 +156,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             bit_table,
             external_host_call_table,
             wasm_input_helper_table,
+            context_cont_helper_table,
+            foreign_table_from_zero_index,
 
             max_available_rows,
 
@@ -161,12 +182,25 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let external_host_call_chip =
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
+        let context_cont_chip = ContextContHelperTableChip::new(config.context_cont_helper_table);
+
+        layouter.assign_region(
+            || "foreign helper",
+            |mut region| {
+                for offset in 0..ENABLE_LINES {
+                    region.assign_fixed(
+                        || "foreign table from zero index",
+                        config.foreign_table_from_zero_index,
+                        offset,
+                        || Ok(F::from(offset as u64)),
+                    )?;
+                }
+
+                Ok(())
+            },
+        )?;
 
         exec_with_profile!(|| "Init range chip", rchip.init(&mut layouter)?);
-        exec_with_profile!(
-            || "Init wasm input chip",
-            wasm_input_chip.init(&mut layouter)?
-        );
 
         #[allow(unused_variables)]
         let image_entries = exec_with_profile!(
@@ -269,6 +303,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         exec_with_profile!(
             || "Assign wasm input chip",
             wasm_input_chip.assign(&mut layouter, instances)?
+        );
+        exec_with_profile!(
+            || "Assign context cont chip",
+            context_cont_chip.assign(
+                &mut layouter,
+                &self.tables.execution_tables.etable.get_context_inputs(),
+                &self.tables.execution_tables.etable.get_context_outputs()
+            )?
         );
 
         end_timer!(assign_timer);
