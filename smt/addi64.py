@@ -8,9 +8,8 @@ s = init_z3_solver()
 lhs, rhs, res = Ints('lhs rhs res')
 s.add(is_i64(lhs)),
 s.add(is_i64(rhs)),
-s.add(is_i64(res)),
 
-wasm_add_i64 = Function('WamsAddI64', IntSort(), IntSort(), IntSort())
+wasm_add_i64 = Function('WasmAddI64', IntSort(), IntSort(), IntSort())
 s.add(ForAll([lhs, rhs], wasm_add_i64(lhs, rhs) == (lhs + rhs) % I64_MODULUS))
 
 # define var
@@ -19,6 +18,7 @@ overflow = Int('overflow')
 constrain = Function('Constrain', IntSort(), BoolSort())
 constraints = [
     is_bit(overflow),
+    is_i64(res),
     # c.bin.add
     fr_sub(fr_sub(fr_add(fr_mul(overflow, I64_MODULUS), res), rhs), lhs) == 0
 ]
