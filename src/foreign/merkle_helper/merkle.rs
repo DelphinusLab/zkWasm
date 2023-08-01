@@ -108,17 +108,20 @@ impl MerkleContext {
             let index = (address as u64) + (1u64<<MERKLE_TREE_HEIGHT) - 1;
             let mt = self.mongo_merkle.as_mut().expect("merkle db not initialized");
             let hash = self.set.rules[0].bytes_value().unwrap();
+            println!("update leaf data with proof {:?}", hash);
             mt.update_leaf_data_with_proof(
                 index,
                 &hash
             ).expect("Unexpected failure: update leaf with proof fail");
-            // put data and hash into mongo_datahash
-            self.mongo_datahash.update_record({
-                DataHashRecord {
-                    hash: hash.try_into().unwrap(),
-                    data: self.data.iter().map(|x| x.to_le_bytes()).flatten().collect::<Vec<u8>>(),
-                }
-            }).unwrap();
+            // put data and hash into mongo_datahash if the data is binded to the merkle tree leaf
+            if !self.data.is_empty() {
+                self.mongo_datahash.update_record({
+                    DataHashRecord {
+                        hash: hash.try_into().unwrap(),
+                        data: self.data.iter().map(|x| x.to_le_bytes()).flatten().collect::<Vec<u8>>(),
+                    }
+                }).unwrap();
+            }
         }
     }
 
@@ -146,7 +149,6 @@ impl MerkleContext {
                 .into_iter()
                 .map(|x| u64::from_le_bytes(x.try_into().unwrap())).collect::<Vec<u64>>()
             });
-
         }
         values[cursor]
     }
