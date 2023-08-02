@@ -1,5 +1,5 @@
 /target
 *.json
 /output
-/playground/wasm
-/playground/target
+crates/playground/wasm
+crates/playground/target

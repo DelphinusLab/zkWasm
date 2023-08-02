@@ -1,13 +1,13 @@
 use anyhow::Result;
 use clap::App;
 use clap::AppSettings;
+use delphinus_zkwasm::circuits::config::MIN_K;
 use log::info;
 use log::warn;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::circuits::config::MIN_K;
-use crate::cli::exec::exec_dry_run;
+use crate::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
 use super::exec::exec_aggregate_create_proof;

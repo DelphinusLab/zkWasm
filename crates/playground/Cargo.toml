@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.72"
-delphinus-zkwasm = { path = "../" }
+delphinus-zkwasm = { path = "../zkwasm" }
 pairing_bn256 = { git = "https://github.com/lanbones/pairing.git" }
-wasmi = { path = "../wasmi" }
+wasmi = { path = "../../third-party/wasmi" }
