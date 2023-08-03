@@ -358,7 +358,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
         configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder);
 
-        let mut plugin_index = 0;
         macro_rules! configure_foreign {
             ($x:ident, $i:expr) => {
                 let builder = $x::new($i);
@@ -383,14 +382,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                     op_bitmaps.insert(op, op.index());
                     op_configs.insert(op, Rc::new(config));
                 }
-
-                plugin_index += 1;
             };
         }
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
         configure_foreign!(ETableContextContHelperTableConfigBuilder, 1);
         configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
-        drop(plugin_index);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![

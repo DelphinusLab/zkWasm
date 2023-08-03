@@ -368,33 +368,20 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ark-std",
- "bitvec",
  "clap",
  "delphinus-zkwasm",
- "downcast-rs",
  "env_logger",
  "halo2_proofs",
  "halo2aggregator-s",
  "hex",
- "lazy_static",
  "log",
  "md5",
  "notify",
- "num-bigint",
- "num-integer",
- "num-traits",
- "parity-wasm",
- "rand",
  "serde",
  "serde_json",
  "sha2",
  "specs",
- "strum",
- "strum_macros",
- "uuid",
- "wabt",
  "wasmi",
- "wast",
 ]
 
 [[package]]
@@ -403,17 +390,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ark-std",
- "bitvec",
- "clap",
  "downcast-rs",
- "env_logger",
  "halo2_proofs",
  "halo2aggregator-s",
  "hex",
  "lazy_static",
  "log",
- "md5",
- "notify",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -422,14 +404,11 @@ dependencies = [
  "rusty-fork",
  "serde",
  "serde_json",
- "sha2",
  "specs",
  "strum",
  "strum_macros",
- "uuid",
  "wabt",
  "wasmi",
- "wast",
 ]
 
 [[package]]
@@ -951,12 +930,6 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
-
-[[package]]
-name = "leb128"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
@@ -1874,22 +1847,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "301abaae475aa91687eb82514b328ab47a211a533026cb25fc3e519b86adfc3c"
 
 [[package]]
-name = "unicode-width"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
-
-[[package]]
-name = "uuid"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
-dependencies = [
- "getrandom",
- "serde",
-]
-
-[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1998,15 +1955,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca6ad05a4870b2bf5fe995117d3728437bd27d7cd5f06f13c17443ef369775a1"
 
 [[package]]
-name = "wasm-encoder"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c64ac98d5d61192cc45c701b7e4bd0b9aff91e2edfc7a088406cfe2288581e2c"
-dependencies = [
- "leb128",
-]
-
-[[package]]
 name = "wasmi"
 version = "0.11.0"
 dependencies = [
@@ -2033,18 +1981,6 @@ dependencies = [
  "num-rational",
  "num-traits",
  "parity-wasm",
-]
-
-[[package]]
-name = "wast"
-version = "47.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02b98502f3978adea49551e801a6687678e6015317d7d9470a67fe813393f2a8"
-dependencies = [
- "leb128",
- "memchr",
- "unicode-width",
- "wasm-encoder",
 ]
 
 [[package]]
