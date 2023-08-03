@@ -98,6 +98,8 @@ impl MerkleContext {
     }
 
     pub fn merkle_address(&mut self, v: u64) {
+        self.data = vec![];
+        self.fetch = false;
         self.address.reduce(v);
     }
 
@@ -152,6 +154,20 @@ impl MerkleContext {
         }
         values[cursor]
     }
+
+    pub fn merkle_fetch_data(&mut self) -> u64 {
+        if self.fetch == false {
+            self.fetch = true;
+            self.data.reverse();
+            self.data.len() as u64
+        } else {
+            self.data.pop().unwrap()
+        }
+    }
+
+    pub fn merkle_put_data(&mut self, v: u64) {
+        self.data.push(v);
+    }
 }
 
 impl MerkleContext {}
@@ -199,14 +215,7 @@ pub fn register_merkle_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
-                if context.fetch == false {
-                    context.fetch = true;
-                    context.data.reverse();
-                    Some(wasmi::RuntimeValue::I64(context.data.len() as i64))
-                } else {
-                    let r = context.data.pop().unwrap();
-                    Some(wasmi::RuntimeValue::I64(r as i64))
-                }
+                Some(wasmi::RuntimeValue::I64(context.merkle_fetch_data() as i64))
             },
         ),
     );
@@ -220,8 +229,6 @@ pub fn register_merkle_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
-                context.data = vec![];
-                context.fetch = false;
                 context.merkle_address(args.nth(0));
                 None
             },
@@ -236,7 +243,7 @@ pub fn register_merkle_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
-                context.data.push(args.nth(0));
+                context.merkle_put_data(args.nth(0));
                 None
             },
         ),
