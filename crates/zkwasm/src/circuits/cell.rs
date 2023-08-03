@@ -119,7 +119,7 @@ macro_rules! define_cell {
                 ctx: &mut Context<'_, F>,
                 value: F,
             ) -> Result<AssignedCell<F, F>, Error> {
-                debug_assert!(
+                assert!(
                     value <= $limit,
                     "assigned value {:?} exceeds the limit {:?}",
                     value,
