@@ -1,3 +1,10 @@
 [workspace]
 members = ["crates/specs", "crates/zkwasm", "crates/playground", "crates/cli"]
 exclude = ["third-party/wasmi"]
+
+[workspace.dependencies]
+anyhow = { version = "1.0.68", features = ["backtrace"] }
+wasmi = { path = "third-party/wasmi" }
+
+[profile.dev]
+opt-level = 3

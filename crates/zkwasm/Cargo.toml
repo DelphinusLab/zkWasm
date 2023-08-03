@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.68"
 ark-std = { version = "0.3.0", features = ["print-trace"] }
 downcast-rs = "1.2.0"
 halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", tag = "bisect-lookup-0.3.2", features = ["unsafe"] }
@@ -17,7 +16,6 @@ num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-traits = "0.2.15"
 wabt = "0.10.0"
-wasmi = { path = "../../third-party/wasmi" }
 lazy_static = "1.4.0"
 rand = "0.8.4"
 specs = { path = "../specs" }
@@ -26,6 +24,8 @@ strum_macros = "0.24.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 parity-wasm = { version = "0.42.0", default-features = false }
+anyhow.workspace = true
+wasmi.workspace = true
 
 [dev-dependencies]
 rusty-fork = "0.3.0"
@@ -34,6 +34,3 @@ rusty-fork = "0.3.0"
 default = []
 checksum = []
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
-
-[profile.dev]
-opt-level = 3
