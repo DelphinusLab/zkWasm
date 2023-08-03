@@ -75,7 +75,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let rem = allocator.alloc_u64_cell();
         let diff = allocator.alloc_u64_cell();
         let pad = allocator.alloc_u64_cell();
-        let res = allocator.alloc_unlimited_cell();
         let rhs_modulus = allocator.alloc_unlimited_cell();
         let size_modulus = allocator.alloc_unlimited_cell();
 
@@ -92,6 +91,44 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let degree_helper = allocator.alloc_unlimited_cell();
 
         let lookup_pow = common_config.pow_table_lookup_cell;
+
+        let eid = common_config.eid_cell;
+        let sp = common_config.sp_cell;
+
+        let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
+            "op_test stack read",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| is_i32.expr(meta),
+            move |meta| rhs.u64_cell.expr(meta),
+            move |____| constant_from!(1),
+        );
+
+        let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
+            "op_test stack read",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(2),
+            move |meta| is_i32.expr(meta),
+            move |meta| lhs.u64_cell.expr(meta),
+            move |____| constant_from!(1),
+        );
+
+        let memory_table_lookup_stack_write = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "op_test stack read",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| is_i32.expr(meta),
+                move |____| constant_from!(1),
+            );
+
+        let res = memory_table_lookup_stack_write.value_cell;
 
         constraint_builder.push(
             "bin_shift op select",
@@ -232,42 +269,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                             - rem.u64_cell.expr(meta) * size_modulus.expr(meta)),
                 ]
             }),
-        );
-
-        let eid = common_config.eid_cell;
-        let sp = common_config.sp_cell;
-
-        let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| rhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| lhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_test stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| res.expr(meta),
-            move |____| constant_from!(1),
         );
 
         Box::new(BinShiftConfig {

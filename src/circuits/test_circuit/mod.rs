@@ -43,7 +43,7 @@ use super::config::zkwasm_k;
 use super::config::CircuitConfigure;
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 52;
+pub const VAR_COLUMNS: usize = 50;
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
