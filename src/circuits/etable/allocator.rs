@@ -292,7 +292,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .map(|_| {
                     let col = cols.next().unwrap();
                     mtable.configure_in_table(meta, "c8e. mtable_lookup in mtable", |meta| {
-                        curr!(meta, col)
+                        vec![curr!(meta, col)]
                     });
                     col
                 })

@@ -544,7 +544,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         external_host_call_table.configure_in_table(
             meta,
             "c8g. external_foreign_call_lookup in foreign table",
-            |meta| external_foreign_call_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
+            |meta| vec![external_foreign_call_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)],
         );
 
         Self {

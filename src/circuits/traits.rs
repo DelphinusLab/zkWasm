@@ -8,6 +8,6 @@ pub(super) trait ConfigureLookupTable<F: FieldExt> {
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Vec<Expression<F>>,
     );
 }

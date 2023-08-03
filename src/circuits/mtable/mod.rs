@@ -349,11 +349,11 @@ impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut ConstraintSystem<F>,
         name: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Vec<Expression<F>>,
     ) {
         meta.lookup_any(name, |meta| {
             vec![(
-                expr(meta),
+                expr(meta).pop().unwrap(),
                 self.encode_cell.expr(meta) * fixed_curr!(meta, self.entry_sel),
             )]
         });
