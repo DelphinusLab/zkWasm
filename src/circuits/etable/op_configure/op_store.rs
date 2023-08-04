@@ -4,7 +4,7 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::rtable::pow_table_encode;
+use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
@@ -46,8 +46,6 @@ pub struct StoreConfig<F: FieldExt> {
     load_leading: AllocatedU64Cell<F>,
     load_picked_byte_proof: AllocatedU8Cell<F>,
 
-    pos_modulus: AllocatedU64Cell<F>,
-
     unchanged_value: AllocatedUnlimitedCell<F>,
     len: AllocatedUnlimitedCell<F>,
     len_modulus: AllocatedUnlimitedCell<F>,
@@ -73,7 +71,8 @@ pub struct StoreConfig<F: FieldExt> {
     memory_table_lookup_heap_write1: AllocatedMemoryTableLookupWriteCell<F>,
     memory_table_lookup_heap_write2: AllocatedMemoryTableLookupWriteCell<F>,
 
-    lookup_pow: AllocatedUnlimitedCell<F>,
+    lookup_pow_modulus: AllocatedUnlimitedCell<F>,
+    lookup_pow_power: AllocatedUnlimitedCell<F>,
 
     address_within_allocated_pages_helper: AllocatedCommonRangeCell<F>,
 }
@@ -106,7 +105,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let load_picked_byte_proof = allocator.alloc_u8_cell();
         let load_leading = allocator.alloc_u64_cell();
 
-        let pos_modulus = allocator.alloc_u64_cell();
+        let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
+        let lookup_pow_power = common_config.pow_table_lookup_power_cell;
 
         let store_value = allocator.alloc_u64_cell();
         let store_value_wrapped = allocator.alloc_unlimited_cell();
@@ -272,7 +272,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                 vec![
                     unchanged_value.expr(meta)
                         - load_tailing.expr(meta)
-                        - load_leading.expr(meta) * pos_modulus.expr(meta) * len_modulus.expr(meta),
+                        - load_leading.expr(meta)
+                            * lookup_pow_modulus.expr(meta)
+                            * len_modulus.expr(meta),
                 ]
             }),
         );
@@ -281,7 +283,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             "op_store pick value2",
             Box::new(move |meta| {
                 vec![
-                    unchanged_value.expr(meta) + load_picked.expr(meta) * pos_modulus.expr(meta)
+                    unchanged_value.expr(meta)
+                        + load_picked.expr(meta) * lookup_pow_modulus.expr(meta)
                         - load_value_in_heap1.expr(meta)
                         - load_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
@@ -294,7 +297,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     unchanged_value.expr(meta)
-                        + store_value_wrapped.expr(meta) * pos_modulus.expr(meta)
+                        + store_value_wrapped.expr(meta) * lookup_pow_modulus.expr(meta)
                         - store_value_in_heap1.expr(meta)
                         - store_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
@@ -307,7 +310,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     load_tailing.expr(meta) + load_tailing_diff.expr(meta) + constant_from!(1)
-                        - pos_modulus.expr(meta),
+                        - lookup_pow_modulus.expr(meta),
                 ]
             }),
         );
@@ -357,15 +360,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             }),
         );
 
-        let lookup_pow = common_config.pow_table_lookup_cell;
-
         constraint_builder.push(
             "op_store pow lookup",
             Box::new(move |meta| {
                 vec![
-                    lookup_pow.expr(meta)
-                        - pow_table_encode(
-                            pos_modulus.expr(meta),
+                    lookup_pow_power.expr(meta)
+                        - pow_table_power_encode(
                             load_block_inner_pos.expr(meta) * constant_from!(8),
                         ),
                 ]
@@ -422,10 +422,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             memory_table_lookup_heap_read2,
             memory_table_lookup_heap_write1,
             memory_table_lookup_heap_write2,
-            lookup_pow,
+            lookup_pow_power,
+            lookup_pow_modulus,
             address_within_allocated_pages_helper,
             load_tailing_diff,
-            pos_modulus,
             len,
             len_modulus,
         })
@@ -488,10 +488,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.len_modulus.assign_bn(ctx, &len_modulus)?;
 
                 let pos_modulus = 1 << (inner_byte_index * 8);
-                self.pos_modulus.assign(ctx, pos_modulus.into())?;
-                self.lookup_pow.assign_bn(
+                self.lookup_pow_modulus.assign(ctx, pos_modulus.into())?;
+                self.lookup_pow_power.assign_bn(
                     ctx,
-                    &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
+                    &pow_table_power_encode(BigUint::from(inner_byte_index * 8)),
                 )?;
 
                 self.is_cross_block.assign_bool(ctx, is_cross_block)?;
@@ -548,11 +548,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
-
-                self.lookup_pow.assign_bn(
-                    ctx,
-                    &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
-                )?;
 
                 self.address_within_allocated_pages_helper.assign(
                     ctx,

@@ -4,7 +4,7 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::rtable::pow_table_encode;
+use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
@@ -68,14 +68,13 @@ pub struct LoadConfig<F: FieldExt> {
     is_sign: AllocatedBitCell<F>,
     is_i32: AllocatedBitCell<F>,
 
-    pos_modulus: AllocatedU64Cell<F>,
-
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_read1: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_read2: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 
-    lookup_pow: AllocatedUnlimitedCell<F>,
+    lookup_pow_modulus: AllocatedUnlimitedCell<F>,
+    lookup_pow_power: AllocatedUnlimitedCell<F>,
 
     address_within_allocated_pages_helper: AllocatedCommonRangeCell<F>,
 
@@ -113,7 +112,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let load_picked = allocator.alloc_u64_cell();
         let load_leading = allocator.alloc_u64_cell();
 
-        let pos_modulus = allocator.alloc_u64_cell();
+        let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
 
         let load_picked_leading_u16 = allocator.alloc_unlimited_cell();
         let load_picked_leading_u16_u8_high = allocator.alloc_u8_cell();
@@ -246,13 +245,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                         - is_eight_bytes.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
                     load_tailing.expr(meta)
-                        + load_picked.expr(meta) * pos_modulus.expr(meta)
-                        + load_leading.expr(meta) * pos_modulus.expr(meta) * len_modulus.expr(meta)
+                        + load_picked.expr(meta) * lookup_pow_modulus.expr(meta)
+                        + load_leading.expr(meta)
+                            * lookup_pow_modulus.expr(meta)
+                            * len_modulus.expr(meta)
                         - load_value_in_heap1.expr(meta)
                         - load_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
                     load_tailing.expr(meta) + load_tailing_diff.expr(meta) + constant_from!(1)
-                        - pos_modulus.expr(meta),
+                        - lookup_pow_modulus.expr(meta),
                 ]
             }),
         );
@@ -331,17 +332,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             }),
         );
 
-        let lookup_pow = common_config.pow_table_lookup_cell;
+        let lookup_pow_power = common_config.pow_table_lookup_power_cell;
 
         constraint_builder.push(
             "op_load pos_modulus",
             Box::new(move |meta| {
                 vec![
-                    lookup_pow.expr(meta)
-                        - pow_table_encode(
-                            pos_modulus.expr(meta),
-                            load_inner_pos.expr(meta) * constant_from!(8),
-                        ),
+                    lookup_pow_power.expr(meta)
+                        - pow_table_power_encode(load_inner_pos.expr(meta) * constant_from!(8)),
                 ]
             }),
         );
@@ -398,9 +396,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             memory_table_lookup_heap_read1,
             memory_table_lookup_heap_read2,
             memory_table_lookup_stack_write,
-            lookup_pow,
+            lookup_pow_power,
             address_within_allocated_pages_helper,
-            pos_modulus,
+            lookup_pow_modulus,
             load_tailing_diff,
 
             degree_helper,
@@ -458,10 +456,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 let len_modulus = BigUint::from(1u64) << (len * 8);
                 let pos_modulus = 1 << (inner_byte_index * 8);
-                self.pos_modulus.assign(ctx, pos_modulus.into())?;
-                self.lookup_pow.assign_bn(
+                self.lookup_pow_modulus.assign(ctx, pos_modulus.into())?;
+                self.lookup_pow_power.assign_bn(
                     ctx,
-                    &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
+                    &pow_table_power_encode(BigUint::from(inner_byte_index * 8)),
                 )?;
 
                 self.is_cross_block.assign_bool(ctx, is_cross_block)?;

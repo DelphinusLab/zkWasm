@@ -92,7 +92,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
     jtable_lookup_cell: AllocatedJumpTableLookupCell<F>,
-    pow_table_lookup_cell: AllocatedUnlimitedCell<F>,
+    pow_table_lookup_modulus_cell: AllocatedUnlimitedCell<F>,
+    pow_table_lookup_power_cell: AllocatedUnlimitedCell<F>,
     bit_table_lookup_cell: AllocatedBitTableLookupCell<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
 
@@ -234,7 +235,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
         let jtable_lookup_cell = allocator.alloc_jump_table_lookup_cell();
-        let pow_table_lookup_cell = allocator.alloc_unlimited_cell();
+        let pow_table_lookup_modulus_cell = allocator.alloc_unlimited_cell();
+        let pow_table_lookup_power_cell = allocator.alloc_unlimited_cell();
         let bit_table_lookup_cell = allocator.alloc_bit_table_lookup_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
 
@@ -258,7 +260,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             itable_lookup_cell,
             brtable_lookup_cell,
             jtable_lookup_cell,
-            pow_table_lookup_cell,
+            pow_table_lookup_modulus_cell,
+            pow_table_lookup_power_cell,
             bit_table_lookup_cell,
             external_foreign_call_lookup_cell,
             circuit_configure: circuit_configure.clone(),
@@ -549,7 +552,10 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {
-            pow_table_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
+            [
+                pow_table_lookup_modulus_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
+                pow_table_lookup_power_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
+            ]
         });
 
         external_host_call_table.configure_in_table(

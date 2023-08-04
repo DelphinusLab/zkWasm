@@ -43,7 +43,7 @@ use super::config::zkwasm_k;
 use super::config::CircuitConfigure;
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 50;
+pub const VAR_COLUMNS: usize = 49;
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
@@ -93,7 +93,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
         let rtable =
-            RangeTableConfig::configure([0; 9].map(|_| meta.lookup_table_column()).into_iter());
+            RangeTableConfig::configure([0; 10].map(|_| meta.lookup_table_column()).into_iter());
         let image_table = ImageTableConfig::configure(meta);
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);

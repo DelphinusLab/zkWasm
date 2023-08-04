@@ -4,7 +4,7 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::rtable::pow_table_encode;
+use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
@@ -29,7 +29,6 @@ use specs::step::StepInfo;
 pub struct BinShiftConfig<F: FieldExt> {
     lhs: AllocatedU64CellWithFlagBitDyn<F>,
     rhs: AllocatedU64Cell<F>,
-    modulus: AllocatedU64Cell<F>,
     round: AllocatedU64Cell<F>,
     rem: AllocatedU64Cell<F>,
     diff: AllocatedU64Cell<F>,
@@ -51,7 +50,8 @@ pub struct BinShiftConfig<F: FieldExt> {
     is_rotr: AllocatedBitCell<F>,
 
     degree_helper: AllocatedUnlimitedCell<F>,
-    lookup_pow: AllocatedUnlimitedCell<F>,
+    lookup_pow_modulus: AllocatedUnlimitedCell<F>,
+    lookup_pow_power: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
@@ -70,7 +70,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let lhs = allocator
             .alloc_u64_with_flag_bit_cell_dyn(constraint_builder, move |meta| is_i32.expr(meta));
         let rhs = allocator.alloc_u64_cell();
-        let modulus = allocator.alloc_u64_cell();
         let round = allocator.alloc_u64_cell();
         let rem = allocator.alloc_u64_cell();
         let diff = allocator.alloc_u64_cell();
@@ -90,7 +89,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
 
         let degree_helper = allocator.alloc_unlimited_cell();
 
-        let lookup_pow = common_config.pow_table_lookup_cell;
+        let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
+        let lookup_pow_power = common_config.pow_table_lookup_power_cell;
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
@@ -171,10 +171,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         constraint_builder.push(
             "bin_shift modulus pow lookup",
             Box::new(move |meta| {
-                vec![
-                    lookup_pow.expr(meta)
-                        - pow_table_encode(modulus.u64_cell.expr(meta), rhs_rem.expr(meta)),
-                ]
+                vec![lookup_pow_power.expr(meta) - pow_table_power_encode(rhs_rem.expr(meta))]
             }),
         );
 
@@ -184,10 +181,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                 vec![
                     is_shr_u.expr(meta)
                         * (rem.u64_cell.expr(meta) + diff.u64_cell.expr(meta) + constant_from!(1)
-                            - modulus.u64_cell.expr(meta)),
+                            - lookup_pow_modulus.expr(meta)),
                     is_shr_u.expr(meta)
                         * (rem.u64_cell.expr(meta)
-                            + round.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
+                            + round.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
                             - lhs.u64_cell.expr(meta)),
                     is_shr_u.expr(meta) * (res.expr(meta) - round.u64_cell.expr(meta)),
                 ]
@@ -200,18 +197,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                 vec![
                     is_shr_s.expr(meta)
                         * (rem.u64_cell.expr(meta)
-                            + round.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
+                            + round.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
                             - lhs.u64_cell.expr(meta)),
                     is_shr_s.expr(meta)
                         * (rem.u64_cell.expr(meta) + diff.u64_cell.expr(meta) + constant_from!(1)
-                            - modulus.u64_cell.expr(meta)),
+                            - lookup_pow_modulus.expr(meta)),
                     is_shr_s.expr(meta)
                         * (res.expr(meta) - round.u64_cell.expr(meta) - pad.u64_cell.expr(meta)),
                     degree_helper.expr(meta)
-                        - (modulus.u64_cell.expr(meta) - constant_from!(1))
+                        - (lookup_pow_modulus.expr(meta) - constant_from!(1))
                             * size_modulus.expr(meta),
                     is_shr_s.expr(meta)
-                        * (pad.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
+                        * (pad.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
                             - lhs.flag_bit_cell.expr(meta) * degree_helper.expr(meta)),
                 ]
             }),
@@ -222,7 +219,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     is_shl.expr(meta)
-                        * (lhs.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
+                        * (lhs.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
                             - round.u64_cell.expr(meta) * size_modulus.expr(meta)
                             - rem.u64_cell.expr(meta)),
                     is_shl.expr(meta)
@@ -238,7 +235,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     is_rotl.expr(meta)
-                        * (lhs.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
+                        * (lhs.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
                             - round.u64_cell.expr(meta) * size_modulus.expr(meta)
                             - rem.u64_cell.expr(meta)),
                     is_rotl.expr(meta)
@@ -258,14 +255,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                         * (rem.u64_cell.expr(meta)
                             + diff.u64_cell.expr(meta)
                             + constant_from!(1u64)
-                            - modulus.u64_cell.expr(meta)),
+                            - lookup_pow_modulus.expr(meta)),
                     is_rotr.expr(meta)
                         * (rem.u64_cell.expr(meta)
-                            + round.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
+                            + round.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
                             - lhs.u64_cell.expr(meta)),
                     is_rotr.expr(meta)
-                        * (res.expr(meta) * modulus.u64_cell.expr(meta)
-                            - round.u64_cell.expr(meta) * modulus.u64_cell.expr(meta)
+                        * (res.expr(meta) * lookup_pow_modulus.expr(meta)
+                            - round.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
                             - rem.u64_cell.expr(meta) * size_modulus.expr(meta)),
                 ]
             }),
@@ -274,7 +271,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         Box::new(BinShiftConfig {
             lhs,
             rhs,
-            modulus,
             round,
             rem,
             diff,
@@ -289,7 +285,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             is_shr_s,
             is_rotl,
             is_rotr,
-            lookup_pow,
+            lookup_pow_modulus,
+            lookup_pow_power,
             memory_table_lookup_stack_read_lhs,
             memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
@@ -391,9 +388,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             .assign(ctx, F::from((right & 0xffff) / size))?;
         self.rhs_rem.assign(ctx, F::from(power))?;
         self.rhs_rem_diff.assign(ctx, F::from(size - 1 - power))?;
-        self.modulus.assign(ctx, modulus)?;
-        self.lookup_pow
-            .assign_bn(ctx, &((BigUint::from(1u64) << (power + 16)) + power))?;
+        self.lookup_pow_modulus.assign(ctx, modulus.into())?;
+        self.lookup_pow_power
+            .assign_bn(ctx, &pow_table_power_encode(BigUint::from(power)))?;
         self.is_i32
             .assign(ctx, if is_eight_bytes { F::zero() } else { F::one() })?;
         self.res.assign(ctx, F::from(value))?;
