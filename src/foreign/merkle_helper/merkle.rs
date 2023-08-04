@@ -19,7 +19,7 @@ use zkwasm_host_circuits::host::ForeignInst::{
 
 use halo2_proofs::pairing::bn256::Fr;
 
-const MERKLE_TREE_HEIGHT:usize = 31;
+const MERKLE_TREE_HEIGHT:usize = 32;
 
 pub struct MerkleContext {
     pub set_root: Reduce<Fr>,
