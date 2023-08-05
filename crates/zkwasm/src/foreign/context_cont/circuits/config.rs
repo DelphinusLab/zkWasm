@@ -33,10 +33,10 @@ impl<F: FieldExt> ForeignTableConfig<F> for ContextContHelperTableConfig<F> {
     fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
-        key: &'static str,
+        _key: &'static str,
         expr: &dyn Fn(&mut VirtualCells<'_, F>) -> Vec<Expression<F>>,
     ) {
-        meta.lookup_any(key, |meta| {
+        meta.lookup_any("context_cont input lookup", |meta| {
             let mut exprs = expr(meta);
 
             vec![
@@ -45,7 +45,7 @@ impl<F: FieldExt> ForeignTableConfig<F> for ContextContHelperTableConfig<F> {
             ]
         });
 
-        meta.lookup_any(key, |meta| {
+        meta.lookup_any("context_cont output lookup", |meta| {
             let mut exprs = expr(meta);
 
             let _ = exprs.remove(0);

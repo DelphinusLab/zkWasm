@@ -87,11 +87,11 @@ impl ExtractContextFromTrace for EventTable {
                 StepInfo::CallHost {
                     plugin: HostPlugin::ContextCont,
                     op_index_in_plugin,
-                    ret_val,
+                    args,
                     ..
                 } => {
                     if *op_index_in_plugin == Op::WriteContext as usize {
-                        *ret_val
+                        Some(args[0])
                     } else {
                         None
                     }

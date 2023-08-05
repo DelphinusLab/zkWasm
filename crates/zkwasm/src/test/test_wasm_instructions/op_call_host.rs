@@ -10,7 +10,9 @@ use crate::test::test_circuit_with_env;
 struct Context {
     acc: u64,
 }
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn finalized(&self) {}
+}
 
 #[test]
 fn test_call_host_external() {

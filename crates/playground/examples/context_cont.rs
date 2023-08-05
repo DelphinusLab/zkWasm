@@ -7,12 +7,13 @@ use anyhow::Result;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use pairing_bn256::bn256::Bn256;
 
-const TMP_PATH: &str = "context_cont.context.tmp";
+const CONTEXT_IN_PATH: &str = "context_cont_in.context.tmp";
+const CONTEXT_OUT_PATH: &str = "context_cont_out.context.tmp";
 
 fn main() -> Result<()> {
     let wasm = std::fs::read("wasm/context_cont.wasm")?;
     let context_in = vec![2, 1];
-    let mut fd = File::create("./context_cont.context.tmp")?;
+    let mut fd = File::create(CONTEXT_IN_PATH)?;
     context_in.into_iter().for_each(|v| {
         let mut buf = u64::to_le_bytes(v);
 
@@ -21,10 +22,24 @@ fn main() -> Result<()> {
 
     let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
 
-    let (circuit, instances) =
-        loader.circuit_with_witness(vec![], vec![0], Some(PathBuf::from(TMP_PATH)), None)?;
+    let (circuit, instances) = loader.circuit_with_witness(
+        vec![],
+        vec![],
+        Some(PathBuf::from(CONTEXT_IN_PATH)),
+        Some(PathBuf::from(CONTEXT_OUT_PATH)),
+    )?;
+    loader.mock_test(&circuit, &instances)?;
 
-    fs::remove_file(TMP_PATH)?;
+    let (circuit, instances) = loader.circuit_with_witness(
+        vec![],
+        vec![],
+        Some(PathBuf::from(CONTEXT_OUT_PATH)),
+        Some(PathBuf::from(CONTEXT_OUT_PATH)),
+    )?;
+    loader.mock_test(&circuit, &instances)?;
 
-    loader.mock_test(&circuit, &instances)
+    fs::remove_file(CONTEXT_IN_PATH)?;
+    fs::remove_file(CONTEXT_OUT_PATH)?;
+
+    Ok(())
 }

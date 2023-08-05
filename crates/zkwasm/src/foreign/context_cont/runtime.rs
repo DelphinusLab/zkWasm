@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::fs::OpenOptions;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
@@ -14,18 +13,6 @@ use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
 
 use super::Op;
-
-// TODO: add `finalize` trait for HostEnv to avoid frequently open file.
-fn append_file(path: &PathBuf, value: u64) {
-    let buf = u64::to_le_bytes(value);
-
-    let mut fd = OpenOptions::new()
-        .append(true)
-        .open(path.as_path())
-        .unwrap();
-
-    fd.write_all(&buf).unwrap()
-}
 
 fn parse_u64_from_file(path: &PathBuf) -> Vec<u64> {
     let mut inputs = vec![];
@@ -61,9 +48,6 @@ impl Context {
     }
 
     fn push_output(&mut self, value: u64) {
-        if let Some(file) = &self.output_file {
-            append_file(&file, value);
-        }
         self.outputs.push(value)
     }
 
@@ -74,7 +58,20 @@ impl Context {
     }
 }
 
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn finalized(&self) {
+        if let Some(output_file) = &self.output_file {
+            let mut fd = std::fs::File::create(output_file).unwrap();
+
+            let mut outputs = self.outputs.clone();
+            outputs.reverse();
+
+            while let Some(v) = outputs.pop() {
+                fd.write(&v.to_le_bytes()).unwrap();
+            }
+        }
+    }
+}
 
 pub fn register_context_cont_foreign(
     env: &mut HostEnv,

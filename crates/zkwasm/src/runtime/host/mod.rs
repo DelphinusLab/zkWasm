@@ -48,7 +48,9 @@ impl MatchForeignOpSignature for ExternalHostCallSignature {
 /// }
 /// impl ForeignContext for Context {}
 /// ```
-pub trait ForeignContext: Downcast {}
+pub trait ForeignContext: Downcast {
+    fn finalized(&self);
+}
 impl_downcast!(ForeignContext);
 
 pub struct ForeignPlugin {

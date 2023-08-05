@@ -135,7 +135,7 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
 
         constraint_builder.lookup(
             CONTEXT_CONT_FOREIGN_TABLE_KEY,
-            "lookup context cont input table",
+            "lookup context cont table",
             Box::new(move |meta| {
                 vec![
                     context_cont_input_index_for_lookup.expr(meta),
