@@ -6,7 +6,9 @@ use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
 
 struct Context;
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn finalized(&self) {}
+}
 
 pub fn register_log_foreign(env: &mut HostEnv) {
     let foreign_log_plugin = env
