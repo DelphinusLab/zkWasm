@@ -62,7 +62,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blspair_g1",
-        ForeignInst::BlspairG1 as usize,
+        ForeignInst::BlsPairG1 as  usize,
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
@@ -82,7 +82,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
     );
     env.external_env.register_function(
         "blspair_g2",
-        ForeignInst::BlspairG2 as usize,
+        ForeignInst::BlsPairG2 as usize,
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
@@ -122,7 +122,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "blspair_pop",
-        ForeignInst::BlspairG3 as usize,
+        ForeignInst::BlsPairG3 as usize,
         ExternalHostCallSignature::Return,
         foreign_blspair_plugin.clone(),
         Rc::new(
