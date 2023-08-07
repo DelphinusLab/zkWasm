@@ -62,7 +62,7 @@ impl KVPairContext {
     pub fn kvpair_setroot(&mut self, v: u64) {
         self.set_root.reduce(v);
         if self.set_root.cursor == 0 {
-            println!("set root: {:?}", &self.set_root.rules[0].bytes_value());
+            log::debug!("set root: {:?}", &self.set_root.rules[0].bytes_value());
             self.mongo_merkle = Some(
                 kvpairhelper::MongoMerkle::construct(
                     [0;32],
