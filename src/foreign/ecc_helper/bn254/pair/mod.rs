@@ -125,7 +125,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
                         | | ab,
                         |x| x + ab
                     ));
-                    //println!("\n\ngt is {:?}", context.gt);
+                    //log::debug!("\n\ngt is {:?}", context.gt);
                 } else {
                     context.limbs.push(args.nth(0));
                     context.input_cursor += 1;
@@ -145,7 +145,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
                 let context = context.downcast_mut::<BN254PairContext>().unwrap();
                 if context.result_cursor == 0 {
                     let gt = context.gt.unwrap();
-                    println!("\n\ngt is {:?}", context.gt);
+                    log::debug!("\n\ngt is {:?}", context.gt);
                     context.bn254_gt_to_limbs(gt);
                 }
                 let ret = Some(wasmi::RuntimeValue::I64(context.result_limbs[context.result_cursor] as i64));

@@ -72,11 +72,11 @@ impl BabyJubjubSumContext {
                 assert!(self.limbs.len() == LIMBNB*2);
                 let coeff = fetch_biguint(&self.coeffs.to_vec());
                 let g1 = fetch_g1(&self.limbs.to_vec());
-                println!("acc is {:?}", self.acc);
-                println!("g1 is {:?}", g1);
-                println!("coeff is {:?} {}", coeff, self.coeffs.len());
+                log::debug!("acc is {:?}", self.acc);
+                log::debug!("g1 is {:?}", g1);
+                log::debug!("coeff is {:?} {}", coeff, self.coeffs.len());
                 self.acc = self.acc.projective().add(&g1.mul_scalar(&coeff).projective()).affine();
-                println!("msm result: {:?}", self.acc);
+                log::debug!("msm result: {:?}", self.acc);
                 self.babyjubjub_result_to_limbs(self.acc.clone());
             },
             _ => {()}
