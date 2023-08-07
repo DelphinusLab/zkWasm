@@ -97,7 +97,7 @@ impl PoseidonContext {
         assert!(self.buf.len() == 8);
         if self.generator.cursor == 0 {
             self.hasher.as_ref().map(|s| {
-                println!("perform hash with {:?}", self.buf);
+                log::debug!("perform hash with {:?}", self.buf);
                 let r = s.clone().update_exact(&self.buf.clone().try_into().unwrap());
                 let dwords:Vec<u8> = r.to_repr().to_vec();
                 self.generator.values = dwords.chunks(8).map(|x| {
@@ -126,7 +126,7 @@ pub fn register_poseidon_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<PoseidonContext>().unwrap();
-                println!("buf len is {}", context.buf.len());
+                log::debug!("buf len is {}", context.buf.len());
                 context.poseidon_new(args.nth::<u64>(0) as usize);
                 None
             },

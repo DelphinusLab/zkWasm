@@ -109,7 +109,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
                         }
                     };
                     let ab = pairing(&g1, &g2);
-                    println!("gt {:?}", ab);
+                    log::debug!("gt {:?}", ab);
                     context.bls381_gt_to_limbs(ab);
                 } else {
                     context.limbs.push(args.nth(0));
