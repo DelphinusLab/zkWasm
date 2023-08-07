@@ -3196,7 +3196,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=heng/poseidon-opt#34e81a3b44cf2f607b5fecdb91717cd15dff90ee"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#84a279670255bc1334540ce649f8098fb7f124d0"
 dependencies = [
  "ark-std",
  "clap",
