@@ -1,9 +1,9 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::external_host_call_table::ExternalHostCallSignature;
 use crate::types::ValueType;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Signature {
     pub params: Vec<ValueType>,
     pub return_type: Option<ValueType>,
@@ -38,7 +38,7 @@ impl HostFunctionDesc {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HostPlugin {
     HostInput = 0,
     Sha256,

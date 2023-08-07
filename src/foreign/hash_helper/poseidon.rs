@@ -3,7 +3,7 @@ use crate::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bn256::Fr;
 use ff::PrimeField;
 use poseidon::Poseidon;
-use zkwasm_host_circuits::host::poseidon::POSEIDON_HASHER;
+pub use zkwasm_host_circuits::host::poseidon::POSEIDON_HASHER;
 
 use zkwasm_host_circuits::host::{
     Reduce, ReduceRule
@@ -42,7 +42,7 @@ pub struct Generator {
 }
 
 impl Generator {
-    fn gen(&mut self) -> u64 {
+    pub fn gen(&mut self) -> u64 {
         let r = self.values[self.cursor];
         self.cursor += 1;
         if self.cursor == 4 {
@@ -52,7 +52,7 @@ impl Generator {
     }
 }
 
-fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
+pub fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
     Reduce {
         cursor: 0,
         rules

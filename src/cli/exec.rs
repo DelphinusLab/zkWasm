@@ -1,29 +1,31 @@
 use crate::cli::args::parse_args;
 #[cfg(feature = "checksum")]
 use crate::image_hasher::ImageHasher;
-
 use crate::profile::Profiler;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::CompiledImage;
-use crate::runtime::ExecutionResult;
 use anyhow::Result;
+use halo2_proofs::arithmetic::Engine;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::pairing::bn256::Bn256;
-use halo2_proofs::pairing::bn256::Fr;
-use halo2_proofs::pairing::bn256::G1Affine;
+pub use halo2_proofs::pairing::bn256::Bn256;
+pub use halo2_proofs::pairing::bn256::Fr;
+pub use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::plonk::verify_proof;
 use halo2_proofs::plonk::SingleVerifier;
+use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsVerifier;
-use halo2aggregator_s::circuit_verifier::circuit::AggregatorCircuit;
-use halo2aggregator_s::circuits::utils::load_instance;
-use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
+use halo2_proofs::poly::commitment::Params;
+pub use halo2aggregator_s::circuit_verifier::circuit::AggregatorCircuit;
+use halo2aggregator_s::circuit_verifier::build_aggregate_verify_circuit;
+pub use halo2aggregator_s::circuits::utils::load_instance;
+pub use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
 use halo2aggregator_s::circuits::utils::load_or_build_vkey;
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::load_proof;
-use halo2aggregator_s::circuits::utils::load_vkey;
+pub use halo2aggregator_s::circuits::utils::load_vkey;
 use halo2aggregator_s::circuits::utils::run_circuit_unsafe_full_pass;
-use halo2aggregator_s::circuits::utils::store_instance;
+pub use halo2aggregator_s::circuits::utils::store_instance;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::solidity_verifier::codegen::solidity_aux_gen;
 use halo2aggregator_s::solidity_verifier::solidity_render;
@@ -37,22 +39,21 @@ use notify::RecursiveMode;
 use notify::Watcher;
 use serde::Deserialize;
 use serde::Serialize;
-use specs::ExecutionTable;
+pub use specs::ExecutionTable;
 use specs::Tables;
 use std::fs;
+pub use specs::CompilationTable;
 #[cfg(feature = "checksum")]
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use wasmi::tracer::Tracer;
-use wasmi::ImportsBuilder;
+use wasmi::{ImportsBuilder, RuntimeValue};
 use wasmi::Module;
 use wasmi::NotStartedModuleRef;
-use wasmi::RuntimeValue;
-
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
-use crate::foreign::log_helper::register_log_foreign;
+use crate::foreign::log_helper::{register_log_foreign, register_log_output_foreign};
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::merkle_helper::merkle::register_merkle_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
@@ -91,6 +92,7 @@ pub fn compile_image<'a>(
     register_sha256_foreign(&mut env);
     register_poseidon_foreign(&mut env);
     register_babyjubjubsum_foreign(&mut env);
+    register_log_output_foreign(&mut env);
     env.finalize();
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
@@ -134,42 +136,12 @@ pub fn build_circuit_without_witness(
     builder.build_circuit::<Fr>()
 }
 
-fn exec_image(
+pub fn exec_image(
     wasm_binary: &Vec<u8>,
     function_name: &str,
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
-) -> Result<Option<RuntimeValue>> {
-    let (mut env, _) =
-        HostEnv::new_with_full_foreign_plugins(public_inputs.clone(), private_inputs.clone());
-
-    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
-
-    let imports = ImportsBuilder::new().with_resolver("env", &env);
-
-    let compiler = WasmInterpreter::new();
-    let compiled_module = compiler
-        .compile(
-            &module,
-            &imports,
-            &env.function_description_table(),
-            function_name,
-        )
-        .expect("file cannot be complied");
-
-    let r = compiled_module.dry_run(&mut env);
-
-    env.display_time_profile();
-
-    r
-}
-
-fn exec_image_trace(
-    wasm_binary: &Vec<u8>,
-    function_name: &str,
-    public_inputs: &Vec<u64>,
-    private_inputs: &Vec<u64>,
-) -> Result<ExecutionResult<RuntimeValue>> {
+) -> Result<(Vec<u64>, HostEnv)> {
     let (mut env, wasm_runtime_io) =
         HostEnv::new_with_full_foreign_plugins(public_inputs.clone(), private_inputs.clone());
 
@@ -187,50 +159,91 @@ fn exec_image_trace(
         )
         .expect("file cannot be complied");
 
-    let r = compiled_module.run(&mut env, wasm_runtime_io);
+    let (_, outputs) = compiled_module.dry_run(&mut env, wasm_runtime_io)?;
 
     env.display_time_profile();
 
-    r
+    Ok((outputs, env))
 }
 
-fn build_circuit_with_witness(
+pub fn exec_image_trace(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<(ZkWasmCircuitBuilder, Vec<u64>, HostEnv)> {
+    let (mut env, wasm_runtime_io) =
+        HostEnv::new_with_full_foreign_plugins(public_inputs.clone(), private_inputs.clone());
+
+    let module = wasmi::Module::from_buffer(wasm_binary).expect("failed to load wasm");
+
+    let imports = ImportsBuilder::new().with_resolver("env", &env);
+
+    let compiler = WasmInterpreter::new();
+    let compiled_module = compiler
+        .compile(
+            &module,
+            &imports,
+            &env.function_description_table(),
+            function_name,
+        )
+        .expect("file cannot be complied");
+
+    let r = compiled_module.run(&mut env, wasm_runtime_io)?;
+
+    env.display_time_profile();
+
+    let builder = ZkWasmCircuitBuilder {
+        tables: r.tables,
+        public_inputs_and_outputs: r.public_inputs_and_outputs,
+    };
+
+    Ok((builder, r.outputs, env))
+}
+
+pub fn build_circuit_with_witness(
     wasm_binary: &Vec<u8>,
     function_name: &str,
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
 ) -> Result<(TestCircuit<Fr>, Vec<Fr>)> {
-    let execution_result =
+    let (builder, outputs, _) =
         exec_image_trace(wasm_binary, function_name, public_inputs, private_inputs)?;
 
-    execution_result.tables.profile_tables();
-
-    let instance: Vec<Fr> = execution_result
+    let instance: Vec<Fr> = builder
         .public_inputs_and_outputs
         .clone()
         .iter()
         .map(|v| (*v).into())
         .collect();
 
-    let builder = ZkWasmCircuitBuilder {
-        tables: execution_result.tables,
-        public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
-    };
+    builder.tables.profile_tables();
 
     println!("output:");
-    println!("{:?}", execution_result.outputs);
+    println!("{:?}", outputs);
 
     Ok((builder.build_circuit(), instance))
+}
+
+fn build_tables_and_outputs(
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<(Tables, Vec<u64>, Vec<u64>, HostEnv)>{
+    let (builder, outputs, env) = exec_image_trace(wasm_binary, function_name, public_inputs, private_inputs)?;
+
+    Ok((builder.build_circuit_without_configure::<Fr>().tables, builder.public_inputs_and_outputs, outputs, env))
 }
 
 pub fn exec_setup(
     zkwasm_k: u32,
     aggregate_k: u32,
-    prefix: &'static str,
+    prefix: &str,
     wasm_binary: &Vec<u8>,
     entry: &str,
     output_dir: &PathBuf,
-) {
+) -> TestCircuit<Fr> {
     let circuit = build_circuit_without_witness(wasm_binary, entry);
 
     info!("Setup Params and VerifyingKey");
@@ -276,6 +289,8 @@ pub fn exec_setup(
 
         load_or_build_unsafe_params::<Bn256>(aggregate_k, Some(params_path))
     };
+
+    circuit
 }
 
 #[cfg(feature = "checksum")]
@@ -344,7 +359,7 @@ pub fn exec_dry_run_service(
                                 sequence.public_inputs.iter().map(|s| s.as_str()).collect(),
                             );
 
-                            let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
+                            let (mut env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
                                 public_inputs,
                                 private_inputs,
                             );
@@ -360,12 +375,12 @@ pub fn exec_dry_run_service(
                                 )
                                 .expect("file cannot be complied");
 
-                            let r = compiled_module.dry_run(&mut env).unwrap();
+                            let r = compiled_module.dry_run(&mut env, wasm_runtime_io).unwrap();
                             println!("return value: {:?}", r);
 
                             fs::write(
                                 Path::new(&format!("{}.done", path.to_str().unwrap())),
-                                if let Some(r) = r {
+                                if let Some(r) = r.0 {
                                     match r {
                                         RuntimeValue::I32(v) => v.to_string(),
                                         RuntimeValue::I64(v) => v.to_string(),
@@ -404,25 +419,91 @@ pub fn exec_dry_run(
     Ok(())
 }
 
-pub fn exec_create_proof(
-    prefix: &'static str,
-    zkwasm_k: u32,
+pub fn exec_gen_witness(
     wasm_binary: &Vec<u8>,
     function_name: &str,
-    output_dir: &PathBuf,
     public_inputs: &Vec<u64>,
     private_inputs: &Vec<u64>,
+) -> Result<(Tables, Vec<u64>, Vec<u64>, HostEnv)> {
+    build_tables_and_outputs(wasm_binary, function_name, public_inputs, private_inputs)
+}
+
+pub fn exec_create_proof_from_witness(
+    compilation_tables: CompilationTable,
+    execution_tables: ExecutionTable,
+    instance: &[u64],
+    params: &Params<<Bn256 as Engine>::G1Affine>,
+    vkey: VerifyingKey<<Bn256 as Engine>::G1Affine>,
+) -> Result<Vec<u8>> {
+    let circuit = TestCircuit::new(Tables{
+        compilation_tables,
+        execution_tables,
+    });
+    let mut instance: Vec<Fr> = instance
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+
+    let mut instances = vec![];
+
+    #[cfg(feature = "checksum")]
+    instances.push(circuit.tables.compilation_tables.hash());
+
+    instances.append(&mut instance);
+
+    Ok(load_or_create_proof::<Bn256, _>(
+        params,
+        vkey,
+        circuit.clone(),
+        &[&instances],
+        None,
+        TranscriptHash::Poseidon,
+        false,
+    ))
+}
+
+pub fn verify_proof_v2(
+    public_inputs_size: usize,
+    instance: &[u64],
+    params: &Params<<Bn256 as Engine>::G1Affine>,
+    vkey: VerifyingKey<<Bn256 as Engine>::G1Affine>,
+    proof: &[u8]
+) {
+    let instances = {
+        let mut instances = vec![];
+
+        // #[cfg(feature = "checksum")]
+        // instances.push(hash_image(wasm_binary, function_name));
+
+        instances.append(&mut instance.iter()
+                        .map(|v| Fr::from(*v))
+                        .collect());
+
+        instances
+    };
+
+    let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
+    let strategy = SingleVerifier::new(&params_verifier);
+
+    verify_proof(
+        &params_verifier,
+        &vkey,
+        strategy,
+        &[&[&instances]],
+        &mut PoseidonRead::init(proof),
+    )
+    .unwrap();
+
+    info!("Verifing proof passed");
+}
+
+fn exec_create_proof_from_circuit(
+    prefix: &str,
+    zkwasm_k: u32,
+    output_dir: &PathBuf,
+    circuit: TestCircuit<Fr>,
+    mut instance: Vec<Fr>,
 ) -> Result<()> {
-    let (circuit, mut instance) =
-        build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs)?;
-
-    {
-        store_instance(
-            &vec![instance.clone()],
-            &output_dir.join(format!("{}.{}.instance.data", prefix, 0)),
-        );
-    }
-
     let mut instances = vec![];
 
     #[cfg(feature = "checksum")]
@@ -465,6 +546,28 @@ pub fn exec_create_proof(
     info!("Proof has been created.");
 
     Ok(())
+}
+
+pub fn exec_create_proof(
+    prefix: &'static str,
+    zkwasm_k: u32,
+    wasm_binary: &Vec<u8>,
+    function_name: &str,
+    output_dir: &PathBuf,
+    public_inputs: &Vec<u64>,
+    private_inputs: &Vec<u64>,
+) -> Result<()> {
+    let (circuit, instance) =
+        build_circuit_with_witness(wasm_binary, function_name, public_inputs, private_inputs)?;
+
+    {
+        store_instance(
+            &vec![instance.clone()],
+            &output_dir.join(format!("{}.{}.instance.data", prefix, 0)),
+        );
+    }
+
+    exec_create_proof_from_circuit(prefix, zkwasm_k, output_dir, circuit, instance)
 }
 
 #[allow(unused_variables)]
@@ -588,6 +691,82 @@ pub fn exec_aggregate_create_proof(
     );
 }
 
+pub fn exec_create_aggregated_proof_from_witness(
+    params: &Params<<Bn256 as Engine>::G1Affine>,
+    vkeys: Vec<VerifyingKey<<Bn256 as Engine>::G1Affine>>,
+    aggregate_params: &Params<<Bn256 as Engine>::G1Affine>,
+    aggregate_vkey_path: &PathBuf,
+    // aggregate_vkey: VerifyingKey<<Bn256 as Engine>::G1Affine>,
+    proofs: Vec<Vec<u8>>,
+    instance: &Vec<Vec<u64>>,
+    )->Result<(Vec<u8>, Vec<Fr>)>{
+    let mut instances = vec![];
+    for item in instance.iter(){
+        let mut new_instance: Vec<Vec<Fr>> = vec![];
+        let new_item: Vec<Fr> = item
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+        new_instance.push(new_item);
+        instances.push(new_instance);
+    }
+
+
+    let public_inputs_size = instances.iter().fold(0usize, |acc, x| {
+        usize::max(acc, x.iter().fold(0, |acc, x| usize::max(acc, x.len())))
+    });
+    let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
+
+
+
+    let (circuit, instances) = build_aggregate_verify_circuit::<Bn256>(
+            &params_verifier,
+            &vkeys[..].iter().collect::<Vec<_>>(),
+            instances.iter().collect(),
+            proofs,
+            TranscriptHash::Poseidon,
+            vec![],
+        );
+
+    let aggregate_vkey = load_or_build_vkey::<Bn256, _>(&aggregate_params, &circuit, Some(aggregate_vkey_path));
+    let proof = load_or_create_proof::<Bn256, _>(
+        &aggregate_params,
+        aggregate_vkey,
+        circuit.clone(),
+        &[&instances],
+        None,
+        TranscriptHash::Sha,
+        false,
+    );
+
+    Ok((proof, instances))
+}
+
+pub fn verify_aggregate_proof(
+    params: &Params<<Bn256 as Engine>::G1Affine>,
+    vkey: VerifyingKey<<Bn256 as Engine>::G1Affine>,
+    proof: &Vec<u8>,
+    instances: &Vec<Vec<Fr>>,
+    n_proofs: usize,
+) {
+    let public_inputs_size: u32 = 6 + 3 * n_proofs as u32;
+
+    let params_verifier: ParamsVerifier<Bn256> =
+        params.verifier(public_inputs_size as usize).unwrap();
+    let strategy = SingleVerifier::new(&params_verifier);
+
+    verify_proof(
+        &params_verifier,
+        &vkey,
+        strategy,
+        &[&instances.iter().map(|x| &x[..]).collect::<Vec<_>>()[..]],
+        &mut ShaRead::<_, _, _, sha2::Sha256>::init(&proof[..]),
+    )
+    .unwrap();
+
+    info!("Verifing Aggregate Proof Passed.")
+}
+
 pub fn exec_verify_aggregate_proof(
     aggregate_k: u32,
     output_dir: &PathBuf,
@@ -703,4 +882,111 @@ pub fn exec_solidity_aggregate_proof(
         proof,
         &output_dir.join(format!("{}.{}.aux.data", AGGREGATE_PREFIX, 0)),
     );
+}
+
+#[cfg(test)]
+mod tests{
+
+    use crate::cli::exec::{exec_gen_witness, exec_create_proof_from_witness};
+    use halo2_proofs::poly::commitment::ParamsVerifier;
+    use halo2_proofs::plonk::verify_proof;
+    use halo2_proofs::plonk::SingleVerifier;
+    use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+    use halo2_proofs::pairing::bn256::Bn256;
+    use halo2aggregator_s::circuits::utils::load_vkey;
+    use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
+    use halo2_proofs::pairing::bn256::Fr;
+    use crate::circuits::TestCircuit;
+    use crate::circuits::config::init_zkwasm_runtime;
+    use std::path::PathBuf;
+    use std::fs;
+
+    #[test]
+    fn test_create_proof(){
+        // generate witness and instances
+        let public_inputs: Vec<u64> = vec![133, 2];
+        let private_inputs: Vec<u64> = vec![];
+        const WASM_FILE_PATH: &str = "wasm/wasm_output.wasm";
+        let wasm_binary = fs::read(&WASM_FILE_PATH).unwrap();
+        const FUNCTION_NAME: &str = "zkmain";
+        let (tables, instance, _output, _env) = exec_gen_witness(
+            &wasm_binary,
+            FUNCTION_NAME,
+            &public_inputs,
+            &private_inputs,
+            ).unwrap();
+
+        let output_dir = PathBuf::from("./output");
+
+        const ZKWASM_K: u32 = 18;
+    // Setup ZkWasm Params
+    let params = {
+        let params_path = &output_dir.join(format!("K{}.params", ZKWASM_K));
+
+        if params_path.exists() {
+            println!("Found Params with K = {} at {:?}", ZKWASM_K, params_path);
+        } else {
+            println!("Create Params with K = {} to {:?}", ZKWASM_K, params_path);
+        }
+
+        load_or_build_unsafe_params::<Bn256>(ZKWASM_K, Some(params_path))
+    };
+
+    // Setup ZkWasm Vkey
+    let vkey = {
+        let vk_path = &output_dir.join(format!("{}.{}.vkey.data", "zkwasm", 0));
+
+        if vk_path.exists() {
+            println!("Found Verifying at {:?}", vk_path);
+        } else {
+            panic!("vkey not found");
+        }
+
+        init_zkwasm_runtime(ZKWASM_K, &tables.compilation_tables);
+        load_vkey::<Bn256, TestCircuit<_>>(&params, vk_path)
+    };
+        // create proof
+        let proof = exec_create_proof_from_witness(
+            tables.compilation_tables,
+            tables.execution_tables,
+            &instance,
+            &params,
+            vkey,
+        ).unwrap();
+
+
+        {
+            let public_inputs_size = 64;
+    let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
+    let strategy = SingleVerifier::new(&params_verifier);
+
+    // verify
+    let instance: Vec<Fr> = instance
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+
+    // load vkey again
+    let vkey = {
+        let vk_path = &output_dir.join(format!("{}.{}.vkey.data", "zkwasm", 0));
+
+        if vk_path.exists() {
+            println!("Found Verifying at {:?}", vk_path);
+        } else {
+            panic!("vkey not found");
+        }
+
+        load_vkey::<Bn256, TestCircuit<_>>(&params, vk_path)
+    };
+    verify_proof(
+        &params_verifier,
+        &vkey,
+        strategy,
+        &[&[&instance]],
+        &mut PoseidonRead::init(&proof[..]),
+    )
+    .unwrap();
+    println!("verify proof success");
+        }
+    }
 }

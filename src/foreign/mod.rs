@@ -9,6 +9,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+use crate::foreign::log_helper::register_log_output_foreign;
 
 use self::log_helper::register_log_foreign;
 use self::require_helper::register_require_foreign;
@@ -72,6 +73,7 @@ impl HostEnv {
         register_sha256_foreign(&mut env);
         register_poseidon_foreign(&mut env);
         register_babyjubjubsum_foreign(&mut env);
+        register_log_output_foreign(&mut env);
 
         env.finalize();
 

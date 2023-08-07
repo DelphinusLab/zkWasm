@@ -15,7 +15,7 @@ use crate::mtable::MemoryReadSize;
 use crate::mtable::MemoryStoreSize;
 use crate::types::ValueType;
 use num_bigint::BigUint;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::collections::HashSet;
 use strum_macros::EnumIter;
 
@@ -105,14 +105,14 @@ impl OpcodeClassPlain {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnaryOp {
     Ctz,
     Clz,
     Popcnt,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BinOp {
     Add,
     Sub,
@@ -123,7 +123,7 @@ pub enum BinOp {
     SignedRem,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ShiftOp {
     Shl,
     UnsignedShr,
@@ -132,7 +132,7 @@ pub enum ShiftOp {
     Rotr,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, EnumIter, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, EnumIter, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BitOp {
     And = 0,
     Or = 1,
@@ -149,7 +149,7 @@ impl BitOp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RelOp {
     Eq,
     Ne,
@@ -163,26 +163,26 @@ pub enum RelOp {
     UnsignedLe,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, EnumIter, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, EnumIter, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TestOp {
     Eqz,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConversionOp {
     I32WrapI64,
     I64ExtendI32s,
     I64ExtendI32u,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BrTarget {
     pub drop: u32,
     pub keep: Vec<ValueType>,
     pub dst_pc: u32,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Opcode {
     LocalGet {
         vtype: VarType,
@@ -501,7 +501,7 @@ impl Into<OpcodeClassPlain> for Opcode {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InstructionTableEntry {
     pub fid: u32,
     pub iid: u32,
@@ -521,7 +521,7 @@ impl InstructionTableEntry {
         bn
     }
 }
-#[derive(Default, Serialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct InstructionTable(Vec<InstructionTableEntry>);
 
 impl InstructionTable {
