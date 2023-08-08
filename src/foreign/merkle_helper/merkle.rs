@@ -110,7 +110,6 @@ impl MerkleContext {
             let index = (address as u64) + (1u64<<MERKLE_TREE_HEIGHT) - 1;
             let mt = self.mongo_merkle.as_mut().expect("merkle db not initialized");
             let hash = self.set.rules[0].bytes_value().unwrap();
-            println!("update leaf data with proof {:?}", hash);
             mt.update_leaf_data_with_proof(
                 index,
                 &hash

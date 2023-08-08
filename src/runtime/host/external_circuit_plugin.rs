@@ -71,25 +71,23 @@ impl ModuleImportResolver for ExternalCircuitEnv {
         function_name: &str,
         signature: &wasmi::Signature,
     ) -> Result<wasmi::FuncRef, wasmi::Error> {
-        for (name, function) in &self.functions {
-            if name == function_name {
-                if function.sig.match_wasmi_signature(signature) {
-                    return Ok(FuncInstance::alloc_host(
-                        signature.clone(),
-                        function.op_index,
-                    ));
-                } else {
-                    return Err(wasmi::Error::Instantiation(format!(
-                        "Export `{}` doesnt match expected type {:?}",
-                        function_name, signature
-                    )));
-                }
+        if let Some(function) = self.functions.get(function_name) {
+            if function.sig.match_wasmi_signature(signature) {
+                Ok(FuncInstance::alloc_host(
+                    signature.clone(),
+                    function.op_index,
+                ))
+            } else {
+                Err(wasmi::Error::Instantiation(format!(
+                    "Export `{}` doesnt match expected type {:?}",
+                    function_name, signature
+                )))
             }
+        } else {
+            Err(wasmi::Error::Instantiation(format!(
+                "Export {} not found",
+                function_name
+            )))
         }
-
-        return Err(wasmi::Error::Instantiation(format!(
-            "Export {} not found",
-            function_name
-        )));
     }
 }
