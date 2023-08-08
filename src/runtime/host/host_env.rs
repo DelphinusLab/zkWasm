@@ -56,13 +56,10 @@ impl HostEnv {
     pub fn finalize(&mut self) {
         let mut lookup = HashMap::<usize, HostFunction>::new();
 
-        let mut internal_op_allocator_offset = self.external_env.functions.len();
+        let mut internal_op_allocator_offset = 0;
 
         for (name, op) in &self.external_env.functions {
-            assert!(
-                op.op_index < internal_op_allocator_offset,
-                "Specify op index too large."
-            );
+            internal_op_allocator_offset = usize::max(internal_op_allocator_offset, op.op_index);
 
             lookup
                 .insert(
@@ -81,6 +78,8 @@ impl HostEnv {
                 )
                 .map(|_| panic!("conflicting op index of foreign function"));
         }
+
+        internal_op_allocator_offset += 1;
 
         for (name, op) in &mut self.internal_env.functions {
             op.index = Some(internal_op_allocator_offset);
