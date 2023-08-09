@@ -70,7 +70,7 @@ pub fn register_log_output_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "wasm_log_output",
-        25 as usize,
+        std::mem::variant_count::<zkwasm_host_circuits::host::ForeignInst>(),
         ExternalHostCallSignature::Argument,
         foreign_output_plugin,
         get_output,
