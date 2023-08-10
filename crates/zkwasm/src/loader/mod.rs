@@ -41,6 +41,13 @@ mod err;
 
 const ENTRY: &str = "zkmain";
 
+pub struct ExecutionArg {
+    pub public_inputs: Vec<u64>,
+    pub private_inputs: Vec<u64>,
+    pub context_input: Option<PathBuf>,
+    pub context_output: Option<PathBuf>,
+}
+
 pub struct ZkWasmLoader<E: MultiMillerLoop> {
     k: u32,
     module: wasmi::Module,
@@ -142,18 +149,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 }
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
-    pub fn dry_run(
-        &self,
-        public_inputs: Vec<u64>,
-        private_inputs: Vec<u64>,
-        context_input: Option<PathBuf>,
-        context_output: Option<PathBuf>,
-    ) -> Result<Option<RuntimeValue>> {
+    pub fn dry_run(&self, arg: ExecutionArg) -> Result<Option<RuntimeValue>> {
         let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
-            public_inputs,
-            private_inputs,
-            context_input,
-            context_output,
+            arg.public_inputs,
+            arg.private_inputs,
+            arg.context_input,
+            arg.context_output,
         );
 
         let compiled_module = self.compile(&env)?;
@@ -165,18 +166,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         r
     }
 
-    pub fn run(
-        &self,
-        public_inputs: Vec<u64>,
-        private_inputs: Vec<u64>,
-        context_input: Option<PathBuf>,
-        context_output: Option<PathBuf>,
-    ) -> Result<ExecutionResult<RuntimeValue>> {
+    pub fn run(&self, arg: ExecutionArg) -> Result<ExecutionResult<RuntimeValue>> {
         let (mut env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
-            public_inputs,
-            private_inputs,
-            context_input,
-            context_output,
+            arg.public_inputs,
+            arg.private_inputs,
+            arg.context_input,
+            arg.context_output,
         );
 
         let compiled_module = self.compile(&env)?;
@@ -192,13 +187,9 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
     pub fn circuit_with_witness(
         &self,
-        public_inputs: Vec<u64>,
-        private_inputs: Vec<u64>,
-        context_input: Option<PathBuf>,
-        context_output: Option<PathBuf>,
+        arg: ExecutionArg,
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
-        let execution_result =
-            self.run(public_inputs, private_inputs, context_input, context_output)?;
+        let execution_result = self.run(arg)?;
 
         #[allow(unused_mut)]
         let mut instance: Vec<E::Scalar> = execution_result
