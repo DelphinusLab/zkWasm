@@ -35,7 +35,6 @@ pub struct BinConfig<F: FieldExt> {
     d: AllocatedU64Cell<F>,
     d_flag_helper_diff: AllocatedCommonRangeCell<F>,
 
-    res: AllocatedUnlimitedCell<F>,
     aux1: AllocatedU64Cell<F>,
     aux2: AllocatedU64Cell<F>,
     aux3: AllocatedU64Cell<F>,
@@ -318,7 +317,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             is_i32,
             d,
             d_flag_helper_diff,
-            res,
             aux1,
             aux2,
             aux3,
@@ -452,7 +450,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
         self.normalized_lhs.assign(ctx, normalized_lhs.into())?;
         self.normalized_rhs.assign(ctx, normalized_rhs.into())?;
 
-        self.res.assign(ctx, value.into())?;
         self.size_modulus
             .assign_bn(ctx, &(BigUint::from(1u64) << shift))?;
 
