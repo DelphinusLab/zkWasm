@@ -43,7 +43,7 @@ use super::config::zkwasm_k;
 use super::config::CircuitConfigure;
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 50;
+pub const VAR_COLUMNS: usize = 49;
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
@@ -121,6 +121,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &foreign_table_configs,
             &circuit_configure.opcode_selector,
         );
+
+        assert_eq!(cols.count(), 0);
 
         #[cfg(feature = "checksum")]
         let checksum_config = CheckSumConfig::configure(meta);

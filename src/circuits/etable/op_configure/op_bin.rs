@@ -37,7 +37,6 @@ pub struct BinConfig<F: FieldExt> {
 
     aux1: AllocatedU64Cell<F>,
     aux2: AllocatedU64Cell<F>,
-    aux3: AllocatedU64Cell<F>,
 
     overflow: AllocatedBitCell<F>,
     is_add: AllocatedBitCell<F>,
@@ -81,7 +80,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
 
         let aux1 = allocator.alloc_u64_cell();
         let aux2 = allocator.alloc_u64_cell();
-        let aux3 = allocator.alloc_u64_cell();
 
         let overflow = allocator.alloc_bit_cell();
         let is_add = allocator.alloc_bit_cell();
@@ -156,6 +154,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             }),
         );
 
+        // cs: size_modulus = if is_i32 { 1 << 32 } else { 1 << 64 }
         constraint_builder.push(
             "bin: size modulus",
             Box::new(move |meta| {
@@ -210,14 +209,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     (lhs.u64_cell.expr(meta)
-                        - rhs.u64_cell.expr(meta) * aux1.u64_cell.expr(meta)
-                        - aux2.u64_cell.expr(meta))
+                        - rhs.u64_cell.expr(meta) * d.u64_cell.expr(meta)
+                        - aux1.u64_cell.expr(meta))
                         * (is_rem_u.expr(meta) + is_div_u.expr(meta)),
-                    (aux2.u64_cell.expr(meta) + aux3.u64_cell.expr(meta) + constant_from!(1)
+                    (aux1.u64_cell.expr(meta) + aux2.u64_cell.expr(meta) + constant_from!(1)
                         - rhs.u64_cell.expr(meta))
                         * (is_rem_u.expr(meta) + is_div_u.expr(meta)),
-                    (res.expr(meta) - aux1.u64_cell.expr(meta)) * is_div_u.expr(meta),
-                    (res.expr(meta) - aux2.u64_cell.expr(meta)) * is_rem_u.expr(meta),
+                    (res.expr(meta) - d.u64_cell.expr(meta)) * is_div_u.expr(meta),
+                    (res.expr(meta) - aux1.u64_cell.expr(meta)) * is_rem_u.expr(meta),
                 ]
             }),
         );
@@ -319,7 +318,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             d_flag_helper_diff,
             aux1,
             aux2,
-            aux3,
             overflow,
             is_add,
             is_sub,
@@ -501,9 +499,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
 
         match class {
             BinOp::UnsignedDiv | BinOp::UnsignedRem => {
-                self.aux1.assign(ctx, left / right)?;
-                self.aux2.assign(ctx, left % right)?;
-                self.aux3.assign(ctx, right - left % right - 1)?;
+                self.d.assign(ctx, left / right)?;
+                self.aux1.assign(ctx, left % right)?;
+                self.aux2.assign(ctx, right - left % right - 1)?;
             }
             BinOp::SignedDiv | BinOp::SignedRem => {
                 let left_flag = left >> (shift - 1) != 0;
