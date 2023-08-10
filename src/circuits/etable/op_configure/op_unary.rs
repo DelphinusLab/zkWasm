@@ -5,7 +5,7 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::rtable::pow_table_encode;
+use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
@@ -39,11 +39,11 @@ pub struct UnaryConfig<F: FieldExt> {
     is_popcnt: AllocatedBitCell<F>,
     is_i32: AllocatedBitCell<F>,
 
-    boundary: AllocatedUnlimitedCell<F>,
     aux1: AllocatedU64Cell<F>,
     aux2: AllocatedU64Cell<F>,
 
-    lookup_pow: AllocatedUnlimitedCell<F>,
+    lookup_pow_modulus: AllocatedUnlimitedCell<F>,
+    lookup_pow_power: AllocatedUnlimitedCell<F>,
     // To support popcnt
     bit_table_lookup: AllocatedBitTableLookupCell<F>,
 
@@ -72,13 +72,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
         let is_popcnt = allocator.alloc_bit_cell();
         let is_i32 = allocator.alloc_bit_cell();
 
-        let boundary = allocator.alloc_unlimited_cell();
         let aux1 = allocator.alloc_u64_cell();
         let aux2 = allocator.alloc_u64_cell();
 
         let ctz_degree_helper = allocator.alloc_unlimited_cell();
 
-        let lookup_pow = common_config.pow_table_lookup_cell;
+        let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
+        let lookup_pow_power = common_config.pow_table_lookup_power_cell;
         let lookup_popcnt = common_config.bit_table_lookup_cell;
 
         constraint_builder.push(
@@ -117,15 +117,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
                 vec![
                     operand_is_zero.expr(meta) * (result.u64_cell.expr(meta) - bits.expr(meta)),
                     operand_is_not_zero.clone()
-                        * (boundary.expr(meta) + aux1.u64_cell.expr(meta)
+                        * (lookup_pow_modulus.expr(meta) + aux1.u64_cell.expr(meta)
                             - operand.u64_cell.expr(meta)),
                     operand_is_not_zero.clone()
                         * (aux1.u64_cell.expr(meta) + aux2.u64_cell.expr(meta) + constant_from!(1)
-                            - boundary.expr(meta)),
+                            - lookup_pow_modulus.expr(meta)),
                     operand_is_not_zero
-                        * (lookup_pow.expr(meta)
-                            - pow_table_encode(
-                                boundary.expr(meta),
+                        * (lookup_pow_power.expr(meta)
+                            - pow_table_power_encode(
                                 bits.expr(meta) - result.u64_cell.expr(meta) - constant_from!(1),
                             )),
                 ]
@@ -142,13 +141,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
 
                 vec![
                     ctz_degree_helper.expr(meta)
-                        - (aux1.u64_cell.expr(meta) * boundary.expr(meta) * constant_from!(2)),
+                        - (aux1.u64_cell.expr(meta)
+                            * lookup_pow_modulus.expr(meta)
+                            * constant_from!(2)),
                     operand_is_zero.expr(meta) * (result.u64_cell.expr(meta) - bits.expr(meta)),
                     operand_is_not_zero
-                        * (ctz_degree_helper.expr(meta) + boundary.expr(meta)
+                        * (ctz_degree_helper.expr(meta) + lookup_pow_modulus.expr(meta)
                             - operand.u64_cell.expr(meta)),
-                    lookup_pow.expr(meta)
-                        - pow_table_encode(boundary.expr(meta), result.u64_cell.expr(meta)),
+                    lookup_pow_power.expr(meta)
+                        - pow_table_power_encode(result.u64_cell.expr(meta)),
                 ]
                 .into_iter()
                 .map(|constraint| constraint * is_ctz.expr(meta))
@@ -202,10 +203,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
             is_clz,
             is_popcnt,
             is_i32,
-            boundary,
             aux1,
             aux2,
-            lookup_pow,
+            lookup_pow_modulus,
+            lookup_pow_power,
             ctz_degree_helper,
             bit_table_lookup: lookup_popcnt,
             memory_table_lookup_stack_read,
@@ -282,13 +283,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         let boundary = bn_to_field(&BigUint::from(1u128 << least_one_pos));
 
                         self.aux1.assign(ctx, hd)?;
-                        self.boundary.assign(ctx, boundary)?;
-                        self.lookup_pow.assign(
+                        self.lookup_pow_modulus.assign(ctx, boundary)?;
+                        self.lookup_pow_power.assign(
                             ctx,
-                            bn_to_field(&pow_table_encode(
-                                BigUint::from(1u128 << least_one_pos),
-                                BigUint::from(least_one_pos),
-                            )),
+                            bn_to_field(&pow_table_power_encode(BigUint::from(least_one_pos))),
                         )?;
 
                         self.ctz_degree_helper
@@ -308,16 +306,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         let boundary = max.checked_shr(1 + *result as u32).unwrap_or(0) as u64;
                         let tail = *operand ^ boundary;
 
-                        self.boundary.assign(ctx, F::from(boundary as u64))?;
+                        self.lookup_pow_modulus
+                            .assign(ctx, F::from(boundary as u64))?;
                         self.aux1.assign(ctx, tail)?;
                         self.aux2.assign(ctx, boundary - tail - 1)?;
                         if boundary != 0 {
-                            self.lookup_pow.assign(
+                            self.lookup_pow_modulus.assign(ctx, boundary.into())?;
+                            self.lookup_pow_power.assign(
                                 ctx,
-                                bn_to_field(&pow_table_encode(
-                                    BigUint::from(1u128 << (bits - *result - 1)),
-                                    BigUint::from(bits - *result - 1),
-                                )),
+                                bn_to_field(&pow_table_power_encode(BigUint::from(
+                                    bits - *result - 1,
+                                ))),
                             )?;
                         }
                     }

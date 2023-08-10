@@ -4,7 +4,7 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::rtable::pow_table_encode;
+use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
@@ -40,9 +40,6 @@ pub struct LoadConfig<F: FieldExt> {
     cross_block_rem: AllocatedCommonRangeCell<F>,
     cross_block_rem_diff: AllocatedCommonRangeCell<F>,
 
-    load_value_in_heap1: AllocatedU64Cell<F>,
-    load_value_in_heap2: AllocatedU64Cell<F>,
-
     load_tailing: AllocatedU64Cell<F>,
     load_tailing_diff: AllocatedU64Cell<F>,
     load_picked: AllocatedU64Cell<F>,
@@ -58,9 +55,6 @@ pub struct LoadConfig<F: FieldExt> {
 
     res: AllocatedUnlimitedCell<F>,
 
-    // load offset arg
-    load_base: AllocatedU64Cell<F>,
-
     is_one_byte: AllocatedBitCell<F>,
     is_two_bytes: AllocatedBitCell<F>,
     is_four_bytes: AllocatedBitCell<F>,
@@ -71,14 +65,13 @@ pub struct LoadConfig<F: FieldExt> {
     is_sign: AllocatedBitCell<F>,
     is_i32: AllocatedBitCell<F>,
 
-    pos_modulus: AllocatedU64Cell<F>,
-
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_read1: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_read2: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 
-    lookup_pow: AllocatedUnlimitedCell<F>,
+    lookup_pow_modulus: AllocatedUnlimitedCell<F>,
+    lookup_pow_power: AllocatedUnlimitedCell<F>,
 
     address_within_allocated_pages_helper: AllocatedCommonRangeCell<F>,
 
@@ -94,7 +87,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let opcode_load_offset = allocator.alloc_common_range_cell();
-        let load_base = allocator.alloc_u64_cell();
 
         // which heap offset to load
         let load_block_index = allocator.alloc_common_range_cell();
@@ -111,15 +103,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let len = allocator.alloc_unlimited_cell();
         let len_modulus = allocator.alloc_unlimited_cell();
 
-        let load_value_in_heap1 = allocator.alloc_u64_cell();
-        let load_value_in_heap2 = allocator.alloc_u64_cell();
-
         let load_tailing = allocator.alloc_u64_cell();
         let load_tailing_diff = allocator.alloc_u64_cell();
         let load_picked = allocator.alloc_u64_cell();
         let load_leading = allocator.alloc_u64_cell();
 
-        let pos_modulus = allocator.alloc_u64_cell();
+        let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
 
         let load_picked_leading_u16 = allocator.alloc_unlimited_cell();
         let load_picked_leading_u16_u8_high = allocator.alloc_u8_cell();
@@ -136,6 +125,57 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_i32 = allocator.alloc_bit_cell();
 
         let degree_helper = allocator.alloc_bit_cell();
+
+        let sp = common_config.sp_cell;
+        let eid = common_config.eid_cell;
+
+        let memory_table_lookup_stack_read = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "load read offset",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(1),
+                move |____| constant_from!(1),
+                move |____| constant_from!(1),
+            );
+
+        let memory_table_lookup_heap_read1 = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "load read data1",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Heap as u64),
+                move |meta| load_block_index.expr(meta),
+                move |____| constant_from!(0),
+                move |____| constant_from!(1),
+            );
+
+        let memory_table_lookup_heap_read2 = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "load read data2",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Heap as u64),
+                move |meta| load_block_index.expr(meta) + constant_from!(1),
+                move |____| constant_from!(0),
+                move |meta| is_cross_block.expr(meta),
+            );
+
+        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
+            "load write res",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| is_i32.expr(meta),
+            move |meta| res.expr(meta),
+            move |____| constant_from!(1),
+        );
+
+        let load_base = memory_table_lookup_stack_read.value_cell;
+        let load_value_in_heap1 = memory_table_lookup_heap_read1.value_cell;
+        let load_value_in_heap2 = memory_table_lookup_heap_read2.value_cell;
 
         constraint_builder.push(
             "op_load length",
@@ -202,13 +242,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                         - is_eight_bytes.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
                     load_tailing.expr(meta)
-                        + load_picked.expr(meta) * pos_modulus.expr(meta)
-                        + load_leading.expr(meta) * pos_modulus.expr(meta) * len_modulus.expr(meta)
+                        + load_picked.expr(meta) * lookup_pow_modulus.expr(meta)
+                        + load_leading.expr(meta)
+                            * lookup_pow_modulus.expr(meta)
+                            * len_modulus.expr(meta)
                         - load_value_in_heap1.expr(meta)
                         - load_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
                     load_tailing.expr(meta) + load_tailing_diff.expr(meta) + constant_from!(1)
-                        - pos_modulus.expr(meta),
+                        - lookup_pow_modulus.expr(meta),
                 ]
             }),
         );
@@ -287,66 +329,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             }),
         );
 
-        let lookup_pow = common_config.pow_table_lookup_cell;
+        let lookup_pow_power = common_config.pow_table_lookup_power_cell;
 
         constraint_builder.push(
             "op_load pos_modulus",
             Box::new(move |meta| {
                 vec![
-                    lookup_pow.expr(meta)
-                        - pow_table_encode(
-                            pos_modulus.expr(meta),
-                            load_inner_pos.expr(meta) * constant_from!(8),
-                        ),
+                    lookup_pow_power.expr(meta)
+                        - pow_table_power_encode(load_inner_pos.expr(meta) * constant_from!(8)),
                 ]
             }),
-        );
-
-        let sp = common_config.sp_cell;
-        let eid = common_config.eid_cell;
-
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "load read offset",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| load_base.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_heap_read1 = allocator.alloc_memory_table_lookup_read_cell(
-            "load read data1",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Heap as u64),
-            move |meta| load_block_index.expr(meta),
-            move |____| constant_from!(0),
-            move |meta| load_value_in_heap1.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_heap_read2 = allocator.alloc_memory_table_lookup_read_cell(
-            "load read data2",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Heap as u64),
-            move |meta| load_block_index.expr(meta) + constant_from!(1),
-            move |____| constant_from!(0),
-            move |meta| load_value_in_heap2.expr(meta),
-            move |meta| is_cross_block.expr(meta),
-        );
-
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "load write res",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| res.expr(meta),
-            move |____| constant_from!(1),
         );
 
         let current_memory_page_size = common_config.mpages_cell;
@@ -378,7 +370,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_cross_block,
             cross_block_rem,
             cross_block_rem_diff,
-            load_value_in_heap2,
             load_tailing,
             load_picked,
             load_leading,
@@ -389,7 +380,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             load_picked_leading_u8_rem,
             load_picked_leading_u8_rem_diff,
             res,
-            load_base,
             is_one_byte,
             is_two_bytes,
             is_four_bytes,
@@ -402,10 +392,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             memory_table_lookup_heap_read1,
             memory_table_lookup_heap_read2,
             memory_table_lookup_stack_write,
-            lookup_pow,
+            lookup_pow_power,
             address_within_allocated_pages_helper,
-            load_value_in_heap1,
-            pos_modulus,
+            lookup_pow_modulus,
             load_tailing_diff,
 
             degree_helper,
@@ -463,19 +452,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 let len_modulus = BigUint::from(1u64) << (len * 8);
                 let pos_modulus = 1 << (inner_byte_index * 8);
-                self.pos_modulus.assign(ctx, pos_modulus.into())?;
-                self.lookup_pow.assign_bn(
+                self.lookup_pow_modulus.assign(ctx, pos_modulus.into())?;
+                self.lookup_pow_power.assign_bn(
                     ctx,
-                    &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
+                    &pow_table_power_encode(BigUint::from(inner_byte_index * 8)),
                 )?;
 
                 self.is_cross_block.assign_bool(ctx, is_cross_block)?;
                 let rem = ((effective_address as u64 & 7) + len - 1) & 7;
                 self.cross_block_rem.assign(ctx, rem.into())?;
                 self.cross_block_rem_diff.assign(ctx, (7 - rem).into())?;
-
-                self.load_value_in_heap1.assign(ctx, block_value1)?;
-                self.load_value_in_heap2.assign(ctx, block_value2)?;
 
                 let tailing_bits = inner_byte_index * 8;
                 let picked_bits = len * 8;
@@ -525,7 +511,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                     .assign(ctx, (0x7f - (load_picked_leading_u8 & 0x7f)).into())?;
 
                 self.res.assign(ctx, value.into())?;
-                self.load_base.assign(ctx, raw_address as u64)?;
 
                 self.is_one_byte.assign_bool(ctx, len == 1)?;
                 self.is_two_bytes.assign_bool(ctx, len == 2)?;

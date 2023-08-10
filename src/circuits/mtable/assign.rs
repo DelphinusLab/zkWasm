@@ -153,16 +153,13 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_advice!(
                 encode_cell,
                 bn_to_field(&encode_memory_table_entry(
-                    entry.entry.eid.into(),
-                    entry.end_eid.into(),
                     entry.entry.offset.into(),
                     (entry.entry.ltype as u64).into(),
                     if VarType::I32 == entry.entry.vtype {
                         1u64.into()
                     } else {
                         0u64.into()
-                    },
-                    entry.entry.value.into()
+                    }
                 ))
             );
 

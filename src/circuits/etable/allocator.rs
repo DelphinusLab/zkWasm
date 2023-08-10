@@ -74,17 +74,19 @@ pub(crate) struct AllocatedBitTableLookupCell<F: FieldExt>(pub(crate) AllocatedC
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedMemoryTableLookupReadCell<F: FieldExt> {
     pub(crate) encode_cell: AllocatedUnlimitedCell<F>,
-    pub(crate) start_eid_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) end_eid_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) start_eid_cell: AllocatedUnlimitedCell<F>,
+    pub(crate) end_eid_cell: AllocatedUnlimitedCell<F>,
     pub(crate) start_eid_diff_cell: AllocatedCommonRangeCell<F>,
     pub(crate) end_eid_diff_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) value_cell: AllocatedUnlimitedCell<F>,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedMemoryTableLookupWriteCell<F: FieldExt> {
     pub(crate) encode_cell: AllocatedUnlimitedCell<F>,
-    pub(crate) end_eid_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) end_eid_diff_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) start_eid_cell: AllocatedUnlimitedCell<F>,
+    pub(crate) end_eid_cell: AllocatedUnlimitedCell<F>,
+    pub(crate) value_cell: AllocatedUnlimitedCell<F>,
 }
 
 impl<F: FieldExt> AllocatedMemoryTableLookupReadCell<F> {
@@ -102,12 +104,9 @@ impl<F: FieldExt> AllocatedMemoryTableLookupReadCell<F> {
         self.encode_cell.assign_bn(
             ctx,
             &encode_memory_table_entry(
-                (start_eid as u64).into(),
-                (end_eid as u64).into(),
                 (offset as u64).into(),
                 (l_type as u64).into(),
                 (is_i32 as u64).into(),
-                value.into(),
             ),
         )?;
         self.start_eid_cell.assign_u32(ctx, start_eid)?;
@@ -115,6 +114,7 @@ impl<F: FieldExt> AllocatedMemoryTableLookupReadCell<F> {
             .assign_u32(ctx, eid - start_eid - 1)?;
         self.end_eid_cell.assign_u32(ctx, end_eid)?;
         self.end_eid_diff_cell.assign_u32(ctx, end_eid - eid)?;
+        self.value_cell.assign(ctx, value.into())?;
 
         Ok(())
     }
@@ -134,16 +134,14 @@ impl<F: FieldExt> AllocatedMemoryTableLookupWriteCell<F> {
         self.encode_cell.assign_bn(
             ctx,
             &encode_memory_table_entry(
-                (eid as u64).into(),
-                (end_eid as u64).into(),
                 (offset as u64).into(),
                 (l_type as u64).into(),
                 (is_i32 as u64).into(),
-                value.into(),
             ),
         )?;
+        self.start_eid_cell.assign_u32(ctx, eid)?;
         self.end_eid_cell.assign_u32(ctx, end_eid)?;
-        self.end_eid_diff_cell.assign_u32(ctx, end_eid - eid - 1)?;
+        self.value_cell.assign(ctx, value.into())?;
 
         Ok(())
     }
@@ -163,26 +161,33 @@ pub(crate) enum EventTableCellType {
 
 const BIT_COLUMNS: usize = 12;
 const U8_COLUMNS: usize = 1;
-const U16_COLUMNS: usize = 10;
-const COMMON_RANGE_COLUMNS: usize = 9;
-const UNLIMITED_COLUMNS: usize = 6;
+const U64_CELLS: usize = 6;
+const U16_COLUMNS: usize = U64_CELLS;
+const COMMON_RANGE_COLUMNS: usize = 6;
+const UNLIMITED_COLUMNS: usize = 5;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
 const BIT_TABLE_LOOKUP_COLUMNS: usize = 1;
-const U64_CELLS: usize = 10;
 
 #[derive(Debug, Clone)]
 pub(crate) struct EventTableCellAllocator<F: FieldExt> {
-    all_cols: BTreeMap<EventTableCellType, Vec<Column<Advice>>>,
-    free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
+    pub(crate) free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
+    all_cols: BTreeMap<EventTableCellType, Vec<Vec<Column<Advice>>>>,
     free_u64_cells: Vec<AllocatedU64Cell<F>>,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> EventTableCellAllocator<F> {
-    pub fn enable_equality(&mut self, meta: &mut ConstraintSystem<F>, t: &EventTableCellType) {
-        for c in self.all_cols.get(t).unwrap() {
-            meta.enable_equality(*c);
+    pub fn enable_equality(
+        &mut self,
+        meta: &mut ConstraintSystem<F>,
+        t: &EventTableCellType,
+        count: usize,
+    ) {
+        for c in self.all_cols.get(t).unwrap().iter().take(count) {
+            for c in c {
+                meta.enable_equality(*c);
+            }
         }
     }
 
@@ -239,21 +244,21 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         all_cols.insert(
             EventTableCellType::Bit,
             [0; BIT_COLUMNS]
-                .map(|_| BitColumn::configure(meta, cols, |meta| fixed_curr!(meta, sel)).col)
+                .map(|_| vec![BitColumn::configure(meta, cols, |meta| fixed_curr!(meta, sel)).col])
                 .into_iter()
                 .collect(),
         );
         all_cols.insert(
             EventTableCellType::U8,
             [0; U8_COLUMNS]
-                .map(|_| U8Column::configure(meta, cols, rtable, |_| constant_from!(1)).col)
+                .map(|_| vec![U8Column::configure(meta, cols, rtable, |_| constant_from!(1)).col])
                 .into_iter()
                 .collect(),
         );
         all_cols.insert(
             EventTableCellType::U16,
             [0; U16_COLUMNS]
-                .map(|_| U16Column::configure(meta, cols, rtable, |_| constant_from!(1)).col)
+                .map(|_| vec![U16Column::configure(meta, cols, rtable, |_| constant_from!(1)).col])
                 .into_iter()
                 .collect(),
         );
@@ -261,7 +266,9 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             EventTableCellType::CommonRange,
             [0; COMMON_RANGE_COLUMNS]
                 .map(|_| {
-                    CommonRangeColumn::configure(meta, cols, rtable, |_| constant_from!(1)).col
+                    vec![
+                        CommonRangeColumn::configure(meta, cols, rtable, |_| constant_from!(1)).col,
+                    ]
                 })
                 .into_iter()
                 .collect(),
@@ -269,7 +276,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         all_cols.insert(
             EventTableCellType::Unlimited,
             [0; UNLIMITED_COLUMNS]
-                .map(|_| cols.next().unwrap())
+                .map(|_| vec![cols.next().unwrap()])
                 .into_iter()
                 .collect(),
         );
@@ -281,7 +288,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     jtable.configure_in_table(meta, "c8c. jtable_lookup in jtable", |meta| {
                         curr!(meta, col)
                     });
-                    col
+                    vec![col]
                 })
                 .into_iter()
                 .collect(),
@@ -290,11 +297,19 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             EventTableCellType::MTableLookup,
             [0; MEMORY_TABLE_LOOKUP_COLUMNS]
                 .map(|_| {
-                    let col = cols.next().unwrap();
+                    let start_eid_col = cols.next().unwrap();
+                    let end_eid_col = cols.next().unwrap();
+                    let encode_col = cols.next().unwrap();
+                    let value_col = cols.next().unwrap();
                     mtable.configure_in_table(meta, "c8e. mtable_lookup in mtable", |meta| {
-                        curr!(meta, col)
+                        vec![
+                            curr!(meta, start_eid_col),
+                            curr!(meta, end_eid_col),
+                            curr!(meta, encode_col),
+                            curr!(meta, value_col),
+                        ]
                     });
-                    col
+                    vec![start_eid_col, end_eid_col, encode_col, value_col]
                 })
                 .into_iter()
                 .collect(),
@@ -309,7 +324,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                         "c8f: bit_table_lookup in bit_table",
                         |meta| curr!(meta, col),
                     );
-                    col
+                    vec![col]
                 })
                 .into_iter()
                 .collect(),
@@ -339,10 +354,31 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let v = self.free_cells.get_mut(t).unwrap();
 
         let res = AllocatedCell {
-            col: self.all_cols.get(t).unwrap()[v.0],
+            col: self.all_cols.get(t).unwrap()[v.0][0],
             rot: v.1 as i32,
             _mark: PhantomData,
         };
+
+        v.1 += 1;
+        if v.1 == EVENT_TABLE_ENTRY_ROWS as u32 {
+            v.0 += 1;
+            v.1 = 0;
+        }
+
+        res
+    }
+
+    fn alloc_group(&mut self, t: &EventTableCellType) -> Vec<AllocatedCell<F>> {
+        let v = self.free_cells.get_mut(t).unwrap();
+
+        let res = self.all_cols.get(t).unwrap()[v.0]
+            .iter()
+            .map(|col| AllocatedCell {
+                col: *col,
+                rot: v.1 as i32,
+                _mark: PhantomData,
+            })
+            .collect();
 
         v.1 += 1;
         if v.1 == EVENT_TABLE_ENTRY_ROWS as u32 {
@@ -392,10 +428,17 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         value: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
     ) -> AllocatedMemoryTableLookupReadCell<F> {
+        let cells: Vec<_> = self
+            .alloc_group(&EventTableCellType::MTableLookup)
+            .into_iter()
+            .map(|x| AllocatedUnlimitedCell(x))
+            .collect();
+
         let cell = AllocatedMemoryTableLookupReadCell {
-            encode_cell: AllocatedUnlimitedCell(self.alloc(&EventTableCellType::MTableLookup)),
-            start_eid_cell: self.alloc_common_range_cell(),
-            end_eid_cell: self.alloc_common_range_cell(),
+            start_eid_cell: cells[0],
+            end_eid_cell: cells[1],
+            encode_cell: cells[2],
+            value_cell: cells[3],
             start_eid_diff_cell: self.alloc_common_range_cell(),
             end_eid_diff_cell: self.alloc_common_range_cell(),
         };
@@ -413,15 +456,10 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (eid.expr(meta) + cell.end_eid_diff_cell.expr(meta)
                         - cell.end_eid_cell.expr(meta))
                         * enable.clone(),
-                    (encode_memory_table_entry(
-                        cell.start_eid_cell.expr(meta),
-                        cell.end_eid_cell.expr(meta),
-                        offset(meta),
-                        location_type(meta),
-                        is_i32(meta),
-                        value(meta),
-                    ) - cell.encode_cell.expr(meta))
-                        * enable,
+                    (encode_memory_table_entry(offset(meta), location_type(meta), is_i32(meta))
+                        - cell.encode_cell.expr(meta))
+                        * enable.clone(),
+                    (cell.value_cell.expr(meta) - value(meta)) * enable,
                 ]
             }),
         ));
@@ -440,9 +478,58 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         value: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
     ) -> AllocatedMemoryTableLookupWriteCell<F> {
+        let cells: Vec<_> = self
+            .alloc_group(&EventTableCellType::MTableLookup)
+            .into_iter()
+            .map(|x| AllocatedUnlimitedCell(x))
+            .collect();
+
         let cell = AllocatedMemoryTableLookupWriteCell {
-            encode_cell: AllocatedUnlimitedCell(self.alloc(&EventTableCellType::MTableLookup)),
-            end_eid_cell: self.alloc_common_range_cell(),
+            start_eid_cell: cells[0],
+            end_eid_cell: cells[1],
+            encode_cell: cells[2],
+            value_cell: cells[3],
+        };
+
+        constraint_builder.constraints.push((
+            name,
+            Box::new(move |meta| {
+                let enable = enable(meta);
+                vec![
+                    (encode_memory_table_entry(offset(meta), location_type(meta), is_i32(meta))
+                        - cell.encode_cell.expr(meta))
+                        * enable.clone(),
+                    (cell.start_eid_cell.expr(meta) - eid.expr(meta)) * enable.clone(),
+                    (cell.value_cell.expr(meta) - value(meta)) * enable,
+                ]
+            }),
+        ));
+
+        cell
+    }
+
+    pub(crate) fn alloc_memory_table_lookup_read_cell_with_value(
+        &mut self,
+        name: &'static str,
+        constraint_builder: &mut ConstraintBuilder<F>,
+        eid: AllocatedCommonRangeCell<F>,
+        location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+        offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+        is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+    ) -> AllocatedMemoryTableLookupReadCell<F> {
+        let cells: Vec<_> = self
+            .alloc_group(&EventTableCellType::MTableLookup)
+            .into_iter()
+            .map(|x| AllocatedUnlimitedCell(x))
+            .collect();
+
+        let cell = AllocatedMemoryTableLookupReadCell {
+            start_eid_cell: cells[0],
+            end_eid_cell: cells[1],
+            encode_cell: cells[2],
+            value_cell: cells[3],
+            start_eid_diff_cell: self.alloc_common_range_cell(),
             end_eid_diff_cell: self.alloc_common_range_cell(),
         };
 
@@ -451,18 +538,56 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             Box::new(move |meta| {
                 let enable = enable(meta);
                 vec![
-                    (eid.expr(meta) + cell.end_eid_diff_cell.expr(meta) + constant_from!(1)
+                    (eid.expr(meta)
+                        - cell.start_eid_cell.expr(meta)
+                        - cell.start_eid_diff_cell.expr(meta)
+                        - constant_from!(1))
+                        * enable.clone(),
+                    (eid.expr(meta) + cell.end_eid_diff_cell.expr(meta)
                         - cell.end_eid_cell.expr(meta))
                         * enable.clone(),
-                    (encode_memory_table_entry(
-                        eid.expr(meta),
-                        cell.end_eid_cell.expr(meta),
-                        offset(meta),
-                        location_type(meta),
-                        is_i32(meta),
-                        value(meta),
-                    ) - cell.encode_cell.expr(meta))
+                    (encode_memory_table_entry(offset(meta), location_type(meta), is_i32(meta))
+                        - cell.encode_cell.expr(meta))
                         * enable,
+                ]
+            }),
+        ));
+
+        cell
+    }
+
+    pub(crate) fn alloc_memory_table_lookup_write_cell_with_value(
+        &mut self,
+        name: &'static str,
+        constraint_builder: &mut ConstraintBuilder<F>,
+        eid: AllocatedCommonRangeCell<F>,
+        location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+        offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+        is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
+    ) -> AllocatedMemoryTableLookupWriteCell<F> {
+        let cells: Vec<_> = self
+            .alloc_group(&EventTableCellType::MTableLookup)
+            .into_iter()
+            .map(|x| AllocatedUnlimitedCell(x))
+            .collect();
+
+        let cell = AllocatedMemoryTableLookupWriteCell {
+            start_eid_cell: cells[0],
+            end_eid_cell: cells[1],
+            encode_cell: cells[2],
+            value_cell: cells[3],
+        };
+
+        constraint_builder.constraints.push((
+            name,
+            Box::new(move |meta| {
+                let enable = enable(meta);
+                vec![
+                    (encode_memory_table_entry(offset(meta), location_type(meta), is_i32(meta))
+                        - cell.encode_cell.expr(meta))
+                        * enable.clone(),
+                    (cell.start_eid_cell.expr(meta) - eid.expr(meta)) * enable,
                 ]
             }),
         ));

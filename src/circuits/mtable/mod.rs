@@ -297,15 +297,12 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             vec![
                 (constant_from!(1) - enabled_cell.curr_expr(meta)) * encode_cell.curr_expr(meta),
                 encode_memory_table_entry(
-                    start_eid_cell.curr_expr(meta),
-                    end_eid_cell.curr_expr(meta),
                     offset_cell.curr_expr(meta),
                     is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
                         + is_global_cell.curr_expr(meta)
                             * constant_from!(LocationType::Global as u64)
                         + is_heap_cell.curr_expr(meta) * constant_from!(LocationType::Heap),
                     is_i32_cell.curr_expr(meta),
-                    value.u64_cell.curr_expr(meta),
                 ) - encode_cell.curr_expr(meta),
             ]
             .into_iter()
@@ -349,13 +346,29 @@ impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
         &self,
         meta: &mut ConstraintSystem<F>,
         name: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Vec<Expression<F>>,
     ) {
         meta.lookup_any(name, |meta| {
-            vec![(
-                expr(meta),
-                self.encode_cell.expr(meta) * fixed_curr!(meta, self.entry_sel),
-            )]
+            let mut expr = expr(meta);
+            expr.reverse();
+            vec![
+                (
+                    expr.pop().unwrap(),
+                    self.start_eid_cell.expr(meta) * fixed_curr!(meta, self.entry_sel),
+                ),
+                (
+                    expr.pop().unwrap(),
+                    self.end_eid_cell.expr(meta) * fixed_curr!(meta, self.entry_sel),
+                ),
+                (
+                    expr.pop().unwrap(),
+                    self.encode_cell.expr(meta) * fixed_curr!(meta, self.entry_sel),
+                ),
+                (
+                    expr.pop().unwrap(),
+                    self.value.expr(meta) * fixed_curr!(meta, self.entry_sel),
+                ),
+            ]
         });
     }
 }

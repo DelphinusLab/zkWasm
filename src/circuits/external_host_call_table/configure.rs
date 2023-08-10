@@ -28,11 +28,11 @@ impl<F: FieldExt> ConfigureLookupTable<F> for ExternalHostCallTableConfig<F> {
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Vec<Expression<F>>,
     ) {
         meta.lookup_any(key, |meta| {
             vec![(
-                expr(meta),
+                expr(meta).pop().unwrap(),
                 encode_host_call_entry(
                     fixed_curr!(meta, self.idx),
                     curr!(meta, self.op),

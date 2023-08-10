@@ -35,7 +35,6 @@ pub struct BinConfig<F: FieldExt> {
     d: AllocatedU64Cell<F>,
     d_flag_helper_diff: AllocatedCommonRangeCell<F>,
 
-    res: AllocatedU64Cell<F>,
     aux1: AllocatedU64Cell<F>,
     aux2: AllocatedU64Cell<F>,
     aux3: AllocatedU64Cell<F>,
@@ -80,7 +79,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let d = allocator.alloc_u64_cell();
         let d_flag_helper_diff = allocator.alloc_common_range_cell();
 
-        let res = allocator.alloc_u64_cell();
         let aux1 = allocator.alloc_u64_cell();
         let aux2 = allocator.alloc_u64_cell();
         let aux3 = allocator.alloc_u64_cell();
@@ -103,6 +101,44 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let size_modulus = allocator.alloc_unlimited_cell();
         let degree_helper1 = allocator.alloc_unlimited_cell();
         let degree_helper2 = allocator.alloc_unlimited_cell();
+
+        let eid = common_config.eid_cell;
+        let sp = common_config.sp_cell;
+
+        let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
+            "op_bin stack read",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| is_i32.expr(meta),
+            move |meta| rhs.u64_cell.expr(meta),
+            move |____| constant_from!(1),
+        );
+
+        let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
+            "op_bin stack read",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(2),
+            move |meta| is_i32.expr(meta),
+            move |meta| lhs.u64_cell.expr(meta),
+            move |____| constant_from!(1),
+        );
+
+        let memory_table_lookup_stack_write = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "op_bin stack read",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| is_i32.expr(meta),
+                move |____| constant_from!(1),
+            );
+
+        let res = memory_table_lookup_stack_write.value_cell;
 
         constraint_builder.push(
             "bin: selector",
@@ -136,7 +172,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                 // The range of res can be limited with is_i32 in memory table
                 vec![
                     (lhs.u64_cell.expr(meta) + rhs.u64_cell.expr(meta)
-                        - res.u64_cell.expr(meta)
+                        - res.expr(meta)
                         - overflow.expr(meta) * size_modulus.expr(meta))
                         * is_add.expr(meta),
                 ]
@@ -148,7 +184,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             Box::new(move |meta| {
                 // The range of res can be limited with is_i32 in memory table
                 vec![
-                    (rhs.u64_cell.expr(meta) + res.u64_cell.expr(meta)
+                    (rhs.u64_cell.expr(meta) + res.expr(meta)
                         - lhs.u64_cell.expr(meta)
                         - overflow.expr(meta) * size_modulus.expr(meta))
                         * is_sub.expr(meta),
@@ -163,7 +199,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                 vec![
                     (lhs.u64_cell.expr(meta) * rhs.u64_cell.expr(meta)
                         - aux1.u64_cell.expr(meta) * size_modulus.expr(meta)
-                        - res.u64_cell.expr(meta))
+                        - res.expr(meta))
                         * is_mul.expr(meta),
                 ]
             }),
@@ -180,8 +216,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                     (aux2.u64_cell.expr(meta) + aux3.u64_cell.expr(meta) + constant_from!(1)
                         - rhs.u64_cell.expr(meta))
                         * (is_rem_u.expr(meta) + is_div_u.expr(meta)),
-                    (res.u64_cell.expr(meta) - aux1.u64_cell.expr(meta)) * is_div_u.expr(meta),
-                    (res.u64_cell.expr(meta) - aux2.u64_cell.expr(meta)) * is_rem_u.expr(meta),
+                    (res.expr(meta) - aux1.u64_cell.expr(meta)) * is_div_u.expr(meta),
+                    (res.expr(meta) - aux2.u64_cell.expr(meta)) * is_rem_u.expr(meta),
                 ]
             }),
         );
@@ -239,18 +275,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             "bin: div_s constraints res",
             Box::new(move |meta| {
                 vec![
-                    (res.u64_cell.expr(meta) - d.u64_cell.expr(meta))
+                    (res.expr(meta) - d.u64_cell.expr(meta))
                         * (constant_from!(1) - res_flag.expr(meta))
                         * is_div_s.expr(meta),
                     (degree_helper1.expr(meta)
-                        - (d.u64_cell.expr(meta) + res.u64_cell.expr(meta)) * res_flag.expr(meta))
+                        - (d.u64_cell.expr(meta) + res.expr(meta)) * res_flag.expr(meta))
                         * is_div_s.expr(meta),
                     /*
                      * If only one of the left and the right is negative,
                      * `res` must equal to `size_modulus - normalized quotient(d)`, or
                      * `res` and `d` are both zero.
                      */
-                    (res.u64_cell.expr(meta) + d.u64_cell.expr(meta) - size_modulus.expr(meta))
+                    (res.expr(meta) + d.u64_cell.expr(meta) - size_modulus.expr(meta))
                         * degree_helper1.expr(meta)
                         * is_div_s.expr(meta),
                 ]
@@ -261,54 +297,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             "bin: rem_s constraints res",
             Box::new(move |meta| {
                 vec![
-                    (res.u64_cell.expr(meta) - aux1.u64_cell.expr(meta))
+                    (res.expr(meta) - aux1.u64_cell.expr(meta))
                         * (constant_from!(1) - lhs.flag_bit_cell.expr(meta))
                         * is_rem_s.expr(meta),
                     (degree_helper2.expr(meta)
-                        - (aux1.u64_cell.expr(meta) + res.u64_cell.expr(meta))
+                        - (aux1.u64_cell.expr(meta) + res.expr(meta))
                             * lhs.flag_bit_cell.expr(meta)) // The sign of the left operator determines the flag bit of the result value.
                         * is_rem_s.expr(meta),
-                    (res.u64_cell.expr(meta) + aux1.u64_cell.expr(meta) - size_modulus.expr(meta))
+                    (res.expr(meta) + aux1.u64_cell.expr(meta) - size_modulus.expr(meta))
                         * degree_helper2.expr(meta)
                         * is_rem_s.expr(meta),
                 ]
             }),
-        );
-
-        let eid = common_config.eid_cell;
-        let sp = common_config.sp_cell;
-
-        let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| rhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| lhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_bin stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| res.u64_cell.expr(meta),
-            move |____| constant_from!(1),
         );
 
         Box::new(BinConfig {
@@ -317,7 +317,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             is_i32,
             d,
             d_flag_helper_diff,
-            res,
             aux1,
             aux2,
             aux3,
@@ -451,7 +450,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
         self.normalized_lhs.assign(ctx, normalized_lhs.into())?;
         self.normalized_rhs.assign(ctx, normalized_rhs.into())?;
 
-        self.res.assign(ctx, value.into())?;
         self.size_modulus
             .assign_bn(ctx, &(BigUint::from(1u64) << shift))?;
 

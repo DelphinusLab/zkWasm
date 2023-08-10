@@ -4,7 +4,7 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::rtable::pow_table_encode;
+use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
@@ -40,16 +40,11 @@ pub struct StoreConfig<F: FieldExt> {
     cross_block_rem: AllocatedCommonRangeCell<F>,
     cross_block_rem_diff: AllocatedCommonRangeCell<F>,
 
-    load_value_in_heap1: AllocatedU64Cell<F>,
-    load_value_in_heap2: AllocatedU64Cell<F>,
-
     load_tailing: AllocatedU64Cell<F>,
     load_tailing_diff: AllocatedU64Cell<F>,
     load_picked: AllocatedU64Cell<F>,
     load_leading: AllocatedU64Cell<F>,
     load_picked_byte_proof: AllocatedU8Cell<F>,
-
-    pos_modulus: AllocatedU64Cell<F>,
 
     unchanged_value: AllocatedUnlimitedCell<F>,
     len: AllocatedUnlimitedCell<F>,
@@ -59,12 +54,6 @@ pub struct StoreConfig<F: FieldExt> {
     store_value_tailing_u16_u8_high: AllocatedU8Cell<F>,
     store_value_tailing_u16_u8_low: AllocatedU8Cell<F>,
     store_value_wrapped: AllocatedUnlimitedCell<F>,
-
-    store_value_in_heap1: AllocatedU64Cell<F>,
-    store_value_in_heap2: AllocatedU64Cell<F>,
-
-    // load offset arg
-    store_base: AllocatedCommonRangeCell<F>,
 
     is_one_byte: AllocatedBitCell<F>,
     is_two_bytes: AllocatedBitCell<F>,
@@ -79,7 +68,8 @@ pub struct StoreConfig<F: FieldExt> {
     memory_table_lookup_heap_write1: AllocatedMemoryTableLookupWriteCell<F>,
     memory_table_lookup_heap_write2: AllocatedMemoryTableLookupWriteCell<F>,
 
-    lookup_pow: AllocatedUnlimitedCell<F>,
+    lookup_pow_modulus: AllocatedUnlimitedCell<F>,
+    lookup_pow_power: AllocatedUnlimitedCell<F>,
 
     address_within_allocated_pages_helper: AllocatedCommonRangeCell<F>,
 }
@@ -93,7 +83,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let opcode_store_offset = allocator.alloc_common_range_cell();
-        let store_base = allocator.alloc_common_range_cell();
 
         // which heap offset to load
         let load_block_index = allocator.alloc_common_range_cell();
@@ -106,16 +95,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let len = allocator.alloc_unlimited_cell();
         let len_modulus = allocator.alloc_unlimited_cell();
 
-        let load_value_in_heap1 = allocator.alloc_u64_cell();
-        let load_value_in_heap2 = allocator.alloc_u64_cell();
-
         let load_tailing = allocator.alloc_u64_cell();
         let load_tailing_diff = allocator.alloc_u64_cell();
         let load_picked = allocator.alloc_u64_cell();
         let load_picked_byte_proof = allocator.alloc_u8_cell();
         let load_leading = allocator.alloc_u64_cell();
 
-        let pos_modulus = allocator.alloc_u64_cell();
+        let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
+        let lookup_pow_power = common_config.pow_table_lookup_power_cell;
 
         let store_value = allocator.alloc_u64_cell();
         let store_value_wrapped = allocator.alloc_unlimited_cell();
@@ -125,6 +112,83 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let is_four_bytes = allocator.alloc_bit_cell();
         let is_eight_bytes = allocator.alloc_bit_cell();
         let is_i32 = allocator.alloc_bit_cell();
+
+        let sp = common_config.sp_cell;
+        let eid = common_config.eid_cell;
+
+        let memory_table_lookup_stack_read_val = allocator.alloc_memory_table_lookup_read_cell(
+            "store read data",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| is_i32.expr(meta),
+            move |meta| store_value.expr(meta),
+            move |____| constant_from!(1),
+        );
+
+        let memory_table_lookup_stack_read_pos = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "store read pos",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(2),
+                move |____| constant_from!(1),
+                move |____| constant_from!(1),
+            );
+
+        let memory_table_lookup_heap_read1 = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "store load origin1",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Heap as u64),
+                move |meta| load_block_index.expr(meta),
+                move |____| constant_from!(0),
+                move |____| constant_from!(1),
+            );
+
+        let memory_table_lookup_heap_read2 = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "store load origin2",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Heap as u64),
+                move |meta| load_block_index.expr(meta) + constant_from!(1),
+                move |____| constant_from!(0),
+                move |meta| is_cross_block.expr(meta),
+            );
+
+        let memory_table_lookup_heap_write1 = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "store write res1",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Heap as u64),
+                move |meta| load_block_index.expr(meta),
+                move |____| constant_from!(0),
+                move |____| constant_from!(1),
+            );
+
+        let memory_table_lookup_heap_write2 = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "store write res1",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Heap as u64),
+                move |meta| load_block_index.expr(meta) + constant_from!(1),
+                move |____| constant_from!(0),
+                move |meta| is_cross_block.expr(meta),
+            );
+
+        let store_base = memory_table_lookup_stack_read_pos.value_cell;
+
+        let store_value_in_heap1 = memory_table_lookup_heap_write1.value_cell;
+        let store_value_in_heap2 = memory_table_lookup_heap_write2.value_cell;
+
+        let load_value_in_heap1 = memory_table_lookup_heap_read1.value_cell;
+        let load_value_in_heap2 = memory_table_lookup_heap_read2.value_cell;
 
         constraint_builder.push(
             "op_store length",
@@ -184,9 +248,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             }),
         );
 
-        let store_value_in_heap1 = allocator.alloc_u64_cell();
-        let store_value_in_heap2 = allocator.alloc_u64_cell();
-
         let unchanged_value = allocator.alloc_unlimited_cell();
 
         constraint_builder.push(
@@ -209,7 +270,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                 vec![
                     unchanged_value.expr(meta)
                         - load_tailing.expr(meta)
-                        - load_leading.expr(meta) * pos_modulus.expr(meta) * len_modulus.expr(meta),
+                        - load_leading.expr(meta)
+                            * lookup_pow_modulus.expr(meta)
+                            * len_modulus.expr(meta),
                 ]
             }),
         );
@@ -218,7 +281,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             "op_store pick value2",
             Box::new(move |meta| {
                 vec![
-                    unchanged_value.expr(meta) + load_picked.expr(meta) * pos_modulus.expr(meta)
+                    unchanged_value.expr(meta)
+                        + load_picked.expr(meta) * lookup_pow_modulus.expr(meta)
                         - load_value_in_heap1.expr(meta)
                         - load_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
@@ -231,7 +295,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     unchanged_value.expr(meta)
-                        + store_value_wrapped.expr(meta) * pos_modulus.expr(meta)
+                        + store_value_wrapped.expr(meta) * lookup_pow_modulus.expr(meta)
                         - store_value_in_heap1.expr(meta)
                         - store_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
@@ -244,7 +308,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     load_tailing.expr(meta) + load_tailing_diff.expr(meta) + constant_from!(1)
-                        - pos_modulus.expr(meta),
+                        - lookup_pow_modulus.expr(meta),
                 ]
             }),
         );
@@ -294,88 +358,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             }),
         );
 
-        let lookup_pow = common_config.pow_table_lookup_cell;
-
         constraint_builder.push(
             "op_store pow lookup",
             Box::new(move |meta| {
                 vec![
-                    lookup_pow.expr(meta)
-                        - pow_table_encode(
-                            pos_modulus.expr(meta),
+                    lookup_pow_power.expr(meta)
+                        - pow_table_power_encode(
                             load_block_inner_pos.expr(meta) * constant_from!(8),
                         ),
                 ]
             }),
-        );
-
-        let sp = common_config.sp_cell;
-        let eid = common_config.eid_cell;
-
-        let memory_table_lookup_stack_read_val = allocator.alloc_memory_table_lookup_read_cell(
-            "store read data",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| store_value.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_read_pos = allocator.alloc_memory_table_lookup_read_cell(
-            "store read pos",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |____| constant_from!(1),
-            move |meta| store_base.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_heap_read1 = allocator.alloc_memory_table_lookup_read_cell(
-            "store load origin1",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Heap as u64),
-            move |meta| load_block_index.expr(meta),
-            move |____| constant_from!(0),
-            move |meta| load_value_in_heap1.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_heap_read2 = allocator.alloc_memory_table_lookup_read_cell(
-            "store load origin2",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Heap as u64),
-            move |meta| load_block_index.expr(meta) + constant_from!(1),
-            move |____| constant_from!(0),
-            move |meta| load_value_in_heap2.expr(meta),
-            move |meta| is_cross_block.expr(meta),
-        );
-
-        let memory_table_lookup_heap_write1 = allocator.alloc_memory_table_lookup_write_cell(
-            "store write res1",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Heap as u64),
-            move |meta| load_block_index.expr(meta),
-            move |____| constant_from!(0),
-            move |meta| store_value_in_heap1.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_heap_write2 = allocator.alloc_memory_table_lookup_write_cell(
-            "store write res1",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Heap as u64),
-            move |meta| load_block_index.expr(meta) + constant_from!(1),
-            move |____| constant_from!(0),
-            move |meta| store_value_in_heap2.expr(meta),
-            move |meta| is_cross_block.expr(meta),
         );
 
         let current_memory_page_size = common_config.mpages_cell;
@@ -407,8 +399,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             is_cross_block,
             cross_block_rem,
             cross_block_rem_diff,
-            load_value_in_heap1,
-            load_value_in_heap2,
             load_tailing,
             load_picked,
             load_picked_byte_proof,
@@ -418,9 +408,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             store_value_tailing_u16_u8_high,
             store_value_tailing_u16_u8_low,
             store_value_wrapped,
-            store_value_in_heap1,
-            store_value_in_heap2,
-            store_base,
             is_one_byte,
             is_two_bytes,
             is_four_bytes,
@@ -432,10 +419,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             memory_table_lookup_heap_read2,
             memory_table_lookup_heap_write1,
             memory_table_lookup_heap_write2,
-            lookup_pow,
+            lookup_pow_power,
+            lookup_pow_modulus,
             address_within_allocated_pages_helper,
             load_tailing_diff,
-            pos_modulus,
             len,
             len_modulus,
         })
@@ -498,19 +485,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.len_modulus.assign_bn(ctx, &len_modulus)?;
 
                 let pos_modulus = 1 << (inner_byte_index * 8);
-                self.pos_modulus.assign(ctx, pos_modulus.into())?;
-                self.lookup_pow.assign_bn(
+                self.lookup_pow_modulus.assign(ctx, pos_modulus.into())?;
+                self.lookup_pow_power.assign_bn(
                     ctx,
-                    &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
+                    &pow_table_power_encode(BigUint::from(inner_byte_index * 8)),
                 )?;
 
                 self.is_cross_block.assign_bool(ctx, is_cross_block)?;
                 let rem = ((effective_address as u64 & 7) + len - 1) & 7;
                 self.cross_block_rem.assign(ctx, rem.into())?;
                 self.cross_block_rem_diff.assign(ctx, (7 - rem).into())?;
-
-                self.load_value_in_heap1.assign(ctx, pre_block_value1)?;
-                self.load_value_in_heap2.assign(ctx, pre_block_value2)?;
 
                 let tailing_bits = inner_byte_index * 8;
                 let picked_bits = len * 8;
@@ -555,21 +539,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     value & ((1 << (len * 8)) - 1)
                 };
                 self.store_value_wrapped.assign(ctx, value_wrapped.into())?;
-                self.store_value_in_heap1
-                    .assign(ctx, updated_block_value1)?;
-                self.store_value_in_heap2
-                    .assign(ctx, updated_block_value2)?;
 
                 self.is_one_byte.assign_bool(ctx, len == 1)?;
                 self.is_two_bytes.assign_bool(ctx, len == 2)?;
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
-
-                self.lookup_pow.assign_bn(
-                    ctx,
-                    &((BigUint::from(1u64) << (inner_byte_index * 8 + 16)) + inner_byte_index * 8),
-                )?;
 
                 self.address_within_allocated_pages_helper.assign(
                     ctx,
@@ -578,8 +553,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                             - (effective_address as u64 + len),
                     ),
                 )?;
-
-                self.store_base.assign_u32(ctx, raw_address)?;
 
                 self.memory_table_lookup_stack_read_val.assign(
                     ctx,
