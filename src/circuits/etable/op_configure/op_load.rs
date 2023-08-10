@@ -55,9 +55,6 @@ pub struct LoadConfig<F: FieldExt> {
 
     res: AllocatedUnlimitedCell<F>,
 
-    // load offset arg
-    load_base: AllocatedU64Cell<F>,
-
     is_one_byte: AllocatedBitCell<F>,
     is_two_bytes: AllocatedBitCell<F>,
     is_four_bytes: AllocatedBitCell<F>,
@@ -90,7 +87,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let opcode_load_offset = allocator.alloc_common_range_cell();
-        let load_base = allocator.alloc_u64_cell();
 
         // which heap offset to load
         let load_block_index = allocator.alloc_common_range_cell();
@@ -133,16 +129,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let sp = common_config.sp_cell;
         let eid = common_config.eid_cell;
 
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "load read offset",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| load_base.expr(meta),
-            move |____| constant_from!(1),
-        );
+        let memory_table_lookup_stack_read = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "load read offset",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(1),
+                move |____| constant_from!(1),
+                move |____| constant_from!(1),
+            );
 
         let memory_table_lookup_heap_read1 = allocator
             .alloc_memory_table_lookup_read_cell_with_value(
@@ -177,6 +173,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             move |____| constant_from!(1),
         );
 
+        let load_base = memory_table_lookup_stack_read.value_cell;
         let load_value_in_heap1 = memory_table_lookup_heap_read1.value_cell;
         let load_value_in_heap2 = memory_table_lookup_heap_read2.value_cell;
 
@@ -383,7 +380,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             load_picked_leading_u8_rem,
             load_picked_leading_u8_rem_diff,
             res,
-            load_base,
             is_one_byte,
             is_two_bytes,
             is_four_bytes,
@@ -515,7 +511,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                     .assign(ctx, (0x7f - (load_picked_leading_u8 & 0x7f)).into())?;
 
                 self.res.assign(ctx, value.into())?;
-                self.load_base.assign(ctx, raw_address as u64)?;
 
                 self.is_one_byte.assign_bool(ctx, len == 1)?;
                 self.is_two_bytes.assign_bool(ctx, len == 2)?;

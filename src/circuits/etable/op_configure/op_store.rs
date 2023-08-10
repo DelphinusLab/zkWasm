@@ -55,9 +55,6 @@ pub struct StoreConfig<F: FieldExt> {
     store_value_tailing_u16_u8_low: AllocatedU8Cell<F>,
     store_value_wrapped: AllocatedUnlimitedCell<F>,
 
-    // load offset arg
-    store_base: AllocatedCommonRangeCell<F>,
-
     is_one_byte: AllocatedBitCell<F>,
     is_two_bytes: AllocatedBitCell<F>,
     is_four_bytes: AllocatedBitCell<F>,
@@ -86,7 +83,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let opcode_store_offset = allocator.alloc_common_range_cell();
-        let store_base = allocator.alloc_common_range_cell();
 
         // which heap offset to load
         let load_block_index = allocator.alloc_common_range_cell();
@@ -131,16 +127,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             move |____| constant_from!(1),
         );
 
-        let memory_table_lookup_stack_read_pos = allocator.alloc_memory_table_lookup_read_cell(
-            "store read pos",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |____| constant_from!(1),
-            move |meta| store_base.expr(meta),
-            move |____| constant_from!(1),
-        );
+        let memory_table_lookup_stack_read_pos = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "store read pos",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(2),
+                move |____| constant_from!(1),
+                move |____| constant_from!(1),
+            );
 
         let memory_table_lookup_heap_read1 = allocator
             .alloc_memory_table_lookup_read_cell_with_value(
@@ -185,6 +181,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                 move |____| constant_from!(0),
                 move |meta| is_cross_block.expr(meta),
             );
+
+        let store_base = memory_table_lookup_stack_read_pos.value_cell;
 
         let store_value_in_heap1 = memory_table_lookup_heap_write1.value_cell;
         let store_value_in_heap2 = memory_table_lookup_heap_write2.value_cell;
@@ -410,7 +408,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             store_value_tailing_u16_u8_high,
             store_value_tailing_u16_u8_low,
             store_value_wrapped,
-            store_base,
             is_one_byte,
             is_two_bytes,
             is_four_bytes,
@@ -556,8 +553,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                             - (effective_address as u64 + len),
                     ),
                 )?;
-
-                self.store_base.assign_u32(ctx, raw_address)?;
 
                 self.memory_table_lookup_stack_read_val.assign(
                     ctx,
