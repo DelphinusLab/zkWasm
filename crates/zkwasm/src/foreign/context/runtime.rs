@@ -73,15 +73,13 @@ impl ForeignContext for Context {
     }
 }
 
-pub fn register_context_cont_foreign(
+pub fn register_context_foreign(
     env: &mut HostEnv,
     input: Option<PathBuf>,
     output: Option<PathBuf>,
 ) {
-    env.internal_env.register_plugin(
-        HostPlugin::ContextCont,
-        Box::new(Context::new(input, output)),
-    );
+    env.internal_env
+        .register_plugin(HostPlugin::Context, Box::new(Context::new(input, output)));
 
     env.internal_env.register_function(
         "wasm_read_context",
@@ -89,7 +87,7 @@ pub fn register_context_cont_foreign(
             params: vec![],
             return_type: Some(ValueType::I64),
         },
-        HostPlugin::ContextCont,
+        HostPlugin::Context,
         Op::ReadContext as usize,
         Rc::new(|context: &mut dyn ForeignContext, _args: RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
@@ -104,7 +102,7 @@ pub fn register_context_cont_foreign(
             params: vec![ValueType::I64],
             return_type: None,
         },
-        HostPlugin::ContextCont,
+        HostPlugin::Context,
         Op::WriteContext as usize,
         Rc::new(|context: &mut dyn ForeignContext, args: RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();

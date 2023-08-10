@@ -36,15 +36,15 @@ use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
 use crate::circuits::TestCircuit;
 use crate::exec_with_profile;
-use crate::foreign::context_cont::circuits::assign::ContextContHelperTableChip;
-use crate::foreign::context_cont::circuits::assign::ExtractContextFromTrace;
-use crate::foreign::context_cont::circuits::ContextContHelperTableConfig;
-use crate::foreign::context_cont::circuits::CONTEXT_CONT_FOREIGN_TABLE_KEY;
+use crate::foreign::context::circuits::assign::ContextContHelperTableChip;
+use crate::foreign::context::circuits::assign::ExtractContextFromTrace;
+use crate::foreign::context::circuits::ContextContHelperTableConfig;
+use crate::foreign::context::circuits::CONTEXT_FOREIGN_TABLE_KEY;
+use crate::foreign::foreign_table_enable_lines;
 use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChip;
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
-use crate::foreign::ENABLE_LINES;
 
 use super::config::zkwasm_k;
 use super::config::CircuitConfigure;
@@ -66,7 +66,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
     wasm_input_helper_table: WasmInputHelperTableConfig<F>,
-    context_cont_helper_table: ContextContHelperTableConfig<F>,
+    context_helper_table: ContextContHelperTableConfig<F>,
 
     foreign_table_from_zero_index: Column<Fixed>,
 
@@ -113,7 +113,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let wasm_input_helper_table =
             WasmInputHelperTableConfig::configure(meta, foreign_table_from_zero_index);
-        let context_cont_helper_table =
+        let context_helper_table =
             ContextContHelperTableConfig::configure(meta, foreign_table_from_zero_index);
 
         let mut foreign_table_configs: BTreeMap<_, Box<(dyn ForeignTableConfig<F>)>> =
@@ -123,8 +123,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             Box::new(wasm_input_helper_table.clone()),
         );
         foreign_table_configs.insert(
-            CONTEXT_CONT_FOREIGN_TABLE_KEY,
-            Box::new(context_cont_helper_table.clone()),
+            CONTEXT_FOREIGN_TABLE_KEY,
+            Box::new(context_helper_table.clone()),
         );
 
         let etable = EventTableConfig::configure(
@@ -158,7 +158,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             bit_table,
             external_host_call_table,
             wasm_input_helper_table,
-            context_cont_helper_table,
+            context_helper_table,
             foreign_table_from_zero_index,
 
             max_available_rows,
@@ -184,12 +184,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let external_host_call_chip =
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
         let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
-        let context_cont_chip = ContextContHelperTableChip::new(config.context_cont_helper_table);
+        let context_chip = ContextContHelperTableChip::new(config.context_helper_table);
 
         layouter.assign_region(
             || "foreign helper",
             |mut region| {
-                for offset in 0..ENABLE_LINES {
+                for offset in 0..foreign_table_enable_lines() {
                     region.assign_fixed(
                         || "foreign table from zero index",
                         config.foreign_table_from_zero_index,
@@ -308,7 +308,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         );
         exec_with_profile!(
             || "Assign context cont chip",
-            context_cont_chip.assign(
+            context_chip.assign(
                 &mut layouter,
                 &self.tables.execution_tables.etable.get_context_inputs(),
                 &self.tables.execution_tables.etable.get_context_outputs()

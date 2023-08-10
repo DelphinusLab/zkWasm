@@ -11,6 +11,6 @@ fn main() -> Result<()> {
         vec!["search"].into_iter().map(|s| s.to_owned()).collect(),
     )?;
 
-    let (circuit, instances) = loader.circuit_with_witness(vec![], vec![], None, None)?;
+    let (circuit, instances) = loader.circuit_with_witness(vec![2], vec![], None, None)?;
     loader.mock_test(&circuit, &instances)
 }

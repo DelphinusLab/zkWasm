@@ -11,7 +11,6 @@ use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 use crate::circuits::cell::AllocatedBitCell;
-use crate::circuits::cell::AllocatedU64Cell;
 use crate::circuits::cell::AllocatedUnlimitedCell;
 use crate::circuits::cell::CellExpression;
 use crate::circuits::etable::allocator::AllocatedMemoryTableLookupReadCell;
@@ -27,39 +26,36 @@ use crate::circuits::utils::Context;
 use crate::constant;
 use crate::constant_from;
 use crate::constant_from_bn;
-use crate::foreign::context_cont::Op;
+use crate::foreign::context::Op;
 use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::InternalHostPluginBuilder;
 
-use super::circuits::CONTEXT_CONT_FOREIGN_TABLE_KEY;
+use super::circuits::CONTEXT_FOREIGN_TABLE_KEY;
 
-pub struct ETableContextContHelperTableConfig<F: FieldExt> {
+pub struct ETableContextHelperTableConfig<F: FieldExt> {
     plugin_index: u64,
 
     is_context_in_op: AllocatedBitCell<F>,
     is_context_out_op: AllocatedBitCell<F>,
-    context_cont_input_index_for_lookup: AllocatedUnlimitedCell<F>,
-    context_cont_output_index_for_lookup: AllocatedUnlimitedCell<F>,
+    context_input_index_for_lookup: AllocatedUnlimitedCell<F>,
+    context_output_index_for_lookup: AllocatedUnlimitedCell<F>,
     input_value: AllocatedUnlimitedCell<F>,
     output_value: AllocatedUnlimitedCell<F>,
-    value: AllocatedU64Cell<F>,
 
     lookup_read_stack: AllocatedMemoryTableLookupReadCell<F>,
     lookup_write_stack: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
-pub struct ETableContextContHelperTableConfigBuilder {
+pub struct ETableContextHelperTableConfigBuilder {
     index: usize,
 }
 
-impl InternalHostPluginBuilder for ETableContextContHelperTableConfigBuilder {
+impl InternalHostPluginBuilder for ETableContextHelperTableConfigBuilder {
     fn new(index: usize) -> Self {
         Self { index }
     }
 }
-impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
-    for ETableContextContHelperTableConfigBuilder
-{
+impl<F: FieldExt> EventTableForeignCallConfigBuilder<F> for ETableContextHelperTableConfigBuilder {
     fn configure(
         self,
         common_config: &EventTableCommonConfig<F>,
@@ -69,99 +65,87 @@ impl<F: FieldExt> EventTableForeignCallConfigBuilder<F>
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_context_in_op = allocator.alloc_bit_cell();
         let is_context_out_op = allocator.alloc_bit_cell();
-        let context_cont_input_index_for_lookup = lookup_cells.next().unwrap();
-        let context_cont_output_index_for_lookup = lookup_cells.next().unwrap();
+        let context_input_index_for_lookup = lookup_cells.next().unwrap();
+        let context_output_index_for_lookup = lookup_cells.next().unwrap();
 
         let input_value = lookup_cells.next().unwrap();
         let output_value = lookup_cells.next().unwrap();
-        let value = allocator.alloc_u64_cell();
 
         let sp = common_config.sp_cell;
 
-        let context_cont_input_index = common_config.context_cont_input_index_cell;
-        let context_cont_output_index = common_config.context_cont_output_index_cell;
+        let context_input_index = common_config.context_input_index_cell;
+        let context_output_index = common_config.context_output_index_cell;
 
         let lookup_read_stack = allocator.alloc_memory_table_lookup_read_cell(
-            "context cnt stack read",
+            "context stack read",
             constraint_builder,
             common_config.eid_cell,
             move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
             move |____| constant_from!(0),
-            move |meta| value.expr(meta),
+            move |meta| output_value.expr(meta),
             move |meta| is_context_out_op.expr(meta),
         );
         let lookup_write_stack = allocator.alloc_memory_table_lookup_write_cell(
-            "context cnt stack write",
+            "context stack write",
             constraint_builder,
             common_config.eid_cell,
             move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta),
             move |____| constant_from!(0),
-            move |meta| value.expr(meta),
+            move |meta| input_value.expr(meta),
             move |meta| is_context_in_op.expr(meta),
         );
 
         constraint_builder.push(
-            "context cont sel",
+            "context sel",
             Box::new(move |meta| {
                 vec![is_context_in_op.expr(meta) + is_context_out_op.expr(meta) - constant_from!(1)]
             }),
         );
 
         constraint_builder.push(
-            "constraint value to u64",
-            Box::new(move |meta| {
-                vec![
-                    (value.expr(meta) - input_value.expr(meta)) * is_context_in_op.expr(meta),
-                    (value.expr(meta) - output_value.expr(meta)) * is_context_out_op.expr(meta),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "context cont lookup",
+            "context lookup",
             Box::new(move |meta| {
                 vec![
                     is_context_in_op.expr(meta)
-                        * (context_cont_input_index_for_lookup.expr(meta)
-                            - context_cont_input_index.expr(meta)),
+                        * (context_input_index_for_lookup.expr(meta)
+                            - context_input_index.expr(meta)),
                     is_context_out_op.expr(meta)
-                        * (context_cont_output_index_for_lookup.expr(meta)
-                            - context_cont_output_index.expr(meta)),
+                        * (context_output_index_for_lookup.expr(meta)
+                            - context_output_index.expr(meta)),
                 ]
             }),
         );
 
         constraint_builder.lookup(
-            CONTEXT_CONT_FOREIGN_TABLE_KEY,
+            CONTEXT_FOREIGN_TABLE_KEY,
             "lookup context cont table",
             Box::new(move |meta| {
                 vec![
-                    context_cont_input_index_for_lookup.expr(meta),
+                    context_input_index_for_lookup.expr(meta),
                     input_value.expr(meta),
-                    context_cont_output_index_for_lookup.expr(meta),
+                    context_output_index_for_lookup.expr(meta),
                     output_value.expr(meta),
                 ]
             }),
         );
 
-        Box::new(ETableContextContHelperTableConfig {
+        Box::new(ETableContextHelperTableConfig {
             plugin_index: self.index as u64,
             is_context_in_op,
             is_context_out_op,
             input_value,
             output_value,
-            value,
             lookup_read_stack,
             lookup_write_stack,
-            context_cont_input_index_for_lookup,
-            context_cont_output_index_for_lookup,
+            context_input_index_for_lookup,
+            context_output_index_for_lookup,
         })
     }
 }
 
-impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConfig<F> {
+impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextHelperTableConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         constant_from_bn!(
             &(BigUint::from(OpcodeClass::ForeignPluginStart as u64 + self.plugin_index)
@@ -183,13 +167,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
                 op_index_in_plugin,
                 ..
             } => {
-                assert_eq!(*plugin, HostPlugin::ContextCont);
+                assert_eq!(*plugin, HostPlugin::Context);
 
                 if *op_index_in_plugin == Op::ReadContext as usize {
                     let value = ret_val.unwrap();
 
                     self.input_value.assign(ctx, F::from(value))?;
-                    self.value.assign(ctx, value)?;
                     self.lookup_write_stack.assign(
                         ctx,
                         step.current.eid,
@@ -200,7 +183,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
                         value,
                     )?;
                     self.is_context_in_op.assign_bool(ctx, true)?;
-                    self.context_cont_input_index_for_lookup
+                    self.context_input_index_for_lookup
                         .assign(ctx, F::from(step.context_in_index as u64))?;
 
                     Ok(())
@@ -208,7 +191,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
                     let value = *args.first().unwrap();
 
                     self.output_value.assign(ctx, F::from(value))?;
-                    self.value.assign(ctx, value)?;
                     self.lookup_read_stack.assign(
                         ctx,
                         entry.memory_rw_entires[0].start_eid,
@@ -220,7 +202,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
                         value,
                     )?;
                     self.is_context_out_op.assign_bool(ctx, true)?;
-                    self.context_cont_output_index_for_lookup
+                    self.context_output_index_for_lookup
                         .assign(ctx, F::from(step.context_out_index as u64))?;
 
                     Ok(())
@@ -241,7 +223,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
                 op_index_in_plugin,
                 ..
             } => {
-                assert_eq!(*plugin, HostPlugin::ContextCont);
+                assert_eq!(*plugin, HostPlugin::Context);
 
                 (*op_index_in_plugin == Op::ReadContext as usize) as u32
             }
@@ -257,14 +239,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
         Some(constant!(-F::one()) + constant_from!(2) * self.is_context_out_op.expr(meta))
     }
 
-    fn is_context_cont_input_op(&self, entry: &EventTableEntry) -> bool {
+    fn is_context_input_op(&self, entry: &EventTableEntry) -> bool {
         match &entry.step_info {
             StepInfo::CallHost {
                 plugin,
                 op_index_in_plugin,
                 ..
             } => {
-                assert_eq!(*plugin, HostPlugin::ContextCont);
+                assert_eq!(*plugin, HostPlugin::Context);
 
                 return *op_index_in_plugin == Op::ReadContext as usize;
             }
@@ -272,7 +254,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
         }
     }
 
-    fn context_cont_input_index_increase(
+    fn context_input_index_increase(
         &self,
         meta: &mut VirtualCells<'_, F>,
         _common_config: &EventTableCommonConfig<F>,
@@ -280,14 +262,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
         Some(self.is_context_in_op.expr(meta))
     }
 
-    fn is_context_cont_output_op(&self, entry: &EventTableEntry) -> bool {
+    fn is_context_output_op(&self, entry: &EventTableEntry) -> bool {
         match &entry.step_info {
             StepInfo::CallHost {
                 plugin,
                 op_index_in_plugin,
                 ..
             } => {
-                assert_eq!(*plugin, HostPlugin::ContextCont);
+                assert_eq!(*plugin, HostPlugin::Context);
 
                 return *op_index_in_plugin == Op::WriteContext as usize;
             }
@@ -295,7 +277,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextContHelperTableConf
         }
     }
 
-    fn context_cont_output_index_increase(
+    fn context_output_index_increase(
         &self,
         meta: &mut VirtualCells<'_, F>,
         _common_config: &EventTableCommonConfig<F>,

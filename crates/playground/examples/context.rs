@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::fs::{self};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -7,8 +6,8 @@ use anyhow::Result;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use pairing_bn256::bn256::Bn256;
 
-const CONTEXT_IN_PATH: &str = "context_cont_in.context.tmp";
-const CONTEXT_OUT_PATH: &str = "context_cont_out.context.tmp";
+const CONTEXT_IN_PATH: &str = "context_in.context.tmp";
+const CONTEXT_OUT_PATH: &str = "context_out.context.tmp";
 
 fn main() -> Result<()> {
     let wasm = std::fs::read("wasm/context_cont.wasm")?;
@@ -38,8 +37,8 @@ fn main() -> Result<()> {
     )?;
     loader.mock_test(&circuit, &instances)?;
 
-    fs::remove_file(CONTEXT_IN_PATH)?;
-    fs::remove_file(CONTEXT_OUT_PATH)?;
+    std::fs::remove_file(CONTEXT_IN_PATH)?;
+    std::fs::remove_file(CONTEXT_OUT_PATH)?;
 
     Ok(())
 }

@@ -29,5 +29,5 @@ fn main() {
     compile_c!("phantom");
     compile_c!("fibonacci");
     compile_c!("binary_search");
-    compile_c!("context_cont");
+    compile_c!("context");
 }
