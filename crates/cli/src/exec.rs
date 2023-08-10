@@ -1,5 +1,6 @@
 use anyhow::Result;
 use delphinus_zkwasm::circuits::TestCircuit;
+use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::pairing::bn256::Bn256;
@@ -166,12 +167,12 @@ pub fn exec_dry_run_service(
                             .unwrap();
 
                             let r = loader
-                                .dry_run(
+                                .dry_run(ExecutionArg {
                                     public_inputs,
                                     private_inputs,
-                                    sequence.context_input,
-                                    sequence.context_output,
-                                )
+                                    context_input: sequence.context_input,
+                                    context_output: sequence.context_output,
+                                })
                                 .unwrap();
                             println!("return value: {:?}", r);
 
@@ -214,7 +215,12 @@ pub fn exec_dry_run(
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-    loader.dry_run(public_inputs, private_inputs, context_input, context_output)?;
+    loader.dry_run(ExecutionArg {
+        public_inputs,
+        private_inputs,
+        context_input,
+        context_output,
+    })?;
 
     Ok(())
 }
@@ -242,12 +248,12 @@ pub fn exec_create_proof(
         &output_dir.join(format!("{}.{}.vkey.data", prefix, 0)),
     );
 
-    let (circuit, instances) = loader.circuit_with_witness(
+    let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
         public_inputs,
         private_inputs,
         context_input,
         context_output,
-    )?;
+    })?;
 
     {
         store_instance(
@@ -340,12 +346,12 @@ pub fn exec_aggregate_create_proof(
             Ok::<_, anyhow::Error>((vec![], vec![])),
             |acc, (((public_inputs, private_inputs), context_input), context_output)| {
                 acc.and_then(|(mut circuits, mut instances)| {
-                    let (circuit, instance) = loader.circuit_with_witness(
+                    let (circuit, instance) = loader.circuit_with_witness(ExecutionArg {
                         public_inputs,
                         private_inputs,
                         context_input,
                         context_output,
-                    )?;
+                    })?;
 
                     circuits.push(circuit);
                     instances.push(vec![instance]);
