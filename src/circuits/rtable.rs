@@ -25,16 +25,26 @@ pub struct RangeTableConfig<F: FieldExt> {
     u16_col: TableColumn,
     // [0 .. 256)
     u8_col: TableColumn,
+
     // [0 .. 16)
     u4_col: TableColumn,
     // {(left, right, res, op) | op(left, right) = res}, encoded by concat(left, right, res) << op
     u4_bop_calc_col: TableColumn,
     // {0, 1, 1 << 12, 1 << 24 ...}
     u4_bop_col: TableColumn,
-    // {1 | PREFIX + 0, 2 | 1, 4 | 2, ...}
-    pow_col: [TableColumn; 2],
     // {0 | 1 | 0b1000000000000000, 0 | 2 | 0b110000000000000 ...}
     offset_len_bits_col: TableColumn,
+
+    /*
+    {
+        0 | 0,
+        1 | PREFIX + 0,
+        2 | PREFIX + 1,
+        4 | PREFIX + 2,
+        ...
+    }
+    */
+    pow_col: [TableColumn; 2],
 
     // (and | or | xor | popcnt) << 24
     //        l_u8               << 16
@@ -168,7 +178,7 @@ impl<F: FieldExt> RangeTableConfig<F> {
     ) {
         meta.lookup(key, |meta| {
             let [e0, e1] = expr(meta);
-            vec![(e0, self.pow_col[0]), (e1.clone(), self.pow_col[1])]
+            vec![(e0, self.pow_col[0]), (e1, self.pow_col[1])]
         });
     }
 
