@@ -113,9 +113,9 @@ impl WasmiRuntime {
         imports: &I,
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
         entry: &str,
-        bypass_functions: &Vec<String>,
+        phantom_functions: &Vec<String>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), bypass_functions);
+        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions);
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))

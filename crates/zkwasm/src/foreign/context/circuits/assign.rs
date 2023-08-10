@@ -5,7 +5,7 @@ use specs::etable::EventTable;
 use specs::host_function::HostPlugin;
 use specs::step::StepInfo;
 
-use crate::foreign::context_cont::Op;
+use crate::foreign::context::Op;
 
 use super::ContextContHelperTableConfig;
 
@@ -64,7 +64,7 @@ impl ExtractContextFromTrace for EventTable {
             .iter()
             .filter_map(|e| match &e.step_info {
                 StepInfo::CallHost {
-                    plugin: HostPlugin::ContextCont,
+                    plugin: HostPlugin::Context,
                     op_index_in_plugin,
                     ret_val,
                     ..
@@ -85,7 +85,7 @@ impl ExtractContextFromTrace for EventTable {
             .iter()
             .filter_map(|e| match &e.step_info {
                 StepInfo::CallHost {
-                    plugin: HostPlugin::ContextCont,
+                    plugin: HostPlugin::Context,
                     op_index_in_plugin,
                     args,
                     ..
