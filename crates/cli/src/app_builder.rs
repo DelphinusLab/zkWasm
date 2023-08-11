@@ -4,8 +4,11 @@ use clap::AppSettings;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use log::info;
 use log::warn;
+use std::cell::RefCell;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::exec::exec_dry_run;
 
@@ -28,6 +31,26 @@ fn load_or_generate_output_path(wasm_md5: &String, path: Option<&PathBuf>) -> Pa
 
         PathBuf::from(wasm_md5)
     }
+}
+
+pub fn write_context_output(
+    context_output: &Vec<u64>,
+    context_out_path: Option<PathBuf>,
+) -> Result<()> {
+    if let Some(path) = context_out_path {
+        let mut fd = fs::File::create(path.as_path())?;
+        fd.write_all("0x".as_bytes())?;
+
+        for value in context_output {
+            let bytes = value.to_le_bytes();
+            let s = hex::encode(bytes);
+            fd.write_all(&s.as_bytes())?;
+        }
+
+        fd.write_all(":bytes-packed".as_bytes())?;
+    }
+
+    Ok(())
 }
 
 pub trait AppBuilder: CommandBuilder {
@@ -97,8 +120,9 @@ pub trait AppBuilder: CommandBuilder {
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
-                let context_in: Option<PathBuf> = Self::parse_context_in_path_arg(&sub_matches);
-                let context_out: Option<PathBuf> = Self::parse_context_out_path_arg(&sub_matches);
+                let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
+                let context_out_path: Option<PathBuf> =
+                    Self::parse_context_out_path_arg(&sub_matches);
                 let service_mode = Self::parse_dry_run_service_arg(&sub_matches);
 
                 if let Some(listen) = service_mode {
@@ -106,13 +130,15 @@ pub trait AppBuilder: CommandBuilder {
                         warn!("All private/public inputs are ignored when dry-run is running in service mode.");
                     }
 
-                    if !context_in.is_some() || !context_out.is_some() {
+                    if !context_in.is_empty() || context_out_path.is_some() {
                         warn!("All context paths are ignored when dry-run is running in service mode.");
                     }
 
                     exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+
+                    let context_output = Rc::new(RefCell::new(vec![]));
 
                     exec_dry_run(
                         zkwasm_k,
@@ -121,15 +147,22 @@ pub trait AppBuilder: CommandBuilder {
                         public_inputs,
                         private_inputs,
                         context_in,
-                        context_out,
-                    )
+                        Rc::new(RefCell::new(vec![])),
+                    )?;
+
+                    write_context_output(&context_output.borrow(), context_out_path)?;
+
+                    Ok(())
                 }
             }
             Some(("single-prove", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
-                let context_in: Option<PathBuf> = Self::parse_context_in_path_arg(&sub_matches);
-                let context_out: Option<PathBuf> = Self::parse_context_out_path_arg(&sub_matches);
+                let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
+                let context_out_path: Option<PathBuf> =
+                    Self::parse_context_out_path_arg(&sub_matches);
+
+                let context_out = Rc::new(RefCell::new(vec![]));
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
@@ -142,8 +175,12 @@ pub trait AppBuilder: CommandBuilder {
                     public_inputs,
                     private_inputs,
                     context_in,
-                    context_out,
-                )
+                    context_out.clone(),
+                )?;
+
+                write_context_output(&context_out.borrow(), context_out_path)?;
+
+                Ok(())
             }
             Some(("single-verify", sub_matches)) => {
                 let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
@@ -163,8 +200,11 @@ pub trait AppBuilder: CommandBuilder {
                 let public_inputs: Vec<Vec<u64>> = Self::parse_aggregate_public_args(&sub_matches);
                 let private_inputs: Vec<Vec<u64>> =
                     Self::parse_aggregate_private_args(&sub_matches);
-                let context_inputs = public_inputs.iter().map(|_| None).collect();
-                let context_outputs = public_inputs.iter().map(|_| None).collect();
+                let context_inputs = public_inputs.iter().map(|_| vec![]).collect();
+                let context_outputs = public_inputs
+                    .iter()
+                    .map(|_| Rc::new(RefCell::new(vec![])))
+                    .collect();
 
                 for instances in &public_inputs {
                     assert!(instances.len() <= Self::MAX_PUBLIC_INPUT_SIZE);

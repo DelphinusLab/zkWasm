@@ -1,44 +1,37 @@
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use anyhow::Result;
+use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use pairing_bn256::bn256::Bn256;
 
-const CONTEXT_IN_PATH: &str = "context_in.context.tmp";
-const CONTEXT_OUT_PATH: &str = "context_out.context.tmp";
-
 fn main() -> Result<()> {
-    let wasm = std::fs::read("wasm/context_cont.wasm")?;
-    let context_in = vec![2, 1];
-    let mut fd = File::create(CONTEXT_IN_PATH)?;
-    context_in.into_iter().for_each(|v| {
-        let mut buf = u64::to_le_bytes(v);
+    let wasm = std::fs::read("wasm/context.wasm")?;
 
-        fd.write_all(&mut buf).unwrap();
-    });
+    let context_in: Vec<u64> = vec![2, 1];
+    let context_outputs = Rc::new(RefCell::new(vec![]));
 
     let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
+    let arg = ExecutionArg {
+        public_inputs: vec![],
+        private_inputs: vec![],
+        context_inputs: context_in,
+        context_outputs: context_outputs.clone(),
+    };
 
-    let (circuit, instances) = loader.circuit_with_witness(
-        vec![],
-        vec![],
-        Some(PathBuf::from(CONTEXT_IN_PATH)),
-        Some(PathBuf::from(CONTEXT_OUT_PATH)),
-    )?;
+    let (circuit, instances) = loader.circuit_with_witness(arg)?;
     loader.mock_test(&circuit, &instances)?;
 
-    let (circuit, instances) = loader.circuit_with_witness(
-        vec![],
-        vec![],
-        Some(PathBuf::from(CONTEXT_OUT_PATH)),
-        Some(PathBuf::from(CONTEXT_OUT_PATH)),
-    )?;
-    loader.mock_test(&circuit, &instances)?;
+    let arg = ExecutionArg {
+        public_inputs: vec![],
+        private_inputs: vec![],
+        context_inputs: context_outputs.borrow().to_vec(),
+        context_outputs: Rc::new(RefCell::new(vec![])),
+    };
 
-    std::fs::remove_file(CONTEXT_IN_PATH)?;
-    std::fs::remove_file(CONTEXT_OUT_PATH)?;
+    let (circuit, instances) = loader.circuit_with_witness(arg)?;
+    loader.mock_test(&circuit, &instances)?;
 
     Ok(())
 }

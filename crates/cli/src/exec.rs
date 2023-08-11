@@ -28,12 +28,15 @@ use notify::RecursiveMode;
 use notify::Watcher;
 use serde::Deserialize;
 use serde::Serialize;
+use std::cell::RefCell;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 use wasmi::RuntimeValue;
 
+use crate::app_builder::write_context_output;
 use crate::args::parse_args;
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
@@ -122,7 +125,7 @@ pub fn exec_dry_run_service(
     struct Sequence {
         private_inputs: Vec<String>,
         public_inputs: Vec<String>,
-        context_input: Option<PathBuf>,
+        context_input: Vec<String>,
         context_output: Option<PathBuf>,
     }
 
@@ -158,6 +161,10 @@ pub fn exec_dry_run_service(
                             let public_inputs = parse_args(
                                 sequence.public_inputs.iter().map(|s| s.as_str()).collect(),
                             );
+                            let context_inputs = parse_args(
+                                sequence.context_input.iter().map(|s| s.as_str()).collect(),
+                            );
+                            let context_outputs = Rc::new(RefCell::new(vec![]));
 
                             let loader = ZkWasmLoader::<Bn256>::new(
                                 zkwasm_k,
@@ -170,11 +177,17 @@ pub fn exec_dry_run_service(
                                 .dry_run(ExecutionArg {
                                     public_inputs,
                                     private_inputs,
-                                    context_input: sequence.context_input,
-                                    context_output: sequence.context_output,
+                                    context_inputs,
+                                    context_outputs: context_outputs.clone(),
                                 })
                                 .unwrap();
                             println!("return value: {:?}", r);
+
+                            write_context_output(
+                                &context_outputs.borrow().to_vec(),
+                                sequence.context_output,
+                            )
+                            .unwrap();
 
                             fs::write(
                                 Path::new(&format!("{}.done", path.to_str().unwrap())),
@@ -210,16 +223,16 @@ pub fn exec_dry_run(
     phantom_functions: Vec<String>,
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
-    context_input: Option<PathBuf>,
-    context_output: Option<PathBuf>,
+    context_inputs: Vec<u64>,
+    context_outputs: Rc<RefCell<Vec<u64>>>,
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
     loader.dry_run(ExecutionArg {
         public_inputs,
         private_inputs,
-        context_input,
-        context_output,
+        context_inputs,
+        context_outputs,
     })?;
 
     Ok(())
@@ -233,8 +246,8 @@ pub fn exec_create_proof(
     output_dir: &PathBuf,
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
-    context_input: Option<PathBuf>,
-    context_output: Option<PathBuf>,
+    context_inputs: Vec<u64>,
+    context_outputs: Rc<RefCell<Vec<u64>>>,
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
@@ -251,8 +264,8 @@ pub fn exec_create_proof(
     let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
         public_inputs,
         private_inputs,
-        context_input,
-        context_output,
+        context_inputs,
+        context_outputs,
     })?;
 
     {
@@ -330,8 +343,8 @@ pub fn exec_aggregate_create_proof(
     output_dir: &PathBuf,
     public_inputs: Vec<Vec<u64>>,
     private_inputs: Vec<Vec<u64>>,
-    context_inputs: Vec<Option<PathBuf>>,
-    context_outputs: Vec<Option<PathBuf>>,
+    context_inputs: Vec<Vec<u64>>,
+    context_outputs: Vec<Rc<RefCell<Vec<u64>>>>,
 ) -> Result<()> {
     assert_eq!(public_inputs.len(), private_inputs.len());
 
@@ -344,13 +357,13 @@ pub fn exec_aggregate_create_proof(
         .zip(context_outputs.into_iter())
         .fold(
             Ok::<_, anyhow::Error>((vec![], vec![])),
-            |acc, (((public_inputs, private_inputs), context_input), context_output)| {
+            |acc, (((public_inputs, private_inputs), context_inputs), context_outputs)| {
                 acc.and_then(|(mut circuits, mut instances)| {
                     let (circuit, instance) = loader.circuit_with_witness(ExecutionArg {
                         public_inputs,
                         private_inputs,
-                        context_input,
-                        context_output,
+                        context_inputs,
+                        context_outputs,
                     })?;
 
                     circuits.push(circuit);
