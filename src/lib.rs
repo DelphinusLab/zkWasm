@@ -7,7 +7,6 @@ pub mod circuits;
 pub mod cli;
 pub mod foreign;
 pub mod runtime;
-pub mod traits;
 
 #[cfg(feature = "checksum")]
 pub mod image_hasher;
