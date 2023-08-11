@@ -2,7 +2,6 @@ use super::config::zkwasm_k;
 use super::config::POW_TABLE_LIMIT;
 use super::utils::bn_to_field;
 use crate::circuits::bit_table::BitTableOp;
-use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::ConstraintSystem;
@@ -15,6 +14,14 @@ use specs::encode::FromBn;
 use specs::itable::BitOp;
 use std::marker::PhantomData;
 use strum::IntoEnumIterator;
+
+#[derive(Clone)]
+struct U8BitTable {
+    op: TableColumn,
+    left: TableColumn,
+    right: TableColumn,
+    result: TableColumn,
+}
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
@@ -36,11 +43,13 @@ pub struct RangeTableConfig<F: FieldExt> {
     */
     pow_col: [TableColumn; 2],
 
-    // (and | or | xor | popcnt) << 24
-    //        l_u8               << 16
-    //        r_u8               <<  8
-    //      res_u8
-    u8_bit_op_col: TableColumn,
+    /*
+     * and | or | xor | popcnt,
+     * l: u8,
+     * r: u8,
+     * res: u8
+     */
+    u8_bit_op_col: U8BitTable,
 
     _mark: PhantomData<F>,
 }
@@ -49,25 +58,19 @@ pub fn pow_table_power_encode<T: FromBn>(power: T) -> T {
     T::from_bn(&BigUint::from(POW_TABLE_LIMIT)) + power
 }
 
-pub(crate) fn encode_u8_bit_lookup(op: BitOp, left: u8, right: u8) -> u64 {
-    let res = op.eval(left as u64, right as u64);
-    ((op as u64) << 24) + ((left as u64) << 16) + ((right as u64) << 8) + res
-}
-
-pub(crate) fn encode_u8_popcnt_lookup(value: u8) -> u64 {
-    ((BitTableOp::Popcnt.index() as u64) << 24)
-        + ((value as u64) << 16)
-        + (value.count_ones() as u64)
-}
-
 impl<F: FieldExt> RangeTableConfig<F> {
-    pub fn configure(mut cols: impl Iterator<Item = TableColumn>) -> Self {
+    pub fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         RangeTableConfig {
-            common_range_col: cols.next().unwrap(),
-            u16_col: cols.next().unwrap(),
-            u8_col: cols.next().unwrap(),
-            pow_col: [cols.next().unwrap(), cols.next().unwrap()],
-            u8_bit_op_col: cols.next().unwrap(),
+            common_range_col: meta.lookup_table_column(),
+            u16_col: meta.lookup_table_column(),
+            u8_col: meta.lookup_table_column(),
+            pow_col: [meta.lookup_table_column(), meta.lookup_table_column()],
+            u8_bit_op_col: U8BitTable {
+                op: meta.lookup_table_column(),
+                left: meta.lookup_table_column(),
+                right: meta.lookup_table_column(),
+                result: meta.lookup_table_column(),
+            },
             _mark: PhantomData,
         }
     }
@@ -106,18 +109,16 @@ impl<F: FieldExt> RangeTableConfig<F> {
         op: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
         left: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
         right: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-        res: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-        enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        result: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup(key, |meta| {
-            vec![(
-                enable(meta)
-                    * (op(meta) * constant_from!(1 << 24)
-                        + left(meta) * constant_from!(1 << 16)
-                        + right(meta) * constant_from!(1 << 8)
-                        + res(meta)),
-                self.u8_bit_op_col,
-            )]
+            vec![
+                (enable(meta) * op(meta), self.u8_bit_op_col.op),
+                (enable(meta) * left(meta), self.u8_bit_op_col.left),
+                (enable(meta) * right(meta), self.u8_bit_op_col.right),
+                (enable(meta) * result(meta), self.u8_bit_op_col.result),
+            ]
         });
     }
 
@@ -231,28 +232,73 @@ impl<F: FieldExt> RangeTableChip<F> {
                 || "u8 bit table",
                 |mut table| {
                     for op in BitOp::iter() {
-                        for l in 0..1u16 << 8 {
-                            for r in 0u16..1 << 8 {
+                        for left in 0..1u16 << 8 {
+                            for right in 0u16..1 << 8 {
                                 table.assign_cell(
                                     || "range table",
-                                    self.config.u8_bit_op_col,
+                                    self.config.u8_bit_op_col.op,
                                     offset as usize,
-                                    || Ok(F::from(encode_u8_bit_lookup(op, l as u8, r as u8))),
+                                    || Ok(F::from(op as u64)),
                                 )?;
+
+                                table.assign_cell(
+                                    || "range table",
+                                    self.config.u8_bit_op_col.left,
+                                    offset as usize,
+                                    || Ok(F::from(left as u64)),
+                                )?;
+
+                                table.assign_cell(
+                                    || "range table",
+                                    self.config.u8_bit_op_col.right,
+                                    offset as usize,
+                                    || Ok(F::from(right as u64)),
+                                )?;
+
+                                table.assign_cell(
+                                    || "range table",
+                                    self.config.u8_bit_op_col.result,
+                                    offset as usize,
+                                    || Ok(F::from(op.eval(left as u64, right as u64))),
+                                )?;
+
                                 offset += 1;
                             }
                         }
                     }
 
-                    for value in 0..1u16 << 8 {
+                    for left in 0..1u16 << 8 {
                         table.assign_cell(
                             || "range table",
-                            self.config.u8_bit_op_col,
+                            self.config.u8_bit_op_col.op,
                             offset as usize,
-                            || Ok(F::from(encode_u8_popcnt_lookup(value as u8))),
+                            || Ok(F::from(BitTableOp::Popcnt.index() as u64)),
                         )?;
+
+                        table.assign_cell(
+                            || "range table",
+                            self.config.u8_bit_op_col.left,
+                            offset as usize,
+                            || Ok(F::from(left as u64)),
+                        )?;
+
+                        table.assign_cell(
+                            || "range table",
+                            self.config.u8_bit_op_col.right,
+                            offset as usize,
+                            || Ok(F::from(0)),
+                        )?;
+
+                        table.assign_cell(
+                            || "range table",
+                            self.config.u8_bit_op_col.result,
+                            offset as usize,
+                            || Ok(F::from(left.count_ones() as u64)),
+                        )?;
+
                         offset += 1;
                     }
+
                     Ok(())
                 },
             )?;
