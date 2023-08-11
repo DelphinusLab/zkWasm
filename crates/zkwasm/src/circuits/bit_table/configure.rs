@@ -3,28 +3,37 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 
-use crate::circuits::Lookup;
-use crate::curr;
 use crate::fixed_curr;
+use crate::prev;
 
 use super::BitTableConfig;
 
-impl<F: FieldExt> Lookup<F> for BitTableConfig<F> {
-    fn configure_in_table(
+impl<F: FieldExt> BitTableConfig<F> {
+    pub(crate) fn configure_in_table(
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: impl FnOnce(
+            &mut VirtualCells<'_, F>,
+        ) -> (
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+            Expression<F>,
+        ),
     ) {
         meta.lookup_any(key, |meta| {
-            vec![(
-                expr(meta),
-                curr!(meta, self.values[0]) * fixed_curr!(meta, self.step_sel),
-            )]
-        });
-    }
+            let (sel, op, left, right, result) = expr(meta);
 
-    fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        curr!(meta, self.values[0]) * fixed_curr!(meta, self.step_sel)
+            vec![
+                // To prevent `fixed_curr!(meta, self.block_sel) * expr` which makes the h_poly degree up to 5
+                (sel, fixed_curr!(meta, self.block_sel)),
+                (op, prev!(meta, self.op)),
+                (left, prev!(meta, self.left)),
+                (right, prev!(meta, self.right)),
+                (result, prev!(meta, self.result)),
+            ]
+        });
     }
 }

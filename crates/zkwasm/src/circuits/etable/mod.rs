@@ -97,7 +97,7 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     jtable_lookup_cell: AllocatedJumpTableLookupCell<F>,
     pow_table_lookup_modulus_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_power_cell: AllocatedUnlimitedCell<F>,
-    bit_table_lookup_cell: AllocatedBitTableLookupCell<F>,
+    bit_table_lookup_cells: AllocatedBitTableLookupCells<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
 
     circuit_configure: CircuitConfigure,
@@ -229,7 +229,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
         let mut allocator =
-            EventTableCellAllocator::new(meta, step_sel, rtable, mtable, jtable, bit_table, cols);
+            EventTableCellAllocator::new(meta, step_sel, rtable, mtable, jtable, cols);
 
         let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();
@@ -264,8 +264,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let jtable_lookup_cell = allocator.alloc_jump_table_lookup_cell();
         let pow_table_lookup_modulus_cell = allocator.alloc_unlimited_cell();
         let pow_table_lookup_power_cell = allocator.alloc_unlimited_cell();
-        let bit_table_lookup_cell = allocator.alloc_bit_table_lookup_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
+        let bit_table_lookup_cells = allocator.alloc_bit_table_lookup_cells();
 
         let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
             .map(|_| allocator.alloc_unlimited_cell())
@@ -291,7 +291,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             jtable_lookup_cell,
             pow_table_lookup_modulus_cell,
             pow_table_lookup_power_cell,
-            bit_table_lookup_cell,
+            bit_table_lookup_cells,
             external_foreign_call_lookup_cell,
             circuit_configure: circuit_configure.clone(),
         };
@@ -616,6 +616,16 @@ impl<F: FieldExt> EventTableConfig<F> {
                 ]
             },
         );
+
+        bit_table.configure_in_table(meta, "c8f: bit_table_lookup in bit_table", |meta| {
+            (
+                fixed_curr!(meta, step_sel),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.op.expr(meta),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.left.expr(meta),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.right.expr(meta),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.result.expr(meta),
+            )
+        });
 
         Self {
             step_sel,

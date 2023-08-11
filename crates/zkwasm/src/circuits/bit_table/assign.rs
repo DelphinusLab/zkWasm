@@ -1,18 +1,19 @@
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Error;
-use num_bigint::BigUint;
 use specs::itable::UnaryOp;
 use specs::step::StepInfo;
 
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
 
-use super::encode_bit_table_binary;
-use super::encode_bit_table_popcnt;
 use super::BitTableChip;
 use super::BitTableOp;
+use super::BLOCK_SEL_OFFSET;
 use super::STEP_SIZE;
+use super::U32_OFFSET;
+use super::U8_OFFSET;
 
 struct BitTableAssign {
     op: BitTableOp,
@@ -53,12 +54,13 @@ fn filter_bit_table_entries(event_table: &EventTableWithMemoryInfo) -> Vec<BitTa
             StepInfo::UnaryOp {
                 class: UnaryOp::Popcnt,
                 operand,
+                result,
                 ..
             } => Some(BitTableAssign {
                 op: BitTableOp::Popcnt,
                 left: *operand,
                 right: 0,
-                result: u64::from_le_bytes((*operand).to_le_bytes().map(|v| v.count_ones() as u8)),
+                result: *result,
             }),
 
             _ => None,
@@ -70,17 +72,26 @@ impl<F: FieldExt> BitTableChip<F> {
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
         for _ in 0..self.max_available_rows / STEP_SIZE {
             ctx.region.assign_fixed(
-                || "bit table: step sel",
-                self.config.step_sel,
-                ctx.offset,
+                || "bit table: block sel",
+                self.config.block_sel,
+                ctx.offset + BLOCK_SEL_OFFSET,
                 || Ok(F::one()),
             )?;
 
-            for o in 0..4 {
+            for i in U8_OFFSET {
                 ctx.region.assign_fixed(
                     || "bit table: lookup sel",
                     self.config.lookup_sel,
-                    ctx.offset + 4 * o + 1,
+                    ctx.offset + i,
+                    || Ok(F::one()),
+                )?;
+            }
+
+            for i in U32_OFFSET {
+                ctx.region.assign_fixed(
+                    || "bit table: u32 sel",
+                    self.config.u32_sel,
+                    ctx.offset + i,
                     || Ok(F::one()),
                 )?;
             }
@@ -91,72 +102,64 @@ impl<F: FieldExt> BitTableChip<F> {
         Ok(())
     }
 
-    fn assign_encode(
-        &self,
-        ctx: &mut Context<F>,
-        op: BitTableOp,
-        left: u64,
-        right: u64,
-        result: u64,
-    ) -> Result<(), Error> {
-        ctx.region.assign_advice(
-            || "bit table encode",
-            self.config.values[0],
-            ctx.offset,
-            || match op {
-                BitTableOp::BinaryBit(op) => Ok(bn_to_field(&encode_bit_table_binary(
-                    BigUint::from(op as u64),
-                    BigUint::from(left),
-                    BigUint::from(right),
-                    BigUint::from(result),
-                ))),
-                BitTableOp::Popcnt => {
-                    let result = result
-                        .to_le_bytes()
-                        .into_iter()
-                        .fold(0u64, |acc, v| acc + v as u64);
-
-                    Ok(bn_to_field(&encode_bit_table_popcnt(
-                        BigUint::from(left),
-                        BigUint::from(result),
-                    )))
-                }
-            },
-        )?;
-
-        Ok(())
-    }
-
-    fn assign_unary_selector(&self, ctx: &mut Context<F>, op: BitTableOp) -> Result<(), Error> {
-        ctx.region.assign_advice(
-            || "bit table encode",
-            self.config.values[1],
-            ctx.offset,
-            || match op {
-                BitTableOp::BinaryBit(_) => Ok(F::zero()),
-                BitTableOp::Popcnt => Ok(F::one()),
-            },
-        )?;
-
-        Ok(())
-    }
-
     fn assign_op(&self, ctx: &mut Context<'_, F>, op: BitTableOp) -> Result<(), Error> {
-        for i in 0..4 {
-            ctx.region.assign_advice(
-                || "bit table op",
-                self.config.values[0],
-                ctx.offset + 4 * i + 1,
-                || Ok(F::from(op.index() as u64)),
-            )?;
+        let op = F::from(op.index() as u64);
 
+        for i in 0..STEP_SIZE {
             ctx.region.assign_advice(
                 || "bit table op",
-                self.config.values[1],
-                ctx.offset + 4 * i + 1,
-                || Ok(F::from(op.index() as u64)),
+                self.config.op,
+                ctx.offset + i,
+                || Ok(op),
             )?;
         }
+
+        Ok(())
+    }
+
+    fn assign_u64_popcnt(
+        &self,
+        ctx: &mut Context<'_, F>,
+        col: Column<Advice>,
+        value: u64,
+    ) -> Result<(), Error> {
+        let low_u32 = value as u32;
+        let high_u32 = (value >> 32) as u32;
+
+        let low_u8s_popcnt = low_u32.to_le_bytes().map(|byte| byte.count_ones());
+        let high_u8s_popcnt = high_u32.to_le_bytes().map(|byte| byte.count_ones());
+        let low_u32_popcnt = low_u32.count_ones();
+        let high_u32_popcnt = high_u32.count_ones();
+
+        ctx.region.assign_advice(
+            || "bit table: assign u64",
+            col,
+            ctx.offset,
+            || Ok(F::from(value.count_ones() as u64)),
+        )?;
+
+        macro_rules! assign_u32 {
+            ($v: expr, $bytes: expr, $offset: expr) => {{
+                ctx.region.assign_advice(
+                    || "bit table: assign u32",
+                    col,
+                    ctx.offset + $offset,
+                    || Ok(F::from($v as u64)),
+                )?;
+
+                for (index, byte_count_ones) in $bytes.into_iter().enumerate() {
+                    ctx.region.assign_advice(
+                        || "bit table: assign u8",
+                        col,
+                        ctx.offset + 1 + index + $offset,
+                        || Ok(F::from(byte_count_ones as u64)),
+                    )?;
+                }
+            }};
+        }
+
+        assign_u32!(low_u32_popcnt, low_u8s_popcnt, U32_OFFSET[0]);
+        assign_u32!(high_u32_popcnt, high_u8s_popcnt, U32_OFFSET[1]);
 
         Ok(())
     }
@@ -164,27 +167,43 @@ impl<F: FieldExt> BitTableChip<F> {
     fn assign_u64_le(
         &self,
         ctx: &mut Context<'_, F>,
-        offset: usize,
+        col: Column<Advice>,
         value: u64,
     ) -> Result<(), Error> {
-        let mut bytes = value.to_le_bytes().to_vec();
-        bytes.resize(8, 0);
+        let low_u32 = value as u32;
+        let high_u32 = (value >> 32) as u32;
 
-        for (index, byte) in bytes.chunks_exact(2).enumerate() {
-            ctx.region.assign_advice(
-                || "bit table value",
-                self.config.values[0],
-                ctx.offset + 1 + 4 * index + offset,
-                || Ok(F::from(byte[0] as u64)),
-            )?;
+        ctx.region.assign_advice(
+            || "bit table: assign u64",
+            col,
+            ctx.offset,
+            || Ok(F::from(value)),
+        )?;
 
-            ctx.region.assign_advice(
-                || "bit table value",
-                self.config.values[1],
-                ctx.offset + 1 + 4 * index + offset,
-                || Ok(F::from(byte[1] as u64)),
-            )?;
+        macro_rules! assign_u32 {
+            ($v: expr, $offset: expr) => {{
+                let bytes = $v.to_le_bytes();
+
+                ctx.region.assign_advice(
+                    || "bit table: assign u32",
+                    col,
+                    ctx.offset + $offset,
+                    || Ok(F::from($v as u64)),
+                )?;
+
+                for (index, byte) in bytes.into_iter().enumerate() {
+                    ctx.region.assign_advice(
+                        || "bit table: assign u8",
+                        col,
+                        ctx.offset + 1 + index + $offset,
+                        || Ok(F::from(byte as u64)),
+                    )?;
+                }
+            }};
         }
+
+        assign_u32!(low_u32, U32_OFFSET[0]);
+        assign_u32!(high_u32, U32_OFFSET[1]);
 
         Ok(())
     }
@@ -197,12 +216,15 @@ impl<F: FieldExt> BitTableChip<F> {
         assert!(entries.len() <= self.max_available_rows / STEP_SIZE);
 
         for entry in entries {
-            self.assign_encode(ctx, entry.op, entry.left, entry.right, entry.result)?;
-            self.assign_unary_selector(ctx, entry.op)?;
             self.assign_op(ctx, entry.op)?;
-            self.assign_u64_le(ctx, 1, entry.left)?;
-            self.assign_u64_le(ctx, 2, entry.right)?;
-            self.assign_u64_le(ctx, 3, entry.result)?;
+            self.assign_u64_le(ctx, self.config.left, entry.left)?;
+            self.assign_u64_le(ctx, self.config.right, entry.right)?;
+            if entry.op == BitTableOp::Popcnt {
+                // entry.left: Compute left's decompose popcnt
+                self.assign_u64_popcnt(ctx, self.config.result, entry.left)?;
+            } else {
+                self.assign_u64_le(ctx, self.config.result, entry.result)?;
+            }
 
             ctx.step(STEP_SIZE);
         }
