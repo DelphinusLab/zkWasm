@@ -176,14 +176,22 @@ pub trait ArgBuilder {
             .clone()
     }
 
-    fn context_in_path_arg<'a>() -> Arg<'a> {
-        arg!(
-            --ctxin <CONTEXT_IN> "Path of Context Input."
-        )
-        .value_parser(value_parser!(PathBuf))
+    fn context_in_arg<'a>() -> Arg<'a> {
+        Arg::new("ctxin")
+        .long("ctxin")
+        .value_parser(value_parser!(String))
+        .action(ArgAction::Append)
+        .help("Context arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed")
+        .min_values(0)
     }
-    fn parse_context_in_path_arg(matches: &ArgMatches) -> Option<PathBuf> {
-        matches.get_one::<PathBuf>("ctxin").cloned()
+    fn parse_context_in_arg(matches: &ArgMatches) -> Vec<u64> {
+        let inputs: Vec<&str> = matches
+            .get_many("ctxin")
+            .unwrap_or_default()
+            .map(|v: &String| v.as_str())
+            .collect();
+
+        parse_args(inputs.into())
     }
 
     fn context_out_path_arg<'a>() -> Arg<'a> {

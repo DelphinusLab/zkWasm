@@ -1,7 +1,4 @@
-use std::fs::File;
-use std::io::Read;
-use std::io::Write;
-use std::path::PathBuf;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use specs::host_function::HostPlugin;
@@ -14,41 +11,24 @@ use crate::runtime::host::ForeignContext;
 
 use super::Op;
 
-fn parse_u64_from_file(path: &PathBuf) -> Vec<u64> {
-    let mut inputs = vec![];
-
-    let mut fd = File::open(path.as_path()).unwrap();
-    let mut buf = [0u8; 8];
-
-    while let Ok(()) = fd.read_exact(&mut buf) {
-        inputs.push(u64::from_le_bytes(buf));
-    }
-
-    inputs
-}
-
 struct Context {
     inputs: Vec<u64>,
-    outputs: Vec<u64>,
-    output_file: Option<PathBuf>,
+    outputs: Rc<RefCell<Vec<u64>>>,
 }
 
 impl Context {
-    fn new(input_file: Option<PathBuf>, output_file: Option<PathBuf>) -> Self {
-        let mut inputs = input_file
-            .map(|path| parse_u64_from_file(&path))
-            .unwrap_or(vec![]);
+    fn new(context_input: Vec<u64>, context_output: Rc<RefCell<Vec<u64>>>) -> Self {
+        let mut inputs = context_input.clone();
         inputs.reverse();
 
         Context {
             inputs,
-            outputs: vec![],
-            output_file,
+            outputs: context_output,
         }
     }
 
     fn push_output(&mut self, value: u64) {
-        self.outputs.push(value)
+        self.outputs.borrow_mut().push(value)
     }
 
     fn pop_input(&mut self) -> u64 {
@@ -59,27 +39,18 @@ impl Context {
 }
 
 impl ForeignContext for Context {
-    fn finalized(&self) {
-        if let Some(output_file) = &self.output_file {
-            let mut fd = std::fs::File::create(output_file).unwrap();
-
-            let mut outputs = self.outputs.clone();
-            outputs.reverse();
-
-            while let Some(v) = outputs.pop() {
-                fd.write(&v.to_le_bytes()).unwrap();
-            }
-        }
-    }
+    fn finalized(&self) {}
 }
 
 pub fn register_context_foreign(
     env: &mut HostEnv,
-    input: Option<PathBuf>,
-    output: Option<PathBuf>,
+    context_input: Vec<u64>,
+    context_output: Rc<RefCell<Vec<u64>>>,
 ) {
-    env.internal_env
-        .register_plugin(HostPlugin::Context, Box::new(Context::new(input, output)));
+    env.internal_env.register_plugin(
+        HostPlugin::Context,
+        Box::new(Context::new(context_input, context_output)),
+    );
 
     env.internal_env.register_function(
         "wasm_read_context",
