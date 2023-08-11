@@ -161,18 +161,20 @@ impl Externals for HostEnv {
         index: usize,
         args: RuntimeArgs,
     ) -> Result<Option<RuntimeValue>, Trap> {
-        match self.cached_lookup.clone().unwrap().get_mut(&index) {
-            Some(function) => {
-                let ctx = function.execution_env.ctx.clone();
+        match self.cached_lookup.as_ref().unwrap().get(&index).clone() {
+            Some(HostFunction {
+                desc,
+                execution_env: HostFunctionExecutionEnv { ctx, cb },
+            }) => {
                 let mut ctx = (*ctx).borrow_mut();
                 let ctx = ctx.as_mut();
 
                 let start = Instant::now();
-                let r = (function.execution_env.cb)(ctx, args);
+                let r = cb(ctx, args);
                 let duration = start.elapsed();
 
                 self.time_profile
-                    .entry(function.desc.name().to_string())
+                    .entry(desc.name().to_string())
                     .and_modify(|d| *d += duration.as_millis())
                     .or_insert(duration.as_millis());
 
