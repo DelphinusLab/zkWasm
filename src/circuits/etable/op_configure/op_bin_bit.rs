@@ -27,13 +27,8 @@ use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct BinBitConfig<F: FieldExt> {
-    lhs: AllocatedU64Cell<F>,
-    rhs: AllocatedU64Cell<F>,
-    res: AllocatedU64Cell<F>,
-    op_class: AllocatedCommonRangeCell<F>,
-
     is_i32: AllocatedBitCell<F>,
-
+    op_class: AllocatedCommonRangeCell<F>,
     bit_table_lookup: AllocatedBitTableLookupCell<F>,
 
     memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
@@ -50,49 +45,47 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_i32 = allocator.alloc_bit_cell();
-        let lhs = allocator.alloc_u64_cell();
-        let rhs = allocator.alloc_u64_cell();
-        let res = allocator.alloc_u64_cell();
-
         let op_class = allocator.alloc_common_range_cell();
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
-
         let bit_table_lookup = common_config.bit_table_lookup_cell;
 
-        let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| rhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
+        let memory_table_lookup_stack_read_rhs = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "op_bin stack read",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(1),
+                move |meta| is_i32.expr(meta),
+                move |____| constant_from!(1),
+            );
+        let rhs = memory_table_lookup_stack_read_rhs.value_cell;
 
-        let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| lhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
+        let memory_table_lookup_stack_read_lhs = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "op_bin stack read",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| is_i32.expr(meta),
+                move |____| constant_from!(1),
+            );
+        let lhs = memory_table_lookup_stack_read_lhs.value_cell;
 
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_bin stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| res.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
+        let memory_table_lookup_stack_write = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "op_bin stack read",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| is_i32.expr(meta),
+                move |____| constant_from!(1),
+            );
+        let res = memory_table_lookup_stack_write.value_cell;
 
         constraint_builder.push(
             "op_bin_bit: bit table lookup",
@@ -110,9 +103,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         );
 
         Box::new(BinBitConfig {
-            lhs,
-            rhs,
-            res,
             op_class,
             is_i32,
             bit_table_lookup,
@@ -168,9 +158,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
         };
 
         self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
-        self.lhs.assign(ctx, left)?;
-        self.rhs.assign(ctx, right)?;
-        self.res.assign(ctx, value)?;
 
         self.bit_table_lookup.0.assign_bn(
             ctx,
