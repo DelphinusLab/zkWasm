@@ -141,7 +141,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                     is_shr_u.expr(meta) + is_shr_s.expr(meta) + is_rotr.expr(meta)
                         - is_r.expr(meta),
                     is_shl.expr(meta) + is_rotl.expr(meta) - is_l.expr(meta),
-                    is_l.expr(meta) + is_rotr.expr(meta) - constant_from!(1),
+                    is_l.expr(meta) + is_r.expr(meta) - constant_from!(1),
                 ]
             }),
         );
