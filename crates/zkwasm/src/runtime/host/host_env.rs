@@ -134,12 +134,6 @@ impl HostEnv {
             debug!("{}:\t{}", func, ms);
         })
     }
-
-    pub fn finalized(&self) {
-        for (_, plugin) in &self.internal_env.plugins {
-            plugin.ctx.borrow().finalized()
-        }
-    }
 }
 
 impl ModuleImportResolver for HostEnv {

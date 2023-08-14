@@ -177,11 +177,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
         let compiled_module = self.compile(&env)?;
 
-        let r = compiled_module.dry_run(&mut env);
-
-        env.finalized();
-
-        r
+        compiled_module.dry_run(&mut env)
     }
 
     pub fn run(&self, arg: ExecutionArg) -> Result<ExecutionResult<RuntimeValue>> {
@@ -195,7 +191,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         let compiled_module = self.compile(&env)?;
 
         let result = compiled_module.run(&mut env, wasm_runtime_io)?;
-        env.finalized();
 
         result.tables.profile_tables();
         result.tables.write_json(None);
