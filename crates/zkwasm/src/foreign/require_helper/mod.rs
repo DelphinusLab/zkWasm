@@ -9,9 +9,7 @@ use crate::runtime::host::ForeignContext;
 pub mod etable_op_configure;
 
 struct Context;
-impl ForeignContext for Context {
-    fn finalized(&self) {}
-}
+impl ForeignContext for Context {}
 
 pub fn register_require_foreign(env: &mut HostEnv) {
     let require = Rc::new(

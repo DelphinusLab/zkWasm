@@ -38,9 +38,7 @@ impl Context {
     }
 }
 
-impl ForeignContext for Context {
-    fn finalized(&self) {}
-}
+impl ForeignContext for Context {}
 
 pub fn register_context_foreign(
     env: &mut HostEnv,
