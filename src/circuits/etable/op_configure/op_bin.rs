@@ -254,7 +254,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                     is_div_s_or_rem_s.expr(meta) - (is_div_s.expr(meta) + is_rem_s.expr(meta)),
                     normalized_lhs.expr(meta) - normalized_lhs_expr,
                     normalized_rhs.expr(meta) - normalized_rhs_expr,
-                    d_leading_u16.expr(meta) - d_leading_u16_expr,
+                    (d_leading_u16.expr(meta) - d_leading_u16_expr) * is_div_s_or_rem_s.expr(meta),
                     (d_leading_u16.expr(meta) + d_flag_helper_diff.expr(meta)
                         - constant_from!(0x7fff))
                         * (constant_from!(1) - res_flag.expr(meta))
