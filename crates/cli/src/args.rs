@@ -196,7 +196,7 @@ pub trait ArgBuilder {
 
     fn context_out_path_arg<'a>() -> Arg<'a> {
         arg!(
-            --ctxout <CONTEXT_OUT> "Path of Context Output."
+            --ctxout [CONTEXT_OUT] "Path of Context Output."
         )
         .value_parser(value_parser!(PathBuf))
     }

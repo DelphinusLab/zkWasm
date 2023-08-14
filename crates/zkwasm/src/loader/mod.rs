@@ -154,7 +154,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
     #[cfg(feature = "checksum")]
     pub fn checksum(&self) -> Result<E::Scalar> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(vec![], vec![], None, None);
+        let (env, _) = HostEnv::new_with_full_foreign_plugins(
+            vec![],
+            vec![],
+            vec![],
+            Rc::new(RefCell::new(vec![])),
+        );
         let compiled = self.compile(&env)?;
 
         Ok(compiled.tables.hash())
