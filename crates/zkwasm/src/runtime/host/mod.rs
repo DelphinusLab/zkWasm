@@ -46,7 +46,9 @@ impl MatchForeignOpSignature for ExternalHostCallSignature {
 /// struct Context {
 ///   acc: u64,
 /// }
-/// impl ForeignContext for Context {}
+/// impl ForeignContext for Context {
+///   fn finalized(&self) {}
+/// }
 /// ```
 pub trait ForeignContext: Downcast {
     fn finalized(&self);

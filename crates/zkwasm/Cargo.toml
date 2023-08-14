@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 ark-std = { version = "0.3.0", features = ["print-trace"] }
+bitvec = "1.0.1"
 downcast-rs = "1.2.0"
 halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", tag = "bisect-lookup-0.3.2", features = ["unsafe"] }
 halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true }

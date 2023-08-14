@@ -423,6 +423,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ark-std",
+ "bitvec",
  "downcast-rs",
  "halo2_proofs",
  "halo2aggregator-s",
