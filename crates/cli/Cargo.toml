@@ -1,0 +1,29 @@
+[package]
+name = "delphinus-cli"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ark-std = { version = "0.3.0", features = ["print-trace"] }
+env_logger = "0.9.3"
+halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", tag = "bisect-lookup-0.3.2", features = ["unsafe"] }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true }
+log = "0.4.17"
+md5 = "0.7.0"
+notify = "6.0.1"
+sha2 = "0.10.6"
+specs = { path = "../specs" }
+clap = { version = "3.2.22", features = ["derive","cargo"] }
+hex = "0.4.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+delphinus-zkwasm = { path = "../zkwasm" }
+anyhow.workspace = true
+wasmi.workspace = true
+
+[features]
+default = []
+checksum = ["delphinus-zkwasm/checksum"]
+cuda = ["delphinus-zkwasm/cuda"]

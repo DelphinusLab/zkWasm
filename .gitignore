@@ -1,5 +1,6 @@
-/target
 *.json
-/output
-
 .idea/
+/target
+/output
+crates/playground/wasm
+crates/playground/target
