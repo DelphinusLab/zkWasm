@@ -13,6 +13,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+use crate::foreign::log_helper::register_log_output_foreign;
 
 use self::context::runtime::register_context_foreign;
 use self::log_helper::register_log_foreign;
@@ -85,6 +86,8 @@ impl HostEnv {
         register_poseidon_foreign(&mut env);
         register_babyjubjubsum_foreign(&mut env);
         register_context_foreign(&mut env, context_input, context_output);
+        register_log_output_foreign(&mut env);
+
         env.finalize();
 
         (env, wasm_runtime_io)
