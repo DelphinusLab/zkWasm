@@ -34,7 +34,7 @@ impl WasmRuntimeIO {
 }
 
 pub trait Execution<R> {
-    fn dry_run<E: Externals>(self, externals: &mut E, wasm_io: WasmRuntimeIO,) -> Result<(Option<R>, Vec<u64>)>;
+    fn dry_run<E: Externals>(self, externals: &mut E) -> Result<Option<R>>;
 
     fn run<E: Externals>(
         self,
@@ -46,12 +46,12 @@ pub trait Execution<R> {
 impl Execution<RuntimeValue>
     for CompiledImage<wasmi::NotStartedModuleRef<'_>, wasmi::tracer::Tracer>
 {
-    fn dry_run<E: Externals>(self, externals: &mut E, wasm_io: WasmRuntimeIO,) -> Result<(Option<RuntimeValue>, Vec<u64>)> {
+    fn dry_run<E: Externals>(self, externals: &mut E) -> Result<Option<RuntimeValue>> {
         let instance = self.instance.run_start(externals).unwrap();
 
         let result = instance.invoke_export(&self.entry, &[], externals)?;
 
-        Ok((result, wasm_io.public_inputs_and_outputs.borrow().clone()))
+        Ok(result)
     }
 
     fn run<E: Externals>(
