@@ -153,7 +153,7 @@ pub trait AppBuilder: CommandBuilder {
                             public_inputs,
                             private_inputs,
                             context_inputs: context_in,
-                            context_outputs: Arc::new(Mutex::new(vec![])),
+                            context_outputs: context_output.clone(),
                         },
                     )?;
 
