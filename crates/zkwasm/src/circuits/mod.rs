@@ -27,7 +27,7 @@ use halo2_proofs::transcript::Blake2bWrite;
 use halo2_proofs::transcript::Challenge255;
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
-use specs::Tables;
+use specs;
 use std::fs::File;
 use std::io::Cursor;
 use std::io::Read;
@@ -62,6 +62,10 @@ pub mod rtable;
 pub mod test_circuit;
 pub mod utils;
 
+pub type CompilationTable = specs::CompilationTable;
+pub type ExecutionTable = specs::ExecutionTable;
+pub type Tables = specs::Tables;
+
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
     pub tables: Tables,
@@ -72,6 +76,13 @@ impl<F: FieldExt> TestCircuit<F> {
     pub fn new(tables: Tables) -> Self {
         CircuitConfigure::from(&tables.compilation_tables).set_global_CIRCUIT_CONFIGURE();
 
+        TestCircuit {
+            tables,
+            _data: PhantomData,
+        }
+    }
+
+    pub fn new_without_configure(tables: Tables) -> Self {
         TestCircuit {
             tables,
             _data: PhantomData,
@@ -105,6 +116,11 @@ impl ZkWasmCircuitBuilder {
     pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
         TestCircuit::new(self.tables.clone())
     }
+
+    pub fn build_circuit_without_configure<F: FieldExt>(&self) -> TestCircuit<F> {
+        TestCircuit::new_without_configure(self.tables.clone())
+    }
+
 
     fn prepare_param(&self) -> Params<G1Affine> {
         let path = PathBuf::from(format!("test_param.{}.data", zkwasm_k()));
