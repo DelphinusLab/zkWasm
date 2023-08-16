@@ -5,6 +5,7 @@ use delphinus_zkwasm::circuits::config::MIN_K;
 use log::info;
 use log::warn;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -139,6 +140,7 @@ pub trait AppBuilder: CommandBuilder {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
                     let context_output = Rc::new(RefCell::new(vec![]));
+                    let external_outputs = Rc::new(RefCell::new(HashMap::new()));
 
                     exec_dry_run(
                         zkwasm_k,
@@ -148,7 +150,10 @@ pub trait AppBuilder: CommandBuilder {
                         private_inputs,
                         context_in,
                         Rc::new(RefCell::new(vec![])),
+                        external_outputs.clone(),
                     )?;
+
+                    log::info!("external outputs: {:?}", external_outputs);
 
                     write_context_output(&context_output.borrow(), context_out_path)?;
 
@@ -176,6 +181,7 @@ pub trait AppBuilder: CommandBuilder {
                     private_inputs,
                     context_in,
                     context_out.clone(),
+                    Rc::new(RefCell::new(HashMap::new())),
                 )?;
 
                 write_context_output(&context_out.borrow(), context_out_path)?;
