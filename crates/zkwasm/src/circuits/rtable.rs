@@ -60,14 +60,17 @@ pub fn pow_table_power_encode<T: FromBn>(power: T) -> T {
 
 impl<F: FieldExt> RangeTableConfig<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>) -> Self {
+        // Shared by u8 lookup and bit table lookup
+        let u8_col_multiset = meta.lookup_table_column();
+
         RangeTableConfig {
             common_range_col: meta.lookup_table_column(),
             u16_col: meta.lookup_table_column(),
-            u8_col: meta.lookup_table_column(),
+            u8_col: u8_col_multiset,
             pow_col: [meta.lookup_table_column(), meta.lookup_table_column()],
             u8_bit_op_col: U8BitTable {
                 op: meta.lookup_table_column(),
-                left: meta.lookup_table_column(),
+                left: u8_col_multiset,
                 right: meta.lookup_table_column(),
                 result: meta.lookup_table_column(),
             },
@@ -167,21 +170,6 @@ impl<F: FieldExt> RangeTableChip<F> {
                     table.assign_cell(
                         || "range table",
                         self.config.u16_col,
-                        i,
-                        || Ok(F::from(i as u64)),
-                    )?;
-                }
-                Ok(())
-            },
-        )?;
-
-        layouter.assign_table(
-            || "u8 range table",
-            |mut table| {
-                for i in 0..(1 << 8) {
-                    table.assign_cell(
-                        || "range table",
-                        self.config.u8_col,
                         i,
                         || Ok(F::from(i as u64)),
                     )?;
