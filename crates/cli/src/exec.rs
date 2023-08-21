@@ -348,7 +348,7 @@ pub fn exec_verify_proof(
 
     let proof = load_proof(proof_path);
 
-    loader.verify_proof(&params, vkey, instances, proof)?;
+    loader.verify_proof(&params, &vkey, &instances, &proof)?;
 
     info!("Verifing proof passed");
 

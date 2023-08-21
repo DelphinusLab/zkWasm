@@ -276,28 +276,28 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     pub fn verify_proof(
         &self,
         params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
-        instances: Vec<E::Scalar>,
-        proof: Vec<u8>,
+        vkey: &VerifyingKey<E::G1Affine>,
+        instances: &[E::Scalar],
+        proof: &[u8],
     ) -> Result<()> {
         Self::verify_single_proof(params, vkey, instances, proof)
     }
 
     pub fn verify_single_proof(
         params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
-        instances: Vec<E::Scalar>,
-        proof: Vec<u8>,
+        vkey: &VerifyingKey<E::G1Affine>,
+        instances: &[E::Scalar],
+        proof: &[u8],
     ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
 
         verify_proof(
             &params_verifier,
-            &vkey,
+            vkey,
             strategy,
-            &[&[&instances]],
-            &mut PoseidonRead::init(&proof[..]),
+            &[&[instances]],
+            &mut PoseidonRead::init(proof),
         )
         .unwrap();
 
