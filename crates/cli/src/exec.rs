@@ -35,6 +35,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
+use delphinus_zkwasm::runtime::ExecutionResult;
 use crate::app_builder::write_context_output;
 use crate::args::parse_args;
 
@@ -235,6 +236,27 @@ pub fn exec_dry_run(
     })?;
 
     Ok(())
+}
+
+pub fn exec_run(
+    zkwasm_k: u32,
+    wasm_binary: Vec<u8>,
+    phantom_functions: Vec<String>,
+    public_inputs: Vec<u64>,
+    private_inputs: Vec<u64>,
+    context_inputs: Vec<u64>,
+    context_outputs: Rc<RefCell<Vec<u64>>>,
+    external_outputs: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
+) -> Result<ExecutionResult<RuntimeValue>> {
+    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+
+    loader.run(ExecutionArg {
+        public_inputs,
+        private_inputs,
+        context_inputs,
+        context_outputs,
+        external_outputs,
+    }, false)
 }
 
 pub fn exec_create_proof(
