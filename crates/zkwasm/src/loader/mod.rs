@@ -280,6 +280,15 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         instances: Vec<E::Scalar>,
         proof: Vec<u8>,
     ) -> Result<()> {
+        Self::verify_single_proof(params, vkey, instances, proof)
+    }
+
+    pub fn verify_single_proof(
+        params: &Params<E::G1Affine>,
+        vkey: VerifyingKey<E::G1Affine>,
+        instances: Vec<E::Scalar>,
+        proof: Vec<u8>,
+    ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
 
