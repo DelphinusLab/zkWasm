@@ -46,7 +46,7 @@ const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 pub fn exec_setup(
     zkwasm_k: u32,
     aggregate_k: u32,
-    prefix: &'static str,
+    prefix: &str,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
