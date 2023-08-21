@@ -107,7 +107,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         )
     }
 
-    fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
+    pub fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
             vec![],
             vec![],
