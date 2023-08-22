@@ -1,5 +1,9 @@
+use crate::app_builder::write_context_output;
+use crate::args::parse_args;
 use anyhow::Result;
 use delphinus_zkwasm::circuits::TestCircuit;
+use delphinus_zkwasm::halo2_proofs;
+use delphinus_zkwasm::halo2aggregator_s;
 use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use halo2_proofs::arithmetic::BaseExt;
@@ -36,15 +40,13 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
-use crate::app_builder::write_context_output;
-use crate::args::parse_args;
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
 pub fn exec_setup(
     zkwasm_k: u32,
     aggregate_k: u32,
-    prefix: &'static str,
+    prefix: &str,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
@@ -335,7 +337,7 @@ pub fn exec_verify_proof(
 
     let proof = load_proof(proof_path);
 
-    loader.verify_proof(&params, vkey, instances, proof)?;
+    loader.verify_proof(&params, &vkey, &instances, &proof)?;
 
     info!("Verifing proof passed");
 
