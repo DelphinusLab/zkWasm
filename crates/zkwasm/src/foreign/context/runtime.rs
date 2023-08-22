@@ -11,13 +11,13 @@ use crate::runtime::host::ForeignContext;
 
 use super::Op;
 
-struct Context {
-    inputs: Vec<u64>,
-    outputs: Rc<RefCell<Vec<u64>>>,
+pub struct Context {
+    pub inputs: Vec<u64>,
+    pub outputs: Rc<RefCell<Vec<u64>>>,
 }
 
 impl Context {
-    fn new(context_input: Vec<u64>, context_output: Rc<RefCell<Vec<u64>>>) -> Self {
+    pub fn new(context_input: Vec<u64>, context_output: Rc<RefCell<Vec<u64>>>) -> Self {
         let mut inputs = context_input.clone();
         inputs.reverse();
 
@@ -27,14 +27,14 @@ impl Context {
         }
     }
 
-    fn push_output(&mut self, value: u64) {
-        self.outputs.borrow_mut().push(value)
-    }
-
-    fn pop_input(&mut self) -> u64 {
+    pub fn read_context(&mut self) -> u64 {
         self.inputs
             .pop()
             .expect("Failed to pop value from context_in array, please check you inputs")
+    }
+
+    pub fn write_context(&mut self, value: u64) {
+        self.outputs.borrow_mut().push(value)
     }
 }
 
@@ -61,7 +61,7 @@ pub fn register_context_foreign(
         Rc::new(|context: &mut dyn ForeignContext, _args: RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
 
-            Some(wasmi::RuntimeValue::I64(context.pop_input() as i64))
+            Some(wasmi::RuntimeValue::I64(context.read_context() as i64))
         }),
     );
 
@@ -77,7 +77,7 @@ pub fn register_context_foreign(
             let context = context.downcast_mut::<Context>().unwrap();
 
             let value: i64 = args.nth(0);
-            context.push_output(value as u64);
+            context.write_context(value as u64);
 
             None
         }),
