@@ -1,9 +1,11 @@
+use crate::app_builder::write_context_output;
+use crate::args::parse_args;
 use anyhow::Result;
 use delphinus_zkwasm::circuits::TestCircuit;
+use delphinus_zkwasm::halo2_proofs;
+use delphinus_zkwasm::halo2aggregator_s;
 use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
-use delphinus_zkwasm::halo2_proofs as halo2_proofs;
-use delphinus_zkwasm::halo2aggregator_s as halo2aggregator_s;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
@@ -37,8 +39,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
-use crate::app_builder::write_context_output;
-use crate::args::parse_args;
 
 const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 

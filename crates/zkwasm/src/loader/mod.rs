@@ -180,7 +180,11 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         compiled_module.dry_run(&mut env)
     }
 
-    pub fn run(&self, arg: ExecutionArg, write_to_file: bool) -> Result<ExecutionResult<RuntimeValue>> {
+    pub fn run(
+        &self,
+        arg: ExecutionArg,
+        write_to_file: bool,
+    ) -> Result<ExecutionResult<RuntimeValue>> {
         let (mut env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
             arg.public_inputs,
             arg.private_inputs,
