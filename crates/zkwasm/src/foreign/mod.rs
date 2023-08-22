@@ -1,23 +1,13 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::circuits::cell::AllocatedUnlimitedCell;
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::etable::allocator::EventTableCellAllocator;
 use crate::circuits::etable::constraint_builder::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
-use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-
-use self::context::runtime::register_context_foreign;
-use self::log_helper::register_log_foreign;
-use self::require_helper::register_require_foreign;
-use self::wasm_input_helper::runtime::register_wasm_input_foreign;
 
 pub mod context;
 pub mod keccak_helper;
@@ -50,22 +40,4 @@ pub(crate) trait EventTableForeignCallConfigBuilder<F: FieldExt> {
 
 pub(crate) trait InternalHostPluginBuilder {
     fn new(index: usize) -> Self;
-}
-
-impl HostEnv {
-    pub fn new_with_full_foreign_plugins(
-        public_inputs: Vec<u64>,
-        private_inputs: Vec<u64>,
-        context_input: Vec<u64>,
-        context_output: Rc<RefCell<Vec<u64>>>,
-    ) -> (Self, WasmRuntimeIO) {
-        let mut env = HostEnv::new();
-        let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
-        register_require_foreign(&mut env);
-        register_log_foreign(&mut env);
-        register_context_foreign(&mut env, context_input, context_output);
-        env.finalize();
-
-        (env, wasm_runtime_io)
-    }
 }

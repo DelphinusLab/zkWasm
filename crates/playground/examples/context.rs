@@ -2,8 +2,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use anyhow::Result;
-use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
+use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use pairing_bn256::bn256::Bn256;
 
 fn main() -> Result<()> {
@@ -12,7 +13,7 @@ fn main() -> Result<()> {
     let context_in: Vec<u64> = vec![2, 1];
     let context_outputs = Rc::new(RefCell::new(vec![]));
 
-    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(18, wasm, vec![])?;
     let arg = ExecutionArg {
         public_inputs: vec![],
         private_inputs: vec![],

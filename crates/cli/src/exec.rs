@@ -1,7 +1,8 @@
 use anyhow::Result;
 use delphinus_zkwasm::circuits::TestCircuit;
-use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
+use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
@@ -76,7 +77,11 @@ pub fn exec_setup(
             info!("Found Verifying at {:?}", vk_path);
         } else {
             info!("Create Verifying to {:?}", vk_path);
-            let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+            let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
+                zkwasm_k,
+                wasm_binary,
+                phantom_functions,
+            )?;
 
             let vkey = loader.create_vkey(&params)?;
 
@@ -94,7 +99,11 @@ pub fn exec_image_checksum(
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
 ) -> Result<()> {
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     let params = load_or_build_unsafe_params::<Bn256>(
         zkwasm_k,
@@ -172,12 +181,13 @@ pub fn exec_dry_run_service(
                             );
                             let context_outputs = Rc::new(RefCell::new(vec![]));
 
-                            let loader = ZkWasmLoader::<Bn256>::new(
-                                zkwasm_k,
-                                wasm_binary.clone(),
-                                phantom_functions.clone(),
-                            )
-                            .unwrap();
+                            let loader =
+                                ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
+                                    zkwasm_k,
+                                    wasm_binary.clone(),
+                                    phantom_functions.clone(),
+                                )
+                                .unwrap();
 
                             let r = loader
                                 .dry_run(ExecutionArg {
@@ -232,7 +242,11 @@ pub fn exec_dry_run(
     context_inputs: Vec<u64>,
     context_outputs: Rc<RefCell<Vec<u64>>>,
 ) -> Result<()> {
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     loader.dry_run(ExecutionArg {
         public_inputs,
@@ -255,7 +269,11 @@ pub fn exec_create_proof(
     context_inputs: Vec<u64>,
     context_outputs: Rc<RefCell<Vec<u64>>>,
 ) -> Result<()> {
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     let params = load_or_build_unsafe_params::<Bn256>(
         zkwasm_k,
@@ -324,7 +342,11 @@ pub fn exec_verify_proof(
         Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
     );
 
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     let vkey = load_vkey::<Bn256, TestCircuit<_>>(
         &params,
@@ -354,7 +376,11 @@ pub fn exec_aggregate_create_proof(
 ) -> Result<()> {
     assert_eq!(public_inputs.len(), private_inputs.len());
 
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     let (circuits, instances) = public_inputs
         .into_iter()
