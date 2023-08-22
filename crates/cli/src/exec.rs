@@ -37,7 +37,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
-use delphinus_zkwasm::runtime::ExecutionResult;
 use crate::app_builder::write_context_output;
 use crate::args::parse_args;
 
