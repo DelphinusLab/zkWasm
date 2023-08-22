@@ -21,3 +21,6 @@ jobs:
       run: cargo fmt --check
     - name: Build
       run: cargo build
+    - name: Build Playground
+      working-directory: ./crates/playground
+      run: cargo build --examples

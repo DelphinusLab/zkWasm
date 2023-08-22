@@ -20,6 +20,13 @@ https://jhc.sjtu.edu.cn/~hongfeifu/manuscriptb.pdf
 
 # Quick start with ZKWASM command line
 
+## Dependency
+
+Make sure the following packages are installed.
+```
+clang lld
+```
+
 ## Setup input:
 wasm code
 

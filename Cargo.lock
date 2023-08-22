@@ -1319,16 +1319,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "playground"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "delphinus-zkwasm",
- "pairing_bn256",
- "wasmi",
-]
-
-[[package]]
 name = "poseidon"
 version = "0.2.0"
 source = "git+https://github.com/lanbones/poseidon#ade94877c8285cc251107418c5effbce36684aa4"
