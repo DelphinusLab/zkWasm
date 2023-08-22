@@ -27,14 +27,14 @@ impl Context {
         }
     }
 
+    pub fn write_context(&mut self, value: u64) {
+        self.outputs.borrow_mut().push(value)
+    }
+
     pub fn read_context(&mut self) -> u64 {
         self.inputs
             .pop()
             .expect("Failed to pop value from context_in array, please check you inputs")
-    }
-
-    pub fn write_context(&mut self, value: u64) {
-        self.outputs.borrow_mut().push(value)
     }
 }
 
