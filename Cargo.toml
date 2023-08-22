@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/specs", "crates/zkwasm", "crates/playground", "crates/cli"]
-exclude = ["third-party/wasmi"]
+members = ["crates/specs", "crates/zkwasm", "crates/cli"]
+exclude = ["third-party/wasmi", "crates/playground"]
 
 [workspace.dependencies]
 anyhow = { version = "1.0.68", features = ["backtrace"] }
