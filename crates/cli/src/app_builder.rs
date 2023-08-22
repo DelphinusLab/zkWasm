@@ -2,6 +2,8 @@ use anyhow::Result;
 use clap::App;
 use clap::AppSettings;
 use delphinus_zkwasm::circuits::config::MIN_K;
+use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use log::info;
 use log::warn;
 use std::cell::RefCell;
@@ -135,14 +137,16 @@ pub trait AppBuilder: CommandBuilder {
 
                     let context_output = Rc::new(RefCell::new(vec![]));
 
-                    exec_dry_run(
+                    exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
                         zkwasm_k,
                         wasm_binary,
                         phantom_functions,
-                        public_inputs,
-                        private_inputs,
-                        context_in,
-                        Rc::new(RefCell::new(vec![])),
+                        ExecutionArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs: context_in,
+                            context_outputs: Rc::new(RefCell::new(vec![])),
+                        }
                     )?;
 
                     write_context_output(&context_output.borrow(), context_out_path)?;
@@ -161,17 +165,19 @@ pub trait AppBuilder: CommandBuilder {
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
-                exec_create_proof(
+                exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
                     Self::NAME,
                     zkwasm_k,
                     wasm_binary,
                     phantom_functions,
                     &output_dir,
                     &param_dir,
-                    public_inputs,
-                    private_inputs,
-                    context_in,
-                    context_out.clone(),
+                    ExecutionArg {
+                        public_inputs,
+                        private_inputs,
+                        context_inputs: context_in,
+                        context_outputs: context_out.clone(),
+                    }
                 )?;
 
                 write_context_output(&context_out.borrow(), context_out_path)?;

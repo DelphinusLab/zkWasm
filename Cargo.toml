@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/specs", "crates/zkwasm", "crates/cli"]
+members = ["crates/specs", "crates/zkwasm", "crates/cli", "crates/host"]
 exclude = ["third-party/wasmi", "crates/playground"]
 
 [workspace.dependencies]

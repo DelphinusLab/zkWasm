@@ -1,6 +1,6 @@
 use std::ops::Add;
 use std::rc::Rc;
-use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use delphinus_zkwasm::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bls12_381::G1Affine;
 
 use super::{

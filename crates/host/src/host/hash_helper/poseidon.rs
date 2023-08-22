@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use delphinus_zkwasm::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bn256::Fr;
 use ff::PrimeField;
 use poseidon::Poseidon;

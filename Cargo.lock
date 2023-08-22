@@ -565,6 +565,7 @@ dependencies = [
  "ark-std",
  "circuits-batcher",
  "clap",
+ "delphinus-host",
  "delphinus-zkwasm",
  "env_logger",
  "halo2_proofs",
@@ -578,6 +579,39 @@ dependencies = [
  "sha2",
  "specs",
  "wasmi",
+]
+
+[[package]]
+name = "delphinus-host"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ark-std",
+ "bitvec",
+ "delphinus-zkwasm",
+ "downcast-rs",
+ "ff",
+ "halo2_proofs",
+ "halo2aggregator-s",
+ "hex",
+ "lazy_static",
+ "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "parity-wasm",
+ "poseidon",
+ "rand",
+ "rusty-fork",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specs",
+ "strum",
+ "strum_macros",
+ "wabt",
+ "wasmi",
+ "zkwasm-host-circuits",
 ]
 
 [[package]]

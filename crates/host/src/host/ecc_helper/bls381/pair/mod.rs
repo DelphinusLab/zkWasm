@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use delphinus_zkwasm::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::pairing::bls12_381::{G1Affine, G2Affine,
     Gt as Bls381Gt,

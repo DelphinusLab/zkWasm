@@ -19,7 +19,7 @@ use super::internal_circuit_plugin::InternalCircuitEnv;
 use super::HostFunction;
 
 pub struct HostEnv {
-    pub internal_env: InternalCircuitEnv,
+    pub(crate) internal_env: InternalCircuitEnv,
     pub external_env: ExternalCircuitEnv,
 
     finalized: Rc<RefCell<bool>>,

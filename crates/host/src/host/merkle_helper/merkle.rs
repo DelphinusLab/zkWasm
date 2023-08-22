@@ -1,5 +1,5 @@
-use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::host_env::HostEnv;
+use delphinus_zkwasm::runtime::host::ForeignContext;
 use halo2_proofs::pairing::bn256::Fr;
 use std::cell::RefCell;
 use std::rc::Rc;

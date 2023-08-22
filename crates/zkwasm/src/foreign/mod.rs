@@ -1,39 +1,16 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::circuits::cell::AllocatedUnlimitedCell;
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::etable::allocator::EventTableCellAllocator;
 use crate::circuits::etable::constraint_builder::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
-use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use zkwasm_host_circuits::host::db::TreeDB;
-
-use self::context::runtime::register_context_foreign;
-use self::ecc_helper::bls381::pair::register_blspair_foreign;
-use self::ecc_helper::bls381::sum::register_blssum_foreign;
-use self::ecc_helper::bn254::pair::register_bn254pair_foreign;
-use self::ecc_helper::bn254::sum::register_bn254sum_foreign;
-use self::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign;
-use self::hash_helper::poseidon::register_poseidon_foreign;
-use self::hash_helper::sha256::register_sha256_foreign;
-use self::log_helper::register_log_foreign;
-use self::merkle_helper::merkle::register_merkle_foreign;
-use self::require_helper::register_require_foreign;
-use self::wasm_input_helper::runtime::register_wasm_input_foreign;
 
 pub mod context;
-pub mod ecc_helper;
-pub mod hash_helper;
-pub mod keccak_helper;
 pub mod log_helper;
-pub mod merkle_helper;
 pub mod require_helper;
 pub mod wasm_input_helper;
 
@@ -62,31 +39,4 @@ pub(crate) trait EventTableForeignCallConfigBuilder<F: FieldExt> {
 
 pub(crate) trait InternalHostPluginBuilder {
     fn new(index: usize) -> Self;
-}
-
-impl HostEnv {
-    pub fn new_with_full_foreign_plugins(
-        public_inputs: Vec<u64>,
-        private_inputs: Vec<u64>,
-        context_input: Vec<u64>,
-        context_output: Rc<RefCell<Vec<u64>>>,
-        tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
-    ) -> (Self, WasmRuntimeIO) {
-        let mut env = HostEnv::new();
-        let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
-        register_require_foreign(&mut env);
-        register_log_foreign(&mut env);
-        register_merkle_foreign(&mut env, tree_db);
-        register_blspair_foreign(&mut env);
-        register_blssum_foreign(&mut env);
-        register_bn254pair_foreign(&mut env);
-        register_bn254sum_foreign(&mut env);
-        register_sha256_foreign(&mut env);
-        register_poseidon_foreign(&mut env);
-        register_babyjubjubsum_foreign(&mut env);
-        register_context_foreign(&mut env, context_input, context_output);
-        env.finalize();
-
-        (env, wasm_runtime_io)
-    }
 }

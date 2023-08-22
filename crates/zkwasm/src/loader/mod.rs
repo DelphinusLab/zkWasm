@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
@@ -35,41 +33,32 @@ use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
+use crate::runtime::host::HostEnvBuilder;
 use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::CompiledImage;
 use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
 use anyhow::anyhow;
-use zkwasm_host_circuits::host::db::TreeDB;
 
 mod err;
 
 const ENTRY: &str = "zkmain";
 
-pub struct ExecutionArg {
-    /// Public inputs for `wasm_input(1)`
-    pub public_inputs: Vec<u64>,
-    /// Private inputs for `wasm_input(0)`
-    pub private_inputs: Vec<u64>,
-    /// Context inputs for `wasm_read_context()`
-    pub context_inputs: Vec<u64>,
-    /// Context outputs for `wasm_write_context()`
-    pub context_outputs: Rc<RefCell<Vec<u64>>>,
-}
-
 pub struct ExecutionReturn {
     pub context_output: Vec<u64>,
 }
 
-pub struct ZkWasmLoader<E: MultiMillerLoop> {
+pub struct ZkWasmLoader<E: MultiMillerLoop, Arg, EnvBuilder: HostEnvBuilder<Arg = Arg>> {
     k: u32,
     module: wasmi::Module,
     phantom_functions: Vec<String>,
-    _data: PhantomData<E>,
-    tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
+    _data_arg: PhantomData<Arg>,
+    _data_builder: PhantomData<EnvBuilder>,
+    _data_e: PhantomData<E>,
+
 }
 
-impl<E: MultiMillerLoop> ZkWasmLoader<E> {
+impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
     fn precheck(&self) -> Result<()> {
         fn check_zkmain_exists(module: &wasmi::Module) -> Result<()> {
             use parity_wasm::elements::Internal;
@@ -112,14 +101,8 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         )
     }
 
-    pub fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
-        let (env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![],
-            vec![],
-            Rc::new(RefCell::new(vec![])),
-            None,
-        );
+    fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
+        let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value();
 
         let compiled_module = self.compile(&env)?;
 
@@ -138,7 +121,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         k: u32,
         image: Vec<u8>,
         phantom_functions: Vec<String>,
-        tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
     ) -> Result<Self> {
         set_zkwasm_k(k);
 
@@ -148,8 +130,9 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             k,
             module,
             phantom_functions,
-            _data: PhantomData,
-            tree_db,
+            _data_e: PhantomData,
+            _data_builder: PhantomData,
+            _data_arg: PhantomData,
         };
 
         loader.precheck()?;
@@ -165,13 +148,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![],
-            vec![],
-            Rc::new(RefCell::new(vec![])),
-            None,
-        );
+        let (env, _) = EnvBuilder::create_env_without_value();
         let compiled = self.compile(&env)?;
 
         let table_with_params = CompilationTableWithParams {
@@ -183,34 +160,17 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 }
 
-impl<E: MultiMillerLoop> ZkWasmLoader<E> {
-    pub fn dry_run(&self, arg: ExecutionArg) -> Result<Option<RuntimeValue>> {
-        let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
-            arg.public_inputs,
-            arg.private_inputs,
-            arg.context_inputs,
-            arg.context_outputs,
-            self.tree_db.clone(),
-        );
+impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
+    pub fn dry_run(&self, arg: T) -> Result<Option<RuntimeValue>> {
+        let (mut env, _) = EnvBuilder::create_env(arg);
 
         let compiled_module = self.compile(&env)?;
 
         compiled_module.dry_run(&mut env)
     }
 
-    pub fn run(
-        &self,
-        arg: ExecutionArg,
-        write_to_file: bool,
-    ) -> Result<ExecutionResult<RuntimeValue>> {
-        let (mut env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
-            arg.public_inputs,
-            arg.private_inputs,
-            arg.context_inputs,
-            arg.context_outputs,
-            self.tree_db.clone(),
-        );
-
+    pub fn run(&self, arg: T, write_to_file: bool) -> Result<ExecutionResult<RuntimeValue>> {
+        let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg);
         let compiled_module = self.compile(&env)?;
 
         let result = compiled_module.run(&mut env, wasm_runtime_io)?;
@@ -224,12 +184,8 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(result)
     }
 
-    pub fn circuit_with_witness(
-        &self,
-        arg: ExecutionArg,
-    ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
+    pub fn circuit_with_witness(&self, arg: T) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
         let execution_result = self.run(arg, true)?;
-
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()
@@ -339,10 +295,12 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::circuits::TestCircuit;
+    use crate::runtime::host::default_env::DefaultHostEnvBuilder;
+    use crate::runtime::host::default_env::ExecutionArg;
 
     use super::ZkWasmLoader;
 
-    impl ZkWasmLoader<Bn256> {
+    impl ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder> {
         pub(crate) fn bench_test(&self, circuit: TestCircuit<Fr>, instances: Vec<Fr>) {
             fn prepare_param(k: u32) -> Params<G1Affine> {
                 let path = PathBuf::from(format!("test_param.{}.data", k));

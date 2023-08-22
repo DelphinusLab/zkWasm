@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::ops::Add;
-use crate::runtime::host::{host_env::HostEnv, ForeignContext};
+use delphinus_zkwasm::runtime::host::{host_env::HostEnv, ForeignContext};
 use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::pairing::group::prime::PrimeCurveAffine;
 use zkwasm_host_circuits::host::ForeignInst::{
