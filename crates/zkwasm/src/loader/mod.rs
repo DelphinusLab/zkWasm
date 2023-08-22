@@ -107,7 +107,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         )
     }
 
-    fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
+    pub fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
             vec![],
             vec![],
@@ -180,7 +180,11 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         compiled_module.dry_run(&mut env)
     }
 
-    pub fn run(&self, arg: ExecutionArg) -> Result<ExecutionResult<RuntimeValue>> {
+    pub fn run(
+        &self,
+        arg: ExecutionArg,
+        write_to_file: bool,
+    ) -> Result<ExecutionResult<RuntimeValue>> {
         let (mut env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
             arg.public_inputs,
             arg.private_inputs,
@@ -193,7 +197,10 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         let result = compiled_module.run(&mut env, wasm_runtime_io)?;
 
         result.tables.profile_tables();
-        result.tables.write_json(None);
+
+        if write_to_file {
+            result.tables.write_json(None);
+        }
 
         Ok(result)
     }
@@ -202,7 +209,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         &self,
         arg: ExecutionArg,
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
-        let execution_result = self.run(arg)?;
+        let execution_result = self.run(arg, true)?;
 
         #[allow(unused_mut)]
         let mut instance: Vec<E::Scalar> = execution_result
@@ -273,19 +280,28 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     pub fn verify_proof(
         &self,
         params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
-        instances: Vec<E::Scalar>,
-        proof: Vec<u8>,
+        vkey: &VerifyingKey<E::G1Affine>,
+        instances: &[E::Scalar],
+        proof: &[u8],
+    ) -> Result<()> {
+        Self::verify_single_proof(params, vkey, instances, proof)
+    }
+
+    pub fn verify_single_proof(
+        params: &Params<E::G1Affine>,
+        vkey: &VerifyingKey<E::G1Affine>,
+        instances: &[E::Scalar],
+        proof: &[u8],
     ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
 
         verify_proof(
             &params_verifier,
-            &vkey,
+            vkey,
             strategy,
-            &[&[&instances]],
-            &mut PoseidonRead::init(&proof[..]),
+            &[&[instances]],
+            &mut PoseidonRead::init(proof),
         )
         .unwrap();
 
