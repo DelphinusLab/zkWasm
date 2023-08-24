@@ -96,13 +96,13 @@ impl PoseidonContext {
     pub fn poseidon_finalize(&mut self) -> u64 {
         assert!(self.buf.len() == 8);
         if self.generator.cursor == 0 {
-            self.hasher.as_ref().map(|s| {
+            self.hasher.as_mut().map(|s| {
                 log::debug!("perform hash with {:?}", self.buf);
-                let r = s.clone().update_exact(&self.buf.clone().try_into().unwrap());
-                let dwords:Vec<u8> = r.to_repr().to_vec();
-                self.generator.values = dwords.chunks(8).map(|x| {
-                    u64::from_le_bytes(x.to_vec().try_into().unwrap())
-                }).collect::<Vec<u64>>();
+                let r = s.update_exact(&self.buf.clone().try_into().unwrap());
+                let dwords: Vec<u8> = r.to_repr().to_vec();
+                self.generator.values = dwords.chunks(8)
+                    .map(|x| {u64::from_le_bytes(x.to_vec().try_into().unwrap())})
+                    .collect::<Vec<u64>>();
             });
         }
         self.generator.gen()
