@@ -15,9 +15,9 @@ impl<F: FieldExt> ExternalHostCallTableConfig<F> {
     pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
             idx: meta.fixed_column(),
-            op: meta.advice_column(),
-            is_ret: meta.advice_column(),
-            arg: meta.advice_column(),
+            op: meta.named_advice_column("shared_operands".to_string()),
+            is_ret: meta.named_advice_column("shared_is_ret".to_string()),
+            arg: meta.named_advice_column("shared_arg".to_string()),
             _phantom: PhantomData,
         }
     }
