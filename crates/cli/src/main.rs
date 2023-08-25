@@ -92,5 +92,18 @@ impl AppBuilder for SampleApp {
 fn main() -> Result<()> {
     let app = SampleApp::app_builder();
 
-    SampleApp::exec(app)
+    SampleApp::exec(app).map_err(|err| {
+        println!(
+            r#"
+==================================================================================================
+Execution terminates with an exception, you can try accessing the following URL to find a solution
+        https://github.com/DelphinusLab/zkWasm/wiki/Frequently-Asked-Questions
+
+Alternatively, if you cannot find a solution through the provided link, you can submit an issue.
+==================================================================================================
+"#
+        );
+
+        err
+    })
 }
