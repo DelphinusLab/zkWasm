@@ -999,7 +999,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/junyu0312/halo2?branch=gpu#e02af42177650c1df552f8a6614d4358621e067e"
+source = "git+https://github.com/junyu0312/halo2?branch=gpu#49f0c26b2e60d8886bb9513c26d16b6edd3c369f"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -1010,6 +1010,7 @@ dependencies = [
  "ec-gpu-gen",
  "ff",
  "group",
+ "memmap",
  "num",
  "num-bigint",
  "num-derive",
@@ -1411,6 +1412,16 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
+
+[[package]]
+name = "memmap"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6585fd95e7bb50d6cc31e20d4cf9afb4e2ba16c5846fc76793f11218da9c475b"
+dependencies = [
+ "libc",
+ "winapi 0.3.9",
+]
 
 [[package]]
 name = "memoffset"
