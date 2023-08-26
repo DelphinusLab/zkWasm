@@ -385,6 +385,8 @@ pub fn exec_aggregate_create_proof(
         instances,
         TranscriptHash::Poseidon,
         vec![],
+        vec![],
+        vec![],
         false,
     )
     .unwrap();
@@ -396,6 +398,8 @@ pub fn exec_aggregate_create_proof(
         vec![aggregate_circuit],
         vec![vec![aggregate_instances]],
         TranscriptHash::Sha,
+        vec![],
+        vec![],
         vec![],
         true,
     );
