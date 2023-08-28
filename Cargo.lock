@@ -313,7 +313,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#172f96d318fb7bda31f8175fb8a5140df17054de"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#fdb8ebe08e229c6e38dd30242b2aba331b14a17b"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -563,9 +563,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ark-std",
+ "circuits-batcher",
  "clap",
  "delphinus-zkwasm",
  "env_logger",
+ "halo2_proofs",
+ "halo2aggregator-s",
  "hex",
  "log",
  "md5",

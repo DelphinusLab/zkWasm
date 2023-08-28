@@ -6,14 +6,8 @@ use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::keygen_vk;
-use halo2_proofs::plonk::verify_proof;
-use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
-use halo2_proofs::poly::commitment::ParamsVerifier;
-use halo2aggregator_s::circuits::utils::load_or_create_proof;
-use halo2aggregator_s::circuits::utils::TranscriptHash;
-use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::Tracer;
@@ -256,24 +250,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(())
     }
 
-    pub fn create_proof(
-        &self,
-        params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
-        circuit: TestCircuit<E::Scalar>,
-        instances: Vec<E::Scalar>,
-    ) -> Result<Vec<u8>> {
-        Ok(load_or_create_proof::<E, _>(
-            &params,
-            vkey,
-            circuit,
-            &[&instances],
-            None,
-            TranscriptHash::Poseidon,
-            false,
-        ))
-    }
-
     pub fn init_env(&self) -> Result<()> {
         let (env, _) = HostEnv::new_with_full_foreign_plugins(
             vec![],
@@ -286,37 +262,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         let c = self.compile(&env)?;
 
         init_zkwasm_runtime(self.k, &c.tables);
-
-        Ok(())
-    }
-
-    pub fn verify_proof(
-        &self,
-        params: &Params<E::G1Affine>,
-        vkey: &VerifyingKey<E::G1Affine>,
-        instances: &[E::Scalar],
-        proof: &[u8],
-    ) -> Result<()> {
-        Self::verify_single_proof(params, vkey, instances, proof)
-    }
-
-    pub fn verify_single_proof(
-        params: &Params<E::G1Affine>,
-        vkey: &VerifyingKey<E::G1Affine>,
-        instances: &[E::Scalar],
-        proof: &[u8],
-    ) -> Result<()> {
-        let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
-        let strategy = SingleVerifier::new(&params_verifier);
-
-        verify_proof(
-            &params_verifier,
-            vkey,
-            strategy,
-            &[&[instances]],
-            &mut PoseidonRead::init(proof),
-        )
-        .unwrap();
 
         Ok(())
     }

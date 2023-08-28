@@ -183,17 +183,12 @@ pub trait AppBuilder: CommandBuilder {
                 Ok(())
             }
             Some(("single-verify", sub_matches)) => {
-                let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let instance_path: PathBuf = Self::parse_single_instance_arg(&sub_matches);
+                let _proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
+                let _instance_path: PathBuf = Self::parse_single_instance_arg(&sub_matches);
 
                 exec_verify_proof(
                     Self::NAME,
-                    zkwasm_k,
-                    wasm_binary,
-                    phantom_functions,
-                    &output_dir,
-                    &proof_path,
-                    &instance_path,
+                    &output_dir
                 )
             }
             Some(("aggregate-prove", sub_matches)) => {

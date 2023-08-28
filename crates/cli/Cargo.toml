@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 ark-std = { version = "0.3.0", features = ["print-trace"] }
 env_logger = "0.9.3"
+halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", branch="main", features = ["unsafe"] }
+halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true }
 log = "0.4.17"
 md5 = "0.7.0"
 notify = "6.0.1"
@@ -20,6 +22,7 @@ serde_json = "1.0"
 delphinus-zkwasm = { path = "../zkwasm" }
 anyhow.workspace = true
 wasmi.workspace = true
+circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git" }
 
 [features]
 default = []

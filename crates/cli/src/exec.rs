@@ -1,12 +1,15 @@
 use crate::app_builder::write_context_output;
 use crate::args::parse_args;
 use anyhow::Result;
+use circuits_batcher::proof::CircuitInfo;
+use circuits_batcher::proof::ProofInfo;
+use circuits_batcher::proof::ProofLoadInfo;
+use circuits_batcher::proof::Prover;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::halo2_proofs;
 use delphinus_zkwasm::halo2aggregator_s;
 use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
-use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::pairing::bn256::G1Affine;
@@ -19,8 +22,8 @@ use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
 use halo2aggregator_s::circuits::utils::load_proof;
 use halo2aggregator_s::circuits::utils::load_vkey;
 use halo2aggregator_s::circuits::utils::run_circuit_unsafe_full_pass;
-use halo2aggregator_s::circuits::utils::store_instance;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
+use halo2aggregator_s::native_verifier;
 use halo2aggregator_s::solidity_verifier::codegen::solidity_aux_gen;
 use halo2aggregator_s::solidity_verifier::solidity_render;
 use halo2aggregator_s::transcript::sha256::ShaRead;
@@ -34,7 +37,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -254,16 +256,6 @@ pub fn exec_create_proof(
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions, None)?;
 
-    let params = load_or_build_unsafe_params::<Bn256>(
-        zkwasm_k,
-        Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
-    );
-
-    let vkey = load_vkey::<Bn256, TestCircuit<_>>(
-        &params,
-        &output_dir.join(format!("{}.{}.vkey.data", prefix, 0)),
-    );
-
     let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
         public_inputs,
         private_inputs,
@@ -271,28 +263,21 @@ pub fn exec_create_proof(
         context_outputs,
     })?;
 
-    {
-        store_instance(
-            &vec![instances.clone()],
-            &output_dir.join(format!("{}.{}.instance.data", prefix, 0)),
-        );
-    }
-
     if true {
         info!("Mock test...");
         loader.mock_test(&circuit, &instances)?;
         info!("Mock test passed");
     }
 
-    let proof = loader.create_proof(&params, vkey, circuit, instances)?;
-
-    {
-        let proof_path = output_dir.join(format!("{}.{}.transcript.data", prefix, 0));
-        println!("write transcript to {:?}", proof_path);
-        let mut fd = std::fs::File::create(&proof_path)?;
-        fd.write_all(&proof)?;
-    }
-
+    let circuit: CircuitInfo<Bn256, TestCircuit<Fr>>  = CircuitInfo::new(
+        circuit,
+        prefix.to_string(),
+        vec![instances],
+        zkwasm_k as usize,
+        circuits_batcher::args::HashType::Poseidon
+    );
+    circuit.proofloadinfo.save(output_dir);
+    circuit.create_proof(output_dir, 0);
     info!("Proof has been created.");
 
     Ok(())
@@ -300,38 +285,33 @@ pub fn exec_create_proof(
 
 pub fn exec_verify_proof(
     prefix: &'static str,
-    zkwasm_k: u32,
-    wasm_binary: Vec<u8>,
-    phantom_functions: Vec<String>,
     output_dir: &PathBuf,
-    proof_path: &PathBuf,
-    instance_path: &PathBuf,
 ) -> Result<()> {
-    let instances = {
-        let mut instance = vec![];
-        let mut fd = std::fs::File::open(&instance_path).unwrap();
-        while let Ok(f) = Fr::read(&mut fd) {
-            instance.push(f);
-        }
-
-        instance
-    };
+    let load_info = output_dir.join(format!("{}.loadinfo.json", prefix));
+    let proofloadinfo = ProofLoadInfo::load(&load_info);
+    let proofs:Vec<ProofInfo<Bn256>> = ProofInfo::load_proof(&output_dir, &proofloadinfo);
     let params = load_or_build_unsafe_params::<Bn256>(
-        zkwasm_k,
-        Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
+        proofloadinfo.k as u32,
+        Some(&output_dir.join(format!("K{}.params", proofloadinfo.k))),
     );
+    let mut public_inputs_size = 0;
+    for proof in proofs.iter() {
+        public_inputs_size =
+            usize::max(public_inputs_size,
+                proof.instances.iter().fold(0, |acc, x| usize::max(acc, x.len()))
+            );
+    }
 
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions, None)?;
-
-    let vkey = load_vkey::<Bn256, TestCircuit<_>>(
-        &params,
-        &output_dir.join(format!("{}.{}.vkey.data", prefix, 0)),
-    );
-
-    let proof = load_proof(proof_path);
-
-    loader.verify_proof(&params, &vkey, &instances, &proof)?;
-
+    let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
+    for (_, proof) in proofs.iter().enumerate() {
+        native_verifier::verify_single_proof::<Bn256>(
+            &params_verifier,
+            &proof.vkey,
+            &proof.instances,
+            proof.transcripts.clone(),
+            TranscriptHash::Poseidon,
+        );
+    }
     info!("Verifing proof passed");
 
     Ok(())
