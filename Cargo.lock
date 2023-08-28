@@ -311,6 +311,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuits-batcher"
+version = "0.1.0"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#172f96d318fb7bda31f8175fb8a5140df17054de"
+dependencies = [
+ "anyhow",
+ "ark-std",
+ "bitvec",
+ "clap",
+ "downcast-rs",
+ "env_logger",
+ "ff",
+ "halo2_proofs",
+ "halo2aggregator-s",
+ "halo2ecc-s",
+ "hex",
+ "lazy_static",
+ "log",
+ "md5",
+ "num",
+ "num-bigint",
+ "num-derive",
+ "num-integer",
+ "num-traits",
+ "poseidon",
+ "quote",
+ "rand",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strum",
+ "strum_macros",
+ "uuid",
+ "wabt",
+ "wast",
+]
+
+[[package]]
 name = "clap"
 version = "3.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -550,7 +587,7 @@ dependencies = [
  "downcast-rs",
  "ff",
  "halo2_proofs",
- "halo2aggregator-s 0.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=absorb-rebase)",
+ "halo2aggregator-s",
  "hex",
  "lazy_static",
  "log",
@@ -1026,24 +1063,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=bisect-lookup-0.3.2#fa32d533b617f332728dcaee0f9ecbf54e972ec4"
-dependencies = [
- "ark-std",
- "blake2b_simd",
- "halo2_proofs",
- "halo2ecc-s",
- "lazy_static",
- "num-bigint",
- "num-integer",
- "poseidon",
- "sha2",
- "tera",
-]
-
-[[package]]
-name = "halo2aggregator-s"
-version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=absorb-rebase#54877843820d5954cb62086330a24c99e282f07f"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#11a5ca4f8ae7329775339b697c0a1cdc4ad82ac9"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -3257,13 +3277,14 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#5d9058fabdf235affc0674219b798eb635ce2ad7"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#3dc9dfd96c18545e6957d0a16732b7e61dee0726"
 dependencies = [
  "ark-std",
+ "circuits-batcher",
  "clap",
  "ff",
  "halo2_proofs",
- "halo2aggregator-s 0.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=bisect-lookup-0.3.2)",
+ "halo2aggregator-s",
  "halo2ecc-s",
  "hex",
  "lazy_static",
