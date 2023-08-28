@@ -24,6 +24,6 @@ anyhow.workspace = true
 wasmi.workspace = true
 
 [features]
-default = []
+default = ["checksum"]
 checksum = ["delphinus-zkwasm/checksum"]
 cuda = ["delphinus-zkwasm/cuda"]
