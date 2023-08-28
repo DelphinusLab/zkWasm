@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     let context_in: Vec<u64> = vec![2, 1];
     let context_outputs = Rc::new(RefCell::new(vec![]));
 
-    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![], None)?;
     let arg = ExecutionArg {
         public_inputs: vec![],
         private_inputs: vec![],

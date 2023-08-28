@@ -13,6 +13,7 @@ fn main() -> Result<()> {
         18,
         wasm,
         vec!["search"].into_iter().map(|s| s.to_owned()).collect(),
+        None,
     )?;
 
     let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {

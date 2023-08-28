@@ -37,6 +37,7 @@ use crate::runtime::CompiledImage;
 use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
 use anyhow::anyhow;
+use zkwasm_host_circuits::host::db::TreeDB;
 
 mod err;
 
@@ -62,6 +63,7 @@ pub struct ZkWasmLoader<E: MultiMillerLoop> {
     module: wasmi::Module,
     phantom_functions: Vec<String>,
     _data: PhantomData<E>,
+    tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
 }
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
@@ -113,6 +115,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             vec![],
             Rc::new(RefCell::new(vec![])),
+            None,
         );
 
         let compiled_module = self.compile(&env)?;
@@ -128,7 +131,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(builder.build_circuit::<E::Scalar>())
     }
 
-    pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
+    pub fn new(
+        k: u32,
+        image: Vec<u8>,
+        phantom_functions: Vec<String>,
+        tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
+    ) -> Result<Self> {
         set_zkwasm_k(k);
 
         let module = wasmi::Module::from_buffer(&image)?;
@@ -138,6 +146,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             module,
             phantom_functions,
             _data: PhantomData,
+            tree_db,
         };
 
         loader.precheck()?;
@@ -159,6 +168,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             vec![],
             Rc::new(RefCell::new(vec![])),
+            None,
         );
         let compiled = self.compile(&env)?;
 
@@ -173,6 +183,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             arg.private_inputs,
             arg.context_inputs,
             arg.context_outputs,
+            self.tree_db.clone(),
         );
 
         let compiled_module = self.compile(&env)?;
@@ -190,6 +201,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             arg.private_inputs,
             arg.context_inputs,
             arg.context_outputs,
+            self.tree_db.clone(),
         );
 
         let compiled_module = self.compile(&env)?;
@@ -268,6 +280,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             vec![],
             Rc::new(RefCell::new(vec![])),
+            None,
         );
 
         let c = self.compile(&env)?;
