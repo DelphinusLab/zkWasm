@@ -290,7 +290,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         )?;
 
         #[cfg(feature = "checksum")]
-        let checksum = exec_with_profile!(
+        exec_with_profile!(
             || "Assign checksum circuit",
             CheckSumChip::new(config.checksum_config)
                 .assign(&mut layouter, vec![image_entries, img_info].concat())?
@@ -298,8 +298,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         #[allow(unused_mut)]
         let mut instances = vec![];
-        #[cfg(feature = "checksum")]
-        instances.push(checksum);
 
         exec_with_profile!(
             || "Assign wasm input chip",

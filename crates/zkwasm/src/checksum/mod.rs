@@ -1,4 +1,8 @@
+//use halo2_proofs::arithmetic::best_multiexp_gpu_cond;
+use halo2_proofs::arithmetic::best_multiexp_gpu_cond;
+use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::poly::commitment::Params;
 use num_bigint::BigUint;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
@@ -9,19 +13,20 @@ use specs::jtable::StaticFrameEntry;
 use specs::mtable::LocationType;
 use specs::CompilationTable;
 
-use crate::circuits::checksum::poseidon::primitives::ConstantLength;
-use crate::circuits::checksum::poseidon::primitives::Hash;
-use crate::circuits::checksum::poseidon::primitives::P128Pow5T9;
-use crate::circuits::checksum::L;
 use crate::circuits::config::max_image_table_rows;
 use crate::circuits::utils::bn_to_field;
 
-pub trait ImageHasher {
-    fn hash<F: FieldExt>(&self) -> F;
+pub trait ImageCheckSum<Output> {
+    fn checksum(&self) -> Output;
 }
 
-impl ImageHasher for CompilationTable {
-    fn hash<F: FieldExt>(&self) -> F {
+pub(crate) struct CompilationTableWithParams<'a, 'b, C: CurveAffine> {
+    pub(crate) table: &'a CompilationTable,
+    pub(crate) params: &'b Params<C>,
+}
+
+impl<'a, 'b, C: CurveAffine> ImageCheckSum<Vec<C>> for CompilationTableWithParams<'a, 'b, C> {
+    fn checksum(&self) -> Vec<C> {
         fn msg_of_instruction_table<F: FieldExt>(instruction_table: &InstructionTable) -> Vec<F> {
             let mut cells = vec![];
 
@@ -122,19 +127,19 @@ impl ImageHasher for CompilationTable {
             cells.concat()
         }
 
-        let mut cells: Vec<F> = vec![];
+        let mut cells: Vec<C::ScalarExt> = vec![];
 
         cells.append(&mut msg_of_image_table(
-            &self.itable,
-            &self.itable.create_brtable(),
-            &self.elem_table,
-            &self.imtable,
+            &self.table.itable,
+            &self.table.itable.create_brtable(),
+            &self.table.elem_table,
+            &self.table.imtable,
         ));
 
-        cells.push(F::from(self.fid_of_entry as u64));
-        cells.append(&mut msg_of_static_frame_table(&self.static_jtable));
+        cells.push(C::ScalarExt::from(self.table.fid_of_entry as u64));
+        cells.append(&mut msg_of_static_frame_table(&self.table.static_jtable));
 
-        let poseidon_hasher = Hash::<F, P128Pow5T9<F>, ConstantLength<L>, 9, 8>::init();
-        poseidon_hasher.hash(cells.try_into().unwrap())
+        let c = best_multiexp_gpu_cond(&cells[..], &self.params.get_g_lagrange()[0..cells.len()]);
+        vec![c.into()]
     }
 }

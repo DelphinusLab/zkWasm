@@ -21,9 +21,9 @@ use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
 use wasmi::RuntimeValue;
 
-use crate::circuits::config::init_zkwasm_runtime;
 #[cfg(feature = "checksum")]
-use crate::image_hasher::ImageHasher;
+use crate::checksum::ImageCheckSum;
+use crate::circuits::config::init_zkwasm_runtime;
 
 use crate::circuits::config::set_zkwasm_k;
 use crate::circuits::TestCircuit;
@@ -153,7 +153,9 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     #[cfg(feature = "checksum")]
-    pub fn checksum(&self) -> Result<E::Scalar> {
+    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
+        use crate::checksum::CompilationTableWithParams;
+
         let (env, _) = HostEnv::new_with_full_foreign_plugins(
             vec![],
             vec![],
@@ -162,7 +164,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         );
         let compiled = self.compile(&env)?;
 
-        Ok(compiled.tables.hash())
+        let table_with_params = CompilationTableWithParams {
+            table: &compiled.tables,
+            params,
+        };
+
+        Ok(table_with_params.checksum())
     }
 }
 
@@ -211,9 +218,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             .iter()
             .map(|v| (*v).into())
             .collect();
-
-        #[cfg(feature = "checksum")]
-        instance.insert(0, execution_result.tables.compilation_tables.hash());
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
