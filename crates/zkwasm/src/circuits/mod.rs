@@ -208,11 +208,11 @@ impl ZkWasmCircuitBuilder {
                 .cs
                 .named_advices
                 .iter()
-                .find(|(k, i)| k == IMAGE_COL_NAME)
+                .find(|(k, _)| k == IMAGE_COL_NAME)
                 .unwrap()
                 .1;
-            let img_col_commitment =
-                get_advice_commitments_from_transcript(vk, &mut transcript).unwrap();
+            let img_col_commitment: Vec<G1Affine> =
+                get_advice_commitments_from_transcript::<Bn256, _, _>(vk, &mut transcript).unwrap();
 
             assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
         }
@@ -236,10 +236,10 @@ impl ZkWasmCircuitBuilder {
         let vk = self.prepare_vk(&circuit, &params);
         let pk = self.prepare_pk(&circuit, &params, vk);
 
+        let compile_table = circuit.tables.compilation_tables.clone();
+
         let proof = self.create_proof(&[circuit], &params, &pk, &instances);
 
-        todo!();
-        //
-        self.verify_check(pk.get_vk(), &params, &proof, &instances);
+        self.verify_check(&compile_table, pk.get_vk(), &params, &proof, &instances);
     }
 }

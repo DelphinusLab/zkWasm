@@ -7,7 +7,7 @@ use halo2_proofs::plonk::VirtualCells;
 
 use crate::fixed_curr;
 use crate::foreign::ForeignTableConfig;
-use crate::instance_curr;
+use crate::instance_prev;
 
 use super::WasmInputHelperTableConfig;
 
@@ -36,7 +36,7 @@ impl<F: FieldExt> ForeignTableConfig<F> for WasmInputHelperTableConfig<F> {
 
             vec![
                 (exprs.remove(0), fixed_curr!(meta, self.from_zero_index)),
-                (exprs.remove(0), instance_curr!(meta, self.input)),
+                (exprs.remove(0), instance_prev!(meta, self.input)),
             ]
         });
     }

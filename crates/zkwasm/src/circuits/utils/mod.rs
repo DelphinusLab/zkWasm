@@ -91,9 +91,9 @@ macro_rules! nextn {
 }
 
 #[macro_export]
-macro_rules! fixed_curr {
+macro_rules! instance_prev {
     ($meta: expr, $x: expr) => {
-        $meta.query_fixed($x, halo2_proofs::poly::Rotation::cur())
+        $meta.query_instance($x, halo2_proofs::poly::Rotation::prev())
     };
 }
 
@@ -101,6 +101,13 @@ macro_rules! fixed_curr {
 macro_rules! instance_curr {
     ($meta: expr, $x: expr) => {
         $meta.query_instance($x, halo2_proofs::poly::Rotation::cur())
+    };
+}
+
+#[macro_export]
+macro_rules! fixed_curr {
+    ($meta: expr, $x: expr) => {
+        $meta.query_fixed($x, halo2_proofs::poly::Rotation::cur())
     };
 }
 

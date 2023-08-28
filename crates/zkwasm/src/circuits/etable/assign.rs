@@ -19,7 +19,6 @@ use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::foreign::wasm_input_helper::RESERVED_INSTANCES_NUMBER;
 
 pub(in crate::circuits) struct EventTablePermutationCells<F: FieldExt> {
     pub(in crate::circuits) rest_mops: Option<Cell>,
@@ -143,7 +142,7 @@ impl<F: FieldExt> EventTableChip<F> {
             };
         }
 
-        let mut host_public_inputs = RESERVED_INSTANCES_NUMBER as u32;
+        let mut host_public_inputs = 1u32;
         let mut context_in_index = 1u32;
         let mut context_out_index = 1u32;
         let mut external_host_call_call_index = 1u32;
