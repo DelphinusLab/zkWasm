@@ -1,8 +1,8 @@
+use crate::checksum::CompilationTableWithParams;
+use crate::checksum::ImageCheckSum;
+use crate::circuits::checksum::IMAGE_COL_NAME;
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::Context;
-
-#[cfg(feature = "checksum")]
-use crate::image_hasher::ImageHasher;
 
 use ark_std::end_timer;
 use ark_std::start_timer;
@@ -11,6 +11,7 @@ use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::plonk::create_proof;
+use halo2_proofs::plonk::get_advice_commitments_from_transcript;
 use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::verify_proof;
@@ -27,6 +28,7 @@ use halo2_proofs::transcript::Blake2bWrite;
 use halo2_proofs::transcript::Challenge255;
 use num_bigint::BigUint;
 use rand::rngs::OsRng;
+use specs::CompilationTable;
 use specs::Tables;
 use std::fs::File;
 use std::io::Cursor;
@@ -171,6 +173,7 @@ impl ZkWasmCircuitBuilder {
 
     fn verify_check(
         &self,
+        compile_table: &CompilationTable,
         vk: &VerifyingKey<G1Affine>,
         params: &Params<G1Affine>,
         proof: &Vec<u8>,
@@ -189,17 +192,34 @@ impl ZkWasmCircuitBuilder {
             vk,
             strategy,
             &[&[instance]],
-            &mut transcript,
+            &mut transcript.clone(),
         )
         .unwrap();
         end_timer!(timer);
+
+        #[cfg(feature = "checksum")]
+        {
+            let table = CompilationTableWithParams {
+                table: compile_table,
+                params,
+            };
+            let checksum = table.checksum();
+            let img_col_idx = vk
+                .cs
+                .named_advices
+                .iter()
+                .find(|(k, i)| k == IMAGE_COL_NAME)
+                .unwrap()
+                .1;
+            let img_col_commitment =
+                get_advice_commitments_from_transcript(vk, &mut transcript).unwrap();
+
+            assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
+        }
     }
 
     pub fn bench(&self) {
         let mut instances = vec![];
-
-        #[cfg(feature = "checksum")]
-        instances.push(self.tables.compilation_tables.hash());
 
         instances.append(
             &mut self
@@ -218,6 +238,8 @@ impl ZkWasmCircuitBuilder {
 
         let proof = self.create_proof(&[circuit], &params, &pk, &instances);
 
+        todo!();
+        //
         self.verify_check(pk.get_vk(), &params, &proof, &instances);
     }
 }

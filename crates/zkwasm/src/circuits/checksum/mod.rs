@@ -1,29 +1,24 @@
+use std::marker::PhantomData;
+
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
-
-use self::poseidon::primitives::p128pow5t9::RATE;
-use self::poseidon::primitives::p128pow5t9::WIDTH;
-use self::poseidon::primitives::ConstantLength;
-use self::poseidon::primitives::P128Pow5T9;
-use self::poseidon::Hash;
-use self::poseidon::Pow5Chip;
-use self::poseidon::Pow5Config;
-
-pub mod poseidon;
 
 // image data: 8192
 // frame table: 4
 // event table: 1
 
-pub const L: usize = 8192 + 4 + 1;
-
 #[derive(Clone)]
 pub(crate) struct CheckSumConfig<F: FieldExt> {
-    pow5_config: Pow5Config<F, 9, 8>,
+    img_col: Column<Advice>,
+    _mark: PhantomData<F>,
 }
+
+pub const IMAGE_COL_NAME: &str = "img_col";
 
 pub(crate) struct CheckSumChip<F: FieldExt> {
     config: CheckSumConfig<F>,
@@ -31,33 +26,11 @@ pub(crate) struct CheckSumChip<F: FieldExt> {
 
 impl<F: FieldExt> CheckSumConfig<F> {
     pub(crate) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
-        let state = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
-        let partial_sbox = meta.advice_column();
-        let mid_0_helper = meta.advice_column();
-        let mid_0_helper_sqr = meta.advice_column();
-        let cur_0_rc_a0 = meta.advice_column();
-        let cur_0_rc_a0_sqr = meta.advice_column();
-
-        let state_rc_a = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
-        let state_rc_a_sqr = (0..WIDTH).map(|_| meta.advice_column()).collect::<Vec<_>>();
-
-        let rc_a = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
-        let rc_b = (0..WIDTH).map(|_| meta.fixed_column()).collect::<Vec<_>>();
+        let img_col = meta.named_advice_column(IMAGE_COL_NAME.to_owned());
 
         Self {
-            pow5_config: Pow5Chip::configure::<P128Pow5T9<F>>(
-                meta,
-                state.try_into().unwrap(),
-                state_rc_a.try_into().unwrap(),
-                state_rc_a_sqr.try_into().unwrap(),
-                partial_sbox,
-                mid_0_helper,
-                mid_0_helper_sqr,
-                cur_0_rc_a0,
-                cur_0_rc_a0_sqr,
-                rc_a.try_into().unwrap(),
-                rc_b.try_into().unwrap(),
-            ),
+            img_col,
+            _mark: PhantomData,
         }
     }
 }
@@ -70,19 +43,22 @@ impl<F: FieldExt> CheckSumChip<F> {
     pub(crate) fn assign(
         &self,
         layouter: &mut impl Layouter<F>,
-        message: Vec<AssignedCell<F, F>>,
-    ) -> Result<AssignedCell<F, F>, Error> {
-        let config = self.config.pow5_config.clone();
-        let chip = Pow5Chip::construct(config.clone());
+        img: Vec<AssignedCell<F, F>>,
+    ) -> Result<(), Error> {
+        layouter.assign_region(
+            || "image column",
+            |mut region| {
+                for (i, v) in img.iter().enumerate() {
+                    region.assign_advice(
+                        || "img data",
+                        self.config.img_col,
+                        i,
+                        || Ok(v.value().unwrap().clone()),
+                    )?;
+                }
 
-        assert_eq!(message.len(), L);
-
-        let hasher = Hash::<_, _, P128Pow5T9<F>, ConstantLength<L>, WIDTH, RATE>::init(
-            chip,
-            layouter.namespace(|| "init"),
-        )?;
-        let output = hasher.hash(layouter.namespace(|| "hash"), message.try_into().unwrap())?;
-
-        Ok(output)
+                Ok(())
+            },
+        )
     }
 }

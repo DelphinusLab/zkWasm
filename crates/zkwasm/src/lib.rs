@@ -9,7 +9,7 @@ pub mod loader;
 pub mod runtime;
 
 #[cfg(feature = "checksum")]
-pub mod image_hasher;
+pub mod checksum;
 
 mod profile;
 
