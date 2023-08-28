@@ -97,14 +97,7 @@ pub fn exec_image_checksum(
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-    let hash: Fr = loader.checksum()?;
-
-    let mut fd =
-        std::fs::File::create(&output_dir.join(format!("checksum.data",)).as_path()).unwrap();
-
-    let hash = hash.to_string();
-    write!(fd, "{}", hash).unwrap();
-    println!("{}", hash);
+    todo!();
 
     Ok(())
 }

@@ -119,7 +119,6 @@ mod tests {
 
     use super::*;
     use crate::circuits::ZkWasmCircuitBuilder;
-    use crate::image_hasher::ImageHasher;
 
     #[test]
     fn test_uniform_verifier() {
@@ -132,8 +131,7 @@ mod tests {
             RuntimeValue::I32(expected_value)
         );
 
-        let image_hash: Fr = execution_result.tables.compilation_tables.hash();
-        let instances = vec![image_hash];
+        let instances = vec![];
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,

@@ -4,12 +4,9 @@ use crate::circuits::TestCircuit;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
+use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
-
-#[cfg(feature = "checksum")]
-use crate::image_hasher::ImageHasher;
-use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use anyhow::Result;
 use halo2_proofs::arithmetic::FieldExt;
@@ -35,9 +32,6 @@ fn test_circuit_mock<F: FieldExt>(
 ) -> Result<()> {
     let instance = {
         let mut v: Vec<F> = vec![];
-
-        #[cfg(feature = "checksum")]
-        v.push(execution_result.tables.compilation_tables.hash());
 
         v.append(
             &mut execution_result
