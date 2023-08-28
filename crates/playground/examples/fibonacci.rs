@@ -9,7 +9,7 @@ use pairing_bn256::bn256::Bn256;
 fn main() -> Result<()> {
     let wasm = std::fs::read("wasm/fibonacci.wasm")?;
 
-    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![], None)?;
 
     let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
         public_inputs: vec![5],
