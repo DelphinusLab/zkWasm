@@ -425,7 +425,7 @@ pub fn exec_verify_aggregate_proof(
         &output_dir.join(format!("{}.{}.vkey.data", AGGREGATE_PREFIX, 0)),
     );
 
-    let public_inputs_size: u32 = 6 + 3 * n_proofs as u32;
+    let public_inputs_size: u32 = 3 * n_proofs as u32;
 
     let instances = load_instance::<Bn256>(&[public_inputs_size], &instances_path);
 

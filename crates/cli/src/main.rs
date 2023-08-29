@@ -81,7 +81,7 @@ impl AppBuilder for SampleApp {
     const AGGREGATE_K: u32 = 22;
 
     #[cfg(not(feature = "checksum"))]
-    const AGGREGATE_K: u32 = 21;
+    const AGGREGATE_K: u32 = 22;
 
     const MAX_PUBLIC_INPUT_SIZE: usize = 64;
 
