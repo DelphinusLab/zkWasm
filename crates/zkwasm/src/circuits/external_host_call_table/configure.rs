@@ -15,9 +15,8 @@ impl<F: FieldExt> ExternalHostCallTableConfig<F> {
     pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
         Self {
             idx: meta.fixed_column(),
-            op: meta.advice_column(),
-            is_ret: meta.advice_column(),
-            arg: meta.advice_column(),
+            opcode: meta.advice_column(),
+            operand: meta.advice_column(),
             _phantom: PhantomData,
         }
     }
@@ -35,9 +34,8 @@ impl<F: FieldExt> ConfigureLookupTable<F> for ExternalHostCallTableConfig<F> {
                 expr(meta).pop().unwrap(),
                 encode_host_call_entry(
                     fixed_curr!(meta, self.idx),
-                    curr!(meta, self.op),
-                    curr!(meta, self.is_ret),
-                    curr!(meta, self.arg),
+                    curr!(meta, self.opcode),
+                    curr!(meta, self.operand),
                 ),
             )]
         });

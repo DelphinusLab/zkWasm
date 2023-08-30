@@ -21,7 +21,6 @@ use specs::step::StepInfo;
 
 pub struct ExternalCallHostCircuitConfig<F: FieldExt> {
     op: AllocatedCommonRangeCell<F>,
-    value: AllocatedU64Cell<F>,
     value_is_ret: AllocatedBitCell<F>,
     value_is_not_ret: AllocatedBitCell<F>,
 
@@ -39,7 +38,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitCo
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let op = allocator.alloc_common_range_cell();
-        let value = allocator.alloc_u64_cell();
         let value_is_ret = allocator.alloc_bit_cell();
         let value_is_not_ret = allocator.alloc_bit_cell();
 
@@ -63,46 +61,45 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ExternalCallHostCircuitCo
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_call_host read value",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(0),
-            move |meta| value.expr(meta),
-            move |meta| value_is_not_ret.expr(meta),
-        );
+        let memory_table_lookup_stack_read = allocator
+            .alloc_memory_table_lookup_read_cell_with_value(
+                "op_call_host read value",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack),
+                move |meta| sp.expr(meta) + constant_from!(1),
+                move |____| constant_from!(0),
+                move |meta| value_is_not_ret.expr(meta),
+            );
 
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_call_host return value",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack),
-            move |meta| sp.expr(meta),
-            move |____| constant_from!(0),
-            move |meta| value.expr(meta),
-            move |meta| value_is_ret.expr(meta),
-        );
+        let memory_table_lookup_stack_write = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "op_call_host return value",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack),
+                move |meta| sp.expr(meta),
+                move |____| constant_from!(0),
+                move |meta| value_is_ret.expr(meta),
+            );
 
         constraint_builder.push(
             "external host call lookup",
             Box::new(move |meta| {
+                let operand = value_is_not_ret.expr(meta)
+                    * memory_table_lookup_stack_read.value_cell.expr(meta)
+                    + value_is_ret.expr(meta)
+                        * memory_table_lookup_stack_write.value_cell.expr(meta);
+
                 vec![
                     external_foreign_call_lookup_cell.expr(meta)
-                        - encode_host_call_entry(
-                            index.expr(meta),
-                            op.expr(meta),
-                            value_is_ret.expr(meta),
-                            value.expr(meta),
-                        ),
+                        - encode_host_call_entry(index.expr(meta), op.expr(meta), operand),
                 ]
             }),
         );
 
         Box::new(ExternalCallHostCircuitConfig {
             op,
-            value,
             value_is_ret,
             value_is_not_ret,
             external_foreign_call_lookup_cell,
@@ -126,7 +123,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig<F>
         match &entry.eentry.step_info {
             StepInfo::ExternalHostCall { op, value, sig } => {
                 self.op.assign(ctx, F::from(*op as u64))?;
-                self.value.assign(ctx, value.unwrap())?;
                 self.value_is_ret.assign_bool(ctx, sig.is_ret())?;
                 self.value_is_not_ret.assign_bool(ctx, !sig.is_ret())?;
                 self.external_foreign_call_lookup_cell.assign_bn(
@@ -134,7 +130,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig<F>
                     &encode_host_call_entry(
                         BigUint::from(step.current_external_host_call_index),
                         BigUint::from(*op as u64),
-                        BigUint::from(sig.is_ret() as u64),
                         BigUint::from(value.unwrap()),
                     ),
                 )?;
