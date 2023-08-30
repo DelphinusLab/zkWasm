@@ -32,22 +32,15 @@ impl<F: FieldExt> ExternalHostCallChip<F> {
 
                     {
                         region.assign_advice(
-                            || "external host call op",
-                            self.config.op,
+                            || "external host call opcode",
+                            self.config.opcode,
                             offset,
                             || Ok(F::zero()),
                         )?;
 
                         region.assign_advice(
-                            || "external host call value",
-                            self.config.arg,
-                            offset,
-                            || Ok(F::zero()),
-                        )?;
-
-                        region.assign_advice(
-                            || "external host call is ret",
-                            self.config.is_ret,
+                            || "external host call operand",
+                            self.config.operand,
                             offset,
                             || Ok(F::zero()),
                         )?;
@@ -57,22 +50,15 @@ impl<F: FieldExt> ExternalHostCallChip<F> {
 
                     for entry in table.entries() {
                         region.assign_advice(
-                            || "external host call op",
-                            self.config.op,
+                            || "external host call opcode",
+                            self.config.opcode,
                             offset,
                             || Ok(F::from(entry.op as u64)),
                         )?;
 
                         region.assign_advice(
-                            || "external host call is ret",
-                            self.config.is_ret,
-                            offset,
-                            || Ok(F::from(entry.sig.is_ret() as u64)),
-                        )?;
-
-                        region.assign_advice(
-                            || "external host call value",
-                            self.config.arg,
+                            || "external host call operand",
+                            self.config.operand,
                             offset,
                             || Ok(F::from(entry.value)),
                         )?;
