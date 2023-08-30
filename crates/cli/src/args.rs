@@ -117,6 +117,13 @@ pub trait ArgBuilder {
         ).value_parser(value_parser!(PathBuf))
     }
 
+    fn param_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            -p --param [PARAM_PATH] "Path of the params files.\nThe md5 of the wasm binary file is the default path if not supplied."
+        ).value_parser(value_parser!(PathBuf))
+    }
+
+
     fn proof_path_arg<'a>() -> Arg<'a> {
         arg!(
             -p --proof <PROOF_PATH> "Path of proof."

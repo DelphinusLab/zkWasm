@@ -12,21 +12,10 @@ use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
-use halo2_proofs::pairing::bn256::G1Affine;
-use halo2_proofs::plonk::verify_proof;
-use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::poly::commitment::ParamsVerifier;
-use halo2aggregator_s::circuit_verifier::circuit::AggregatorCircuit;
-use halo2aggregator_s::circuits::utils::load_instance;
 use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
-use halo2aggregator_s::circuits::utils::load_proof;
-use halo2aggregator_s::circuits::utils::load_vkey;
-use halo2aggregator_s::circuits::utils::run_circuit_unsafe_full_pass;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::native_verifier;
-use halo2aggregator_s::solidity_verifier::codegen::solidity_aux_gen;
-use halo2aggregator_s::solidity_verifier::solidity_render;
-use halo2aggregator_s::transcript::sha256::ShaRead;
 use log::debug;
 use log::error;
 use log::info;
@@ -42,7 +31,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
 
-const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
+//const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
 pub fn exec_setup(
     zkwasm_k: u32,
@@ -50,13 +39,14 @@ pub fn exec_setup(
     prefix: &str,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
-    output_dir: &PathBuf,
+    _output_dir: &PathBuf,
+    param_dir: &PathBuf,
 ) -> Result<()> {
     info!("Setup Params and VerifyingKey");
 
     macro_rules! prepare_params {
         ($k: expr) => {{
-            let params_path = &output_dir.join(format!("K{}.params", $k));
+            let params_path = &param_dir.join(format!("K{}.params", $k));
 
             if params_path.exists() {
                 info!("Found Params with K = {} at {:?}", $k, params_path);
@@ -73,7 +63,7 @@ pub fn exec_setup(
 
     // Setup ZkWasm Vkey
     {
-        let vk_path = &output_dir.join(format!("{}.{}.vkey.data", prefix, 0));
+        let vk_path = &param_dir.join(format!("{}.vkey.data", prefix));
 
         if vk_path.exists() {
             info!("Found Verifying at {:?}", vk_path);
@@ -249,6 +239,7 @@ pub fn exec_create_proof(
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
+    param_dir: &PathBuf,
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
     context_inputs: Vec<u64>,
@@ -277,7 +268,7 @@ pub fn exec_create_proof(
         circuits_batcher::args::HashType::Poseidon
     );
     circuit.proofloadinfo.save(output_dir);
-    circuit.create_proof(output_dir, 0);
+    circuit.create_proof(output_dir, param_dir, 0);
     info!("Proof has been created.");
 
     Ok(())
@@ -286,13 +277,14 @@ pub fn exec_create_proof(
 pub fn exec_verify_proof(
     prefix: &'static str,
     output_dir: &PathBuf,
+    param_dir: &PathBuf,
 ) -> Result<()> {
     let load_info = output_dir.join(format!("{}.loadinfo.json", prefix));
     let proofloadinfo = ProofLoadInfo::load(&load_info);
-    let proofs:Vec<ProofInfo<Bn256>> = ProofInfo::load_proof(&output_dir, &proofloadinfo);
+    let proofs:Vec<ProofInfo<Bn256>> = ProofInfo::load_proof(&output_dir, &param_dir, &proofloadinfo);
     let params = load_or_build_unsafe_params::<Bn256>(
         proofloadinfo.k as u32,
-        Some(&output_dir.join(format!("K{}.params", proofloadinfo.k))),
+        Some(&param_dir.join(format!("K{}.params", proofloadinfo.k))),
     );
     let mut public_inputs_size = 0;
     for proof in proofs.iter() {
@@ -313,197 +305,6 @@ pub fn exec_verify_proof(
         );
     }
     info!("Verifing proof passed");
-
-    Ok(())
-}
-
-pub fn exec_aggregate_create_proof(
-    zkwasm_k: u32,
-    aggregate_k: u32,
-    prefix: &'static str,
-    wasm_binary: Vec<u8>,
-    phantom_functions: Vec<String>,
-    output_dir: &PathBuf,
-    public_inputs: Vec<Vec<u64>>,
-    private_inputs: Vec<Vec<u64>>,
-    context_inputs: Vec<Vec<u64>>,
-    context_outputs: Vec<Rc<RefCell<Vec<u64>>>>,
-) -> Result<()> {
-    assert_eq!(public_inputs.len(), private_inputs.len());
-
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions, None)?;
-
-    let (circuits, instances) = public_inputs
-        .into_iter()
-        .zip(private_inputs.into_iter())
-        .zip(context_inputs.into_iter())
-        .zip(context_outputs.into_iter())
-        .fold(
-            Ok::<_, anyhow::Error>((vec![], vec![])),
-            |acc, (((public_inputs, private_inputs), context_inputs), context_outputs)| {
-                acc.and_then(|(mut circuits, mut instances)| {
-                    let (circuit, instance) = loader.circuit_with_witness(ExecutionArg {
-                        public_inputs,
-                        private_inputs,
-                        context_inputs,
-                        context_outputs,
-                    })?;
-
-                    circuits.push(circuit);
-                    instances.push(vec![instance]);
-
-                    Ok((circuits, instances))
-                })
-            },
-        )?;
-
-    let (aggregate_circuit, aggregate_instances) = run_circuit_unsafe_full_pass::<Bn256, _>(
-        &output_dir.as_path(),
-        prefix,
-        zkwasm_k,
-        circuits,
-        instances,
-        TranscriptHash::Poseidon,
-        vec![],
-        vec![],
-        vec![],
-        false,
-    )
-    .unwrap();
-
-    run_circuit_unsafe_full_pass::<Bn256, _>(
-        &output_dir.as_path(),
-        AGGREGATE_PREFIX,
-        aggregate_k,
-        vec![aggregate_circuit],
-        vec![vec![aggregate_instances]],
-        TranscriptHash::Sha,
-        vec![],
-        vec![],
-        vec![],
-        true,
-    );
-
-    Ok(())
-}
-
-pub fn exec_verify_aggregate_proof(
-    aggregate_k: u32,
-    output_dir: &PathBuf,
-    proof_path: &PathBuf,
-    instances_path: &PathBuf,
-    n_proofs: usize,
-) -> Result<()> {
-    let params = load_or_build_unsafe_params::<Bn256>(
-        aggregate_k,
-        Some(&output_dir.join(format!("K{}.params", aggregate_k))),
-    );
-
-    let proof = load_proof(&proof_path.as_path());
-    let vkey = load_vkey::<Bn256, AggregatorCircuit<G1Affine>>(
-        &params,
-        &output_dir.join(format!("{}.{}.vkey.data", AGGREGATE_PREFIX, 0)),
-    );
-
-    let public_inputs_size: u32 = 3 * n_proofs as u32;
-
-    let instances = load_instance::<Bn256>(&[public_inputs_size], &instances_path);
-
-    let params_verifier: ParamsVerifier<Bn256> =
-        params.verifier(public_inputs_size as usize).unwrap();
-    let strategy = SingleVerifier::new(&params_verifier);
-
-    verify_proof(
-        &params_verifier,
-        &vkey,
-        strategy,
-        &[&instances.iter().map(|x| &x[..]).collect::<Vec<_>>()[..]],
-        &mut ShaRead::<_, _, _, sha2::Sha256>::init(&proof[..]),
-    )
-    .unwrap();
-
-    info!("Verifing Aggregate Proof Passed.");
-
-    Ok(())
-}
-
-pub fn exec_solidity_aggregate_proof(
-    zkwasm_k: u32,
-    aggregate_k: u32,
-    max_public_inputs_size: usize,
-    output_dir: &PathBuf,
-    proof_path: &PathBuf,
-    sol_path: &PathBuf,
-    instances_path: &PathBuf,
-    n_proofs: usize,
-    aux_only: bool,
-) -> Result<()> {
-    let zkwasm_params_verifier: ParamsVerifier<Bn256> = {
-        let params = load_or_build_unsafe_params::<Bn256>(
-            zkwasm_k,
-            Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
-        );
-
-        params.verifier(max_public_inputs_size).unwrap()
-    };
-
-    let (verifier_params_verifier, vkey, instances, proof) = {
-        let public_inputs_size = 6 + 3 * n_proofs;
-
-        let params = load_or_build_unsafe_params::<Bn256>(
-            aggregate_k,
-            Some(&output_dir.join(format!("K{}.params", aggregate_k))),
-        );
-
-        let params_verifier = params.verifier(public_inputs_size).unwrap();
-
-        let vkey = load_vkey::<Bn256, AggregatorCircuit<G1Affine>>(
-            &params,
-            &output_dir.join(format!("{}.{}.vkey.data", AGGREGATE_PREFIX, 0)),
-        );
-
-        let instances = load_instance::<Bn256>(&[public_inputs_size as u32], &instances_path);
-        let proof = load_proof(&proof_path.as_path());
-
-        (params_verifier, vkey, instances, proof)
-    };
-
-    if !aux_only {
-        let path_in = {
-            let mut path = sol_path.clone();
-            path.push("templates");
-            path
-        };
-        let path_out = {
-            let mut path = sol_path.clone();
-            path.push("contracts");
-            path
-        };
-        solidity_render(
-            &(path_in.to_str().unwrap().to_owned() + "/*"),
-            path_out.to_str().unwrap(),
-            vec![(
-                "AggregatorConfig.sol.tera".to_owned(),
-                "AggregatorConfig.sol".to_owned(),
-            )],
-            "AggregatorVerifierStepStart.sol.tera",
-            "AggregatorVerifierStepEnd.sol.tera",
-            |i| format!("AggregatorVerifierStep{}.sol", i + 1),
-            &zkwasm_params_verifier,
-            &verifier_params_verifier,
-            &vkey,
-            &instances[0],
-            proof.clone(),
-        );
-    }
-
-    solidity_aux_gen(
-        &verifier_params_verifier,
-        &vkey,
-        &instances[0],
-        proof,
-        &output_dir.join(format!("{}.{}.aux.data", AGGREGATE_PREFIX, 0)),
-    );
 
     Ok(())
 }
