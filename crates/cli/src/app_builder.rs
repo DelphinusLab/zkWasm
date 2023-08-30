@@ -13,14 +13,11 @@ use std::rc::Rc;
 use crate::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
-use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
 use super::exec::exec_dry_run_service;
 #[cfg(feature = "checksum")]
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
-use super::exec::exec_solidity_aggregate_proof;
-use super::exec::exec_verify_aggregate_proof;
 use super::exec::exec_verify_proof;
 
 fn load_or_generate_output_path(wasm_md5: &String, path: Option<&PathBuf>) -> PathBuf {
@@ -66,6 +63,7 @@ pub trait AppBuilder: CommandBuilder {
             .setting(AppSettings::SubcommandRequired)
             .arg(Self::zkwasm_k_arg())
             .arg(Self::output_path_arg())
+            .arg(Self::param_path_arg())
             .arg(Self::function_name_arg())
             .arg(Self::phantom_functions_arg())
             .arg(Self::zkwasm_file_arg());
@@ -74,9 +72,6 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_dry_run_subcommand(app);
         let app = Self::append_create_single_proof_subcommand(app);
         let app = Self::append_verify_single_proof_subcommand(app);
-        let app = Self::append_create_aggregate_proof_subcommand(app);
-        let app = Self::append_verify_aggregate_verify_subcommand(app);
-        let app = Self::append_generate_solidity_verifier(app);
 
         #[cfg(feature = "checksum")]
         let app = Self::append_image_checksum_subcommand(app);
@@ -100,6 +95,9 @@ pub trait AppBuilder: CommandBuilder {
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
         let phantom_functions = Self::parse_phantom_functions(&top_matches);
 
+        let param_dir =
+            load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("param"));
+
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
         fs::create_dir_all(&output_dir)?;
@@ -112,6 +110,7 @@ pub trait AppBuilder: CommandBuilder {
                 wasm_binary,
                 phantom_functions,
                 &output_dir,
+                &param_dir,
             ),
             #[cfg(feature = "checksum")]
             Some(("checksum", _)) => {
@@ -172,6 +171,7 @@ pub trait AppBuilder: CommandBuilder {
                     wasm_binary,
                     phantom_functions,
                     &output_dir,
+                    &param_dir,
                     public_inputs,
                     private_inputs,
                     context_in,
@@ -188,72 +188,10 @@ pub trait AppBuilder: CommandBuilder {
 
                 exec_verify_proof(
                     Self::NAME,
-                    &output_dir
-                )
-            }
-            Some(("aggregate-prove", sub_matches)) => {
-                let public_inputs: Vec<Vec<u64>> = Self::parse_aggregate_public_args(&sub_matches);
-                let private_inputs: Vec<Vec<u64>> =
-                    Self::parse_aggregate_private_args(&sub_matches);
-                let context_inputs = public_inputs.iter().map(|_| vec![]).collect();
-                let context_outputs = public_inputs
-                    .iter()
-                    .map(|_| Rc::new(RefCell::new(vec![])))
-                    .collect();
-
-                for instances in &public_inputs {
-                    assert!(instances.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
-                }
-
-                assert_eq!(public_inputs.len(), Self::N_PROOFS);
-                assert_eq!(private_inputs.len(), Self::N_PROOFS);
-
-                exec_aggregate_create_proof(
-                    zkwasm_k,
-                    Self::AGGREGATE_K,
-                    Self::NAME,
-                    wasm_binary,
-                    phantom_functions,
                     &output_dir,
-                    public_inputs,
-                    private_inputs,
-                    context_inputs,
-                    context_outputs,
+                    &param_dir
                 )
             }
-
-            Some(("aggregate-verify", sub_matches)) => {
-                let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let instances_path: PathBuf = Self::parse_aggregate_instance(&sub_matches);
-
-                exec_verify_aggregate_proof(
-                    Self::AGGREGATE_K as u32,
-                    &output_dir,
-                    &proof_path,
-                    &instances_path,
-                    Self::N_PROOFS,
-                )
-            }
-
-            Some(("solidity-aggregate-verifier", sub_matches)) => {
-                let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let instances_path: PathBuf = Self::parse_aggregate_instance(&sub_matches);
-                let aux_only: bool = Self::parse_auxonly(&sub_matches);
-                let sol_path: PathBuf = Self::parse_sol_dir_arg(&sub_matches);
-
-                exec_solidity_aggregate_proof(
-                    zkwasm_k,
-                    Self::AGGREGATE_K,
-                    Self::MAX_PUBLIC_INPUT_SIZE,
-                    &output_dir,
-                    &proof_path,
-                    &sol_path,
-                    &instances_path,
-                    Self::N_PROOFS,
-                    aux_only,
-                )
-            }
-
             Some((_, _)) => todo!(),
             None => todo!(),
         }
