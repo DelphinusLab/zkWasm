@@ -10,9 +10,8 @@ mod configure;
 #[derive(Clone)]
 pub struct ExternalHostCallTableConfig<F: FieldExt> {
     idx: Column<Fixed>,
-    op: Column<Advice>,
-    arg: Column<Advice>,
-    is_ret: Column<Advice>,
+    opcode: Column<Advice>,
+    operand: Column<Advice>,
     _phantom: PhantomData<F>,
 }
 

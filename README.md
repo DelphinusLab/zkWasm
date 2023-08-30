@@ -8,7 +8,7 @@
 
 # Overview：
 
-The mission of DelphiusLab is to provide Web2 developers with a consise toolset to leverage the power of Web3 in their applications. The ZKWASM (ZKSNARK virtual machine that supports Web Assembly) serves as a trustless layer between rich applilcations running on WASM runtime and smart contracts on chain.
+The mission of DelphiusLab is to provide Web2 developers with a concise toolset to leverage the power of Web3 in their applications. The ZKWASM (ZKSNARK virtual machine that supports Web Assembly) serves as a trustless layer between rich applilcations running on WASM runtime and smart contracts on chain.
 
 WASM (or WebAssembly) is an open standard binary code format similar to assembly. Its initial objective was to provide an alternative to java-script with improved performance for the current web ecosystem. Benefiting from its platform independence, front-end flexibility (can be compiled from the majority of languages including C, C++, assembly script, rust, etc.), good isolated runtime and speed comes closer to the speed of a native binary, its usage is arising in distributed cloud and edge computing. Recently it has become a popular binary format for users to run customized functions on AWS Lambda, Open Yurt, AZURE, etc.
 
@@ -19,6 +19,13 @@ The idea of ZKWASM is derived from ZKSNARK (Zero-Knowledge Succinct Non-Interact
 https://jhc.sjtu.edu.cn/~hongfeifu/manuscriptb.pdf
 
 # Quick start with ZKWASM command line
+
+## Dependency
+
+Make sure the following packages are installed.
+```
+clang lld
+```
 
 ## Setup input:
 wasm code

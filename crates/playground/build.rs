@@ -1,8 +1,18 @@
 use std::fs;
 use std::process::Command;
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     fs::create_dir_all("wasm").unwrap();
+
+    // Check clang exists
+    let check_clang_exists = Command::new("clang")
+        .args(&["-v"])
+        .status()
+        .map_err(|err| {
+            println!("Commang 'clang' not found, it is required to build C to wasm.");
+            err
+        })?;
+    assert!(check_clang_exists.success());
 
     macro_rules! compile_c {
         ($file: expr) => {
@@ -19,8 +29,7 @@ fn main() {
                     &format!("-owasm/{}.wasm", $file),
                     &format!("c/{}.c", $file),
                 ])
-                .status()
-                .unwrap();
+                .status()?;
 
             assert!(exit.success());
         };
@@ -30,4 +39,6 @@ fn main() {
     compile_c!("fibonacci");
     compile_c!("binary_search");
     compile_c!("context");
+
+    Ok(())
 }
