@@ -243,13 +243,13 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         params: &Params<E::G1Affine>,
         vkey: VerifyingKey<E::G1Affine>,
         circuit: TestCircuit<E::Scalar>,
-        instances: Vec<E::Scalar>,
+        instances: &Vec<E::Scalar>,
     ) -> Result<Vec<u8>> {
         Ok(load_or_create_proof::<E, _>(
             &params,
             vkey,
             circuit,
-            &[&instances],
+            &[instances],
             None,
             TranscriptHash::Poseidon,
             false,
@@ -310,5 +310,57 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ark_std::end_timer;
+    use ark_std::start_timer;
+    use halo2_proofs::pairing::bn256::Bn256;
+    use halo2_proofs::pairing::bn256::Fr;
+    use halo2_proofs::pairing::bn256::G1Affine;
+    use halo2_proofs::poly::commitment::Params;
+    use std::fs::File;
+    use std::io::Cursor;
+    use std::io::Read;
+    use std::path::PathBuf;
+
+    use crate::circuits::TestCircuit;
+
+    use super::ZkWasmLoader;
+
+    impl ZkWasmLoader<Bn256> {
+        pub(crate) fn bench_test(&self, circuit: TestCircuit<Fr>, instances: Vec<Fr>) {
+            fn prepare_param(k: u32) -> Params<G1Affine> {
+                let path = PathBuf::from(format!("test_param.{}.data", k));
+
+                if path.exists() {
+                    let mut fd = File::open(path.as_path()).unwrap();
+                    let mut buf = vec![];
+
+                    fd.read_to_end(&mut buf).unwrap();
+                    Params::<G1Affine>::read(Cursor::new(buf)).unwrap()
+                } else {
+                    // Initialize the polynomial commitment parameters
+                    let timer = start_timer!(|| format!("build params with K = {}", k));
+                    let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(k);
+                    end_timer!(timer);
+
+                    let mut fd = File::create(path.as_path()).unwrap();
+                    params.write(&mut fd).unwrap();
+
+                    params
+                }
+            }
+
+            let params = prepare_param(self.k);
+            let vkey = self.create_vkey(&params).unwrap();
+
+            let proof = self
+                .create_proof(&params, vkey.clone(), circuit, &instances)
+                .unwrap();
+            self.verify_proof(&params, vkey, instances, proof).unwrap();
+        }
     }
 }

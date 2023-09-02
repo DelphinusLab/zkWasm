@@ -287,7 +287,7 @@ pub fn exec_create_proof(
         info!("Mock test passed");
     }
 
-    let proof = loader.create_proof(&params, vkey, circuit, instances)?;
+    let proof = loader.create_proof(&params, vkey, circuit, &instances)?;
 
     {
         let proof_path = output_dir.join(format!("{}.{}.transcript.data", prefix, 0));
