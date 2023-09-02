@@ -1,12 +1,15 @@
-use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
-use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::ExecutionResult;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::circuits::TestCircuit;
+use crate::loader::ExecutionArg;
+use crate::loader::ZkWasmLoader;
 
 use anyhow::Result;
+use halo2_proofs::pairing::bn256::Bn256;
+use halo2_proofs::pairing::bn256::Fr;
 
-use super::compile_then_execute_wasm;
-
-fn build_test() -> Result<ExecutionResult<wasmi::RuntimeValue>> {
+fn build_circuit() -> Result<(ZkWasmLoader<Bn256>, TestCircuit<Fr>, Vec<Fr>)> {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -146,46 +149,37 @@ fn build_test() -> Result<ExecutionResult<wasmi::RuntimeValue>> {
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let mut env = HostEnv::new();
-    let wasm_runtime_io =
-        register_wasm_input_foreign(&mut env, public_inputs.clone(), private_inputs);
-    env.finalize();
+    let loader = ZkWasmLoader::<Bn256>::new(20, wasm, vec![])?;
 
-    compile_then_execute_wasm(env, wasm_runtime_io, wasm, "zkmain")
+    let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
+        public_inputs,
+        private_inputs,
+        context_inputs: vec![],
+        context_outputs: Rc::new(RefCell::new(vec![])),
+    })?;
+
+    Ok((loader, circuit, instances))
 }
 
 mod tests {
     use super::*;
-    use crate::circuits::config::set_zkwasm_k;
-    use crate::circuits::ZkWasmCircuitBuilder;
-    use crate::test::test_circuit_mock;
-    use halo2_proofs::pairing::bn256::Fr as Fp;
     use rusty_fork::rusty_fork_test;
 
     rusty_fork_test! {
         #[test]
         fn test_rlp_mock() {
-            set_zkwasm_k(20);
+            let (loader, circuit, instances) = build_circuit().unwrap();
 
-            let trace = build_test().unwrap();
-
-            test_circuit_mock::<Fp>(trace).unwrap();
+            loader.mock_test(&circuit, &instances).unwrap()
         }
     }
 
     rusty_fork_test! {
         #[test]
         fn test_rlp_bench() {
-            set_zkwasm_k(20);
+            let (loader, circuit, instances) = build_circuit().unwrap();
 
-            let execution_result = build_test().unwrap();
-
-            let builder = ZkWasmCircuitBuilder {
-                tables: execution_result.tables,
-                public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
-            };
-
-            builder.bench()
+            loader.bench_test(circuit, instances)
         }
     }
 }

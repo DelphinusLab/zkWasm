@@ -20,7 +20,6 @@ mod test_wasm_instructions;
 
 mod spec;
 mod test_rlp;
-mod test_rlp_simple;
 mod test_start;
 mod test_uniform_verifier;
 
