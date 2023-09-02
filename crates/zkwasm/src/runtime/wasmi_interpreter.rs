@@ -130,6 +130,7 @@ impl WasmiRuntime {
                     .borrow_mut()
                     .static_jtable_entries
                     .push(StaticFrameEntry {
+                        enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
                         callee_fid: 0, // the fid of start function is always 0
@@ -143,6 +144,7 @@ impl WasmiRuntime {
                 .borrow_mut()
                 .static_jtable_entries
                 .push(StaticFrameEntry {
+                    enable: true,
                     frame_id: 0,
                     next_frame_id: 0,
                     callee_fid: idx_of_entry,

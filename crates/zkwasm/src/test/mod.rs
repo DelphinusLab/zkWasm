@@ -22,8 +22,6 @@ mod spec;
 mod test_rlp;
 mod test_rlp_simple;
 mod test_start;
-
-#[cfg(feature = "checksum")]
 mod test_uniform_verifier;
 
 /// Create circuit with trace and run mock test.

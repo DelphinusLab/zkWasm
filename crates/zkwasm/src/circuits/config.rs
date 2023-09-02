@@ -1,8 +1,6 @@
-use std::collections::HashSet;
 use std::env;
 use std::sync::Mutex;
 
-use specs::itable::OpcodeClassPlain;
 use specs::CompilationTable;
 
 pub const POW_TABLE_LIMIT: u64 = 128;
@@ -18,7 +16,6 @@ lazy_static! {
 pub struct CircuitConfigure {
     pub initial_memory_pages: u32,
     pub maximal_memory_pages: u32,
-    pub opcode_selector: HashSet<OpcodeClassPlain>,
 }
 
 #[thread_local]
@@ -48,7 +45,6 @@ impl From<&CompilationTable> for CircuitConfigure {
         CircuitConfigure {
             initial_memory_pages: table.configure_table.init_memory_pages,
             maximal_memory_pages: table.configure_table.maximal_memory_pages,
-            opcode_selector: table.itable.opcode_class(),
         }
     }
 }
@@ -70,7 +66,6 @@ pub fn init_zkwasm_runtime(k: u32, table: &CompilationTable) {
     CircuitConfigure::from(table).set_global_CIRCUIT_CONFIGURE();
 }
 
-#[cfg(feature = "checksum")]
 pub(crate) fn max_image_table_rows() -> u32 {
     8192
 }

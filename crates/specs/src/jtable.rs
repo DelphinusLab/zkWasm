@@ -3,6 +3,7 @@ use serde::Serialize;
 
 #[derive(Default, Serialize, Debug, Clone)]
 pub struct StaticFrameEntry {
+    pub enable: bool,
     pub frame_id: u32,
     pub next_frame_id: u32,
     pub callee_fid: u32,
