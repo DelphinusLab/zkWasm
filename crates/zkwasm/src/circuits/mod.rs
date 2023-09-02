@@ -1,7 +1,8 @@
+use self::config::CircuitConfigure;
 use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
-use crate::circuits::checksum::IMAGE_COL_NAME;
 use crate::circuits::config::zkwasm_k;
+use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::utils::Context;
 
 use ark_std::end_timer;
@@ -44,21 +45,8 @@ mod external_host_call_table;
 mod mtable;
 mod traits;
 
-#[cfg(feature = "checksum")]
-pub mod checksum;
-#[cfg(feature = "checksum")]
-pub mod image_table_checksum;
-#[cfg(feature = "checksum")]
-pub use image_table_checksum as image_table;
-
-#[cfg(not(feature = "checksum"))]
-pub mod image_table_fixed;
-#[cfg(not(feature = "checksum"))]
-pub use image_table_fixed as image_table;
-
-use self::config::CircuitConfigure;
-
 pub mod config;
+pub mod image_table;
 pub mod jtable;
 pub mod rtable;
 pub mod test_circuit;
@@ -108,6 +96,7 @@ impl ZkWasmCircuitBuilder {
         TestCircuit::new(self.tables.clone())
     }
 
+    // Delete all the following functions, use Loader for bench test.
     fn prepare_param(&self) -> Params<G1Affine> {
         let path = PathBuf::from(format!("test_param.{}.data", zkwasm_k()));
 
@@ -197,7 +186,6 @@ impl ZkWasmCircuitBuilder {
         .unwrap();
         end_timer!(timer);
 
-        #[cfg(feature = "checksum")]
         {
             let table = CompilationTableWithParams {
                 table: compile_table,

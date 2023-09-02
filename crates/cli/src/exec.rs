@@ -88,7 +88,6 @@ pub fn exec_setup(
     Ok(())
 }
 
-#[cfg(feature = "checksum")]
 pub fn exec_image_checksum(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
@@ -102,9 +101,9 @@ pub fn exec_image_checksum(
         Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
     );
 
-    let table_with_params = loader.checksum(&params)?;
-    assert_eq!(table_with_params.len(), 1);
-    let checksum = table_with_params[0];
+    let checksum = loader.checksum(&params)?;
+    assert_eq!(checksum.len(), 1);
+    let checksum = checksum[0];
 
     println!("image checksum: {:?}", checksum);
 

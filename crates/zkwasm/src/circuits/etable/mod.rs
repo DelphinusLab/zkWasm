@@ -60,7 +60,6 @@ use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 use std::rc::Rc;
 
 mod assign;
@@ -224,7 +223,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         bit_table: &BitTableConfig<F>,
         external_host_call_table: &ExternalHostCallTableConfig<F>,
         foreign_table_configs: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
-        opcode_set: &HashSet<OpcodeClassPlain>,
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
@@ -300,33 +298,25 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
-        #[cfg(feature = "checksum")]
-        const OPTIMIZE_GATES: bool = false;
-        #[cfg(not(feature = "checksum"))]
-        const OPTIMIZE_GATES: bool = true;
-
         macro_rules! configure {
             ($op:expr, $x:ident) => {
                 let op = OpcodeClassPlain($op as usize);
 
-                if !OPTIMIZE_GATES || opcode_set.contains(&op) {
-                    let foreign_table_configs = BTreeMap::new();
-                    let mut constraint_builder =
-                        ConstraintBuilder::new(meta, &foreign_table_configs);
+                let foreign_table_configs = BTreeMap::new();
+                let mut constraint_builder = ConstraintBuilder::new(meta, &foreign_table_configs);
 
-                    let config = $x::configure(
-                        &common_config,
-                        &mut allocator.clone(),
-                        &mut constraint_builder,
-                    );
+                let config = $x::configure(
+                    &common_config,
+                    &mut allocator.clone(),
+                    &mut constraint_builder,
+                );
 
-                    constraint_builder.finalize(|meta| {
-                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
-                    });
+                constraint_builder.finalize(|meta| {
+                    (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
+                });
 
-                    op_bitmaps.insert(op, op.index());
-                    op_configs.insert(op, Rc::new(config));
-                }
+                op_bitmaps.insert(op, op.index());
+                op_configs.insert(op, Rc::new(config));
             };
         }
 
@@ -364,24 +354,21 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClass::ForeignPluginStart as usize + $i;
                 let op = OpcodeClassPlain(op);
 
-                if !OPTIMIZE_GATES || opcode_set.contains(&op) {
-                    let mut constraint_builder =
-                        ConstraintBuilder::new(meta, foreign_table_configs);
+                let mut constraint_builder = ConstraintBuilder::new(meta, foreign_table_configs);
 
-                    let config = builder.configure(
-                        &common_config,
-                        &mut allocator.clone(),
-                        &mut constraint_builder,
-                        &mut foreign_table_reserved_lookup_cells,
-                    );
+                let config = builder.configure(
+                    &common_config,
+                    &mut allocator.clone(),
+                    &mut constraint_builder,
+                    &mut foreign_table_reserved_lookup_cells,
+                );
 
-                    constraint_builder.finalize(|meta| {
-                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
-                    });
+                constraint_builder.finalize(|meta| {
+                    (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
+                });
 
-                    op_bitmaps.insert(op, op.index());
-                    op_configs.insert(op, Rc::new(config));
-                }
+                op_bitmaps.insert(op, op.index());
+                op_configs.insert(op, Rc::new(config));
             };
         }
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);

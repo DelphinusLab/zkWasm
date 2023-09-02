@@ -16,7 +16,6 @@ use super::command::CommandBuilder;
 use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
 use super::exec::exec_dry_run_service;
-#[cfg(feature = "checksum")]
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_solidity_aggregate_proof;
@@ -77,8 +76,6 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_create_aggregate_proof_subcommand(app);
         let app = Self::append_verify_aggregate_verify_subcommand(app);
         let app = Self::append_generate_solidity_verifier(app);
-
-        #[cfg(feature = "checksum")]
         let app = Self::append_image_checksum_subcommand(app);
 
         app
@@ -113,7 +110,6 @@ pub trait AppBuilder: CommandBuilder {
                 phantom_functions,
                 &output_dir,
             ),
-            #[cfg(feature = "checksum")]
             Some(("checksum", _)) => {
                 exec_image_checksum(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
             }

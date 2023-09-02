@@ -16,15 +16,13 @@ use specs::Tables;
 
 use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
-#[cfg(feature = "checksum")]
-use crate::circuits::checksum::CheckSumChip;
-#[cfg(feature = "checksum")]
-use crate::circuits::checksum::CheckSumConfig;
 use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
 use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
+use crate::circuits::image_table::EncodeCompilationTableValues;
 use crate::circuits::image_table::ImageTableChip;
+use crate::circuits::image_table::ImageTableLayouter;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
@@ -41,7 +39,6 @@ use crate::foreign::context::circuits::assign::ExtractContextFromTrace;
 use crate::foreign::context::circuits::ContextContHelperTableConfig;
 use crate::foreign::context::circuits::CONTEXT_FOREIGN_TABLE_KEY;
 use crate::foreign::foreign_table_enable_lines;
-use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChip;
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
@@ -65,15 +62,11 @@ pub struct TestCircuitConfig<F: FieldExt> {
     etable: EventTableConfig<F>,
     bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
-    wasm_input_helper_table: WasmInputHelperTableConfig<F>,
     context_helper_table: ContextContHelperTableConfig<F>,
 
     foreign_table_from_zero_index: Column<Fixed>,
 
     max_available_rows: usize,
-
-    #[cfg(feature = "checksum")]
-    checksum_config: CheckSumConfig<F>,
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -137,13 +130,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             &bit_table,
             &external_host_call_table,
             &foreign_table_configs,
-            &circuit_configure.opcode_selector,
         );
 
         assert_eq!(cols.count(), 0);
-
-        #[cfg(feature = "checksum")]
-        let checksum_config = CheckSumConfig::configure(meta);
 
         let max_available_rows = (1 << zkwasm_k()) - (meta.blinding_factors() + 1 + RESERVE_ROWS);
         debug!("max_available_rows: {:?}", max_available_rows);
@@ -156,14 +145,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             etable,
             bit_table,
             external_host_call_table,
-            wasm_input_helper_table,
             context_helper_table,
             foreign_table_from_zero_index,
 
             max_available_rows,
-
-            #[cfg(feature = "checksum")]
-            checksum_config,
         }
     }
 
@@ -182,7 +167,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
         let external_host_call_chip =
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
-        let wasm_input_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
         let context_chip = ContextContHelperTableChip::new(config.context_helper_table);
 
         layouter.assign_region(
@@ -203,18 +187,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         exec_with_profile!(|| "Init range chip", rchip.init(&mut layouter)?);
 
-        #[allow(unused_variables)]
-        let image_entries = exec_with_profile!(
-            || "Assign Image Table",
-            image_chip.assign(
-                &mut layouter,
-                &self.tables.compilation_tables.itable,
-                &self.tables.compilation_tables.itable.create_brtable(),
-                &self.tables.compilation_tables.elem_table,
-                &self.tables.compilation_tables.imtable
-            )?
-        );
-
         exec_with_profile!(
             || "Assign external host call table",
             external_host_call_chip.assign(
@@ -227,8 +199,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        #[allow(unused_variables)]
-        let img_info = layouter.assign_region(
+        let (entry_fid, static_frame_entries) = layouter.assign_region(
             || "jtable mtable etable",
             |region| {
                 let mut ctx = Context::new(region);
@@ -285,30 +256,31 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     exec_with_profile!(|| "Assign bit table", bit_chip.assign(&mut ctx, &etable)?);
                 }
 
-                Ok(vec![vec![etable_permutation_cells.fid_of_entry], jtable_info].concat())
+                Ok((etable_permutation_cells.fid_of_entry.cell(), jtable_info))
             },
         )?;
 
-        #[cfg(feature = "checksum")]
-        exec_with_profile!(
-            || "Assign checksum circuit",
-            CheckSumChip::new(config.checksum_config)
-                .assign(&mut layouter, vec![image_entries, img_info].concat())?
-        );
-
-        #[allow(unused_mut)]
-        let mut instances = vec![];
-
-        exec_with_profile!(
-            || "Assign wasm input chip",
-            wasm_input_chip.assign(&mut layouter, instances)?
-        );
         exec_with_profile!(
             || "Assign context cont chip",
             context_chip.assign(
                 &mut layouter,
                 &self.tables.execution_tables.etable.get_context_inputs(),
                 &self.tables.execution_tables.etable.get_context_outputs()
+            )?
+        );
+
+        exec_with_profile!(
+            || "Assign Image Table",
+            image_chip.assign(
+                &mut layouter,
+                self.tables
+                    .compilation_tables
+                    .encode_compilation_table_values(),
+                ImageTableLayouter {
+                    entry_fid,
+                    static_frame_entries,
+                    lookup_entries: None
+                }
             )?
         );
 

@@ -161,10 +161,7 @@ impl<F: FieldExt> EventTableChip<F> {
         assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
         assign_constant!(frame_id_cell, F::zero());
         assign_constant!(eid_cell, F::one());
-        #[cfg(feature = "checksum")]
         let fid_of_entry_cell = assign_advice!(fid_cell, F::from(fid_of_entry as u64));
-        #[cfg(not(feature = "checksum"))]
-        let fid_of_entry_cell = assign_constant!(fid_cell, F::from(fid_of_entry as u64));
         assign_constant!(iid_cell, F::zero());
 
         /*
