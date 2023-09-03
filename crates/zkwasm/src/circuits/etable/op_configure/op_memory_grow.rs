@@ -46,7 +46,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
         let success = allocator.alloc_bit_cell();
 
         let current_memory_size = common_config.mpages_cell;
-        let maximal_memory_pages = common_config.circuit_configure.maximal_memory_pages;
+        let maximal_memory_pages = common_config.maximal_memory_pages_cell;
 
         constraint_builder.push(
             "memory_grow: return value",
@@ -67,7 +67,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
                     (current_memory_size.expr(meta)
                         + grow_size.expr(meta)
                         + current_maximal_diff.expr(meta)
-                        - constant_from!(maximal_memory_pages))
+                        - maximal_memory_pages.expr(meta))
                         * success.expr(meta),
                 ]
             }),

@@ -1,4 +1,3 @@
-use self::config::CircuitConfigure;
 use crate::circuits::utils::Context;
 
 use halo2_proofs::arithmetic::FieldExt;
@@ -32,8 +31,6 @@ pub struct TestCircuit<F: FieldExt> {
 
 impl<F: FieldExt> TestCircuit<F> {
     pub fn new(tables: Tables) -> Self {
-        CircuitConfigure::from(&tables.compilation_tables).set_global_CIRCUIT_CONFIGURE();
-
         TestCircuit {
             tables,
             _data: PhantomData,

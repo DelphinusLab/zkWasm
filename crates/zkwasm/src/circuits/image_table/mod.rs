@@ -22,6 +22,8 @@ pub const IMAGE_COL_NAME: &str = "img_col";
 
 pub struct ImageTableLayouter<T: Clone> {
     pub entry_fid: T,
+    pub initial_memory_pages: T,
+    pub maximal_memory_pages: T,
     pub static_frame_entries: Vec<(T, T)>,
     /*
      * include:
@@ -38,6 +40,8 @@ impl<T: Clone> ImageTableLayouter<T> {
         let mut buf = vec![];
 
         buf.push(self.entry_fid.clone());
+        buf.push(self.initial_memory_pages.clone());
+        buf.push(self.maximal_memory_pages.clone());
         buf.append(
             &mut self
                 .static_frame_entries
@@ -161,9 +165,22 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             cells
         }
 
+        fn msg_of_memory_pages<F: FieldExt>(
+            init_memory_pages: u32,
+            maximal_memory_pages: u32,
+        ) -> (F, F) {
+            (
+                F::from(init_memory_pages as u64),
+                F::from(maximal_memory_pages as u64),
+            )
+        }
+
         let entry_fid = F::from(self.fid_of_entry as u64);
         let static_frame_entries = msg_of_static_frame_table(&self.static_jtable);
-
+        let (initial_memory_pages, maximal_memory_pages) = msg_of_memory_pages(
+            self.configure_table.init_memory_pages,
+            self.configure_table.maximal_memory_pages,
+        );
         let lookup_entries = msg_of_image_table(
             &self.itable,
             &self.itable.create_brtable(),
@@ -174,6 +191,8 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
         ImageTableLayouter {
             entry_fid,
             static_frame_entries,
+            initial_memory_pages,
+            maximal_memory_pages,
             lookup_entries: Some(lookup_entries),
         }
     }
