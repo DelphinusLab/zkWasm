@@ -30,6 +30,30 @@ impl<F: FieldExt> ImageTableChip<F> {
 
                 ctx.next();
 
+                let initial_memory_pages_cell = ctx.region.assign_advice(
+                    || "image table: initial memory pages",
+                    self.config.col,
+                    ctx.offset,
+                    || Ok(image_table.initial_memory_pages),
+                )?;
+                ctx.region.constrain_equal(
+                    permutation_cells.initial_memory_pages,
+                    initial_memory_pages_cell.cell(),
+                )?;
+                ctx.next();
+
+                let maximal_memory_pages_cell = ctx.region.assign_advice(
+                    || "image table: maximal memory pages",
+                    self.config.col,
+                    ctx.offset,
+                    || Ok(image_table.maximal_memory_pages),
+                )?;
+                ctx.region.constrain_equal(
+                    permutation_cells.maximal_memory_pages,
+                    maximal_memory_pages_cell.cell(),
+                )?;
+                ctx.next();
+
                 for (static_frame_entry, cell_in_frame_table) in image_table
                     .static_frame_entries
                     .iter()

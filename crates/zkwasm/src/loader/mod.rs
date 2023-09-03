@@ -257,16 +257,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     pub fn init_env(&self) -> Result<()> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![],
-            vec![],
-            Rc::new(RefCell::new(vec![])),
-        );
-
-        let c = self.compile(&env)?;
-
-        init_zkwasm_runtime(self.k, &c.tables);
+        init_zkwasm_runtime(self.k);
 
         Ok(())
     }

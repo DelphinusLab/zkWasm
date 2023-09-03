@@ -11,7 +11,6 @@ use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
 use super::utils::Context;
-use super::CircuitConfigure;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_shift::BinShiftConfigBuilder;
@@ -90,6 +89,7 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     pub(crate) eid_cell: AllocatedCommonRangeCell<F>,
     fid_cell: AllocatedCommonRangeCell<F>,
     iid_cell: AllocatedCommonRangeCell<F>,
+    maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
@@ -98,8 +98,6 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     pow_table_lookup_power_cell: AllocatedUnlimitedCell<F>,
     bit_table_lookup_cells: AllocatedBitTableLookupCells<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
-
-    circuit_configure: CircuitConfigure,
 }
 
 pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
@@ -215,7 +213,6 @@ impl<F: FieldExt> EventTableConfig<F> {
     pub(crate) fn configure(
         meta: &mut ConstraintSystem<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
-        circuit_configure: &CircuitConfigure,
         rtable: &RangeTableConfig<F>,
         image_table: &ImageTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
@@ -244,6 +241,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let eid_cell = allocator.alloc_common_range_cell();
         let fid_cell = allocator.alloc_common_range_cell();
         let iid_cell = allocator.alloc_common_range_cell();
+        let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
 
         // We only need to enable equality for the cells of states
         let used_common_range_cells_for_state = allocator
@@ -284,6 +282,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             eid_cell,
             fid_cell,
             iid_cell,
+            maximal_memory_pages_cell,
             itable_lookup_cell,
             brtable_lookup_cell,
             jtable_lookup_cell,
@@ -291,7 +290,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             pow_table_lookup_power_cell,
             bit_table_lookup_cells,
             external_foreign_call_lookup_cell,
-            circuit_configure: circuit_configure.clone(),
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
@@ -612,6 +610,15 @@ impl<F: FieldExt> EventTableConfig<F> {
                 fixed_curr!(meta, step_sel) * bit_table_lookup_cells.right.expr(meta),
                 fixed_curr!(meta, step_sel) * bit_table_lookup_cells.result.expr(meta),
             )
+        });
+
+        meta.create_gate("c9. maximal memory pages consistent", |meta| {
+            vec![
+                (maximal_memory_pages_cell.next_expr(meta)
+                    - maximal_memory_pages_cell.curr_expr(meta))
+                    * enabled_cell.expr(meta)
+                    * fixed_curr!(meta, step_sel),
+            ]
         });
 
         Self {
