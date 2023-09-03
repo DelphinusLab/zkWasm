@@ -19,84 +19,55 @@ impl<F: FieldExt> ImageTableChip<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                let entry_fid_cell = ctx.region.assign_advice(
-                    || "image table: entry fid",
-                    self.config.col,
-                    ctx.offset,
-                    || Ok(image_table.entry_fid),
-                )?;
+                macro_rules! assign_one_line {
+                    ($v: expr) => {{
+                        let cell = ctx
+                            .region
+                            .assign_advice(
+                                || "image table",
+                                self.config.col,
+                                ctx.offset,
+                                || Ok($v),
+                            )?
+                            .cell();
+
+                        ctx.next();
+
+                        cell
+                    }};
+                }
+
+                let entry_fid_cell = assign_one_line!(image_table.entry_fid);
                 ctx.region
-                    .constrain_equal(permutation_cells.entry_fid, entry_fid_cell.cell())?;
+                    .constrain_equal(permutation_cells.entry_fid, entry_fid_cell)?;
 
-                ctx.next();
-
-                let initial_memory_pages_cell = ctx.region.assign_advice(
-                    || "image table: initial memory pages",
-                    self.config.col,
-                    ctx.offset,
-                    || Ok(image_table.initial_memory_pages),
-                )?;
+                let initial_memory_pages_cell = assign_one_line!(image_table.initial_memory_pages);
                 ctx.region.constrain_equal(
                     permutation_cells.initial_memory_pages,
-                    initial_memory_pages_cell.cell(),
+                    initial_memory_pages_cell,
                 )?;
-                ctx.next();
 
-                let maximal_memory_pages_cell = ctx.region.assign_advice(
-                    || "image table: maximal memory pages",
-                    self.config.col,
-                    ctx.offset,
-                    || Ok(image_table.maximal_memory_pages),
-                )?;
+                let maximal_memory_pages_cell = assign_one_line!(image_table.maximal_memory_pages);
                 ctx.region.constrain_equal(
                     permutation_cells.maximal_memory_pages,
-                    maximal_memory_pages_cell.cell(),
+                    maximal_memory_pages_cell,
                 )?;
-                ctx.next();
 
                 for (static_frame_entry, cell_in_frame_table) in image_table
                     .static_frame_entries
                     .iter()
                     .zip(permutation_cells.static_frame_entries.iter())
                 {
-                    let cell = ctx
-                        .region
-                        .assign_advice(
-                            || "image table: entry fid enable",
-                            self.config.col,
-                            ctx.offset,
-                            || Ok(static_frame_entry.0),
-                        )?
-                        .cell();
+                    // Enable cell
+                    let cell = assign_one_line!(static_frame_entry.0);
                     ctx.region.constrain_equal(cell, cell_in_frame_table.0)?;
 
-                    ctx.next();
-
-                    let cell = ctx
-                        .region
-                        .assign_advice(
-                            || "image table: entry fid entry",
-                            self.config.col,
-                            ctx.offset,
-                            || Ok(static_frame_entry.1),
-                        )?
-                        .cell();
+                    let cell = assign_one_line!(static_frame_entry.1);
                     ctx.region.constrain_equal(cell, cell_in_frame_table.1)?;
-
-                    ctx.next();
                 }
 
                 for value in image_table.lookup_entries.as_ref().unwrap() {
-                    ctx.region
-                        .assign_advice(
-                            || "image table",
-                            self.config.col,
-                            ctx.offset,
-                            || Ok(*value),
-                        )?
-                        .cell();
-
-                    ctx.next();
+                    assign_one_line!(*value);
                 }
 
                 Ok(())
