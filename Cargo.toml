@@ -4,6 +4,8 @@ exclude = ["third-party/wasmi", "crates/playground"]
 
 [workspace.dependencies]
 anyhow = { version = "1.0.68", features = ["backtrace"] }
+halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", tag = "bisect-lookup-0.3.4", features = ["unsafe"] }
+halo2_proofs = { git = "https://github.com/DelphinusLab/halo2-gpu-specific.git", default-features = true }
 wasmi = { path = "third-party/wasmi" }
 
 [profile.dev]
