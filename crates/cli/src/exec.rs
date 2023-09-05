@@ -277,7 +277,7 @@ pub fn exec_create_proof(
         circuits_batcher::args::HashType::Poseidon
     );
     circuit.proofloadinfo.save(output_dir);
-    circuit.create_proof(output_dir, 0);
+    circuit.create_proof(output_dir, output_dir, 0);
     info!("Proof has been created.");
 
     Ok(())
@@ -289,7 +289,7 @@ pub fn exec_verify_proof(
 ) -> Result<()> {
     let load_info = output_dir.join(format!("{}.loadinfo.json", prefix));
     let proofloadinfo = ProofLoadInfo::load(&load_info);
-    let proofs:Vec<ProofInfo<Bn256>> = ProofInfo::load_proof(&output_dir, &proofloadinfo);
+    let proofs:Vec<ProofInfo<Bn256>> = ProofInfo::load_proof(&output_dir, output_dir, &proofloadinfo);
     let params = load_or_build_unsafe_params::<Bn256>(
         proofloadinfo.k as u32,
         Some(&output_dir.join(format!("K{}.params", proofloadinfo.k))),
