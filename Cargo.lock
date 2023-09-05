@@ -313,7 +313,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#676b8cca0d17d1b6a8395d6f0514044958677595"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#84a263c99c1b4f269f5cf54f1e5baa5652d4be27"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -322,9 +322,9 @@ dependencies = [
  "downcast-rs",
  "env_logger",
  "ff",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "halo2aggregator-s",
- "halo2ecc-s",
+ "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.3.3)",
  "hex",
  "lazy_static",
  "log",
@@ -567,7 +567,7 @@ dependencies = [
  "clap",
  "delphinus-zkwasm",
  "env_logger",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?branch=gpu)",
  "halo2aggregator-s",
  "hex",
  "log",
@@ -589,7 +589,7 @@ dependencies = [
  "bitvec",
  "downcast-rs",
  "ff",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "halo2aggregator-s",
  "hex",
  "lazy_static",
@@ -692,6 +692,29 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 name = "ec-gpu"
 version = "0.2.0"
 source = "git+https://github.com/lanbones/ec-gpu#165d1dd6215f6fd1dd85c83cf430ff511a03a00a"
+
+[[package]]
+name = "ec-gpu-gen"
+version = "0.4.0"
+source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#784eda53754a5344f75e4b3c533361d628ad1402"
+dependencies = [
+ "ark-std",
+ "bitvec",
+ "crossbeam-channel",
+ "ec-gpu",
+ "execute",
+ "ff",
+ "group",
+ "hex",
+ "log",
+ "num_cpus",
+ "once_cell",
+ "rayon",
+ "rust-gpu-tools",
+ "sha2",
+ "thiserror",
+ "yastl",
+]
 
 [[package]]
 name = "ec-gpu-gen"
@@ -1047,7 +1070,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "core_affinity",
  "cuda-driver-sys",
- "ec-gpu-gen",
+ "ec-gpu-gen 0.4.0 (git+https://github.com/lanbones/ec-gpu)",
  "ff",
  "group",
  "memmap",
@@ -1064,14 +1087,42 @@ dependencies = [
 ]
 
 [[package]]
-name = "halo2aggregator-s"
-version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#d93544206963b916bf074383a7ff2d403fd21ba0"
+name = "halo2_proofs"
+version = "0.1.0-beta.1"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#64ccffddc97faff24a00d248270fe84f6693c130"
 dependencies = [
  "ark-std",
  "blake2b_simd",
- "halo2_proofs",
- "halo2ecc-s",
+ "bumpalo",
+ "cfg-if 0.1.10",
+ "core_affinity",
+ "cuda-driver-sys",
+ "ec-gpu-gen 0.4.0 (git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2)",
+ "ff",
+ "group",
+ "lazy_static",
+ "memmap",
+ "num",
+ "num-bigint",
+ "num-derive",
+ "num-integer",
+ "num-traits",
+ "pairing_bn256",
+ "rand",
+ "rand_core",
+ "rayon",
+ "subtle",
+]
+
+[[package]]
+name = "halo2aggregator-s"
+version = "0.1.0"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#55e9a9f45ce326107f70511a2741ac3dbef21114"
+dependencies = [
+ "ark-std",
+ "blake2b_simd",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.3.3)",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1085,7 +1136,18 @@ name = "halo2ecc-s"
 version = "0.3.2"
 source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.3.2#35fa5cf45810aeabdafc388d1520a01ef5244f50"
 dependencies = [
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?branch=gpu)",
+ "num-bigint",
+ "num-integer",
+ "rayon",
+]
+
+[[package]]
+name = "halo2ecc-s"
+version = "0.3.2"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.3.3#9698edde834f0bd90a82d0ac37803f5be2b093ad"
+dependencies = [
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "num-bigint",
  "num-integer",
  "rayon",
@@ -1858,9 +1920,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 [[package]]
 name = "poseidon"
 version = "0.2.0"
-source = "git+https://github.com/lanbones/poseidon#ade94877c8285cc251107418c5effbce36684aa4"
+source = "git+https://github.com/lanbones/poseidon#df8891073182c5c6cc1e2e7f9d2f4297d3c1565d"
 dependencies = [
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "subtle",
 ]
 
@@ -2388,7 +2450,7 @@ dependencies = [
 name = "specs"
 version = "0.1.0"
 dependencies = [
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?branch=gpu)",
  "lazy_static",
  "num-bigint",
  "parity-wasm",
@@ -3276,8 +3338,8 @@ dependencies = [
  "circuits-batcher",
  "clap",
  "ff",
- "halo2_proofs",
- "halo2ecc-s",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/junyu0312/halo2?branch=gpu)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.3.2)",
  "hex",
  "lazy_static",
  "lru",
