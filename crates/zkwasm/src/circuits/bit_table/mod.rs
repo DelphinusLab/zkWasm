@@ -125,6 +125,11 @@ impl<F: FieldExt> BitTableConfig<F> {
                 fixed_curr!(meta, u32_sel)
                     * curr!(meta, helper)
                     * (curr!(meta, op) - constant_from!(BitTableOp::Popcnt.index())),
+                fixed_curr!(meta, u32_sel)
+                    * (curr!(meta, helper) - constant_from!(1))
+                    * curr!(meta, op)  // - constant_from!(BitOp::And)): 0
+                    * (curr!(meta, op) - constant_from!(BitOp::Or))
+                    * (curr!(meta, op) - constant_from!(BitOp::Xor)),
                 // is_popcnt cell is bit
                 fixed_curr!(meta, u32_sel)
                     * curr!(meta, helper)
