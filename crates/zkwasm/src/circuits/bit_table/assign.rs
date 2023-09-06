@@ -103,15 +103,26 @@ impl<F: FieldExt> BitTableChip<F> {
     }
 
     fn assign_op(&self, ctx: &mut Context<'_, F>, op: BitTableOp) -> Result<(), Error> {
-        let op = F::from(op.index() as u64);
+        let op_index = F::from(op.index() as u64);
 
         for i in 0..STEP_SIZE {
             ctx.region.assign_advice(
                 || "bit table op",
                 self.config.op,
                 ctx.offset + i,
-                || Ok(op),
+                || Ok(op_index),
             )?;
+        }
+
+        if op == BitTableOp::Popcnt {
+            for i in U32_OFFSET {
+                ctx.region.assign_advice(
+                    || "bit table op",
+                    self.config.helper,
+                    ctx.offset + i,
+                    || Ok(F::one()),
+                )?;
+            }
         }
 
         Ok(())

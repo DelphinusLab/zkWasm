@@ -8,7 +8,6 @@ use halo2_proofs::plonk::Fixed;
 use specs::itable::BitOp;
 use strum::IntoEnumIterator;
 
-use crate::constant;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
@@ -43,6 +42,7 @@ pub struct BitTableConfig<F: FieldExt> {
     lookup_sel: Column<Fixed>,
 
     op: Column<Advice>,
+    helper: Column<Advice>,
     left: Column<Advice>,
     right: Column<Advice>,
     result: Column<Advice>,
@@ -65,26 +65,28 @@ pub(self) const U8_OFFSET: [usize; 8] = [2, 3, 4, 5, 7, 8, 9, 10];
  * op: and: 0, or: 1, xor: 2, popcnt: 3
  * val: u64 value, split u64 value into u32, split u32 value into u8
  *
- * |   block   | u32_sel | lookup_sel |  op  |    val_l    |    val_r    |   val_res   |
- * +-----------+-------- |------------+------+-------------+-------------+-------------+
-*  |     0     |    0    |     0      |   x  |  l_u64      |  r_u64      | res_u64     |
- * |     1     |    1    |     0      |   x  |  l_u32[0]   |  r_u32[0]   | res_u32[0]  |
- * |     0     |    0    |     1      |   x  |   l_u8[0]   |   r_u8[0]   |  res_u8[0]  |
- * |     0     |    0    |     1      |   x  |   l_u8[1]   |   r_u8[1]   |  res_u8[1]  |
- * |     0     |    0    |     1      |   x  |   l_u8[2]   |   r_u8[2]   |  res_u8[2]  |
- * |     0     |    0    |     1      |   x  |   l_u8[3]   |   r_u8[3]   |  res_u8[3]  |
- * |     0     |    1    |     0      |   x  |  l_u32[1]   |  r_u32[1]   | res_u32[1]  |
- * |     0     |    0    |     1      |   x  |   l_u8[0]   |   r_u8[0]   |  res_u8[0]  |
- * |     0     |    0    |     1      |   x  |   l_u8[1]   |   r_u8[1]   |  res_u8[1]  |
- * |     0     |    0    |     1      |   x  |   l_u8[2]   |   r_u8[2]   |  res_u8[2]  |
- * |     0     |    0    |     1      |   x  |   l_u8[3]   |   r_u8[3]   |  res_u8[3]  |
- * +-----------+---------|------------+------+-------------+-------------+-------------+
+ * |   block   | u32_sel | lookup_sel |  op  |  helper    |    val_l    |    val_r    |   val_res   |
+ * +-----------+-------- |------------+------+------------|-------------+-------------+-------------+
+*  |     0     |    0    |     0      |   x  |            |  l_u64      |  r_u64      | res_u64     |
+ * |     1     |    1    |     0      |   x  | is_popcnt  |  l_u32[0]   |  r_u32[0]   | res_u32[0]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[0]   |   r_u8[0]   |  res_u8[0]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[1]   |   r_u8[1]   |  res_u8[1]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[2]   |   r_u8[2]   |  res_u8[2]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[3]   |   r_u8[3]   |  res_u8[3]  |
+ * |     0     |    1    |     0      |   x  | is_popcnt  |  l_u32[1]   |  r_u32[1]   | res_u32[1]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[0]   |   r_u8[0]   |  res_u8[0]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[1]   |   r_u8[1]   |  res_u8[1]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[2]   |   r_u8[2]   |  res_u8[2]  |
+ * |     0     |    0    |     1      |   x  |            |   l_u8[3]   |   r_u8[3]   |  res_u8[3]  |
+ * +-----------+---------|------------+------+------------|-------------+-------------+-------------+
  */
 impl<F: FieldExt> BitTableConfig<F> {
     /*
      * Constraints:
      * ------------------------------------------------------------------------------------------------
-     * 1. 'op' should be consistent within a block.
+     * 1. * 'op' should be consistent within a block.
+     *    * is_popcnt cell is set when op is Popcnt
+     *    * is_popcnt is bit
      * 2. * l/r/res_u32 = l/r/res_u8[0] + l/r/res_u8[1] << 8 + l/r/res_u8[2] <<16 + l/r/res_u8[3] << 24
      *      if is unary.
      *    * l/r/res_u32 = l/r/res_u8[0] + l/r/res_u8[1] + l/r/res_u8[2]  + l/r/res_u8[3]
@@ -101,6 +103,7 @@ impl<F: FieldExt> BitTableConfig<F> {
         let u32_sel = meta.fixed_column();
         let lookup_sel = meta.fixed_column();
         let op = meta.advice_column();
+        let helper = meta.advice_column();
         let left = meta.advice_column();
         let right = meta.advice_column();
         let result = meta.advice_column();
@@ -119,12 +122,18 @@ impl<F: FieldExt> BitTableConfig<F> {
             vec![
                 (fixed_curr!(meta, u32_sel) + fixed_curr!(meta, lookup_sel))
                     * (prev!(meta, op) - curr!(meta, op)),
+                fixed_curr!(meta, u32_sel)
+                    * curr!(meta, helper)
+                    * (curr!(meta, op) - constant_from!(BitTableOp::Popcnt.index())),
+                // is_popcnt cell is bit
+                fixed_curr!(meta, u32_sel)
+                    * curr!(meta, helper)
+                    * (curr!(meta, helper) - constant_from!(1)),
             ]
         });
 
         meta.create_gate("bit table: 2. acc u32", |meta| {
-            let is_popcnt = curr!(meta, op)
-                * constant!(F::from(BitTableOp::Popcnt.index() as u64).invert().unwrap());
+            let is_popcnt = curr!(meta, helper);
             let is_bit = constant_from!(1) - is_popcnt.clone();
 
             // For bit operator
@@ -184,7 +193,7 @@ impl<F: FieldExt> BitTableConfig<F> {
         });
 
         meta.create_gate("bit table: 3. acc u64", |meta| {
-            let is_popcnt = curr!(meta, op) * constant!(F::from(3).invert().unwrap());
+            let is_popcnt = curr!(meta, helper);
             let is_bit = constant_from!(1) - is_popcnt.clone();
 
             macro_rules! compose_u64 {
@@ -223,6 +232,7 @@ impl<F: FieldExt> BitTableConfig<F> {
             u32_sel,
             lookup_sel,
             op,
+            helper,
             left,
             right,
             result,

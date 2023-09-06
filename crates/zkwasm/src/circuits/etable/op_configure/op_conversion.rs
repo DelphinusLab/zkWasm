@@ -20,14 +20,22 @@ use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct ConversionConfig<F: FieldExt> {
-    value: AllocatedU64CellWithFlagBit<F, 1>,
+    value: AllocatedU64Cell<F>,
     value_is_i32: AllocatedBitCell<F>,
-    res: AllocatedU64Cell<F>,
     res_is_i32: AllocatedBitCell<F>,
 
     is_i32_wrap_i64: AllocatedBitCell<F>,
     is_i64_extend_i32_u: AllocatedBitCell<F>,
     is_i64_extend_i32_s: AllocatedBitCell<F>,
+
+    // Sign-extension proposal
+    flag_bit: AllocatedBitCell<F>,
+    rem: AllocatedU64Cell<F>,
+    is_i32_sign_extend_i8: AllocatedBitCell<F>,
+    is_i32_sign_extend_i16: AllocatedBitCell<F>,
+    is_i64_sign_extend_i8: AllocatedBitCell<F>,
+    is_i64_sign_extend_i16: AllocatedBitCell<F>,
+    is_i64_sign_extend_i32: AllocatedBitCell<F>,
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -41,14 +49,49 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let value = allocator.alloc_u64_with_flag_bit_cell(constraint_builder);
+        let value = allocator.alloc_u64_cell();
         let value_is_i32 = allocator.alloc_bit_cell();
-        let res = allocator.alloc_u64_cell();
         let res_is_i32 = allocator.alloc_bit_cell();
 
         let is_i32_wrap_i64 = allocator.alloc_bit_cell();
         let is_i64_extend_i32_u = allocator.alloc_bit_cell();
         let is_i64_extend_i32_s = allocator.alloc_bit_cell();
+
+        let is_i32_sign_extend_i8 = allocator.alloc_bit_cell();
+        let is_i32_sign_extend_i16 = allocator.alloc_bit_cell();
+        let is_i64_sign_extend_i8 = allocator.alloc_bit_cell();
+        let is_i64_sign_extend_i16 = allocator.alloc_bit_cell();
+        let is_i64_sign_extend_i32 = allocator.alloc_bit_cell();
+
+        let flag_bit = allocator.alloc_bit_cell();
+        let rem = allocator.alloc_u64_cell();
+
+        let eid = common_config.eid_cell;
+        let sp = common_config.sp_cell;
+
+        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
+            "op_conversion stack read",
+            constraint_builder,
+            eid,
+            move |____| constant_from!(LocationType::Stack as u64),
+            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| value_is_i32.expr(meta),
+            move |meta| value.expr(meta),
+            move |____| constant_from!(1),
+        );
+
+        let memory_table_lookup_stack_write = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "op_conversion stack write",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(1),
+                move |meta| res_is_i32.expr(meta),
+                move |____| constant_from!(1),
+            );
+
+        let res = memory_table_lookup_stack_write.value_cell;
 
         constraint_builder.push(
             "op_conversion pick one",
@@ -57,6 +100,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
                     is_i32_wrap_i64.expr(meta)
                         + is_i64_extend_i32_u.expr(meta)
                         + is_i64_extend_i32_s.expr(meta)
+                        + is_i32_sign_extend_i8.expr(meta)
+                        + is_i32_sign_extend_i16.expr(meta)
+                        + is_i64_sign_extend_i8.expr(meta)
+                        + is_i64_sign_extend_i16.expr(meta)
+                        + is_i64_sign_extend_i32.expr(meta)
                         - constant_from!(1),
                 ]
             }),
@@ -72,6 +120,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
                         * (value_is_i32.expr(meta) - constant_from!(1)),
                     (is_i64_extend_i32_s.expr(meta) + is_i64_extend_i32_u.expr(meta))
                         * res_is_i32.expr(meta),
+                    (is_i32_sign_extend_i8.expr(meta) + is_i32_sign_extend_i16.expr(meta))
+                        * (value_is_i32.expr(meta) - constant_from!(1)),
+                    (is_i32_sign_extend_i8.expr(meta) + is_i32_sign_extend_i16.expr(meta))
+                        * (res_is_i32.expr(meta) - constant_from!(1)),
+                    (is_i64_sign_extend_i8.expr(meta)
+                        + is_i64_sign_extend_i16.expr(meta)
+                        + is_i64_sign_extend_i32.expr(meta))
+                        * value_is_i32.expr(meta),
+                    (is_i64_sign_extend_i8.expr(meta)
+                        + is_i64_sign_extend_i16.expr(meta)
+                        + is_i64_sign_extend_i32.expr(meta))
+                        * res_is_i32.expr(meta),
                 ]
             }),
         );
@@ -83,66 +143,62 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
                     is_i32_wrap_i64.expr(meta)
                         * (value.u16_cells_le[1].expr(meta) * constant_from!(1 << 16)
                             + value.u16_cells_le[0].expr(meta)
-                            - res.u64_cell.expr(meta)),
+                            - res.expr(meta)),
                 ]
             }),
         );
 
         constraint_builder.push(
-            "i64_extend_i32_u",
+            "sign extension",
             Box::new(move |meta| {
                 vec![
-                    is_i64_extend_i32_u.expr(meta)
-                        * (res.u64_cell.expr(meta) - value.u64_cell.expr(meta)),
+                    // Split Operand
+                    (is_i32_sign_extend_i8.expr(meta) + is_i64_sign_extend_i8.expr(meta))
+                        * (flag_bit.expr(meta) * constant_from!(1u64 << 7) + rem.expr(meta)
+                            - value.expr(meta)),
+                    (is_i32_sign_extend_i16.expr(meta) + is_i64_sign_extend_i16.expr(meta))
+                        * (flag_bit.expr(meta) * constant_from!(1u64 << 15) + rem.expr(meta)
+                            - value.expr(meta)),
+                    (is_i64_sign_extend_i32.expr(meta) + is_i64_extend_i32_s.expr(meta))
+                        * (flag_bit.expr(meta) * constant_from!(1u64 << 31) + rem.expr(meta)
+                            - value.expr(meta)),
+                    // Compose Result
+                    is_i32_sign_extend_i8.expr(meta)
+                        * (flag_bit.expr(meta) * constant_from!((u32::MAX << 8) as u64)
+                            + value.expr(meta)
+                            - res.expr(meta)),
+                    is_i32_sign_extend_i16.expr(meta)
+                        * (flag_bit.expr(meta) * constant_from!((u32::MAX << 16) as u64)
+                            + value.expr(meta)
+                            - res.expr(meta)),
+                    is_i64_sign_extend_i8.expr(meta)
+                        * (flag_bit.expr(meta) * constant_from!(u64::MAX << 8) + value.expr(meta)
+                            - res.expr(meta)),
+                    is_i64_sign_extend_i16.expr(meta)
+                        * (flag_bit.expr(meta) * constant_from!(u64::MAX << 16) + value.expr(meta)
+                            - res.expr(meta)),
+                    (is_i64_sign_extend_i32.expr(meta) + is_i64_extend_i32_s.expr(meta))
+                        * (flag_bit.expr(meta) * constant_from!(u64::MAX << 32) + value.expr(meta)
+                            - res.expr(meta)),
+                    is_i64_extend_i32_u.expr(meta) * (res.expr(meta) - value.expr(meta)),
                 ]
             }),
-        );
-
-        constraint_builder.push(
-            "i64_extend_i32_s",
-            Box::new(move |meta| {
-                let pad = value.flag_bit_cell.expr(meta) * constant_from!((u32::MAX as u64) << 32);
-
-                vec![
-                    is_i64_extend_i32_s.expr(meta)
-                        * (pad + value.u64_cell.expr(meta) - res.u64_cell.expr(meta)),
-                ]
-            }),
-        );
-
-        let eid = common_config.eid_cell;
-        let sp = common_config.sp_cell;
-
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_conversion stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| value_is_i32.expr(meta),
-            move |meta| value.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_conversion stack write",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| res_is_i32.expr(meta),
-            move |meta| res.u64_cell.expr(meta),
-            move |____| constant_from!(1),
         );
 
         Box::new(ConversionConfig {
             value,
             value_is_i32,
-            res,
             res_is_i32,
+            flag_bit,
+            rem,
             is_i32_wrap_i64,
             is_i64_extend_i32_u,
             is_i64_extend_i32_s,
+            is_i32_sign_extend_i8,
+            is_i32_sign_extend_i16,
+            is_i64_sign_extend_i8,
+            is_i64_sign_extend_i16,
+            is_i64_sign_extend_i32,
             memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
         })
@@ -157,6 +213,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                 * encode_conversion::<Expression<F>>(ConversionOp::I64ExtendI32s)
             + self.is_i64_extend_i32_u.expr(meta)
                 * encode_conversion::<Expression<F>>(ConversionOp::I64ExtendI32u)
+            + self.is_i32_sign_extend_i8.expr(meta)
+                * encode_conversion::<Expression<F>>(ConversionOp::I32Extend8S)
+            + self.is_i32_sign_extend_i16.expr(meta)
+                * encode_conversion::<Expression<F>>(ConversionOp::I32Extend16S)
+            + self.is_i64_sign_extend_i8.expr(meta)
+                * encode_conversion::<Expression<F>>(ConversionOp::I64Extend8S)
+            + self.is_i64_sign_extend_i16.expr(meta)
+                * encode_conversion::<Expression<F>>(ConversionOp::I64Extend16S)
+            + self.is_i64_sign_extend_i32.expr(meta)
+                * encode_conversion::<Expression<F>>(ConversionOp::I64Extend32S)
     }
 
     fn assign(
@@ -187,6 +253,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                     self.is_i64_extend_i32_u.assign(ctx, F::one())?;
                 }
 
+                self.flag_bit.assign_bool(ctx, *value >> 31 != 0)?;
+                self.rem.assign(ctx, (*value & 0x7fffffff) as u64)?;
+
                 (
                     *value as u32 as u64,
                     VarType::I32,
@@ -194,11 +263,55 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                     VarType::I64,
                 )
             }
+            StepInfo::I32SignExtendI8 { value, result } => {
+                self.is_i32_sign_extend_i8.assign_bool(ctx, true)?;
+                self.flag_bit.assign_bool(ctx, *value >> 7 != 0)?;
+                self.rem.assign(ctx, (*value & 0x7f) as u64)?;
+
+                (
+                    *value as u32 as u64,
+                    VarType::I32,
+                    *result as u32 as u64,
+                    VarType::I32,
+                )
+            }
+            StepInfo::I32SignExtendI16 { value, result } => {
+                self.is_i32_sign_extend_i16.assign_bool(ctx, true)?;
+                self.flag_bit.assign_bool(ctx, *value >> 15 != 0)?;
+                self.rem.assign(ctx, (*value & 0x7fff) as u64)?;
+
+                (
+                    *value as u32 as u64,
+                    VarType::I32,
+                    *result as u32 as u64,
+                    VarType::I32,
+                )
+            }
+            StepInfo::I64SignExtendI8 { value, result } => {
+                self.is_i64_sign_extend_i8.assign_bool(ctx, true)?;
+                self.flag_bit.assign_bool(ctx, *value >> 7 != 0)?;
+                self.rem.assign(ctx, (*value & 0x7f) as u64)?;
+
+                (*value as u64, VarType::I64, *result as u64, VarType::I64)
+            }
+            StepInfo::I64SignExtendI16 { value, result } => {
+                self.is_i64_sign_extend_i16.assign_bool(ctx, true)?;
+                self.flag_bit.assign_bool(ctx, *value >> 15 != 0)?;
+                self.rem.assign(ctx, (*value & 0x7fff) as u64)?;
+
+                (*value as u64, VarType::I64, *result as u64, VarType::I64)
+            }
+            StepInfo::I64SignExtendI32 { value, result } => {
+                self.is_i64_sign_extend_i32.assign_bool(ctx, true)?;
+                self.flag_bit.assign_bool(ctx, *value >> 31 != 0)?;
+                self.rem.assign(ctx, (*value & 0x7fffffff) as u64)?;
+
+                (*value as u64, VarType::I64, *result as u64, VarType::I64)
+            }
             _ => unreachable!(),
         };
 
         self.value.assign(ctx, value)?;
-        self.res.assign(ctx, result)?;
         self.value_is_i32.assign(ctx, F::from(value_type as u64))?;
         self.res_is_i32.assign(ctx, F::from(result_type as u64))?;
 

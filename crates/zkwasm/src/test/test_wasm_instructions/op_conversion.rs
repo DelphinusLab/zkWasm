@@ -22,28 +22,18 @@ fn test_i32_wrap_i64_ok() {
 }
 
 #[test]
-fn test_i64_extend_i32_u_ok() {
+fn test_extend_ok() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+                (func (export "test")
                 (i32.const 0)
                 (i64.extend_i32_u)
                 (drop)
+
                 (i32.const -1)
                 (i64.extend_i32_u)
                 (drop)
-            )
-        )
-        "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
-}
-
-#[test]
-fn test_i64_extend_i32_s_ok() {
-    let textual_repr = r#"
-        (module
-            (func (export "test")
                 (i32.const 0)
                 (i64.extend_i32_s)
                 (drop)
@@ -58,6 +48,46 @@ fn test_i64_extend_i32_s_ok() {
 
                 (i32.const 0xffffffff)
                 (i64.extend_i32_s)
+                (drop)
+
+                (i32.const 0x7f)
+                (i32.extend8_s)
+                (drop)
+
+                (i32.const 0xff)
+                (i32.extend8_s)
+                (drop)
+
+                (i32.const 0x7fff)
+                (i32.extend16_s)
+                (drop)
+
+                (i32.const 0xffff)
+                (i32.extend16_s)
+                (drop)
+
+                (i64.const 0x7f)
+                (i64.extend8_s)
+                (drop)
+
+                (i64.const 0xff)
+                (i64.extend8_s)
+                (drop)
+
+                (i64.const 0x7fff)
+                (i64.extend16_s)
+                (drop)
+
+                (i64.const 0xffff)
+                (i64.extend16_s)
+                (drop)
+
+                (i64.const 0x7fffffff)
+                (i64.extend32_s)
+                (drop)
+
+                (i64.const 0xffffffff)
+                (i64.extend32_s)
                 (drop)
             )
         )

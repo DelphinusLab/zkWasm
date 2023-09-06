@@ -173,6 +173,11 @@ pub enum ConversionOp {
     I32WrapI64,
     I64ExtendI32s,
     I64ExtendI32u,
+    I32Extend8S,
+    I32Extend16S,
+    I64Extend8S,
+    I64Extend16S,
+    I64Extend32S,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]

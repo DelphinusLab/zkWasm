@@ -59,24 +59,23 @@ pub fn encode_br_table<T: FromBn>(len: T) -> T {
 }
 
 pub fn encode_conversion<T: FromBn>(op: ConversionOp) -> T {
+    macro_rules! encode {
+        ($e:ident) => {
+            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
+                * T::from_bn(&OPCODE_CLASS_SHIFT)
+                + T::from_bn(&(BigUint::from(ConversionOp::$e as u64)))
+                    * T::from_bn(&OPCODE_ARG0_SHIFT)
+        };
+    }
+
     match op {
-        ConversionOp::I32WrapI64 => {
-            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
-                * T::from_bn(&OPCODE_CLASS_SHIFT)
-                + T::from_bn(&(BigUint::from(ConversionOp::I32WrapI64 as u64)))
-                    * T::from_bn(&OPCODE_ARG0_SHIFT)
-        }
-        ConversionOp::I64ExtendI32s => {
-            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
-                * T::from_bn(&OPCODE_CLASS_SHIFT)
-                + T::from_bn(&(BigUint::from(ConversionOp::I64ExtendI32s as u64)))
-                    * T::from_bn(&OPCODE_ARG0_SHIFT)
-        }
-        ConversionOp::I64ExtendI32u => {
-            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
-                * T::from_bn(&OPCODE_CLASS_SHIFT)
-                + T::from_bn(&(BigUint::from(ConversionOp::I64ExtendI32u as u64)))
-                    * T::from_bn(&OPCODE_ARG0_SHIFT)
-        }
+        ConversionOp::I32WrapI64 => encode!(I32WrapI64),
+        ConversionOp::I64ExtendI32s => encode!(I64ExtendI32s),
+        ConversionOp::I64ExtendI32u => encode!(I64ExtendI32u),
+        ConversionOp::I32Extend8S => encode!(I32Extend8S),
+        ConversionOp::I32Extend16S => encode!(I32Extend16S),
+        ConversionOp::I64Extend8S => encode!(I64Extend8S),
+        ConversionOp::I64Extend16S => encode!(I64Extend16S),
+        ConversionOp::I64Extend32S => encode!(I64Extend32S),
     }
 }

@@ -15,6 +15,8 @@ use anyhow::Result;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::pairing::bn256::Fr;
+use wabt::wat2wasm_with_features;
+use wabt::Features;
 use wasmi::ImportsBuilder;
 use wasmi::RuntimeValue;
 
@@ -109,7 +111,10 @@ pub fn test_circuit_with_env(
 /// Run test function and generate trace, then test circuit with mock prover. Only tests should
 /// use this function.
 fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
-    let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+    let mut features = Features::new();
+    features.enable_sign_extension();
+
+    let wasm = wat2wasm_with_features(&textual_repr, features).expect("failed to parse wat");
 
     let mut env = HostEnv::new();
     env.finalize();
