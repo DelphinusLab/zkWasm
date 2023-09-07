@@ -1,6 +1,5 @@
 use num_bigint::BigUint;
 
-use crate::itable::ConversionOp;
 use crate::itable::OpcodeClass;
 use crate::itable::OPCODE_ARG0_SHIFT as OPCODE_ARG0;
 use crate::itable::OPCODE_ARG1_SHIFT as OPCODE_ARG1;
@@ -58,24 +57,23 @@ pub fn encode_br_table<T: FromBn>(len: T) -> T {
     T::from_bn(&BigUint::from(OpcodeClass::BrTable as u64)) + len
 }
 
-pub fn encode_conversion<T: FromBn>(op: ConversionOp) -> T {
-    macro_rules! encode {
-        ($e:ident) => {
-            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
-                * T::from_bn(&OPCODE_CLASS_SHIFT)
-                + T::from_bn(&(BigUint::from(ConversionOp::$e as u64)))
-                    * T::from_bn(&OPCODE_ARG0_SHIFT)
-        };
-    }
-
-    match op {
-        ConversionOp::I32WrapI64 => encode!(I32WrapI64),
-        ConversionOp::I64ExtendI32s => encode!(I64ExtendI32s),
-        ConversionOp::I64ExtendI32u => encode!(I64ExtendI32u),
-        ConversionOp::I32Extend8S => encode!(I32Extend8S),
-        ConversionOp::I32Extend16S => encode!(I32Extend16S),
-        ConversionOp::I64Extend8S => encode!(I64Extend8S),
-        ConversionOp::I64Extend16S => encode!(I64Extend16S),
-        ConversionOp::I64Extend32S => encode!(I64Extend32S),
-    }
+pub fn encode_conversion<T: FromBn>(
+    sign: T,
+    value_type_is_i32: T,
+    value_is_i8: T,
+    value_is_i16: T,
+    value_is_i32: T,
+    value_is_i64: T,
+    res_is_i32: T,
+    res_is_i64: T,
+) -> T {
+    T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64))) * T::from_bn(&OPCODE_CLASS_SHIFT)
+        + sign * T::from_bn(&BigUint::from(1u64 << 7))
+        + value_type_is_i32 * T::from_bn(&BigUint::from(1u64 << 6))
+        + value_is_i8 * T::from_bn(&BigUint::from(1u64 << 5))
+        + value_is_i16 * T::from_bn(&BigUint::from(1u64 << 4))
+        + value_is_i32 * T::from_bn(&BigUint::from(1u64 << 3))
+        + value_is_i64 * T::from_bn(&BigUint::from(1u64 << 2))
+        + res_is_i32 * T::from_bn(&BigUint::from(1u64 << 1))
+        + res_is_i64
 }

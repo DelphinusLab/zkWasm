@@ -25,7 +25,7 @@ fn test_i32_wrap_i64_ok() {
 fn test_extend_ok() {
     let textual_repr = r#"
         (module
-                (func (export "test")
+            (func (export "test")
                 (i32.const 0)
                 (i64.extend_i32_u)
                 (drop)

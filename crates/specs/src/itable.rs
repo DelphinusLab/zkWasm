@@ -6,6 +6,7 @@ use crate::encode::opcode::encode_br_table;
 use crate::encode::opcode::encode_call;
 use crate::encode::opcode::encode_call_host;
 use crate::encode::opcode::encode_call_indirect;
+use crate::encode::opcode::encode_conversion;
 use crate::encode::opcode::encode_global_get;
 use crate::encode::opcode::encode_global_set;
 use crate::encode::COMMON_RANGE_OFFSET;
@@ -448,10 +449,88 @@ impl Into<BigUint> for Opcode {
             Opcode::MemoryGrow => {
                 BigUint::from(OpcodeClass::MemoryGrow as u64) << OPCODE_CLASS_SHIFT
             }
-            Opcode::Conversion { class } => {
-                (BigUint::from(OpcodeClass::Conversion as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
-            }
+            Opcode::Conversion { class } => match class {
+                ConversionOp::I32WrapI64 => encode_conversion(
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                ),
+                ConversionOp::I64ExtendI32s => encode_conversion(
+                    1u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                ),
+                ConversionOp::I64ExtendI32u => encode_conversion(
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                ),
+                ConversionOp::I32Extend8S => encode_conversion(
+                    1u64.into(),
+                    1u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                ),
+                ConversionOp::I32Extend16S => encode_conversion(
+                    1u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                ),
+                ConversionOp::I64Extend8S => encode_conversion(
+                    1u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                ),
+                ConversionOp::I64Extend16S => encode_conversion(
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                ),
+                ConversionOp::I64Extend32S => encode_conversion(
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                    0u64.into(),
+                    0u64.into(),
+                    1u64.into(),
+                ),
+            },
         };
         assert!(bn < BigUint::from(1u64) << OPCODE_SHIFT);
         bn
