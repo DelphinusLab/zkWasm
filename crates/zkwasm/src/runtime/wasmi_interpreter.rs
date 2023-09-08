@@ -96,7 +96,7 @@ impl Execution<RuntimeValue>
             },
             result,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
-            outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
+            outputs: wasm_io.outputs.borrow().clone(),
         })
     }
 }

@@ -214,7 +214,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     pub fn circuit_with_witness(
         &self,
         arg: ExecutionArg,
-    ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
+    ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
         let execution_result = self.run(arg, true)?;
 
         #[allow(unused_mut)]
@@ -236,7 +236,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         println!("output:");
         println!("{:?}", execution_result.outputs);
 
-        Ok((builder.build_circuit(), instance))
+        Ok((builder.build_circuit(), instance, execution_result.outputs))
     }
 
     pub fn mock_test(

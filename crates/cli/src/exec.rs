@@ -247,7 +247,7 @@ pub fn exec_create_proof(
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions, None)?;
 
-    let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
+    let (circuit, instances, _) = loader.circuit_with_witness(ExecutionArg {
         public_inputs,
         private_inputs,
         context_inputs,
