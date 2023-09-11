@@ -90,7 +90,7 @@ impl From<crate::types::ValueType> for VarType {
 }
 
 impl MemoryReadSize {
-    pub fn byte_size(&self) -> u64 {
+    pub fn byte_size(&self) -> u32 {
         match self {
             MemoryReadSize::U8 => 1,
             MemoryReadSize::S8 => 1,

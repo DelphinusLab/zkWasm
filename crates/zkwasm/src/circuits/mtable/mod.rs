@@ -19,6 +19,8 @@ use specs::mtable::LocationType;
 mod allocator;
 mod assign;
 
+pub(crate) mod utils;
+
 pub(crate) const MEMORY_TABLE_ENTRY_ROWS: i32 = 4;
 
 #[derive(Clone)]

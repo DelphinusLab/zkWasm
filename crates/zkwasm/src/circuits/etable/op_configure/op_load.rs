@@ -4,6 +4,11 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::mtable::utils::block_from_address;
+use crate::circuits::mtable::utils::byte_offset_from_address;
+use crate::circuits::mtable::utils::WASM_BLOCKS_PER_PAGE;
+use crate::circuits::mtable::utils::WASM_BLOCK_BYTE_OFFSET_MASK;
+use crate::circuits::mtable::utils::WASM_BLOCK_BYTE_SIZE;
 use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
@@ -17,7 +22,6 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
-use specs::configure_table::WASM_PAGE_SIZE;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OPCODE_ARG0_SHIFT;
@@ -34,10 +38,12 @@ pub struct LoadConfig<F: FieldExt> {
     // which heap offset to load
     load_block_index: AllocatedCommonRangeCell<F>,
     load_inner_pos: AllocatedU8Cell<F>,
+    /// helper to prove load_inner_pos < WASM_BLOCK_BYTE_SIZE
     load_inner_pos_diff: AllocatedU8Cell<F>,
 
     is_cross_block: AllocatedBitCell<F>,
     cross_block_rem: AllocatedCommonRangeCell<F>,
+    /// helper to prove cross_block_rem < WASM_BLOCK_BYTE_SIZE
     cross_block_rem_diff: AllocatedCommonRangeCell<F>,
 
     load_tailing: AllocatedU64Cell<F>,
@@ -207,7 +213,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             "op_load load_block_index",
             Box::new(move |meta| {
                 vec![
-                    load_block_index.expr(meta) * constant_from!(8) + load_inner_pos.expr(meta)
+                    load_block_index.expr(meta) * constant_from!(WASM_BLOCK_BYTE_SIZE)
+                        + load_inner_pos.expr(meta)
                         - opcode_load_offset.expr(meta)
                         - load_base.expr(meta),
                     load_inner_pos.expr(meta) + load_inner_pos_diff.expr(meta) - constant_from!(7),
@@ -219,12 +226,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             "op_load cross_block",
             Box::new(move |meta| {
                 vec![
-                    is_cross_block.expr(meta) * constant_from!(8) + cross_block_rem.expr(meta)
+                    is_cross_block.expr(meta) * constant_from!(WASM_BLOCK_BYTE_SIZE)
+                        + cross_block_rem.expr(meta)
                         - load_inner_pos.expr(meta)
                         - len.expr(meta)
                         + constant_from!(1),
                     cross_block_rem.expr(meta) + cross_block_rem_diff.expr(meta)
-                        - constant_from!(7),
+                        - constant_from!(WASM_BLOCK_BYTE_SIZE - 1),
                     (is_cross_block.expr(meta) - constant_from!(1))
                         * load_value_in_heap2.expr(meta),
                 ]
@@ -347,17 +355,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         constraint_builder.push(
             "op_load allocated address",
             Box::new(move |meta| {
-                let len = constant_from!(1)
-                    + is_two_bytes.expr(meta) * constant_from!(1)
-                    + is_four_bytes.expr(meta) * constant_from!(3)
-                    + is_eight_bytes.expr(meta) * constant_from!(7);
-
                 vec![
-                    (load_base.expr(meta)
-                        + opcode_load_offset.expr(meta)
-                        + len
+                    (load_block_index.expr(meta)
+                        + is_cross_block.expr(meta)
+                        + constant_from!(1)
                         + address_within_allocated_pages_helper.expr(meta)
-                        - current_memory_page_size.expr(meta) * constant_from!(WASM_PAGE_SIZE)),
+                        - current_memory_page_size.expr(meta)
+                            * constant_from!(WASM_BLOCKS_PER_PAGE)),
                 ]
             }),
         );
@@ -435,22 +439,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 block_value1,
                 block_value2,
             } => {
+                let len = load_size.byte_size();
+
                 self.opcode_load_offset.assign_u32(ctx, offset)?;
 
-                let len = load_size.byte_size();
-                let byte_index = effective_address as u64;
-                let inner_byte_index = byte_index & 7;
+                let inner_byte_index = byte_offset_from_address(effective_address);
+                let block_start_index = block_from_address(effective_address);
 
-                self.load_block_index
-                    .assign_u32(ctx, (effective_address as u32) >> 3)?;
-                self.load_inner_pos
-                    .assign_u32(ctx, inner_byte_index as u32)?;
+                self.load_block_index.assign_u32(ctx, block_start_index)?;
+                self.load_inner_pos.assign_u32(ctx, inner_byte_index)?;
                 self.load_inner_pos_diff
-                    .assign_u32(ctx, 7 - inner_byte_index as u32)?;
+                    .assign_u32(ctx, WASM_BLOCK_BYTE_SIZE - 1 - inner_byte_index)?;
 
-                let is_cross_block = (effective_address as u64 & 7) + len > 8;
-
-                let len_modulus = BigUint::from(1u64) << (len * 8);
                 let pos_modulus = 1 << (inner_byte_index * 8);
                 self.lookup_pow_modulus.assign(ctx, pos_modulus.into())?;
                 self.lookup_pow_power.assign_bn(
@@ -458,10 +458,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                     &pow_table_power_encode(BigUint::from(inner_byte_index * 8)),
                 )?;
 
+                let is_cross_block = inner_byte_index + len > WASM_BLOCK_BYTE_SIZE;
                 self.is_cross_block.assign_bool(ctx, is_cross_block)?;
-                let rem = ((effective_address as u64 & 7) + len - 1) & 7;
-                self.cross_block_rem.assign(ctx, rem.into())?;
-                self.cross_block_rem_diff.assign(ctx, (7 - rem).into())?;
+                let rem = (inner_byte_index + len - 1) & WASM_BLOCK_BYTE_OFFSET_MASK;
+                self.cross_block_rem.assign_u32(ctx, rem)?;
+                self.cross_block_rem_diff
+                    .assign_u32(ctx, WASM_BLOCK_BYTE_SIZE - 1 - rem)?;
 
                 let tailing_bits = inner_byte_index * 8;
                 let picked_bits = len * 8;
@@ -516,8 +518,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.is_two_bytes.assign_bool(ctx, len == 2)?;
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
-                self.len.assign(ctx, len.into())?;
-                self.len_modulus.assign_bn(ctx, &len_modulus)?;
+                self.len.assign(ctx, (len as u64).into())?;
+                self.len_modulus
+                    .assign_bn(ctx, &(BigUint::from(1u64) << (len * 8)))?;
 
                 self.is_sign.assign_bool(ctx, load_size.is_sign())?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
@@ -527,12 +530,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                     F::from(load_size.is_sign()) * F::from(load_picked_leading_u8 >> 7),
                 )?;
 
-                self.address_within_allocated_pages_helper.assign(
+                self.address_within_allocated_pages_helper.assign_u32(
                     ctx,
-                    F::from(
-                        step.current.allocated_memory_pages as u64 * WASM_PAGE_SIZE
-                            - (effective_address as u64 + len),
-                    ),
+                    step.current.allocated_memory_pages * WASM_BLOCKS_PER_PAGE
+                        - (block_start_index + is_cross_block as u32 + 1),
                 )?;
 
                 let mut i = 0;
