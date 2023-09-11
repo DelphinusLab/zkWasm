@@ -58,6 +58,10 @@ fn test_extend_ok() {
                 (i32.extend8_s)
                 (drop)
 
+                (i32.const 0x100)
+                (i32.extend8_s)
+                (drop)
+
                 (i32.const 0x7fff)
                 (i32.extend16_s)
                 (drop)
@@ -87,6 +91,14 @@ fn test_extend_ok() {
                 (drop)
 
                 (i64.const 0xffffffff)
+                (i64.extend32_s)
+                (drop)
+
+                (i64.const 0xffffffffffffffff)
+                (i64.extend32_s)
+                (drop)
+
+                (i64.const 0xffffffff7fffffff)
                 (i64.extend32_s)
                 (drop)
             )
