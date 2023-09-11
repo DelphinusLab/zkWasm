@@ -7,6 +7,7 @@ use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::mtable::utils::block_from_address;
 use crate::circuits::mtable::utils::byte_offset_from_address;
 use crate::circuits::mtable::utils::WASM_BLOCKS_PER_PAGE;
+use crate::circuits::mtable::utils::WASM_BLOCK_BYTE_OFFSET_MASK;
 use crate::circuits::mtable::utils::WASM_BLOCK_BYTE_SIZE;
 use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
@@ -491,7 +492,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 let is_cross_block = inner_byte_index + len > WASM_BLOCK_BYTE_SIZE;
                 self.is_cross_block.assign_bool(ctx, is_cross_block)?;
-                let rem = (inner_byte_index + len - 1) % WASM_BLOCK_BYTE_SIZE;
+                let rem = (inner_byte_index + len - 1) & WASM_BLOCK_BYTE_OFFSET_MASK;
                 self.cross_block_rem.assign_u32(ctx, rem)?;
                 self.cross_block_rem_diff
                     .assign_u32(ctx, WASM_BLOCK_BYTE_SIZE - 1 - rem)?;
@@ -547,12 +548,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.len.assign(ctx, (len as u64).into())?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
 
-                self.address_within_allocated_pages_helper.assign(
+                self.address_within_allocated_pages_helper.assign_u32(
                     ctx,
-                    F::from(
-                        step.current.allocated_memory_pages as u64 * WASM_BLOCKS_PER_PAGE
-                            - (block_start_index + is_cross_block as u32 + 1) as u64,
-                    ),
+                    step.current.allocated_memory_pages * WASM_BLOCKS_PER_PAGE
+                        - (block_start_index + is_cross_block as u32 + 1),
                 )?;
 
                 self.memory_table_lookup_stack_read_val.assign(
