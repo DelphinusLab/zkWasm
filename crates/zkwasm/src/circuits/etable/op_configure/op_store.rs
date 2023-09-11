@@ -17,7 +17,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
-use specs::configure_table::WASM_PAGE_SIZE;
+use specs::configure_table::BLOCK_PER_PAGE_SIZE;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OPCODE_ARG0_SHIFT;
@@ -376,17 +376,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         constraint_builder.push(
             "op_store allocated address",
             Box::new(move |meta| {
-                let len = constant_from!(1)
-                    + is_two_bytes.expr(meta) * constant_from!(1)
-                    + is_four_bytes.expr(meta) * constant_from!(3)
-                    + is_eight_bytes.expr(meta) * constant_from!(7);
-
                 vec![
-                    (store_base.expr(meta)
-                        + opcode_store_offset.expr(meta)
-                        + len
+                    (load_block_index.expr(meta)
+                        + is_cross_block.expr(meta)
                         + address_within_allocated_pages_helper.expr(meta)
-                        - current_memory_page_size.expr(meta) * constant_from!(WASM_PAGE_SIZE)),
+                        - current_memory_page_size.expr(meta)
+                            * constant_from!(BLOCK_PER_PAGE_SIZE)),
                 ]
             }),
         );
@@ -470,9 +465,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 let byte_index = effective_address as u64;
                 let inner_byte_index = byte_index & 7;
+                let block_start_index = (effective_address as u32) >> 3;
 
-                self.load_block_index
-                    .assign_u32(ctx, (effective_address as u32) >> 3)?;
+                self.load_block_index.assign_u32(ctx, block_start_index)?;
                 self.load_block_inner_pos
                     .assign_u32(ctx, inner_byte_index as u32)?;
                 self.load_block_inner_pos_bits[0].assign_bool(ctx, inner_byte_index & 1 != 0)?;
@@ -549,8 +544,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.address_within_allocated_pages_helper.assign(
                     ctx,
                     F::from(
-                        step.current.allocated_memory_pages as u64 * WASM_PAGE_SIZE
-                            - (effective_address as u64 + len),
+                        step.current.allocated_memory_pages as u64 * BLOCK_PER_PAGE_SIZE
+                            - (block_start_index + is_cross_block as u32) as u64,
                     ),
                 )?;
 
