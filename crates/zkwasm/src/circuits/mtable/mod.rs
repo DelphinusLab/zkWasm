@@ -19,7 +19,16 @@ use specs::mtable::LocationType;
 mod allocator;
 mod assign;
 
+pub(crate) mod utils;
+
 pub(crate) const MEMORY_TABLE_ENTRY_ROWS: i32 = 4;
+
+// A block has 8 bytes.
+pub(crate) const WASM_BLOCK_BYTE_SIZE_SHIFT: u32 = 3;
+// A block has 8 bytes.
+pub(crate) const WASM_BLOCK_BYTE_SIZE: u32 = 1 << WASM_BLOCK_BYTE_SIZE_SHIFT;
+// Byte offset in the block
+pub(crate) const WASM_BLOCK_BYTE_OFFSET_MASK: u32 = 0b111;
 
 #[derive(Clone)]
 pub struct MemoryTableConfig<F: FieldExt> {
