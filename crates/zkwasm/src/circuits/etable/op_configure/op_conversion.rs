@@ -139,21 +139,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
                             + value_is_i32.expr(meta) * constant_from!(1u64 << 31)
                             + value_is_i64.expr(meta) * constant_from!(1u64 << 63)),
                     padding.expr(meta)
-                        - (value_is_i8.expr(meta)
-                            * res_is_i32.expr(meta)
-                            * constant_from!((u32::MAX << 8) as u64)
-                            + value_is_i16.expr(meta)
-                                * res_is_i32.expr(meta)
-                                * constant_from!((u32::MAX << 16) as u64)
-                            + value_is_i8.expr(meta)
-                                * res_is_i64.expr(meta)
-                                * constant_from!(u64::MAX << 8)
-                            + value_is_i16.expr(meta)
-                                * res_is_i64.expr(meta)
-                                * constant_from!(u64::MAX << 16)
-                            + value_is_i32.expr(meta)
-                                * res_is_i64.expr(meta)
-                                * constant_from!(u64::MAX << 32)),
+                        - (value_is_i8.expr(meta) * constant_from!((u32::MAX << 8) as u64)
+                            + value_is_i16.expr(meta) * constant_from!((u32::MAX << 16) as u64)
+                            + res_is_i64.expr(meta) * constant_from!(u64::MAX << 32)),
                     modulus.expr(meta) - shift.expr(meta) * constant_from!(2),
                 ]
             }),
