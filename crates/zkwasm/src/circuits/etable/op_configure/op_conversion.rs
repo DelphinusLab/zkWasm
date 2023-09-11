@@ -4,6 +4,7 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
@@ -12,22 +13,36 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+use num_bigint::BigUint;
 use specs::encode::opcode::encode_conversion;
 use specs::etable::EventTableEntry;
-use specs::itable::ConversionOp;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct ConversionConfig<F: FieldExt> {
-    value: AllocatedU64CellWithFlagBit<F, 1>,
+    value: AllocatedU64Cell<F>,
+    value_is_i8: AllocatedBitCell<F>,
+    value_is_i16: AllocatedBitCell<F>,
     value_is_i32: AllocatedBitCell<F>,
-    res: AllocatedU64Cell<F>,
+    value_is_i64: AllocatedBitCell<F>,
+    value_type_is_i32: AllocatedBitCell<F>,
     res_is_i32: AllocatedBitCell<F>,
+    res_is_i64: AllocatedBitCell<F>,
 
+    sign_op: AllocatedBitCell<F>,
     is_i32_wrap_i64: AllocatedBitCell<F>,
-    is_i64_extend_i32_u: AllocatedBitCell<F>,
-    is_i64_extend_i32_s: AllocatedBitCell<F>,
+
+    // Sign-extension proposal
+    flag_bit: AllocatedBitCell<F>,
+
+    extend_degree_helper: AllocatedU64Cell<F>,
+    rem: AllocatedU64Cell<F>,
+    rem_helper: AllocatedU64Cell<F>,
+    d: AllocatedU64Cell<F>,
+    modulus: AllocatedUnlimitedCell<F>,
+    shift: AllocatedUnlimitedCell<F>,
+    padding: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -41,74 +56,30 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let value = allocator.alloc_u64_with_flag_bit_cell(constraint_builder);
+        let value = allocator.alloc_u64_cell();
+
+        let value_is_i8 = allocator.alloc_bit_cell();
+        let value_is_i16 = allocator.alloc_bit_cell();
         let value_is_i32 = allocator.alloc_bit_cell();
-        let res = allocator.alloc_u64_cell();
+        let value_is_i64 = allocator.alloc_bit_cell();
+
+        let value_type_is_i32 = allocator.alloc_bit_cell();
+
         let res_is_i32 = allocator.alloc_bit_cell();
+        let res_is_i64 = allocator.alloc_bit_cell();
 
+        let sign_op = allocator.alloc_bit_cell();
         let is_i32_wrap_i64 = allocator.alloc_bit_cell();
-        let is_i64_extend_i32_u = allocator.alloc_bit_cell();
-        let is_i64_extend_i32_s = allocator.alloc_bit_cell();
 
-        constraint_builder.push(
-            "op_conversion pick one",
-            Box::new(move |meta| {
-                vec![
-                    is_i32_wrap_i64.expr(meta)
-                        + is_i64_extend_i32_u.expr(meta)
-                        + is_i64_extend_i32_s.expr(meta)
-                        - constant_from!(1),
-                ]
-            }),
-        );
+        let flag_bit = allocator.alloc_bit_cell();
+        let shift = allocator.alloc_unlimited_cell();
+        let padding = allocator.alloc_unlimited_cell();
+        let extend_degree_helper = allocator.alloc_u64_cell();
 
-        constraint_builder.push(
-            "op_conversion type matches op",
-            Box::new(move |meta| {
-                vec![
-                    is_i32_wrap_i64.expr(meta) * value_is_i32.expr(meta),
-                    is_i32_wrap_i64.expr(meta) * (res_is_i32.expr(meta) - constant_from!(1)),
-                    (is_i64_extend_i32_s.expr(meta) + is_i64_extend_i32_u.expr(meta))
-                        * (value_is_i32.expr(meta) - constant_from!(1)),
-                    (is_i64_extend_i32_s.expr(meta) + is_i64_extend_i32_u.expr(meta))
-                        * res_is_i32.expr(meta),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "op_conversion i32_wrap_i64",
-            Box::new(move |meta| {
-                vec![
-                    is_i32_wrap_i64.expr(meta)
-                        * (value.u16_cells_le[1].expr(meta) * constant_from!(1 << 16)
-                            + value.u16_cells_le[0].expr(meta)
-                            - res.u64_cell.expr(meta)),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "i64_extend_i32_u",
-            Box::new(move |meta| {
-                vec![
-                    is_i64_extend_i32_u.expr(meta)
-                        * (res.u64_cell.expr(meta) - value.u64_cell.expr(meta)),
-                ]
-            }),
-        );
-
-        constraint_builder.push(
-            "i64_extend_i32_s",
-            Box::new(move |meta| {
-                let pad = value.flag_bit_cell.expr(meta) * constant_from!((u32::MAX as u64) << 32);
-
-                vec![
-                    is_i64_extend_i32_s.expr(meta)
-                        * (pad + value.u64_cell.expr(meta) - res.u64_cell.expr(meta)),
-                ]
-            }),
-        );
+        let d = allocator.alloc_u64_cell();
+        let rem = allocator.alloc_u64_cell();
+        let rem_helper = allocator.alloc_u64_cell();
+        let modulus = allocator.alloc_unlimited_cell();
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
@@ -119,30 +90,116 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
             move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| value_is_i32.expr(meta),
-            move |meta| value.u64_cell.expr(meta),
+            move |meta| value_type_is_i32.expr(meta),
+            move |meta| value.expr(meta),
             move |____| constant_from!(1),
         );
 
-        let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_conversion stack write",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| res_is_i32.expr(meta),
-            move |meta| res.u64_cell.expr(meta),
-            move |____| constant_from!(1),
+        let memory_table_lookup_stack_write = allocator
+            .alloc_memory_table_lookup_write_cell_with_value(
+                "op_conversion stack write",
+                constraint_builder,
+                eid,
+                move |____| constant_from!(LocationType::Stack as u64),
+                move |meta| sp.expr(meta) + constant_from!(1),
+                move |meta| res_is_i32.expr(meta),
+                move |____| constant_from!(1),
+            );
+
+        let res = memory_table_lookup_stack_write.value_cell;
+
+        /*
+         * Implicit Constraint:
+         *
+         * value_is_i8 || value_is_i16 || value_is_i32 || value_is_i64 can be constrained by opcode.
+         * res_is_i32  || res_is_i64 can be constrained by opcode.
+         */
+
+        constraint_builder.push(
+            "op_conversion i32_wrap_i64",
+            Box::new(move |meta| {
+                vec![
+                    is_i32_wrap_i64.expr(meta)
+                        * (value_is_i64.expr(meta) + res_is_i32.expr(meta) - constant_from!(2)),
+                    is_i32_wrap_i64.expr(meta)
+                        * (value.u16_cells_le[1].expr(meta) * constant_from!(1 << 16)
+                            + value.u16_cells_le[0].expr(meta)
+                            - res.expr(meta)),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_conversion helper",
+            Box::new(move |meta| {
+                vec![
+                    shift.expr(meta)
+                        - (value_is_i8.expr(meta) * constant_from!(1u64 << 7)
+                            + value_is_i16.expr(meta) * constant_from!(1u64 << 15)
+                            + value_is_i32.expr(meta) * constant_from!(1u64 << 31)
+                            + value_is_i64.expr(meta) * constant_from!(1u64 << 63)),
+                    padding.expr(meta)
+                        - (value_is_i8.expr(meta) * constant_from!((u32::MAX << 8) as u64)
+                            + value_is_i16.expr(meta) * constant_from!((u32::MAX << 16) as u64)
+                            + res_is_i64.expr(meta) * constant_from!(u64::MAX << 32)),
+                    modulus.expr(meta) - shift.expr(meta) * constant_from!(2),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_conversion: split operand",
+            Box::new(move |meta| {
+                vec![
+                    /*
+                     * split value into (out of range part, sign flag, rem)
+                     * e.g. supports i32.extend_i8s but operand is 0x100
+                     */
+                    value.expr(meta)
+                        - d.expr(meta) * modulus.expr(meta)
+                        - flag_bit.expr(meta) * shift.expr(meta)
+                        - rem.expr(meta),
+                    // rem must less than shift
+                    rem.expr(meta) + constant_from!(1) + rem_helper.expr(meta) - shift.expr(meta),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
+            "op_conversion: sign extension",
+            Box::new(move |meta| {
+                vec![
+                    // Compose Result for all extend instructions
+                    flag_bit.expr(meta) * padding.expr(meta) * sign_op.expr(meta)
+                        + flag_bit.expr(meta) * shift.expr(meta)
+                        + rem.expr(meta)
+                        - res.expr(meta)
+                        - extend_degree_helper.expr(meta),
+                    extend_degree_helper.expr(meta)
+                        * (is_i32_wrap_i64.expr(meta) - constant_from!(1)),
+                ]
+            }),
         );
 
         Box::new(ConversionConfig {
             value,
+            value_is_i8,
+            value_is_i16,
             value_is_i32,
-            res,
+            value_is_i64,
+            value_type_is_i32,
             res_is_i32,
+            res_is_i64,
+            sign_op,
             is_i32_wrap_i64,
-            is_i64_extend_i32_u,
-            is_i64_extend_i32_s,
+            flag_bit,
+            extend_degree_helper,
+            d,
+            rem,
+            rem_helper,
+            modulus,
+            shift,
+            padding,
             memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
         })
@@ -151,12 +208,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.is_i32_wrap_i64.expr(meta)
-            * encode_conversion::<Expression<F>>(ConversionOp::I32WrapI64)
-            + self.is_i64_extend_i32_s.expr(meta)
-                * encode_conversion::<Expression<F>>(ConversionOp::I64ExtendI32s)
-            + self.is_i64_extend_i32_u.expr(meta)
-                * encode_conversion::<Expression<F>>(ConversionOp::I64ExtendI32u)
+        encode_conversion::<Expression<F>>(
+            self.sign_op.expr(meta),
+            self.value_type_is_i32.expr(meta),
+            self.value_is_i8.expr(meta),
+            self.value_is_i16.expr(meta),
+            self.value_is_i32.expr(meta),
+            self.value_is_i64.expr(meta),
+            self.res_is_i32.expr(meta),
+            self.res_is_i64.expr(meta),
+        )
     }
 
     fn assign(
@@ -165,42 +226,137 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
         step: &StepStatus,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (value, value_type, result, result_type) = match &entry.eentry.step_info {
-            StepInfo::I32WrapI64 { value, result } => {
-                self.is_i32_wrap_i64.assign(ctx, F::one())?;
+        let (is_sign_op, value, value_type, result, result_type, padding, shift) =
+            match &entry.eentry.step_info {
+                StepInfo::I32WrapI64 { value, result } => {
+                    self.value_is_i64.assign_bool(ctx, true)?;
+                    self.res_is_i32.assign_bool(ctx, true)?;
+                    self.is_i32_wrap_i64.assign_bool(ctx, true)?;
 
-                (
-                    *value as u64,
-                    VarType::I64,
-                    *result as u32 as u64,
-                    VarType::I32,
-                )
-            }
-            StepInfo::I64ExtendI32 {
-                value,
-                result,
-                sign,
-            } => {
-                if *sign {
-                    self.is_i64_extend_i32_s.assign(ctx, F::one())?;
-                } else {
-                    self.is_i64_extend_i32_u.assign(ctx, F::one())?;
+                    (
+                        false,
+                        *value as u64,
+                        VarType::I64,
+                        *result as u32 as u64,
+                        VarType::I32,
+                        0,
+                        1u64 << 63,
+                    )
                 }
+                StepInfo::I64ExtendI32 {
+                    value,
+                    result,
+                    sign,
+                } => {
+                    self.value_is_i32.assign_bool(ctx, true)?;
+                    self.res_is_i64.assign_bool(ctx, true)?;
 
-                (
-                    *value as u32 as u64,
-                    VarType::I32,
-                    *result as u64,
-                    VarType::I64,
-                )
-            }
-            _ => unreachable!(),
-        };
+                    (
+                        *sign,
+                        *value as u32 as u64,
+                        VarType::I32,
+                        *result as u64,
+                        VarType::I64,
+                        (u64::MAX << 32) as u64,
+                        1 << 31,
+                    )
+                }
+                StepInfo::I32SignExtendI8 { value, result } => {
+                    self.value_is_i8.assign_bool(ctx, true)?;
+                    self.res_is_i32.assign_bool(ctx, true)?;
+
+                    (
+                        true,
+                        *value as u32 as u64,
+                        VarType::I32,
+                        *result as u32 as u64,
+                        VarType::I32,
+                        (u32::MAX << 8) as u64,
+                        1 << 7,
+                    )
+                }
+                StepInfo::I32SignExtendI16 { value, result } => {
+                    self.value_is_i16.assign_bool(ctx, true)?;
+                    self.res_is_i32.assign_bool(ctx, true)?;
+
+                    (
+                        true,
+                        *value as u32 as u64,
+                        VarType::I32,
+                        *result as u32 as u64,
+                        VarType::I32,
+                        (u32::MAX << 16) as u64,
+                        1 << 15,
+                    )
+                }
+                StepInfo::I64SignExtendI8 { value, result } => {
+                    self.value_is_i8.assign_bool(ctx, true)?;
+                    self.res_is_i64.assign_bool(ctx, true)?;
+
+                    (
+                        true,
+                        *value as u64,
+                        VarType::I64,
+                        *result as u64,
+                        VarType::I64,
+                        (u64::MAX << 8) as u64,
+                        1 << 7,
+                    )
+                }
+                StepInfo::I64SignExtendI16 { value, result } => {
+                    self.value_is_i16.assign_bool(ctx, true)?;
+                    self.res_is_i64.assign_bool(ctx, true)?;
+
+                    (
+                        true,
+                        *value as u64,
+                        VarType::I64,
+                        *result as u64,
+                        VarType::I64,
+                        (u64::MAX << 16) as u64,
+                        1 << 15,
+                    )
+                }
+                StepInfo::I64SignExtendI32 { value, result } => {
+                    self.value_is_i32.assign_bool(ctx, true)?;
+                    self.res_is_i64.assign_bool(ctx, true)?;
+
+                    (
+                        true,
+                        *value as u64,
+                        VarType::I64,
+                        *result as u64,
+                        VarType::I64,
+                        (u64::MAX << 32) as u64,
+                        1 << 31,
+                    )
+                }
+                _ => unreachable!(),
+            };
 
         self.value.assign(ctx, value)?;
-        self.res.assign(ctx, result)?;
-        self.value_is_i32.assign(ctx, F::from(value_type as u64))?;
+        self.value_type_is_i32
+            .assign(ctx, F::from(value_type as u64))?;
         self.res_is_i32.assign(ctx, F::from(result_type as u64))?;
+        self.sign_op.assign_bool(ctx, is_sign_op)?;
+
+        // u128: for value_is_i64
+        let modulus = (shift as u128) << 1;
+        let rem = (value as u128 % modulus) as u64 & (shift - 1);
+        let flag_bit = ((value & shift) != 0) as u64;
+
+        self.extend_degree_helper.assign(
+            ctx,
+            flag_bit * padding * (is_sign_op as u64) + (value & shift) + rem - result,
+        )?;
+        self.d.assign(ctx, (value as u128 / modulus) as u64)?;
+        self.rem.assign(ctx, rem)?;
+        self.rem_helper.assign(ctx, shift - 1 - rem)?;
+        self.flag_bit.assign(ctx, flag_bit.into())?;
+        self.shift.assign(ctx, F::from(shift))?;
+        self.modulus
+            .assign(ctx, bn_to_field(&BigUint::from(modulus)))?;
+        self.padding.assign(ctx, F::from(padding))?;
 
         self.memory_table_lookup_stack_read.assign(
             ctx,

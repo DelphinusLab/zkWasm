@@ -78,15 +78,6 @@ impl<F: FieldExt> AllocatedU64Cell<F> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct AllocatedU64CellWithFlagBit<F: FieldExt, const POS: usize> {
-    pub(crate) u16_cells_le: [AllocatedU16Cell<F>; 4],
-    pub(crate) u64_cell: AllocatedUnlimitedCell<F>,
-    pub(crate) flag_bit_cell: AllocatedBitCell<F>,
-    pub(crate) flag_u16_rem_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) flag_u16_rem_diff_cell: AllocatedCommonRangeCell<F>,
-}
-
-#[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedU64CellWithFlagBitDyn<F: FieldExt> {
     pub(crate) u16_cells_le: [AllocatedU16Cell<F>; 4],
     pub(crate) u64_cell: AllocatedUnlimitedCell<F>,
@@ -147,25 +138,6 @@ impl<F: FieldExt> AllocatedU64Cell<F> {
             self.u16_cells_le[i].assign(ctx, ((value >> (i * 16)) & 0xffffu64).into())?;
         }
         self.u64_cell.assign(ctx, value.into())?;
-        Ok(())
-    }
-}
-
-impl<F: FieldExt, const POS: usize> AllocatedU64CellWithFlagBit<F, POS> {
-    pub(crate) fn assign(&self, ctx: &mut Context<'_, F>, value: u64) -> Result<(), Error> {
-        for i in 0..4 {
-            self.u16_cells_le[i].assign(ctx, ((value >> (i * 16)) & 0xffffu64).into())?;
-        }
-        self.u64_cell.assign(ctx, value.into())?;
-
-        let u16_value = (value >> (POS * 16)) & 0xffff;
-        let u16_flag_bit = u16_value >> 15;
-        let u16_rem = u16_value & 0x7fff;
-        let u16_rem_diff = 0x7fff - u16_rem;
-        self.flag_bit_cell.assign_u32(ctx, u16_flag_bit as u32)?;
-        self.flag_u16_rem_cell.assign_u32(ctx, u16_rem as u32)?;
-        self.flag_u16_rem_diff_cell
-            .assign_u32(ctx, u16_rem_diff as u32)?;
         Ok(())
     }
 }
