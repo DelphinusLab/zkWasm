@@ -108,7 +108,7 @@ impl<F: FieldExt> BitTableConfig<F> {
         let right = meta.advice_column();
         let result = meta.advice_column();
 
-        rtable.configure_in_u8_bit_table(
+        rtable.configure_in_op_table(
             meta,
             "bit table lookup in rtable",
             |meta| curr!(meta, op),
