@@ -1,5 +1,5 @@
 use super::config::zkwasm_k;
-use super::config::POW_TABLE_LIMIT;
+use super::config::POW_TABLE_POWER_START;
 use super::utils::bn_to_field;
 use crate::circuits::bit_table::BitTableOp;
 use crate::constant_from;
@@ -19,24 +19,24 @@ use strum::IntoEnumIterator;
 const POW_OP: u64 = 4;
 
 /*
- * | Comment   | Op  | left(u8) | right                 | result   |
- * | --------- | --- | -------- | --------------------- | -------- |
- * | Bit(And)  | 0   | 0        | 0                     | 0        |
- * | ...       | ... | ...      | ...                   | ...      |
- * | Bit(And)  | 0   | 0xff     | 0xff                  | 0xff     |
- * | Bit(Or)   | 1   | 0        | 0                     | 0        |
- * | ...       | ... | ...      | ...                   | ...      |
- * | Bit(Or)   | 1   | 0xff     | 0xff                  | 0xff     |
- * | Bit(Xor)  | 2   | 0        | 0                     | 0        |
- * | ...       | ... | ...      | ...                   | ...      |
- * | Bit(Xor)  | 2   | 0xff     | 0xff                  | 0        |
- * | Popcnt    | 3   | 0        | /                     | 0        |
- * | ...       | ... | ...      | ...                   | ...      |
- * | Popcnt    | 3   | 0xff     | /                     | 8        |
- * | Power     | 4   | /        | 0                     | 0        |
- * | Power     | 4   | /        | POW_TABLE_LIMIT + 0   | 1 << 0   |
- * | ...       | ... | ...      | ...                   | ...      |
- * | Power     | 4   | /        | POW_TABLE_LIMIT + 127 | 1 << 127 |
+ * | Comment   | Op  | left(u8) | right                       | result   |
+ * | --------- | --- | -------- | --------------------------- | -------- |
+ * | Bit(And)  | 0   | 0        | 0                           | 0        |
+ * | ...       | ... | ...      | ...                         | ...      |
+ * | Bit(And)  | 0   | 0xff     | 0xff                        | 0xff     |
+ * | Bit(Or)   | 1   | 0        | 0                           | 0        |
+ * | ...       | ... | ...      | ...                         | ...      |
+ * | Bit(Or)   | 1   | 0xff     | 0xff                        | 0xff     |
+ * | Bit(Xor)  | 2   | 0        | 0                           | 0        |
+ * | ...       | ... | ...      | ...                         | ...      |
+ * | Bit(Xor)  | 2   | 0xff     | 0xff                        | 0        |
+ * | Popcnt    | 3   | 0        | /                           | 0        |
+ * | ...       | ... | ...      | ...                         | ...      |
+ * | Popcnt    | 3   | 0xff     | /                           | 8        |
+ * | Power     | 4   | /        | 0                           | 0        |
+ * | Power     | 4   | /        | POW_TABLE_POWER_START + 0   | 1 << 0   |
+ * | ...       | ... | ...      | ...                         | ...      |
+ * | Power     | 4   | /        | POW_TABLE_POWER_START + 127 | 1 << 127 |
  */
 #[derive(Clone)]
 struct OpTable {
@@ -61,7 +61,7 @@ pub struct RangeTableConfig<F: FieldExt> {
 }
 
 pub fn pow_table_power_encode<T: FromBn>(power: T) -> T {
-    T::from_bn(&BigUint::from(POW_TABLE_LIMIT)) + power
+    T::from_bn(&BigUint::from(POW_TABLE_POWER_START)) + power
 }
 
 impl<F: FieldExt> RangeTableConfig<F> {
@@ -297,7 +297,7 @@ impl<F: FieldExt> RangeTableChip<F> {
 
                         offset += 1;
 
-                        for i in 0..POW_TABLE_LIMIT {
+                        for i in 0..POW_TABLE_POWER_START {
                             table.assign_cell(
                                 || "range table",
                                 self.config.op_table.op,
@@ -316,7 +316,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                                 || "range table",
                                 self.config.op_table.right,
                                 offset,
-                                || Ok(F::from(POW_TABLE_LIMIT + i)),
+                                || Ok(F::from(POW_TABLE_POWER_START + i)),
                             )?;
 
                             table.assign_cell(

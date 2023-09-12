@@ -131,6 +131,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             "op_conversion helper",
             Box::new(move |meta| {
                 vec![
+                    // In order to make i32.wrap_i64 satisfies the "op_conversion: sign extension"
+                    // constraint, setting the shift value to `1<<31` when value_is_i64.
                     shift.expr(meta)
                         - (value_is_i8.expr(meta) * constant_from!(1u64 << 7)
                             + value_is_i16.expr(meta) * constant_from!(1u64 << 15)
