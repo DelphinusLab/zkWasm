@@ -36,7 +36,6 @@ pub struct ConversionConfig<F: FieldExt> {
     // Sign-extension proposal
     flag_bit: AllocatedBitCell<F>,
 
-    extend_degree_helper: AllocatedU64Cell<F>,
     rem: AllocatedU64Cell<F>,
     rem_helper: AllocatedU64Cell<F>,
     d: AllocatedU64Cell<F>,
@@ -74,7 +73,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         let flag_bit = allocator.alloc_bit_cell();
         let shift = allocator.alloc_unlimited_cell();
         let padding = allocator.alloc_unlimited_cell();
-        let extend_degree_helper = allocator.alloc_u64_cell();
 
         let d = allocator.alloc_u64_cell();
         let rem = allocator.alloc_u64_cell();
@@ -133,11 +131,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             "op_conversion helper",
             Box::new(move |meta| {
                 vec![
+                    // In order to make i32.wrap_i64 satisfies the "op_conversion: sign extension"
+                    // constraint, setting the shift value to `1<<31` when value_is_i64.
                     shift.expr(meta)
                         - (value_is_i8.expr(meta) * constant_from!(1u64 << 7)
                             + value_is_i16.expr(meta) * constant_from!(1u64 << 15)
-                            + value_is_i32.expr(meta) * constant_from!(1u64 << 31)
-                            + value_is_i64.expr(meta) * constant_from!(1u64 << 63)),
+                            + (value_is_i32.expr(meta) + value_is_i64.expr(meta))
+                                * constant_from!(1u64 << 31)),
                     padding.expr(meta)
                         - (value_is_i8.expr(meta) * constant_from!((u32::MAX << 8) as u64)
                             + value_is_i16.expr(meta) * constant_from!((u32::MAX << 16) as u64)
@@ -173,10 +173,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
                     flag_bit.expr(meta) * padding.expr(meta) * sign_op.expr(meta)
                         + flag_bit.expr(meta) * shift.expr(meta)
                         + rem.expr(meta)
-                        - res.expr(meta)
-                        - extend_degree_helper.expr(meta),
-                    extend_degree_helper.expr(meta)
-                        * (is_i32_wrap_i64.expr(meta) - constant_from!(1)),
+                        - res.expr(meta),
                 ]
             }),
         );
@@ -193,7 +190,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             sign_op,
             is_i32_wrap_i64,
             flag_bit,
-            extend_degree_helper,
             d,
             rem,
             rem_helper,
@@ -240,7 +236,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         *result as u32 as u64,
                         VarType::I32,
                         0,
-                        1u64 << 63,
+                        1u64 << 31, // To meet `op_conversion: sign extension` constraint
                     )
                 }
                 StepInfo::I64ExtendI32 {
@@ -340,16 +336,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
         self.res_is_i32.assign(ctx, F::from(result_type as u64))?;
         self.sign_op.assign_bool(ctx, is_sign_op)?;
 
-        // u128: for value_is_i64
-        let modulus = (shift as u128) << 1;
-        let rem = (value as u128 % modulus) as u64 & (shift - 1);
+        let modulus = shift << 1;
+        let rem = (value % modulus) & (shift - 1);
         let flag_bit = ((value & shift) != 0) as u64;
 
-        self.extend_degree_helper.assign(
-            ctx,
-            flag_bit * padding * (is_sign_op as u64) + (value & shift) + rem - result,
-        )?;
-        self.d.assign(ctx, (value as u128 / modulus) as u64)?;
+        self.d.assign(ctx, value / modulus)?;
         self.rem.assign(ctx, rem)?;
         self.rem_helper.assign(ctx, shift - 1 - rem)?;
         self.flag_bit.assign(ctx, flag_bit.into())?;

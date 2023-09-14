@@ -1,7 +1,7 @@
 use std::env;
 use std::sync::Mutex;
 
-pub const POW_TABLE_LIMIT: u64 = 128;
+pub const POW_TABLE_POWER_START: u64 = 128;
 
 pub const MIN_K: u32 = 18;
 

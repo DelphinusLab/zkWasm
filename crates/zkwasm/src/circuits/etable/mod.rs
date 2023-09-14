@@ -585,12 +585,13 @@ impl<F: FieldExt> EventTableConfig<F> {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {
-            [
-                pow_table_lookup_modulus_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
-                pow_table_lookup_power_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
-            ]
-        });
+        rtable.configure_in_pow_set(
+            meta,
+            "c8d. pow_table_lookup in pow_table",
+            |meta| pow_table_lookup_power_cell.curr_expr(meta),
+            |meta| pow_table_lookup_modulus_cell.curr_expr(meta),
+            |meta| fixed_curr!(meta, step_sel),
+        );
 
         external_host_call_table.configure_in_table(
             meta,
