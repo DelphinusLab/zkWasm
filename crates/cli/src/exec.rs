@@ -4,7 +4,6 @@ use anyhow::Result;
 use circuits_batcher::proof::CircuitInfo;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
-use circuits_batcher::proof::Prover;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::halo2_proofs;
 use delphinus_zkwasm::halo2aggregator_s;
@@ -268,7 +267,7 @@ pub fn exec_create_proof(
         circuits_batcher::args::HashType::Poseidon
     );
     circuit.proofloadinfo.save(output_dir);
-    circuit.create_proof(output_dir, param_dir, 0);
+    circuit.exec_create_proof(output_dir, param_dir, 0);
     info!("Proof has been created.");
 
     Ok(())

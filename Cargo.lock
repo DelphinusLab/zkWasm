@@ -313,7 +313,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#84a263c99c1b4f269f5cf54f1e5baa5652d4be27"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#7eccb6358a3b68d13be901791bd0661f0545ea06"
 dependencies = [
  "anyhow",
  "ark-std",
