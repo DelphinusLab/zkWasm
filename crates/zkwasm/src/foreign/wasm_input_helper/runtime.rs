@@ -33,10 +33,16 @@ impl Context {
     }
 
     pub fn pop_public(&mut self) -> u64 {
+        if self.public_inputs.is_empty() {
+            panic!("failed to read public input, please checkout your input");
+        }
         self.public_inputs.remove(0)
     }
 
     pub fn pop_private(&mut self) -> u64 {
+        if self.private_inputs.is_empty() {
+            panic!("failed to read private input, please checkout your input");
+        }
         self.private_inputs.remove(0)
     }
 
