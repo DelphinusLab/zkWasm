@@ -5,6 +5,7 @@ use clap::value_parser;
 use clap::Arg;
 use clap::ArgAction;
 use clap::ArgMatches;
+use std::fs;
 
 pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
     values
@@ -57,6 +58,21 @@ pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
         .flatten()
         .collect()
 }
+
+pub fn parse_image_files(filepath:String) -> Vec<u64> {
+    let bytes = fs::read(filepath).unwrap();
+    let bytes = bytes.chunks(8);
+    let data = bytes
+        .into_iter()
+        .map(|x| {
+            let mut data = [0u8; 8];
+            data[..x.len()].copy_from_slice(x);
+
+            u64::from_be_bytes(data)
+        })
+        .collect::<Vec<u64>>();
+    data
+} 
 
 pub trait ArgBuilder {
     fn zkwasm_k_arg<'a>() -> Arg<'a> {
@@ -159,6 +175,16 @@ pub trait ArgBuilder {
 
     fn single_private_arg<'a>() -> Arg<'a>;
     fn parse_single_private_arg(matches: &ArgMatches) -> Vec<u64>;
+
+    fn preimage_arg<'a>() -> Arg<'a>;
+    fn parse_preimage(matches: &ArgMatches) -> Vec<u64>{
+        let filepath = matches
+            .get_one::<String>("preimages")
+            .expect("preimages is required")
+            .to_string();     
+        println!("prv file path===>{:?}", filepath);
+        parse_image_files(filepath)
+    }
 
     fn aggregate_private_args<'a>() -> Arg<'a>;
     fn parse_aggregate_private_args(matches: &ArgMatches) -> Vec<Vec<u64>>;

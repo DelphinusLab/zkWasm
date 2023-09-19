@@ -44,6 +44,15 @@ impl ArgBuilder for SampleApp {
         vec![inputs]
     }
 
+    fn preimage_arg<'a>() -> Arg<'a> {
+        Arg::new("preimages")
+            .long("preimages")
+            .value_parser(value_parser!(String))
+            .action(ArgAction::Append)
+            .help("Private arguments of your wasm program arguments of filepath")
+            .min_values(0)
+    }
+
     fn single_private_arg<'a>() -> Arg<'a> {
         Arg::new("private")
             .long("private")
@@ -86,7 +95,11 @@ impl AppBuilder for SampleApp {
 
 /// Simple program to greet a person
 fn main() -> Result<()> {
+    use std::time::SystemTime;
+    let sy_time = SystemTime::now();
     let app = SampleApp::app_builder();
 
-    SampleApp::exec(app)
+    SampleApp::exec(app);
+    println!("Time elapsed:{:?}s", sy_time.elapsed().unwrap().as_secs());
+    Ok(())
 }

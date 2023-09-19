@@ -115,7 +115,10 @@ pub trait AppBuilder: CommandBuilder {
             }
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
-                let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
+                let private_inputs: Vec<u64> = match sub_matches.contains_id("preimages") {
+                    true => Self::parse_preimage(&sub_matches),
+                    false => Self::parse_single_private_arg(&sub_matches)
+                };
                 let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
                 let context_out_path: Option<PathBuf> =
                     Self::parse_context_out_path_arg(&sub_matches);
