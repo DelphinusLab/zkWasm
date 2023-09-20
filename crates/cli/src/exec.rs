@@ -388,6 +388,8 @@ pub fn exec_aggregate_create_proof(
         instances,
         TranscriptHash::Poseidon,
         vec![],
+        vec![],
+        vec![],
         false,
     )
     .unwrap();
@@ -399,6 +401,8 @@ pub fn exec_aggregate_create_proof(
         vec![aggregate_circuit],
         vec![vec![aggregate_instances]],
         TranscriptHash::Sha,
+        vec![],
+        vec![],
         vec![],
         true,
     );
@@ -424,7 +428,7 @@ pub fn exec_verify_aggregate_proof(
         &output_dir.join(format!("{}.{}.vkey.data", AGGREGATE_PREFIX, 0)),
     );
 
-    let public_inputs_size: u32 = 6 + 3 * n_proofs as u32;
+    let public_inputs_size: u32 = 3 * n_proofs as u32;
 
     let instances = load_instance::<Bn256>(&[public_inputs_size], &instances_path);
 
@@ -467,7 +471,7 @@ pub fn exec_solidity_aggregate_proof(
     };
 
     let (verifier_params_verifier, vkey, instances, proof) = {
-        let public_inputs_size = 6 + 3 * n_proofs;
+        let public_inputs_size = 3 * n_proofs;
 
         let params = load_or_build_unsafe_params::<Bn256>(
             aggregate_k,
