@@ -23,7 +23,7 @@ pub trait CommandBuilder: ArgBuilder {
             .arg(Self::dry_run_service_arg())
             .arg(Self::context_in_arg())
             .arg(Self::context_out_path_arg())
-            .arg(Self::preimage_arg());
+            .arg(Self::private_file_arg());
 
         app.subcommand(command)
     }

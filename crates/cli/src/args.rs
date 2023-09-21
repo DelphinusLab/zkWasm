@@ -59,7 +59,7 @@ pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
         .collect()
 }
 
-pub fn parse_image_files(filepath:String) -> Vec<u64> {
+pub fn parse_binary(filepath:String) -> Vec<u64> {
     let bytes = fs::read(filepath).unwrap();
     let bytes = bytes.chunks(8);
     let data = bytes
@@ -176,14 +176,13 @@ pub trait ArgBuilder {
     fn single_private_arg<'a>() -> Arg<'a>;
     fn parse_single_private_arg(matches: &ArgMatches) -> Vec<u64>;
 
-    fn preimage_arg<'a>() -> Arg<'a>;
-    fn parse_preimage(matches: &ArgMatches) -> Vec<u64>{
+    fn private_file_arg<'a>() -> Arg<'a>;
+    fn parse_private_file(matches: &ArgMatches) -> Vec<u64>{
         let filepath = matches
-            .get_one::<String>("preimages")
-            .expect("preimages is required")
+            .get_one::<String>("private_file")
+            .expect("private_file is required")
             .to_string();     
-        println!("prv file path===>{:?}", filepath);
-        parse_image_files(filepath)
+        parse_binary(filepath)
     }
 
     fn aggregate_private_args<'a>() -> Arg<'a>;

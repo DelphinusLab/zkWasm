@@ -82,8 +82,7 @@ pub fn register_wasm_input_foreign(
                 context.push_public(value);
                 value
             } else {
-                let value = context.pop_private();
-                value
+                context.pop_private()
             };
 
             Some(wasmi::RuntimeValue::I64(input as i64))
@@ -96,7 +95,6 @@ pub fn register_wasm_input_foreign(
 
             let value: i64 = args.nth(0);
             context.push_output(value as u64);
-            println!("wasm_output:{:?}",value);
             None
         },
     );
