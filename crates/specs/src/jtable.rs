@@ -1,7 +1,8 @@
 use super::itable::InstructionTableEntry;
 use serde::Serialize;
+use serde::Deserialize;
 
-#[derive(Default, Serialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct StaticFrameEntry {
     pub enable: bool,
     pub frame_id: u32,
@@ -11,7 +12,7 @@ pub struct StaticFrameEntry {
     pub iid: u32,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JumpTableEntry {
     // caller eid (unique)
     pub eid: u32,
@@ -26,7 +27,7 @@ impl JumpTableEntry {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct JumpTable(Vec<JumpTableEntry>);
 
 impl JumpTable {

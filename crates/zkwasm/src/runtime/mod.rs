@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use serde::Deserialize;
+use serde::Serialize;
 
 use specs::etable::EventTableEntry;
 use specs::external_host_call_table::ExternalHostCallSignature;
@@ -23,7 +25,7 @@ pub struct CompiledImage<I, T> {
     pub tracer: Rc<RefCell<T>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ExecutionResult<R> {
     pub tables: Tables,
     pub result: Option<R>,
