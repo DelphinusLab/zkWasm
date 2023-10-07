@@ -3,13 +3,11 @@
 #![deny(unused_imports)]
 #![feature(thread_local)]
 
+pub mod checksum;
 pub mod circuits;
 pub mod foreign;
 pub mod loader;
 pub mod runtime;
-
-#[cfg(feature = "checksum")]
-pub mod image_hasher;
 
 mod profile;
 

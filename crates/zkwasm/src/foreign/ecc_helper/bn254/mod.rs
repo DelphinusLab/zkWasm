@@ -5,6 +5,7 @@ use halo2_proofs::pairing::bn256::{
     Fq2 as BN254Fq2,
     Fq as BN254Fq,
     G1Affine,
+    Fr,
 };
 use ark_std::Zero;
 use std::ops::{AddAssign, Shl};
@@ -12,9 +13,17 @@ use num_traits::FromPrimitive;
 use halo2_proofs::arithmetic::CurveAffine;
 
 const LIMBSZ:usize = 54;
-const LIMBNB:usize = 6;
+const LIMBNB:usize = 5;
 
 use super::{bn_to_field, field_to_bn};
+
+fn fetch_fr(limbs: &Vec<u64>) -> Fr {
+    let mut bn = BigUint::zero();
+    for i in 0..4 {
+        bn.add_assign(BigUint::from_u64(limbs[i]).unwrap() << (i * 64))
+    }
+    bn_to_field(&bn)
+}
 
 pub fn fetch_fq(limbs: &Vec<u64>, index:usize) -> BN254Fq {
     let mut bn = BigUint::zero();
@@ -31,8 +40,11 @@ pub fn fetch_fq2(limbs: &Vec<u64>, index:usize) -> BN254Fq2 {
     }
 }
 
-fn fetch_g1(limbs: &Vec<u64>, g1_identity: bool) -> G1Affine {
-    if g1_identity {
+/// decode g1 from limbs where limbs[11] indicates whether the point is identity
+fn fetch_g1(limbs: &Vec<u64>) -> G1Affine {
+    assert_eq!(limbs.len(), LIMBNB*2+1);
+    let g1_identity = limbs[LIMBNB*2];
+    if g1_identity == 1 {
         G1Affine::generator()
     } else {
         let opt:Option<_> = G1Affine::from_xy(

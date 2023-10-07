@@ -5,9 +5,18 @@ use std::rc::Rc;
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
+use halo2_proofs::plonk::get_advice_commitments_from_transcript;
 use halo2_proofs::plonk::keygen_vk;
+use halo2_proofs::plonk::verify_proof;
+use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::poly::commitment::ParamsVerifier;
+
+use halo2aggregator_s::circuits::utils::load_or_create_proof;
+use halo2aggregator_s::circuits::utils::TranscriptHash;
+use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::Tracer;
@@ -15,11 +24,11 @@ use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
 use wasmi::RuntimeValue;
 
+use crate::checksum::CompilationTableWithParams;
+use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
-#[cfg(feature = "checksum")]
-use crate::image_hasher::ImageHasher;
-
 use crate::circuits::config::set_zkwasm_k;
+use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::loader::err::Error;
@@ -155,8 +164,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
 
-    #[cfg(feature = "checksum")]
-    pub fn checksum(&self) -> Result<E::Scalar> {
+    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
         let (env, _) = HostEnv::new_with_full_foreign_plugins(
             vec![],
             vec![],
@@ -166,7 +174,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         );
         let compiled = self.compile(&env)?;
 
-        Ok(compiled.tables.hash())
+        let table_with_params = CompilationTableWithParams {
+            table: &compiled.tables,
+            params,
+        };
+
+        Ok(table_with_params.checksum())
     }
 }
 
@@ -217,16 +230,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
         let execution_result = self.run(arg, true)?;
 
-        #[allow(unused_mut)]
-        let mut instance: Vec<E::Scalar> = execution_result
+        let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()
             .iter()
             .map(|v| (*v).into())
             .collect();
-
-        #[cfg(feature = "checksum")]
-        instance.insert(0, execution_result.tables.compilation_tables.hash());
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
@@ -250,19 +259,120 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(())
     }
 
-    pub fn init_env(&self) -> Result<()> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![],
-            vec![],
-            Rc::new(RefCell::new(vec![])),
+    pub fn create_proof(
+        &self,
+        params: &Params<E::G1Affine>,
+        vkey: VerifyingKey<E::G1Affine>,
+        circuit: TestCircuit<E::Scalar>,
+        instances: &Vec<E::Scalar>,
+    ) -> Result<Vec<u8>> {
+        Ok(load_or_create_proof::<E, _>(
+            &params,
+            vkey,
+            circuit,
+            &[instances],
             None,
-        );
+            TranscriptHash::Poseidon,
+            false,
+        ))
+    }
 
-        let c = self.compile(&env)?;
-
-        init_zkwasm_runtime(self.k, &c.tables);
+    pub fn init_env(&self) -> Result<()> {
+        init_zkwasm_runtime(self.k);
 
         Ok(())
+    }
+
+    pub fn verify_proof(
+        &self,
+        params: &Params<E::G1Affine>,
+        vkey: VerifyingKey<E::G1Affine>,
+        instances: Vec<E::Scalar>,
+        proof: Vec<u8>,
+    ) -> Result<()> {
+        let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
+        let strategy = SingleVerifier::new(&params_verifier);
+
+        verify_proof(
+            &params_verifier,
+            &vkey,
+            strategy,
+            &[&[&instances]],
+            &mut PoseidonRead::init(&proof[..]),
+        )
+        .unwrap();
+
+        {
+            let img_col_idx = vkey
+                .cs
+                .named_advices
+                .iter()
+                .find(|(k, _)| k == IMAGE_COL_NAME)
+                .unwrap()
+                .1;
+            let img_col_commitment: Vec<E::G1Affine> =
+                get_advice_commitments_from_transcript::<E, _, _>(
+                    &vkey,
+                    &mut PoseidonRead::init(&proof[..]),
+                )
+                .unwrap();
+            let checksum = self.checksum(params)?;
+
+            assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ark_std::end_timer;
+    use ark_std::start_timer;
+    use halo2_proofs::pairing::bn256::Bn256;
+    use halo2_proofs::pairing::bn256::Fr;
+    use halo2_proofs::pairing::bn256::G1Affine;
+    use halo2_proofs::poly::commitment::Params;
+    use std::fs::File;
+    use std::io::Cursor;
+    use std::io::Read;
+    use std::path::PathBuf;
+
+    use crate::circuits::TestCircuit;
+
+    use super::ZkWasmLoader;
+
+    impl ZkWasmLoader<Bn256> {
+        pub(crate) fn bench_test(&self, circuit: TestCircuit<Fr>, instances: Vec<Fr>) {
+            fn prepare_param(k: u32) -> Params<G1Affine> {
+                let path = PathBuf::from(format!("test_param.{}.data", k));
+
+                if path.exists() {
+                    let mut fd = File::open(path.as_path()).unwrap();
+                    let mut buf = vec![];
+
+                    fd.read_to_end(&mut buf).unwrap();
+                    Params::<G1Affine>::read(Cursor::new(buf)).unwrap()
+                } else {
+                    // Initialize the polynomial commitment parameters
+                    let timer = start_timer!(|| format!("build params with K = {}", k));
+                    let params: Params<G1Affine> = Params::<G1Affine>::unsafe_setup::<Bn256>(k);
+                    end_timer!(timer);
+
+                    let mut fd = File::create(path.as_path()).unwrap();
+                    params.write(&mut fd).unwrap();
+
+                    params
+                }
+            }
+
+            let params = prepare_param(self.k);
+            let vkey = self.create_vkey(&params).unwrap();
+
+            let proof = self
+                .create_proof(&params, vkey.clone(), circuit, &instances)
+                .unwrap();
+            self.verify_proof(&params, vkey, instances, proof).unwrap();
+        }
     }
 }

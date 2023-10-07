@@ -77,10 +77,6 @@ impl AppBuilder for SampleApp {
     const NAME: &'static str = "zkwasm";
     const VERSION: &'static str = "v1.0-beta";
 
-    #[cfg(feature = "checksum")]
-    const AGGREGATE_K: u32 = 22;
-
-    #[cfg(not(feature = "checksum"))]
     const AGGREGATE_K: u32 = 22;
 
     const MAX_PUBLIC_INPUT_SIZE: usize = 64;

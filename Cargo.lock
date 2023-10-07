@@ -594,7 +594,6 @@ dependencies = [
  "hex",
  "lazy_static",
  "log",
- "notify",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -608,10 +607,8 @@ dependencies = [
  "specs",
  "strum",
  "strum_macros",
- "uuid",
  "wabt",
  "wasmi",
- "wast",
  "zkwasm-host-circuits",
 ]
 
@@ -1067,7 +1064,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#55e9a9f45ce326107f70511a2741ac3dbef21114"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#953bbbd50ee05211e2395e69c9760095b80f6408"
 dependencies = [
  "ark-std",
  "blake2b_simd",

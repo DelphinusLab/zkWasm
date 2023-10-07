@@ -4,17 +4,16 @@ use crate::circuits::TestCircuit;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
+use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
-
-#[cfg(feature = "checksum")]
-use crate::image_hasher::ImageHasher;
-use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use anyhow::Result;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::pairing::bn256::Fr;
+use wabt::wat2wasm_with_features;
+use wabt::Features;
 use wasmi::ImportsBuilder;
 use wasmi::RuntimeValue;
 
@@ -23,10 +22,7 @@ mod test_wasm_instructions;
 
 mod spec;
 mod test_rlp;
-mod test_rlp_simple;
 mod test_start;
-
-#[cfg(feature = "checksum")]
 mod test_uniform_verifier;
 
 /// Create circuit with trace and run mock test.
@@ -35,9 +31,6 @@ fn test_circuit_mock<F: FieldExt>(
 ) -> Result<()> {
     let instance = {
         let mut v: Vec<F> = vec![];
-
-        #[cfg(feature = "checksum")]
-        v.push(execution_result.tables.compilation_tables.hash());
 
         v.append(
             &mut execution_result
@@ -109,7 +102,10 @@ pub fn test_circuit_with_env(
 /// Run test function and generate trace, then test circuit with mock prover. Only tests should
 /// use this function.
 fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
-    let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+    let mut features = Features::new();
+    features.enable_sign_extension();
+
+    let wasm = wat2wasm_with_features(&textual_repr, features).expect("failed to parse wat");
 
     let mut env = HostEnv::new();
     env.finalize();

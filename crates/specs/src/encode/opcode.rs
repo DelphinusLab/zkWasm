@@ -1,6 +1,5 @@
 use num_bigint::BigUint;
 
-use crate::itable::ConversionOp;
 use crate::itable::OpcodeClass;
 use crate::itable::OPCODE_ARG0_SHIFT as OPCODE_ARG0;
 use crate::itable::OPCODE_ARG1_SHIFT as OPCODE_ARG1;
@@ -58,25 +57,23 @@ pub fn encode_br_table<T: FromBn>(len: T) -> T {
     T::from_bn(&BigUint::from(OpcodeClass::BrTable as u64)) + len
 }
 
-pub fn encode_conversion<T: FromBn>(op: ConversionOp) -> T {
-    match op {
-        ConversionOp::I32WrapI64 => {
-            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
-                * T::from_bn(&OPCODE_CLASS_SHIFT)
-                + T::from_bn(&(BigUint::from(ConversionOp::I32WrapI64 as u64)))
-                    * T::from_bn(&OPCODE_ARG0_SHIFT)
-        }
-        ConversionOp::I64ExtendI32s => {
-            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
-                * T::from_bn(&OPCODE_CLASS_SHIFT)
-                + T::from_bn(&(BigUint::from(ConversionOp::I64ExtendI32s as u64)))
-                    * T::from_bn(&OPCODE_ARG0_SHIFT)
-        }
-        ConversionOp::I64ExtendI32u => {
-            T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64)))
-                * T::from_bn(&OPCODE_CLASS_SHIFT)
-                + T::from_bn(&(BigUint::from(ConversionOp::I64ExtendI32u as u64)))
-                    * T::from_bn(&OPCODE_ARG0_SHIFT)
-        }
-    }
+pub fn encode_conversion<T: FromBn>(
+    sign: T,
+    value_type_is_i32: T,
+    value_is_i8: T,
+    value_is_i16: T,
+    value_is_i32: T,
+    value_is_i64: T,
+    res_is_i32: T,
+    res_is_i64: T,
+) -> T {
+    T::from_bn(&(BigUint::from(OpcodeClass::Conversion as u64))) * T::from_bn(&OPCODE_CLASS_SHIFT)
+        + sign * T::from_bn(&BigUint::from(1u64 << 7))
+        + value_type_is_i32 * T::from_bn(&BigUint::from(1u64 << 6))
+        + value_is_i8 * T::from_bn(&BigUint::from(1u64 << 5))
+        + value_is_i16 * T::from_bn(&BigUint::from(1u64 << 4))
+        + value_is_i32 * T::from_bn(&BigUint::from(1u64 << 3))
+        + value_is_i64 * T::from_bn(&BigUint::from(1u64 << 2))
+        + res_is_i32 * T::from_bn(&BigUint::from(1u64 << 1))
+        + res_is_i64
 }

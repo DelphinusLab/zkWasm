@@ -11,7 +11,6 @@ use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
 use super::utils::Context;
-use super::CircuitConfigure;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_shift::BinShiftConfigBuilder;
@@ -60,7 +59,6 @@ use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 use std::rc::Rc;
 
 mod assign;
@@ -91,16 +89,15 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     pub(crate) eid_cell: AllocatedCommonRangeCell<F>,
     fid_cell: AllocatedCommonRangeCell<F>,
     iid_cell: AllocatedCommonRangeCell<F>,
+    maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
     jtable_lookup_cell: AllocatedJumpTableLookupCell<F>,
     pow_table_lookup_modulus_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_power_cell: AllocatedUnlimitedCell<F>,
-    bit_table_lookup_cell: AllocatedBitTableLookupCell<F>,
+    bit_table_lookup_cells: AllocatedBitTableLookupCells<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
-
-    circuit_configure: CircuitConfigure,
 }
 
 pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
@@ -216,7 +213,6 @@ impl<F: FieldExt> EventTableConfig<F> {
     pub(crate) fn configure(
         meta: &mut ConstraintSystem<F>,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
-        circuit_configure: &CircuitConfigure,
         rtable: &RangeTableConfig<F>,
         image_table: &ImageTableConfig<F>,
         mtable: &MemoryTableConfig<F>,
@@ -224,12 +220,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         bit_table: &BitTableConfig<F>,
         external_host_call_table: &ExternalHostCallTableConfig<F>,
         foreign_table_configs: &BTreeMap<&'static str, Box<dyn ForeignTableConfig<F>>>,
-        opcode_set: &HashSet<OpcodeClassPlain>,
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
         let mut allocator =
-            EventTableCellAllocator::new(meta, step_sel, rtable, mtable, jtable, bit_table, cols);
+            EventTableCellAllocator::new(meta, step_sel, rtable, mtable, jtable, cols);
 
         let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();
@@ -246,6 +241,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let eid_cell = allocator.alloc_common_range_cell();
         let fid_cell = allocator.alloc_common_range_cell();
         let iid_cell = allocator.alloc_common_range_cell();
+        let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
 
         // We only need to enable equality for the cells of states
         let used_common_range_cells_for_state = allocator
@@ -264,8 +260,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let jtable_lookup_cell = allocator.alloc_jump_table_lookup_cell();
         let pow_table_lookup_modulus_cell = allocator.alloc_unlimited_cell();
         let pow_table_lookup_power_cell = allocator.alloc_unlimited_cell();
-        let bit_table_lookup_cell = allocator.alloc_bit_table_lookup_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
+        let bit_table_lookup_cells = allocator.alloc_bit_table_lookup_cells();
 
         let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
             .map(|_| allocator.alloc_unlimited_cell())
@@ -286,47 +282,39 @@ impl<F: FieldExt> EventTableConfig<F> {
             eid_cell,
             fid_cell,
             iid_cell,
+            maximal_memory_pages_cell,
             itable_lookup_cell,
             brtable_lookup_cell,
             jtable_lookup_cell,
             pow_table_lookup_modulus_cell,
             pow_table_lookup_power_cell,
-            bit_table_lookup_cell,
+            bit_table_lookup_cells,
             external_foreign_call_lookup_cell,
-            circuit_configure: circuit_configure.clone(),
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
         let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
             BTreeMap::new();
 
-        #[cfg(feature = "checksum")]
-        const OPTIMIZE_GATES: bool = false;
-        #[cfg(not(feature = "checksum"))]
-        const OPTIMIZE_GATES: bool = true;
-
         macro_rules! configure {
             ($op:expr, $x:ident) => {
                 let op = OpcodeClassPlain($op as usize);
 
-                if !OPTIMIZE_GATES || opcode_set.contains(&op) {
-                    let foreign_table_configs = BTreeMap::new();
-                    let mut constraint_builder =
-                        ConstraintBuilder::new(meta, &foreign_table_configs);
+                let foreign_table_configs = BTreeMap::new();
+                let mut constraint_builder = ConstraintBuilder::new(meta, &foreign_table_configs);
 
-                    let config = $x::configure(
-                        &common_config,
-                        &mut allocator.clone(),
-                        &mut constraint_builder,
-                    );
+                let config = $x::configure(
+                    &common_config,
+                    &mut allocator.clone(),
+                    &mut constraint_builder,
+                );
 
-                    constraint_builder.finalize(|meta| {
-                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
-                    });
+                constraint_builder.finalize(|meta| {
+                    (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
+                });
 
-                    op_bitmaps.insert(op, op.index());
-                    op_configs.insert(op, Rc::new(config));
-                }
+                op_bitmaps.insert(op, op.index());
+                op_configs.insert(op, Rc::new(config));
             };
         }
 
@@ -364,24 +352,21 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClass::ForeignPluginStart as usize + $i;
                 let op = OpcodeClassPlain(op);
 
-                if !OPTIMIZE_GATES || opcode_set.contains(&op) {
-                    let mut constraint_builder =
-                        ConstraintBuilder::new(meta, foreign_table_configs);
+                let mut constraint_builder = ConstraintBuilder::new(meta, foreign_table_configs);
 
-                    let config = builder.configure(
-                        &common_config,
-                        &mut allocator.clone(),
-                        &mut constraint_builder,
-                        &mut foreign_table_reserved_lookup_cells,
-                    );
+                let config = builder.configure(
+                    &common_config,
+                    &mut allocator.clone(),
+                    &mut constraint_builder,
+                    &mut foreign_table_reserved_lookup_cells,
+                );
 
-                    constraint_builder.finalize(|meta| {
-                        (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
-                    });
+                constraint_builder.finalize(|meta| {
+                    (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
+                });
 
-                    op_bitmaps.insert(op, op.index());
-                    op_configs.insert(op, Rc::new(config));
-                }
+                op_bitmaps.insert(op, op.index());
+                op_configs.insert(op, Rc::new(config));
             };
         }
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
@@ -600,12 +585,13 @@ impl<F: FieldExt> EventTableConfig<F> {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        rtable.configure_in_pow_set(meta, "c8d. pow_table_lookup in pow_table", |meta| {
-            [
-                pow_table_lookup_modulus_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
-                pow_table_lookup_power_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
-            ]
-        });
+        rtable.configure_in_pow_set(
+            meta,
+            "c8d. pow_table_lookup in pow_table",
+            |meta| pow_table_lookup_power_cell.curr_expr(meta),
+            |meta| pow_table_lookup_modulus_cell.curr_expr(meta),
+            |meta| fixed_curr!(meta, step_sel),
+        );
 
         external_host_call_table.configure_in_table(
             meta,
@@ -616,6 +602,25 @@ impl<F: FieldExt> EventTableConfig<F> {
                 ]
             },
         );
+
+        bit_table.configure_in_table(meta, "c8f: bit_table_lookup in bit_table", |meta| {
+            (
+                fixed_curr!(meta, step_sel),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.op.expr(meta),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.left.expr(meta),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.right.expr(meta),
+                fixed_curr!(meta, step_sel) * bit_table_lookup_cells.result.expr(meta),
+            )
+        });
+
+        meta.create_gate("c9. maximal memory pages consistent", |meta| {
+            vec![
+                (maximal_memory_pages_cell.next_expr(meta)
+                    - maximal_memory_pages_cell.curr_expr(meta))
+                    * enabled_cell.expr(meta)
+                    * fixed_curr!(meta, step_sel),
+            ]
+        });
 
         Self {
             step_sel,

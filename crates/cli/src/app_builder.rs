@@ -15,7 +15,6 @@ use crate::exec::exec_dry_run;
 use super::command::CommandBuilder;
 use super::exec::exec_create_proof;
 use super::exec::exec_dry_run_service;
-#[cfg(feature = "checksum")]
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_verify_proof;
@@ -72,8 +71,6 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_dry_run_subcommand(app);
         let app = Self::append_create_single_proof_subcommand(app);
         let app = Self::append_verify_single_proof_subcommand(app);
-
-        #[cfg(feature = "checksum")]
         let app = Self::append_image_checksum_subcommand(app);
 
         app
@@ -112,7 +109,6 @@ pub trait AppBuilder: CommandBuilder {
                 &output_dir,
                 &param_dir,
             ),
-            #[cfg(feature = "checksum")]
             Some(("checksum", _)) => {
                 exec_image_checksum(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
             }

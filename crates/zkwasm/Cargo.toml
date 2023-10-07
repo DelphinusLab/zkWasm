@@ -9,8 +9,6 @@ edition = "2021"
 ark-std = { version = "0.3.0", features = ["print-trace"] }
 bitvec = "1.0.1"
 downcast-rs = "1.2.0"
-halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", branch = "main", features = ["unsafe"] }
-halo2_proofs = { git = "https://github.com/DelphinusLab/halo2-gpu-specific.git", default-features = true }
 hex = "0.4.3"
 log = "0.4.17"
 num-integer = "0.1"
@@ -24,18 +22,20 @@ strum = "0.24.1"
 strum_macros = "0.24.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-parity-wasm = { version = "0.42.0", default-features = false }
 
 ff = "0.12"
-poseidon = { git = "https://github.com/lanbones/poseidon" }
-notify = "6.0.1"
 sha2 = "0.10.6"
-wast = "47.0.0"
-uuid = { version = "1.2.2", features = ["serde", "v4"] }
-
+poseidon = { git = "https://github.com/lanbones/poseidon" }
+#parity-wasm = { version = "0.42.0", default-features = false }
+#notify = "6.0.1"
+#wast = "47.0.0"
+#uuid = { version = "1.2.2", features = ["serde", "v4"] }
 #quote = "1.0.25"
 
 anyhow.workspace = true
+halo2aggregator-s.workspace = true
+halo2_proofs.workspace = true
+parity-wasm.workspace = true
 wasmi.workspace = true
 
 # TODO put the host circuits into features
@@ -47,5 +47,4 @@ rusty-fork = "0.3.0"
 
 [features]
 default = []
-checksum = []
 cuda = ["halo2_proofs/cuda", "specs/cuda"]

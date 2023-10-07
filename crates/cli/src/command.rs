@@ -10,7 +10,6 @@ pub trait CommandBuilder: ArgBuilder {
         app.subcommand(command)
     }
 
-    #[cfg(feature = "checksum")]
     fn append_image_checksum_subcommand(app: App) -> App {
         let command = Command::new("checksum");
 

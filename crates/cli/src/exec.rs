@@ -29,6 +29,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
+use std::io::Write;
 
 //const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
@@ -81,7 +82,6 @@ pub fn exec_setup(
     Ok(())
 }
 
-#[cfg(feature = "checksum")]
 pub fn exec_image_checksum(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
@@ -90,14 +90,21 @@ pub fn exec_image_checksum(
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions, None)?;
 
-    let hash: Fr = loader.checksum()?;
+    let params = load_or_build_unsafe_params::<Bn256>(
+        zkwasm_k,
+        Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
+    );
+
+    let checksum = loader.checksum(&params)?;
+    assert_eq!(checksum.len(), 1);
+    let checksum = checksum[0];
+
+    println!("image checksum: {:?}", checksum);
 
     let mut fd =
         std::fs::File::create(&output_dir.join(format!("checksum.data",)).as_path()).unwrap();
 
-    let hash = hash.to_string();
-    write!(fd, "{}", hash).unwrap();
-    println!("{}", hash);
+    write!(fd, "{:?}", checksum)?;
 
     Ok(())
 }
@@ -268,6 +275,7 @@ pub fn exec_create_proof(
     );
     circuit.proofloadinfo.save(output_dir);
     circuit.exec_create_proof(output_dir, param_dir, 0);
+
     info!("Proof has been created.");
 
     Ok(())

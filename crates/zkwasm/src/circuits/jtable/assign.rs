@@ -1,5 +1,4 @@
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use specs::jtable::JumpTable;
@@ -67,10 +66,24 @@ impl<F: FieldExt> JumpTableChip<F> {
         ctx: &mut Context<'_, F>,
         rest_jops: &mut u64,
         static_entries: &Vec<StaticFrameEntry>,
-    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
+    ) -> Result<Vec<(Cell, Cell)>, Error> {
+        let mut static_entries = static_entries.clone();
+
         assert!(static_entries.len() == 1 || static_entries.len() == 2);
 
         let mut cells = vec![];
+
+        static_entries.resize(
+            2,
+            StaticFrameEntry {
+                enable: false,
+                frame_id: 0,
+                next_frame_id: 0,
+                callee_fid: 0,
+                fid: 0,
+                iid: 0,
+            },
+        );
 
         for entry in static_entries {
             ctx.region.assign_fixed(
@@ -80,22 +93,15 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            let cell = if cfg!(feature = "checksum") {
-                ctx.region.assign_advice(
+            let enable_cell = ctx
+                .region
+                .assign_advice(
                     || "jtable enable",
                     self.config.data,
                     ctx.offset,
-                    || Ok(F::one()),
+                    || Ok(F::from(entry.enable as u64)),
                 )?
-            } else {
-                ctx.region.assign_advice_from_constant(
-                    || "jtable enable",
-                    self.config.data,
-                    ctx.offset,
-                    F::one(),
-                )?
-            };
-            cells.push(cell);
+                .cell();
             ctx.next();
 
             ctx.region.assign_advice(
@@ -106,74 +112,22 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let cell = if cfg!(feature = "checksum") {
-                ctx.region.assign_advice(
+            let entry_cell = ctx
+                .region
+                .assign_advice(
                     || "jtable entry",
                     self.config.data,
                     ctx.offset,
                     || Ok(bn_to_field(&entry.encode())),
                 )?
-            } else {
-                // Frame Table Constraint 2. Static entry must be a constant."
-                ctx.region.assign_advice_from_constant(
-                    || "jtable entry",
-                    self.config.data,
-                    ctx.offset,
-                    bn_to_field(&entry.encode()),
-                )?
-            };
-            cells.push(cell);
+                .cell();
             ctx.next();
 
-            *rest_jops -= 1;
-        }
+            cells.push((enable_cell, entry_cell));
 
-        #[cfg(feature = "checksum")]
-        if static_entries.len() != 2 {
-            let rest_f = (*rest_jops).into();
-            let entry = bn_to_field(
-                &StaticFrameEntry {
-                    frame_id: 0,
-                    next_frame_id: 0,
-                    callee_fid: 0,
-                    fid: 0,
-                    iid: 0,
-                }
-                .encode(),
-            );
-
-            ctx.region.assign_fixed(
-                || "jtable start entries",
-                self.config.static_bit,
-                ctx.offset,
-                || Ok(F::one()),
-            )?;
-
-            let cell = ctx.region.assign_advice(
-                || "jtable enable",
-                self.config.data,
-                ctx.offset,
-                || Ok(F::zero()),
-            )?;
-            cells.push(cell);
-            ctx.next();
-
-            ctx.region.assign_advice(
-                || "jtable rest",
-                self.config.data,
-                ctx.offset,
-                || Ok(rest_f),
-            )?;
-            ctx.next();
-
-            let cell = ctx.region.assign_advice(
-                || "jtable entry",
-                self.config.data,
-                ctx.offset,
-                || Ok(entry),
-            )?;
-            cells.push(cell);
-            ctx.next();
+            if entry.enable {
+                *rest_jops -= 1;
+            }
         }
 
         Ok(cells)
@@ -251,7 +205,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         jtable: &JumpTable,
         etable_rest_jops_cell: Option<Cell>,
         static_entries: &Vec<StaticFrameEntry>,
-    ) -> Result<Vec<AssignedCell<F, F>>, Error> {
+    ) -> Result<Vec<(Cell, Cell)>, Error> {
         if etable_rest_jops_cell.is_some() {
             self.constraint_to_etable_jops(ctx, etable_rest_jops_cell.unwrap())?;
         }
