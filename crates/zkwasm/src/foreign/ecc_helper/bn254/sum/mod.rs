@@ -47,6 +47,7 @@ impl BN254SumContext {
 
 
     pub fn bn254_sum_new(&mut self, new: usize) {
+        log::debug!("new bn254 sum context");
         self.result_limbs = None;
         self.result_cursor = 0;
         self.limbs = vec![];
@@ -58,10 +59,12 @@ impl BN254SumContext {
 
 
     fn bn254_sum_push_scalar(&mut self, v: u64) {
+        log::debug!("push scalar {}", v);
         self.coeffs.push(v)
     }
 
     fn bn254_sum_push_limb(&mut self, v: u64) {
+        log::debug!("push limb {}", v);
         self.limbs.push(v)
     }
 }
@@ -133,14 +136,16 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BN254SumContext>().unwrap();
+                log::debug!("calculate finalize");
                 context.result_limbs.clone().map_or_else(
                     || {
                         let coeff = fetch_fr(&context.coeffs);
+                        log::debug!("coeff is {:?}", coeff);
                         let g1 = fetch_g1(&context.limbs);
-                            //println!("coeff is {:?}", coeff);
+                        log::debug!("g1 is {:?}", g1);
                         let next = g1 * coeff;
                         let g1result = context.acc.add(next).into();
-                        //println!("msm result: {:?}", g1result);
+                        log::debug!("msm result: {:?}", g1result);
                         context.bn254_result_to_limbs(g1result);
                     },
                     |_| {()}
