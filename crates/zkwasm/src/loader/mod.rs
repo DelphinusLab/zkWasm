@@ -35,9 +35,9 @@ use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::CompiledImage;
 use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
+use anyhow::anyhow;
 use std::sync::Arc;
 use std::sync::Mutex;
-use anyhow::anyhow;
 
 mod err;
 
@@ -172,7 +172,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 }
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
-
     pub fn dry_run(&self, arg: ExecutionArg) -> Result<Option<RuntimeValue>> {
         let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
             arg.public_inputs,
