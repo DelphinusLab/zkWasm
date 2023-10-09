@@ -4,11 +4,9 @@ use clap::AppSettings;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use log::info;
 use log::warn;
-use std::cell::RefCell;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
