@@ -28,12 +28,12 @@ use notify::RecursiveMode;
 use notify::Watcher;
 use serde::Deserialize;
 use serde::Serialize;
-use std::cell::RefCell;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 use wasmi::RuntimeValue;
 
 use crate::app_builder::write_context_output;
@@ -170,7 +170,7 @@ pub fn exec_dry_run_service(
                             let context_inputs = parse_args(
                                 sequence.context_input.iter().map(|s| s.as_str()).collect(),
                             );
-                            let context_outputs = Rc::new(RefCell::new(vec![]));
+                            let context_outputs = Arc::new(Mutex::new(vec![]));
 
                             let loader = ZkWasmLoader::<Bn256>::new(
                                 zkwasm_k,
@@ -190,7 +190,7 @@ pub fn exec_dry_run_service(
                             println!("return value: {:?}", r);
 
                             write_context_output(
-                                &context_outputs.borrow().to_vec(),
+                                &context_outputs.lock().unwrap().to_vec(),
                                 sequence.context_output,
                             )
                             .unwrap();
@@ -230,7 +230,7 @@ pub fn exec_dry_run(
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
     context_inputs: Vec<u64>,
-    context_outputs: Rc<RefCell<Vec<u64>>>,
+    context_outputs: Arc<Mutex<Vec<u64>>>,
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
@@ -253,7 +253,7 @@ pub fn exec_create_proof(
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
     context_inputs: Vec<u64>,
-    context_outputs: Rc<RefCell<Vec<u64>>>,
+    context_outputs: Arc<Mutex<Vec<u64>>>,
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
@@ -350,7 +350,7 @@ pub fn exec_aggregate_create_proof(
     public_inputs: Vec<Vec<u64>>,
     private_inputs: Vec<Vec<u64>>,
     context_inputs: Vec<Vec<u64>>,
-    context_outputs: Vec<Rc<RefCell<Vec<u64>>>>,
+    context_outputs: Vec<Arc<Mutex<Vec<u64>>>>,
 ) -> Result<()> {
     assert_eq!(public_inputs.len(), private_inputs.len());
 

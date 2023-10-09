@@ -1,5 +1,5 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::circuits::cell::AllocatedUnlimitedCell;
 use crate::circuits::config::zkwasm_k;
@@ -57,7 +57,7 @@ impl HostEnv {
         public_inputs: Vec<u64>,
         private_inputs: Vec<u64>,
         context_input: Vec<u64>,
-        context_output: Rc<RefCell<Vec<u64>>>,
+        context_output: Arc<Mutex<Vec<u64>>>,
     ) -> (Self, WasmRuntimeIO) {
         let mut env = HostEnv::new();
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);

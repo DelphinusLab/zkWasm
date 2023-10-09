@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
@@ -37,6 +35,8 @@ use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::CompiledImage;
 use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
+use std::sync::Arc;
+use std::sync::Mutex;
 use anyhow::anyhow;
 
 mod err;
@@ -51,7 +51,7 @@ pub struct ExecutionArg {
     /// Context inputs for `wasm_read_context()`
     pub context_inputs: Vec<u64>,
     /// Context outputs for `wasm_write_context()`
-    pub context_outputs: Rc<RefCell<Vec<u64>>>,
+    pub context_outputs: Arc<Mutex<Vec<u64>>>,
 }
 
 pub struct ExecutionReturn {
@@ -113,7 +113,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             vec![],
             vec![],
-            Rc::new(RefCell::new(vec![])),
+            Arc::new(Mutex::new(vec![])),
         );
 
         let compiled_module = self.compile(&env)?;
@@ -158,7 +158,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             vec![],
             vec![],
-            Rc::new(RefCell::new(vec![])),
+            Arc::new(Mutex::new(vec![])),
         );
         let compiled = self.compile(&env)?;
 
@@ -172,15 +172,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 }
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
-    pub fn dry_run_without_output(&self, public_inputs: Vec<u64>, private_inputs: Vec<u64>, context_inputs: Vec<u64>) -> Result<Option<RuntimeValue>> {
-        let context_outputs = Rc::new(RefCell::new(vec![]));
-        self.dry_run(ExecutionArg {
-            public_inputs,
-            private_inputs,
-            context_inputs,
-            context_outputs,
-        })
-    }
 
     pub fn dry_run(&self, arg: ExecutionArg) -> Result<Option<RuntimeValue>> {
         let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
