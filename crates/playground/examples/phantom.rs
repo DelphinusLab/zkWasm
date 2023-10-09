@@ -1,5 +1,5 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Result;
 use delphinus_zkwasm::loader::ExecutionArg;
@@ -19,7 +19,7 @@ fn main() -> Result<()> {
         public_inputs: vec![2],
         private_inputs: vec![],
         context_inputs: vec![],
-        context_outputs: Rc::new(RefCell::new(vec![])),
+        context_outputs: Arc::new(Mutex::new(vec![])),
     })?;
     loader.mock_test(&circuit, &instances)
 }

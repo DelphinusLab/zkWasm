@@ -136,7 +136,7 @@ pub trait AppBuilder: CommandBuilder {
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
-                    let context_output = Rc::new(RefCell::new(vec![]));
+                    let context_output = Arc::new(Mutex::new(vec![]));
 
                     exec_dry_run(
                         zkwasm_k,
@@ -148,7 +148,7 @@ pub trait AppBuilder: CommandBuilder {
                         Arc::new(Mutex::new(vec![])),
                     )?;
 
-                    write_context_output(&context_output.borrow(), context_out_path)?;
+                    write_context_output(&context_output.lock().unwrap(), context_out_path)?;
 
                     Ok(())
                 }
