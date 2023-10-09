@@ -4,11 +4,9 @@ use clap::AppSettings;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use log::info;
 use log::warn;
-use std::cell::RefCell;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -136,7 +134,7 @@ pub trait AppBuilder: CommandBuilder {
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
-                    let context_output = Rc::new(RefCell::new(vec![]));
+                    let context_output = Arc::new(Mutex::new(vec![]));
 
                     exec_dry_run(
                         zkwasm_k,
@@ -145,10 +143,10 @@ pub trait AppBuilder: CommandBuilder {
                         public_inputs,
                         private_inputs,
                         context_in,
-                        Arc::new(Mutex::new(vec![])),
+                        context_output.clone(),
                     )?;
 
-                    write_context_output(&context_output.borrow(), context_out_path)?;
+                    write_context_output(&context_output.lock().unwrap(), context_out_path)?;
 
                     Ok(())
                 }
