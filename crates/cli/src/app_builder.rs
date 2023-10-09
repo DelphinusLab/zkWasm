@@ -9,6 +9,8 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::exec::exec_dry_run;
 
@@ -143,7 +145,7 @@ pub trait AppBuilder: CommandBuilder {
                         public_inputs,
                         private_inputs,
                         context_in,
-                        Rc::new(RefCell::new(vec![])),
+                        Arc::new(Mutex::new(vec![])),
                     )?;
 
                     write_context_output(&context_output.borrow(), context_out_path)?;
@@ -158,7 +160,7 @@ pub trait AppBuilder: CommandBuilder {
                 let context_out_path: Option<PathBuf> =
                     Self::parse_context_out_path_arg(&sub_matches);
 
-                let context_out = Rc::new(RefCell::new(vec![]));
+                let context_out = Arc::new(Mutex::new(vec![]));
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
@@ -174,7 +176,7 @@ pub trait AppBuilder: CommandBuilder {
                     context_out.clone(),
                 )?;
 
-                write_context_output(&context_out.borrow(), context_out_path)?;
+                write_context_output(&context_out.lock().unwrap(), context_out_path)?;
 
                 Ok(())
             }
@@ -199,7 +201,7 @@ pub trait AppBuilder: CommandBuilder {
                 let context_inputs = public_inputs.iter().map(|_| vec![]).collect();
                 let context_outputs = public_inputs
                     .iter()
-                    .map(|_| Rc::new(RefCell::new(vec![])))
+                    .map(|_| Arc::new(Mutex::new(vec![])))
                     .collect();
 
                 for instances in &public_inputs {

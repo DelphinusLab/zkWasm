@@ -652,7 +652,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=bisect-lookup-0.3.4#e4b3b3fd65d2e1c8c938f50721a48538fc43a175"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#953bbbd50ee05211e2395e69c9760095b80f6408"
 dependencies = [
  "ark-std",
  "blake2b_simd",

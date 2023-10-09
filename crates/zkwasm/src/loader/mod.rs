@@ -1,6 +1,6 @@
-use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
@@ -51,7 +51,7 @@ pub struct ExecutionArg {
     /// Context inputs for `wasm_read_context()`
     pub context_inputs: Vec<u64>,
     /// Context outputs for `wasm_write_context()`
-    pub context_outputs: Rc<RefCell<Vec<u64>>>,
+    pub context_outputs: Arc<Mutex<Vec<u64>>>,
 }
 
 pub struct ExecutionReturn {
@@ -113,7 +113,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             vec![],
             vec![],
-            Rc::new(RefCell::new(vec![])),
+            Arc::new(Mutex::new(vec![])),
         );
 
         let compiled_module = self.compile(&env)?;
@@ -158,7 +158,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             vec![],
             vec![],
-            Rc::new(RefCell::new(vec![])),
+            Arc::new(Mutex::new(vec![])),
         );
         let compiled = self.compile(&env)?;
 
