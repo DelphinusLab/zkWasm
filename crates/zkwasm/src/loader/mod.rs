@@ -172,6 +172,16 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 }
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
+    pub fn dry_run_without_output(&self, public_inputs: Vec<u64>, private_inputs: Vec<u64>, context_inputs: Vec<u64>) -> Result<Option<RuntimeValue>> {
+        let context_outputs = Rc::new(RefCell::new(vec![]));
+        self.dry_run(ExecutionArg {
+            public_inputs,
+            private_inputs,
+            context_inputs,
+            context_outputs,
+        })
+    }
+
     pub fn dry_run(&self, arg: ExecutionArg) -> Result<Option<RuntimeValue>> {
         let (mut env, _) = HostEnv::new_with_full_foreign_plugins(
             arg.public_inputs,
