@@ -15,6 +15,7 @@ pub struct StaticFrameEntry {
 pub struct JumpTableEntry {
     // caller eid (unique)
     pub eid: u32,
+    // caller's caller eid. It's used to maintain a caller chain.
     pub last_jump_eid: u32,
     pub callee_fid: u32,
     pub inst: Box<InstructionTableEntry>,

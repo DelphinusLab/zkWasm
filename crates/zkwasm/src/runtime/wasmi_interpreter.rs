@@ -123,6 +123,7 @@ impl WasmiRuntime {
 
         let fid_of_entry = {
             let idx_of_entry = instance.lookup_function_by_name(tracer.clone(), entry);
+            let idx_of_start_function = module.module().start_section();
 
             tracer
                 .clone()
@@ -146,7 +147,7 @@ impl WasmiRuntime {
                         enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
-                        callee_fid: 0, // the fid of start function is always 0
+                        callee_fid: idx_of_start_function.unwrap(),
                         fid: idx_of_entry,
                         iid: 0,
                     });
