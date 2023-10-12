@@ -8,7 +8,7 @@ def analyze_etable(etable):
 
     for entry in etable:
         if len(frame) == 0:
-            frame.append(entry["inst"]["fid"])
+            frame.append(entry["inst"]["function_name"])
 
         if type(entry["inst"]["opcode"]) == str:
             opcode = entry["inst"]["opcode"]
@@ -27,9 +27,9 @@ def analyze_etable(etable):
                 dict[tuple(frame)] = dict[tuple(frame)] + 1
 
         if opcode == "Call":
-            frame.append(entry["inst"]["opcode"]["Call"]["index"])
+            frame.append(entry["step_info"]["Call"]["function_name"])
         elif opcode == "CallIndirect":
-            frame.append(entry["step_info"]["CallIndirect"]["func_index"])
+            frame.append(entry["step_info"]["CallIndirect"]["function_name"])
         elif opcode == "Return":
             frame.pop()
     

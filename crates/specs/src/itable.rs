@@ -588,6 +588,7 @@ impl Into<OpcodeClassPlain> for Opcode {
 #[derive(Clone, Debug, Serialize)]
 pub struct InstructionTableEntry {
     pub fid: u32,
+    pub function_name: String,
     pub iid: u32,
     pub opcode: Opcode,
 }
@@ -651,7 +652,12 @@ impl InstructionTable {
         opcodeclass
     }
 
-    pub fn push(&mut self, fid: u32, iid: u32, opcode: Opcode) {
-        self.0.push(InstructionTableEntry { fid, iid, opcode })
+    pub fn push(&mut self, fid: u32, function_name: String, iid: u32, opcode: Opcode) {
+        self.0.push(InstructionTableEntry {
+            fid,
+            function_name,
+            iid,
+            opcode,
+        })
     }
 }

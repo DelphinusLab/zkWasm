@@ -75,7 +75,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::Call { index } => {
+            StepInfo::Call { index, .. } => {
                 self.index_cell.assign(ctx, F::from(*index as u64))?;
                 self.frame_table_lookup.0.assign(
                     ctx,
