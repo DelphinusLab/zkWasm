@@ -1,5 +1,5 @@
 # Generate flamegraph for etable
 
 ```
-./perf_etable.sh <Path of etable> > <Path of svg output>
+./perf_etable.sh <Path of etable> <Path of svg output>
 ```
