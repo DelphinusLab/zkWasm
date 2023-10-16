@@ -251,6 +251,8 @@ pub fn exec_create_proof(
     context_inputs: Vec<u64>,
     context_outputs: Rc<RefCell<Vec<u64>>>,
 ) -> Result<()> {
+    use circuits_batcher::proof::K_PARAMS_CACHE;
+    use circuits_batcher::proof::PKEY_CACHE;
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions, None)?;
 
     let (circuit, instances, _) = loader.circuit_with_witness(ExecutionArg {
@@ -274,7 +276,13 @@ pub fn exec_create_proof(
         circuits_batcher::args::HashType::Poseidon
     );
     circuit.proofloadinfo.save(output_dir);
-    circuit.exec_create_proof(output_dir, param_dir, 0);
+    circuit.exec_create_proof(
+        output_dir,
+        param_dir,
+        PKEY_CACHE.lock().as_mut().unwrap(),
+        0,
+        K_PARAMS_CACHE.lock().as_mut().unwrap()
+    );
 
     info!("Proof has been created.");
 
