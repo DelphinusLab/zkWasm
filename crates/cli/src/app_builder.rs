@@ -102,7 +102,7 @@ pub trait AppBuilder: CommandBuilder {
         fs::create_dir_all(&output_dir)?;
 
         match top_matches.subcommand() {
-            Some(("setup", _)) => exec_setup(
+            Some(("setup", _)) => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
                 zkwasm_k,
                 Self::AGGREGATE_K,
                 Self::NAME,
@@ -112,7 +112,7 @@ pub trait AppBuilder: CommandBuilder {
                 &param_dir,
             ),
             Some(("checksum", _)) => {
-                exec_image_checksum(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
+                exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
             }
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
@@ -131,7 +131,12 @@ pub trait AppBuilder: CommandBuilder {
                         warn!("All context paths are ignored when dry-run is running in service mode.");
                     }
 
-                    exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
+                    exec_dry_run_service(
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        &listen
+                    )
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
@@ -184,10 +189,7 @@ pub trait AppBuilder: CommandBuilder {
 
                 Ok(())
             }
-            Some(("single-verify", sub_matches)) => {
-                let _proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let _instance_path: PathBuf = Self::parse_single_instance_arg(&sub_matches);
-
+            Some(("single-verify", _)) => {
                 exec_verify_proof(
                     Self::NAME,
                     &output_dir,

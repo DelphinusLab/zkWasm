@@ -39,13 +39,6 @@ impl<F: FieldExt> TestCircuit<F> {
             _data: PhantomData,
         }
     }
-
-    pub fn new_without_configure(tables: Tables) -> Self {
-        TestCircuit {
-            tables,
-            _data: PhantomData,
-        }
-    }
 }
 
 trait Encode {

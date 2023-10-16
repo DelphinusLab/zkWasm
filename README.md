@@ -31,7 +31,7 @@ clang lld
 wasm code
 
 ## Runtime input:
-input of wasm function and the name of the top level function (usually we call the entry function zkmain).
+input of wasm function and the top level function must be zkmain
 
 ## Proving target:
 simulation of wasm execution of target wasm bytecode with particular inputs are correct.

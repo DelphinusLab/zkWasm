@@ -7,6 +7,8 @@ use circuits_batcher::proof::ProofLoadInfo;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::poly::commitment::ParamsVerifier;
@@ -28,12 +30,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
 use std::io::Write;
-use delphinus_host::StandardHostEnvBuilder;
-use delphinus_host::ExecutionArg;
 
-//const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
-
-pub fn exec_setup(
+pub fn exec_setup<Arg, Builder>(
     zkwasm_k: u32,
     aggregate_k: u32,
     prefix: &str,
@@ -41,7 +39,7 @@ pub fn exec_setup(
     phantom_functions: Vec<String>,
     _output_dir: &PathBuf,
     param_dir: &PathBuf,
-) -> Result<()> {
+) -> Result<()> where Builder: HostEnvBuilder<Arg = Arg> {
     info!("Setup Params and VerifyingKey");
 
     macro_rules! prepare_params {
@@ -69,7 +67,7 @@ pub fn exec_setup(
             info!("Found Verifying at {:?}", vk_path);
         } else {
             info!("Create Verifying to {:?}", vk_path);
-            let loader = ZkWasmLoader::<Bn256, ExecutionArg, StandardHostEnvBuilder>::new(
+            let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
                 zkwasm_k,
                 wasm_binary,
                 phantom_functions,
@@ -85,13 +83,13 @@ pub fn exec_setup(
     Ok(())
 }
 
-pub fn exec_image_checksum(
+pub fn exec_image_checksum<Arg, Builder>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
-) -> Result<()> {
-    let loader = ZkWasmLoader::<Bn256, ExecutionArg, StandardHostEnvBuilder>::new(
+) -> Result<()> where Builder: HostEnvBuilder<Arg = Arg> {
+    let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
         zkwasm_k,
         wasm_binary,
         phantom_functions,
@@ -174,7 +172,7 @@ pub fn exec_dry_run_service(
                             let context_outputs = Rc::new(RefCell::new(vec![]));
 
                             let loader =
-                                ZkWasmLoader::<Bn256, ExecutionArg, StandardHostEnvBuilder>::new(
+                                ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
                                     zkwasm_k,
                                     wasm_binary.clone(),
                                     phantom_functions.clone(),
@@ -186,7 +184,6 @@ pub fn exec_dry_run_service(
                                     private_inputs,
                                     context_inputs,
                                     context_outputs: context_outputs.clone(),
-                                    tree_db: None,
                                 })
                                 .unwrap();
                             println!("return value: {:?}", r);
