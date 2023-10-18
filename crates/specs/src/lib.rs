@@ -2,18 +2,26 @@
 #![deny(unused_imports)]
 #![deny(dead_code)]
 
+use std::collections::HashSet;
 use std::env;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
+use etable::EventTableEntry;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
+use mtable::AccessType;
+use mtable::LocationType;
 use mtable::MTable;
+use mtable::MemoryTableEntry;
+use rayon::prelude::IntoParallelRefIterator;
+use rayon::prelude::ParallelIterator;
 use serde::Serialize;
 
 #[macro_use]
@@ -45,7 +53,6 @@ pub struct CompilationTable {
 #[derive(Default, Serialize, Clone)]
 pub struct ExecutionTable {
     pub etable: EventTable,
-    pub mtable: MTable,
     pub jtable: JumpTable,
 }
 
@@ -56,6 +63,51 @@ pub struct Tables {
 }
 
 impl Tables {
+    pub fn create_memory_table(
+        &self,
+        memory_event_of_step: fn(&EventTableEntry, &mut u32) -> Vec<MemoryTableEntry>,
+    ) -> MTable {
+        let mut memory_entries = self
+            .execution_tables
+            .etable
+            .entries()
+            .par_iter()
+            .map(|entry| memory_event_of_step(entry, &mut 1))
+            .collect::<Vec<Vec<_>>>()
+            .concat();
+
+        let set = Mutex::new(HashSet::<MemoryTableEntry>::default());
+
+        memory_entries.par_iter().for_each(|entry| {
+            if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
+                let (_, _, value) = self
+                    .compilation_tables
+                    .imtable
+                    .try_find(entry.ltype, entry.offset)
+                    .unwrap();
+
+                set.lock().unwrap().insert(MemoryTableEntry {
+                    eid: 0,
+                    emid: 0,
+                    offset: entry.offset,
+                    ltype: entry.ltype,
+                    atype: AccessType::Init,
+                    vtype: entry.vtype,
+                    is_mutable: entry.is_mutable,
+                    value,
+                });
+            }
+        });
+
+        let mut entries = set.into_inner().unwrap().into_iter().collect();
+
+        memory_entries.append(&mut entries);
+
+        memory_entries.sort_by_key(|item| (item.ltype, item.offset, item.eid, item.emid));
+
+        MTable::new(memory_entries)
+    }
+
     pub fn write_json(&self, dir: Option<PathBuf>) {
         fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
             let mut folder = folder.clone();
@@ -76,14 +128,12 @@ impl Tables {
                 .filter_external_host_call_table(),
         )
         .unwrap();
-        let mtable = serde_json::to_string_pretty(&self.execution_tables.mtable).unwrap();
         let jtable = serde_json::to_string_pretty(&self.execution_tables.jtable).unwrap();
 
         let dir = dir.unwrap_or(env::current_dir().unwrap());
         write_file(&dir, "itable.json", &itable);
         write_file(&dir, "imtable.json", &imtable);
         write_file(&dir, "etable.json", &etable);
-        write_file(&dir, "mtable.json", &mtable);
         write_file(&dir, "jtable.json", &jtable);
         write_file(&dir, "external_host_table.json", &external_host_call_table);
     }

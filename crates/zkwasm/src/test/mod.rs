@@ -1,5 +1,4 @@
 use crate::circuits::config::zkwasm_k;
-use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::TestCircuit;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
@@ -44,13 +43,6 @@ fn test_circuit_mock<F: FieldExt>(
     };
 
     execution_result.tables.write_json(None);
-    let memory_writing_table: MemoryWritingTable = execution_result
-        .tables
-        .execution_tables
-        .mtable
-        .clone()
-        .into();
-    memory_writing_table.write_json(None);
 
     execution_result.tables.profile_tables();
 

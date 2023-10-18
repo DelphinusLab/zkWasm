@@ -3,11 +3,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::circuits::config::zkwasm_k;
-use crate::runtime::memory_event_of_step;
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
 use specs::jtable::StaticFrameEntry;
-use specs::mtable::MTable;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
@@ -70,21 +68,8 @@ impl Execution<RuntimeValue>
         let execution_tables = {
             let tracer = self.tracer.borrow();
 
-            let mtable = {
-                let mentries = tracer
-                    .etable
-                    .entries()
-                    .iter()
-                    .map(|eentry| memory_event_of_step(eentry, &mut 1))
-                    .collect::<Vec<Vec<_>>>()
-                    .concat();
-
-                MTable::new(mentries, &self.tables.imtable)
-            };
-
             ExecutionTable {
                 etable: tracer.etable.clone(),
-                mtable,
                 jtable: tracer.jtable.clone(),
             }
         };
