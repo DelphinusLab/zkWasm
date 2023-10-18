@@ -47,7 +47,7 @@ use crate::runtime::memory_event_of_step;
 use super::config::zkwasm_k;
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 51;
+pub const VAR_COLUMNS: usize = 53;
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.

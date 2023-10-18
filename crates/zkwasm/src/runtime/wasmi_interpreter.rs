@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::circuits::config::zkwasm_k;
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
 use specs::jtable::StaticFrameEntry;
@@ -145,7 +144,7 @@ impl WasmiRuntime {
         };
 
         let itable = tracer.borrow().itable.clone();
-        let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
+        let imtable = tracer.borrow().imtable.finalized();
         let elem_table = tracer.borrow().elem_table.clone();
         let configure_table = tracer.borrow().configure_table.clone();
         let static_jtable = tracer.borrow().static_jtable_entries.clone();

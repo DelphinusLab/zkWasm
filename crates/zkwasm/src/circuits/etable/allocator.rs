@@ -156,10 +156,12 @@ pub(crate) enum EventTableCellType {
 
 const BIT_COLUMNS: usize = 12;
 const U8_COLUMNS: usize = 1;
+// Should be the multiple of 2.
+const U32_CELLS: usize = 2;
 const U64_CELLS: usize = 5;
-const U16_COLUMNS: usize = U64_CELLS;
+const U16_COLUMNS: usize = U64_CELLS + (U32_CELLS / 2);
 const COMMON_RANGE_COLUMNS: usize = 7;
-const UNLIMITED_COLUMNS: usize = 7;
+const UNLIMITED_COLUMNS: usize = 8;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
 
@@ -193,6 +195,7 @@ impl<F: FieldExt> AllocatedBitTableLookupCells<F> {
 pub(crate) struct EventTableCellAllocator<F: FieldExt> {
     pub(crate) free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     all_cols: BTreeMap<EventTableCellType, Vec<Vec<Column<Advice>>>>,
+    free_u32_cells: Vec<AllocatedU32Cell<F>>,
     free_u64_cells: Vec<AllocatedU64Cell<F>>,
     _mark: PhantomData<F>,
 }
@@ -208,6 +211,29 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             for c in c {
                 meta.enable_equality(*c);
             }
+        }
+    }
+
+    pub(super) fn prepare_alloc_u32_cell(
+        &mut self,
+        meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) -> AllocatedU32Cell<F> {
+        let u16_cells_le = [0; 2].map(|_| self.alloc_u16_cell());
+        let u32_cell = self.alloc_unlimited_cell();
+        meta.create_gate("c9. u32 decompose", |meta| {
+            let init = u32_cell.curr_expr(meta);
+            vec![
+                (0..2)
+                    .into_iter()
+                    .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
+                    .fold(init, |acc, x| acc - x)
+                    * enable(meta),
+            ]
+        });
+        AllocatedU32Cell {
+            u16_cells_le,
+            u32_cell,
         }
     }
 
@@ -243,6 +269,10 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut allocator = Self::_new(meta, sel, rtable, mtable, jtable, cols);
+        for _ in 0..U32_CELLS {
+            let cell = allocator.prepare_alloc_u32_cell(meta, |meta| fixed_curr!(meta, sel));
+            allocator.free_u32_cells.push(cell);
+        }
         for _ in 0..U64_CELLS {
             let cell = allocator.prepare_alloc_u64_cell(meta, |meta| fixed_curr!(meta, sel));
             allocator.free_u64_cells.push(cell);
@@ -347,6 +377,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 ]
                 .into_iter(),
             ),
+            free_u32_cells: vec![],
             free_u64_cells: vec![],
             _mark: PhantomData,
         }
@@ -419,7 +450,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedCommonRangeCell<F>,
+        eid: AllocatedU32Cell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -469,7 +500,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedCommonRangeCell<F>,
+        eid: AllocatedU32Cell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -510,7 +541,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedCommonRangeCell<F>,
+        eid: AllocatedU32Cell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -558,7 +589,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedCommonRangeCell<F>,
+        eid: AllocatedU32Cell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -591,6 +622,10 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         ));
 
         cell
+    }
+
+    pub(crate) fn alloc_u32_cell(&mut self) -> AllocatedU32Cell<F> {
+        self.free_u32_cells.pop().expect("no more free u32 cells")
     }
 
     pub(crate) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {

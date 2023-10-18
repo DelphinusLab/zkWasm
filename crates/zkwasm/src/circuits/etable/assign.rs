@@ -134,12 +134,10 @@ impl<F: FieldExt> EventTableChip<F> {
 
         macro_rules! assign_constant {
             ($cell:ident, $value:expr) => {
-                ctx.region.assign_advice_from_constant(
-                    || "etable".to_owned() + stringify!($cell),
-                    self.config.common_config.$cell.0.col,
-                    ctx.offset + self.config.common_config.$cell.0.rot as usize,
-                    $value,
-                )?
+                self.config
+                    .common_config
+                    .$cell
+                    .assign_constant(ctx, $value)?
             };
         }
 
@@ -165,7 +163,7 @@ impl<F: FieldExt> EventTableChip<F> {
         );
         assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
         assign_constant!(frame_id_cell, F::zero());
-        assign_constant!(eid_cell, F::one());
+        assign_constant!(eid_cell, 1);
         let fid_of_entry_cell = assign_advice!(fid_cell, F::from(fid_of_entry as u64));
         assign_constant!(iid_cell, F::zero());
 
@@ -269,7 +267,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 F::from(configure_table.maximal_memory_pages as u64)
             );
             assign_advice!(frame_id_cell, F::from(entry.eentry.last_jump_eid as u64));
-            assign_advice!(eid_cell, F::from(entry.eentry.eid as u64));
+            assign_advice!(eid_cell, entry.eentry.eid);
             assign_advice!(fid_cell, F::from(entry.eentry.inst.fid as u64));
             assign_advice!(iid_cell, F::from(entry.eentry.inst.iid as u64));
             assign_advice!(itable_lookup_cell, bn_to_field(&entry.eentry.inst.encode()));
@@ -296,7 +294,7 @@ impl<F: FieldExt> EventTableChip<F> {
         }
 
         // Assign terminate status
-        assign_advice!(eid_cell, F::from(status.last().unwrap().eid as u64));
+        assign_advice!(eid_cell, status.last().unwrap().eid);
         assign_advice!(fid_cell, F::from(status.last().unwrap().fid as u64));
         assign_advice!(iid_cell, F::from(status.last().unwrap().iid as u64));
         assign_advice!(sp_cell, F::from(status.last().unwrap().sp as u64));

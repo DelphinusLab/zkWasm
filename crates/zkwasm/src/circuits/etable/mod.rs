@@ -86,7 +86,7 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     pub(crate) sp_cell: AllocatedCommonRangeCell<F>,
     mpages_cell: AllocatedCommonRangeCell<F>,
     frame_id_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) eid_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) eid_cell: AllocatedU32Cell<F>,
     fid_cell: AllocatedCommonRangeCell<F>,
     iid_cell: AllocatedCommonRangeCell<F>,
     maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
@@ -238,11 +238,12 @@ impl<F: FieldExt> EventTableConfig<F> {
         let sp_cell = allocator.alloc_common_range_cell();
         let mpages_cell = allocator.alloc_common_range_cell();
         let frame_id_cell = allocator.alloc_common_range_cell();
-        let eid_cell = allocator.alloc_common_range_cell();
+        let eid_cell = allocator.alloc_u32_cell();
         let fid_cell = allocator.alloc_common_range_cell();
         let iid_cell = allocator.alloc_common_range_cell();
         let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
 
+        meta.enable_equality(eid_cell.u32_cell.0.col);
         // We only need to enable equality for the cells of states
         let used_common_range_cells_for_state = allocator
             .free_cells
@@ -520,7 +521,9 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c6a. eid change", |meta| {
             vec![
-                (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
+                (eid_cell.u32_cell.next_expr(meta)
+                    - eid_cell.u32_cell.curr_expr(meta)
+                    - constant_from!(1))
                     * enabled_cell.curr_expr(meta)
                     * fixed_curr!(meta, step_sel),
             ]
