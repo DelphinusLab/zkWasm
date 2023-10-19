@@ -6,7 +6,6 @@ use std::collections::HashSet;
 use std::env;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Mutex;
 
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
@@ -76,32 +75,45 @@ impl Tables {
             .collect::<Vec<Vec<_>>>()
             .concat();
 
-        let set = Mutex::new(HashSet::<MemoryTableEntry>::default());
+        let init_value = memory_entries
+            .par_iter()
+            .map(|entry| {
+                if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
+                    let (_, _, value) = self
+                        .compilation_tables
+                        .imtable
+                        .try_find(entry.ltype, entry.offset)
+                        .unwrap();
 
-        memory_entries.par_iter().for_each(|entry| {
-            if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
-                let (_, _, value) = self
-                    .compilation_tables
-                    .imtable
-                    .try_find(entry.ltype, entry.offset)
-                    .unwrap();
+                    Some(value)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
-                set.lock().unwrap().insert(MemoryTableEntry {
-                    eid: 0,
-                    emid: 0,
-                    offset: entry.offset,
-                    ltype: entry.ltype,
-                    atype: AccessType::Init,
-                    vtype: entry.vtype,
-                    is_mutable: entry.is_mutable,
-                    value,
-                });
-            }
-        });
+        let mut set = HashSet::<MemoryTableEntry>::default();
 
-        let mut entries = set.into_inner().unwrap().into_iter().collect();
+        memory_entries
+            .iter()
+            .zip(init_value.into_iter())
+            .for_each(|(entry, init_value)| {
+                // If it's heap or global
+                if let Some(value) = init_value {
+                    set.insert(MemoryTableEntry {
+                        eid: 0,
+                        emid: 0,
+                        offset: entry.offset,
+                        ltype: entry.ltype,
+                        atype: AccessType::Init,
+                        vtype: entry.vtype,
+                        is_mutable: entry.is_mutable,
+                        value,
+                    });
+                }
+            });
 
-        memory_entries.append(&mut entries);
+        memory_entries.append(&mut set.into_iter().collect());
 
         memory_entries.sort_by_key(|item| (item.ltype, item.offset, item.eid, item.emid));
 
