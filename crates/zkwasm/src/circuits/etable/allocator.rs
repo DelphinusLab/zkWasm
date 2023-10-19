@@ -284,7 +284,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         meta: &mut ConstraintSystem<F>,
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
-        mtable: &impl ConfigureLookupTable<F>,
+        _mtable: &impl ConfigureLookupTable<F>,
         jtable: &JumpTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
@@ -349,14 +349,15 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     let end_eid_col = cols.next().unwrap();
                     let encode_col = cols.next().unwrap();
                     let value_col = cols.next().unwrap();
-                    mtable.configure_in_table(meta, "c8e. mtable_lookup in mtable", |meta| {
-                        vec![
-                            curr!(meta, start_eid_col),
-                            curr!(meta, end_eid_col),
-                            curr!(meta, encode_col),
-                            curr!(meta, value_col),
-                        ]
-                    });
+                    // TODO: open mtable
+                    // mtable.configure_in_table(meta, "c8e. mtable_lookup in mtable", |meta| {
+                    //     vec![
+                    //         curr!(meta, start_eid_col),
+                    //         curr!(meta, end_eid_col),
+                    //         curr!(meta, encode_col),
+                    //         curr!(meta, value_col),
+                    //     ]
+                    // });
                     vec![start_eid_col, end_eid_col, encode_col, value_col]
                 })
                 .into_iter()

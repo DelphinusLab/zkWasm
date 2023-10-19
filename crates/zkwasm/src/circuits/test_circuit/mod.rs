@@ -25,7 +25,6 @@ use crate::circuits::image_table::ImageTableChip;
 use crate::circuits::image_table::ImageTableLayouter;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
-use crate::circuits::mtable::MemoryTableChip;
 use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
@@ -57,7 +56,7 @@ const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     image_table: ImageTableConfig<F>,
-    mtable: MemoryTableConfig<F>,
+    _mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
     bit_table: BitTableConfig<F>,
@@ -137,7 +136,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         Self::Config {
             rtable,
             image_table,
-            mtable,
+            // TODO: open mtable
+            _mtable: mtable,
             jtable,
             etable,
             bit_table,
@@ -158,7 +158,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rchip = RangeTableChip::new(config.rtable);
         let image_chip = ImageTableChip::new(config.image_table);
-        let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
+        // TODO: open mtable
+        // let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
         let echip = EventTableChip::new(config.etable, config.max_available_rows);
         let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
@@ -223,18 +224,19 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         )?
                     );
 
-                    {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign mtable",
-                            mchip.assign(
-                                &mut ctx,
-                                etable_permutation_cells.rest_mops,
-                                &memory_writing_table,
-                                &self.tables.compilation_tables.imtable
-                            )?
-                        );
-                    }
+                    // TODO: open mtable
+                    // {
+                    //     ctx.reset();
+                    //     exec_with_profile!(
+                    //         || "Assign mtable",
+                    //         mchip.assign(
+                    //             &mut ctx,
+                    //             etable_permutation_cells.rest_mops,
+                    //             &memory_writing_table,
+                    //             &self.tables.compilation_tables.imtable
+                    //         )?
+                    //     );
+                    // }
 
                     let jtable_info = {
                         ctx.reset();
