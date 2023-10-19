@@ -23,7 +23,7 @@ pub struct InitMemoryTable {
 }
 
 impl InitMemoryTable {
-    pub fn new(entries: Vec<InitMemoryTableEntry>) -> Self {
+    pub fn new(entries: Vec<InitMemoryTableEntry>, k: u32) -> Self {
         let mut imtable = Self {
             entries: entries
                 .into_iter()
@@ -31,7 +31,11 @@ impl InitMemoryTable {
                     ltype: entry.ltype,
                     is_mutable: entry.is_mutable,
                     start_offset: entry.start_offset,
-                    end_offset: entry.end_offset,
+                    end_offset: if entry.end_offset == u32::MAX {
+                        (1u32 << (k - 1)) - 1
+                    } else {
+                        entry.end_offset
+                    },
                     vtype: entry.vtype,
                     value: entry.value,
                 })

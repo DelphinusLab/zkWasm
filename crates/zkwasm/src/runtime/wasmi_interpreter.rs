@@ -13,6 +13,8 @@ use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
 
+use crate::circuits::config::zkwasm_k;
+
 use super::CompiledImage;
 use super::ExecutionResult;
 
@@ -144,7 +146,7 @@ impl WasmiRuntime {
         };
 
         let itable = tracer.borrow().itable.clone();
-        let imtable = tracer.borrow().imtable.finalized();
+        let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
         let elem_table = tracer.borrow().elem_table.clone();
         let configure_table = tracer.borrow().configure_table.clone();
         let static_jtable = tracer.borrow().static_jtable_entries.clone();
