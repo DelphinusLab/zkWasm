@@ -1,13 +1,15 @@
 // #![deny(dead_code)]
 #![deny(unused_variables)]
 #![deny(unused_imports)]
-#![feature(thread_local)]
 
 pub mod checksum;
 pub mod circuits;
 pub mod foreign;
 pub mod loader;
 pub mod runtime;
+
+#[cfg(feature = "continuation")]
+mod continuation;
 
 mod profile;
 
