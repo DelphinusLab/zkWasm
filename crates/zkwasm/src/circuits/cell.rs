@@ -178,25 +178,27 @@ define_cell!(AllocatedU16Cell, F::from(u16::MAX as u64));
 define_cell!(AllocatedUnlimitedCell, -F::one());
 
 impl<F: FieldExt> AllocatedU32Cell<F> {
-    pub(crate) fn assign(&self, ctx: &mut Context<'_, F>, value: u32) -> Result<(), Error> {
+    pub(crate) fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: u32,
+    ) -> Result<AssignedCell<F, F>, Error> {
         for i in 0..2 {
             self.u16_cells_le[i].assign(ctx, (((value >> (i * 16)) & 0xffffu32) as u64).into())?;
         }
-        self.u32_cell.assign(ctx, (value as u64).into())?;
-        Ok(())
+        self.u32_cell.assign(ctx, (value as u64).into())
     }
 
     pub(crate) fn assign_constant(
         &self,
         ctx: &mut Context<'_, F>,
         value: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<AssignedCell<F, F>, Error> {
         for i in 0..2 {
             self.u16_cells_le[i].assign(ctx, (((value >> (i * 16)) & 0xffffu32) as u64).into())?;
         }
 
-        self.u32_cell.assign_constant(ctx, (value as u64).into())?;
-        Ok(())
+        self.u32_cell.assign_constant(ctx, (value as u64).into())
     }
 }
 

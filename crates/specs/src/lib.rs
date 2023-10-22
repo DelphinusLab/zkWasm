@@ -39,6 +39,37 @@ pub mod mtable;
 pub mod step;
 pub mod types;
 
+#[derive(Clone, Debug, Serialize)]
+pub struct InitializationState<T> {
+    pub eid: T,
+    pub fid: T,
+    pub iid: T,
+    pub frame_id: T,
+    pub sp: T,
+    pub initial_memory_pages: T,
+
+    // TODO: open mtable
+    // pub rest_mops: Option<T>,
+    pub rest_jops: T,
+
+    pub is_very_first_step: bool,
+}
+
+impl Default for InitializationState<u32> {
+    fn default() -> Self {
+        Self {
+            eid: Default::default(),
+            fid: Default::default(),
+            iid: Default::default(),
+            frame_id: Default::default(),
+            sp: Default::default(),
+            initial_memory_pages: Default::default(),
+            rest_jops: Default::default(),
+            is_very_first_step: Default::default(),
+        }
+    }
+}
+
 #[derive(Default, Serialize, Debug, Clone)]
 pub struct CompilationTable {
     pub itable: InstructionTable,
@@ -51,6 +82,7 @@ pub struct CompilationTable {
 
 #[derive(Default, Serialize, Clone)]
 pub struct ExecutionTable {
+    pub initialization_state: InitializationState<u32>,
     pub etable: EventTable,
     pub jtable: JumpTable,
 }

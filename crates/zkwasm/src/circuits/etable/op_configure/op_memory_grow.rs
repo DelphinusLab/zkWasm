@@ -133,7 +133,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
                     self.current_maximal_diff.assign(
                         ctx,
                         F::from(
-                            (step.configure_table.maximal_memory_pages
+                            (step.maximal_memory_pages
                                 - (step.current.allocated_memory_pages + *grow_size as u32))
                                 as u64,
                         ),

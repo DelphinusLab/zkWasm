@@ -7,11 +7,13 @@ use specs::host_function::HostFunctionDesc;
 use specs::jtable::StaticFrameEntry;
 use specs::CompilationTable;
 use specs::ExecutionTable;
+use specs::InitializationState;
 use specs::Tables;
 use wasmi::Externals;
 use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
+use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::config::zkwasm_k;
 
@@ -70,6 +72,17 @@ impl Execution<RuntimeValue>
             let tracer = self.tracer.borrow();
 
             ExecutionTable {
+                initialization_state: InitializationState {
+                    eid: 1,
+                    fid: self.tables.fid_of_entry,
+                    iid: 0,
+                    frame_id: 0,
+                    sp: DEFAULT_VALUE_STACK_LIMIT as u32 - 1,
+                    initial_memory_pages: self.tables.configure_table.init_memory_pages,
+                    rest_jops: tracer.jtable.entries().len() as u32 * 2
+                        + self.tables.static_jtable.len() as u32,
+                    is_very_first_step: true,
+                },
                 etable: tracer.etable.clone(),
                 jtable: tracer.jtable.clone(),
             }

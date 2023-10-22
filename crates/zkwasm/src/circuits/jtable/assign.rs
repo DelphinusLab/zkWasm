@@ -203,12 +203,10 @@ impl<F: FieldExt> JumpTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         jtable: &JumpTable,
-        etable_rest_jops_cell: Option<Cell>,
+        etable_rest_jops_cell: Cell,
         static_entries: &Vec<StaticFrameEntry>,
     ) -> Result<Vec<(Cell, Cell)>, Error> {
-        if etable_rest_jops_cell.is_some() {
-            self.constraint_to_etable_jops(ctx, etable_rest_jops_cell.unwrap())?;
-        }
+        self.constraint_to_etable_jops(ctx, etable_rest_jops_cell)?;
 
         self.init(ctx)?;
         ctx.reset();

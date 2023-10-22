@@ -1,6 +1,7 @@
 use specs::etable::EventTable;
 use specs::CompilationTable;
 use specs::ExecutionTable;
+use specs::InitializationState;
 use specs::Tables;
 
 use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
@@ -52,6 +53,22 @@ impl Slices {
                         fid_of_entry: table.compilation_tables.fid_of_entry,
                     },
                     execution_tables: ExecutionTable {
+                        initialization_state: if current_slice == 0 {
+                            table.execution_tables.initialization_state.clone()
+                        } else {
+                            let first_etable_entry = etable_slice.first().unwrap();
+
+                            InitializationState {
+                                eid: first_etable_entry.eid,
+                                fid: first_etable_entry.inst.fid,
+                                iid: first_etable_entry.inst.iid,
+                                frame_id: first_etable_entry.last_jump_eid,
+                                sp: first_etable_entry.sp,
+                                initial_memory_pages: first_etable_entry.allocated_memory_pages,
+                                rest_jops: todo!(),
+                                is_very_first_step: false,
+                            }
+                        },
                         etable: EventTable::new(etable_slice),
                         jtable: table.execution_tables.jtable.clone(),
                     },

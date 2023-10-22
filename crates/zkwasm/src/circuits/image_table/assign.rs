@@ -37,11 +37,13 @@ impl<F: FieldExt> ImageTableChip<F> {
                     }};
                 }
 
+                // FIXME: should not constrain equal if continuation is enabled.
                 let entry_fid_cell = assign_one_line!(image_table.entry_fid);
                 ctx.region
                     .constrain_equal(permutation_cells.entry_fid, entry_fid_cell)?;
 
                 let initial_memory_pages_cell = assign_one_line!(image_table.initial_memory_pages);
+                // FIXME: should not constrain equal if continuation is enabled.
                 ctx.region.constrain_equal(
                     permutation_cells.initial_memory_pages,
                     initial_memory_pages_cell,
