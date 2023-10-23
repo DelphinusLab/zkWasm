@@ -14,6 +14,7 @@ strum = "0.24.1"
 strum_macros = "0.24.1"
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
+hex = "0.4.3"
 
 [features]
 default = []

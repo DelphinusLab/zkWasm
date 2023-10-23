@@ -1,14 +1,13 @@
 use crate::app_builder::write_context_output;
-use crate::args::parse_args;
 use anyhow::Result;
 use circuits_batcher::proof::CircuitInfo;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
-use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
-use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
+use delphinus_zkwasm::runtime::host::ContextOutput;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::host::Sequence;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::poly::commitment::ParamsVerifier;
@@ -21,14 +20,10 @@ use log::info;
 use notify::event::AccessMode;
 use notify::RecursiveMode;
 use notify::Watcher;
-use serde::Deserialize;
-use serde::Serialize;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::Mutex;
 use wasmi::RuntimeValue;
 
 pub fn exec_setup<Arg, Builder>(
@@ -114,25 +109,21 @@ where
     Ok(())
 }
 
-pub fn exec_dry_run_service(
+pub fn exec_dry_run_service<Arg, Builder>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     listen: &PathBuf,
-) -> Result<()> {
+) -> Result<()>
+where
+    Arg: ContextOutput + From<Sequence>,
+    Builder: HostEnvBuilder<Arg = Arg>,
+{
     use notify::event::AccessKind;
     use notify::event::EventKind;
     use notify::event::ModifyKind;
     use notify::event::RenameMode;
     use notify::Event;
-
-    #[derive(Serialize, Deserialize, Debug)]
-    struct Sequence {
-        private_inputs: Vec<String>,
-        public_inputs: Vec<String>,
-        context_input: Vec<String>,
-        context_output: Option<PathBuf>,
-    }
 
     info!("Dry-run service is running.");
     info!("{:?} is watched", listen);
@@ -158,38 +149,20 @@ pub fn exec_dry_run_service(
 
                         let json = fs::read_to_string(path).unwrap();
                         if let Ok(sequence) = serde_json::from_str::<Sequence>(&json) {
-                            debug!("{:?}", sequence);
+                            let arg: Arg = sequence.clone().into();
+                            let context_output_data = arg.get_context_outputs();
 
-                            let private_inputs = parse_args(
-                                sequence.private_inputs.iter().map(|s| s.as_str()).collect(),
-                            );
-                            let public_inputs = parse_args(
-                                sequence.public_inputs.iter().map(|s| s.as_str()).collect(),
-                            );
-                            let context_inputs = parse_args(
-                                sequence.context_input.iter().map(|s| s.as_str()).collect(),
-                            );
-                            let context_outputs = Arc::new(Mutex::new(vec![]));
-
-                            let loader =
-                                ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
-                                    zkwasm_k,
-                                    wasm_binary.clone(),
-                                    phantom_functions.clone(),
-                                )
-                                .unwrap();
-                            let r = loader
-                                .dry_run(ExecutionArg {
-                                    public_inputs,
-                                    private_inputs,
-                                    context_inputs,
-                                    context_outputs: context_outputs.clone(),
-                                })
-                                .unwrap();
+                            let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
+                                zkwasm_k,
+                                wasm_binary.clone(),
+                                phantom_functions.clone(),
+                            )
+                            .unwrap();
+                            let r = loader.dry_run(arg).unwrap();
                             println!("return value: {:?}", r);
 
                             write_context_output(
-                                &context_outputs.lock().unwrap().to_vec(),
+                                &context_output_data.lock().unwrap().to_vec(),
                                 sequence.context_output,
                             )
                             .unwrap();

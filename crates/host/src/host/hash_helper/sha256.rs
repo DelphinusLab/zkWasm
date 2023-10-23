@@ -85,7 +85,7 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
                 let hasher = context
                     .hasher
                     .as_mut()
-                    .map_or({ Some(Sha256::new()) }, |_| None);
+                    .map_or(Some(Sha256::new()), |_| None);
                 hasher.map(|s| {
                     context.hasher = Some(s);
                     context.size = args.nth::<u64>(0) as usize;

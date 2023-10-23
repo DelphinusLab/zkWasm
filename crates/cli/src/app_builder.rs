@@ -133,7 +133,12 @@ pub trait AppBuilder: CommandBuilder {
                         warn!("All context paths are ignored when dry-run is running in service mode.");
                     }
 
-                    exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
+                    exec_dry_run_service::<ExecutionArg, DefaultHostEnvBuilder>(
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        &listen,
+                    )
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 

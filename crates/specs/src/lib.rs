@@ -20,6 +20,7 @@ use serde::Serialize;
 #[macro_use]
 extern crate lazy_static;
 
+pub mod args;
 pub mod brtable;
 pub mod configure_table;
 pub mod encode;
