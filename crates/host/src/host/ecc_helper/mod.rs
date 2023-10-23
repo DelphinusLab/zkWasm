@@ -1,10 +1,10 @@
-pub mod bn254;
 pub mod bls381;
+pub mod bn254;
 pub mod jubjub;
 pub mod test;
 
-use num_bigint::BigUint;
 use halo2_proofs::arithmetic::BaseExt;
+use num_bigint::BigUint;
 
 pub fn bn_to_field<F: BaseExt>(bn: &BigUint) -> F {
     let mut bytes = bn.to_bytes_le();
@@ -18,5 +18,3 @@ pub fn field_to_bn<F: BaseExt>(f: &F) -> BigUint {
     f.write(&mut bytes).unwrap();
     BigUint::from_bytes_le(&bytes[..])
 }
-
-

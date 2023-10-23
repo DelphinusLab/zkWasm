@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::external_host_call_table::ExternalHostCallSignature;
 use crate::types::ValueType;

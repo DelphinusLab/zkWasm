@@ -123,7 +123,6 @@ pub trait ArgBuilder {
         ).value_parser(value_parser!(PathBuf))
     }
 
-
     fn proof_path_arg<'a>() -> Arg<'a> {
         arg!(
             -p --proof <PROOF_PATH> "Path of proof."

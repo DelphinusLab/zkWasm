@@ -10,9 +10,9 @@ use delphinus_zkwasm::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
-use zkwasm_host_circuits::host::db::TreeDB;
 use std::sync::Arc;
 use std::sync::Mutex;
+use zkwasm_host_circuits::host::db::TreeDB;
 
 pub struct ExecutionArg {
     /// Public inputs for `wasm_input(1)`
@@ -37,7 +37,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
-        register_context_foreign(&mut env, vec![],Arc::new(Mutex::new(vec![])));
+        register_context_foreign(&mut env, vec![], Arc::new(Mutex::new(vec![])));
         host::hash_helper::poseidon::register_poseidon_foreign(&mut env);
         host::merkle_helper::merkle::register_merkle_foreign(&mut env, None);
         host::ecc_helper::bn254::sum::register_bn254sum_foreign(&mut env);

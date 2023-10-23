@@ -6,9 +6,9 @@ use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
-use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
+use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::poly::commitment::ParamsVerifier;
@@ -24,12 +24,12 @@ use notify::Watcher;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use wasmi::RuntimeValue;
-use std::io::Write;
 
 pub fn exec_setup<Arg, Builder>(
     zkwasm_k: u32,
@@ -39,7 +39,10 @@ pub fn exec_setup<Arg, Builder>(
     phantom_functions: Vec<String>,
     _output_dir: &PathBuf,
     param_dir: &PathBuf,
-) -> Result<()> where Builder: HostEnvBuilder<Arg = Arg> {
+) -> Result<()>
+where
+    Builder: HostEnvBuilder<Arg = Arg>,
+{
     info!("Setup Params and VerifyingKey");
 
     macro_rules! prepare_params {
@@ -67,11 +70,8 @@ pub fn exec_setup<Arg, Builder>(
             info!("Found Verifying at {:?}", vk_path);
         } else {
             info!("Create Verifying to {:?}", vk_path);
-            let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
-                zkwasm_k,
-                wasm_binary,
-                phantom_functions,
-            )?;
+            let loader =
+                ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
             let vkey = loader.create_vkey(&params)?;
 
@@ -88,12 +88,12 @@ pub fn exec_image_checksum<Arg, Builder>(
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
-) -> Result<()> where Builder: HostEnvBuilder<Arg = Arg> {
-    let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
-        zkwasm_k,
-        wasm_binary,
-        phantom_functions,
-    )?;
+) -> Result<()>
+where
+    Builder: HostEnvBuilder<Arg = Arg>,
+{
+    let loader =
+        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
     let params = load_or_build_unsafe_params::<Bn256>(
         zkwasm_k,
@@ -222,38 +222,31 @@ pub fn exec_dry_run_service(
     }
 }
 
-pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg=Arg>>(
+pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
-    arg: Arg
+    arg: Arg,
 ) -> Result<()> {
-    let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
-        zkwasm_k,
-        wasm_binary,
-        phantom_functions,
-    )?;
+    let loader =
+        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
     loader.dry_run(arg)?;
 
     Ok(())
 }
 
-pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg=Arg>>(
+pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
     prefix: &'static str,
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
     param_dir: &PathBuf,
-    arg: Arg
+    arg: Arg,
 ) -> Result<()> {
-    let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
-        zkwasm_k,
-        wasm_binary,
-        phantom_functions,
-    )?;
-
+    let loader =
+        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
     let (circuit, instances, _) = loader.circuit_with_witness(arg)?;
 
@@ -263,12 +256,12 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg=Arg>>(
         info!("Mock test passed");
     }
 
-    let circuit: CircuitInfo<Bn256, TestCircuit<Fr>>  = CircuitInfo::new(
+    let circuit: CircuitInfo<Bn256, TestCircuit<Fr>> = CircuitInfo::new(
         circuit,
         prefix.to_string(),
         vec![instances],
         zkwasm_k as usize,
-        circuits_batcher::args::HashType::Poseidon
+        circuits_batcher::args::HashType::Poseidon,
     );
     circuit.proofloadinfo.save(output_dir);
     circuit.exec_create_proof(output_dir, param_dir, 0);
@@ -285,17 +278,21 @@ pub fn exec_verify_proof(
 ) -> Result<()> {
     let load_info = output_dir.join(format!("{}.loadinfo.json", prefix));
     let proofloadinfo = ProofLoadInfo::load(&load_info);
-    let proofs:Vec<ProofInfo<Bn256>> = ProofInfo::load_proof(&output_dir, &param_dir, &proofloadinfo);
+    let proofs: Vec<ProofInfo<Bn256>> =
+        ProofInfo::load_proof(&output_dir, &param_dir, &proofloadinfo);
     let params = load_or_build_unsafe_params::<Bn256>(
         proofloadinfo.k as u32,
         Some(&param_dir.join(format!("K{}.params", proofloadinfo.k))),
     );
     let mut public_inputs_size = 0;
     for proof in proofs.iter() {
-        public_inputs_size =
-            usize::max(public_inputs_size,
-                proof.instances.iter().fold(0, |acc, x| usize::max(acc, x.len()))
-            );
+        public_inputs_size = usize::max(
+            public_inputs_size,
+            proof
+                .instances
+                .iter()
+                .fold(0, |acc, x| usize::max(acc, x.len())),
+        );
     }
 
     let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
@@ -312,4 +309,3 @@ pub fn exec_verify_proof(
 
     Ok(())
 }
-

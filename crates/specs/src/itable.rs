@@ -16,7 +16,8 @@ use crate::mtable::MemoryReadSize;
 use crate::mtable::MemoryStoreSize;
 use crate::types::ValueType;
 use num_bigint::BigUint;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashSet;
 use strum_macros::EnumIter;
 

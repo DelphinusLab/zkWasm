@@ -1,5 +1,6 @@
 use super::itable::InstructionTableEntry;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct StaticFrameEntry {

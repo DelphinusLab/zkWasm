@@ -1,4 +1,5 @@
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 use super::itable::InstructionTableEntry;
 use crate::host_function::HostPlugin;

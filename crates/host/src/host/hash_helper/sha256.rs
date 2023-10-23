@@ -1,14 +1,12 @@
-use std::rc::Rc;
-use delphinus_zkwasm::runtime::host::{host_env::HostEnv, ForeignContext};
+use delphinus_zkwasm::runtime::host::host_env::HostEnv;
+use delphinus_zkwasm::runtime::host::ForeignContext;
 use sha2::Digest;
-use zkwasm_host_circuits::host::ForeignInst::{
-    SHA256New,
-    SHA256Push,
-    SHA256Finalize,
-};
+use std::rc::Rc;
+use zkwasm_host_circuits::host::ForeignInst::SHA256Finalize;
+use zkwasm_host_circuits::host::ForeignInst::SHA256New;
+use zkwasm_host_circuits::host::ForeignInst::SHA256Push;
 
 use sha2::Sha256;
-
 
 /// Foreign functions that supports the following C code library
 ///
@@ -49,7 +47,6 @@ impl Generator {
     }
 }
 
-
 struct Sha256Context {
     pub hasher: Option<Sha256>,
     pub generator: Generator,
@@ -69,14 +66,13 @@ impl Sha256Context {
     }
 }
 
-
 impl ForeignContext for Sha256Context {}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_sha256_foreign(env: &mut HostEnv) {
     let foreign_sha256_plugin = env
-            .external_env
-            .register_plugin("foreign_sh256", Box::new(Sha256Context::default()));
+        .external_env
+        .register_plugin("foreign_sh256", Box::new(Sha256Context::default()));
 
     env.external_env.register_function(
         "sha256_new",
@@ -86,11 +82,10 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
         Rc::new(
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
-                let hasher = context.hasher.as_mut().map_or({
-                    Some(Sha256::new())
-                }, |_| {
-                    None
-                });
+                let hasher = context
+                    .hasher
+                    .as_mut()
+                    .map_or({ Some(Sha256::new()) }, |_| None);
                 hasher.map(|s| {
                     context.hasher = Some(s);
                     context.size = args.nth::<u64>(0) as usize;
@@ -109,7 +104,7 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
                 context.hasher.as_mut().map(|s| {
-                    let sz =  if context.size > 8 {
+                    let sz = if context.size > 8 {
                         context.size -= 8;
                         8
                     } else {
@@ -126,7 +121,6 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
         ),
     );
 
-
     env.external_env.register_function(
         "sha256_finalize",
         SHA256Finalize as usize,
@@ -136,10 +130,11 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
                 context.hasher.as_ref().map(|s| {
-                    let dwords:Vec<u8> = s.clone().finalize()[..].to_vec();
-                    context.generator.values = dwords.chunks(8).map(|x| {
-                        u64::from_le_bytes(x.to_vec().try_into().unwrap())
-                    }).collect::<Vec<u64>>();
+                    let dwords: Vec<u8> = s.clone().finalize()[..].to_vec();
+                    context.generator.values = dwords
+                        .chunks(8)
+                        .map(|x| u64::from_le_bytes(x.to_vec().try_into().unwrap()))
+                        .collect::<Vec<u64>>();
                 });
                 context.hasher = None;
                 Some(wasmi::RuntimeValue::I64(context.generator.gen() as i64))

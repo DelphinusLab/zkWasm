@@ -2,7 +2,8 @@ use std::cmp::Ordering;
 
 use crate::mtable::LocationType;
 use crate::mtable::VarType;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InitMemoryTableEntry {

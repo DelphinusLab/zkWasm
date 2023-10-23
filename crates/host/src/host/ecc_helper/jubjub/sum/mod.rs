@@ -1,24 +1,28 @@
-use std::rc::Rc;
-use delphinus_zkwasm::runtime::host::{host_env::HostEnv, ForeignContext};
+use delphinus_zkwasm::runtime::host::host_env::HostEnv;
+use delphinus_zkwasm::runtime::host::ForeignContext;
 use num_bigint::BigUint;
+use std::rc::Rc;
 
-use zkwasm_host_circuits::host::ForeignInst::{
-    JubjubSumNew, JubjubSumPush, JubjubSumResult,
-};
+use zkwasm_host_circuits::host::ForeignInst::JubjubSumNew;
+use zkwasm_host_circuits::host::ForeignInst::JubjubSumPush;
+use zkwasm_host_circuits::host::ForeignInst::JubjubSumResult;
 
 use zkwasm_host_circuits::host::jubjub;
 
-use super::{
-    LIMBNB,
-    babyjubjub_fq_to_limbs,
-    fetch_g1,
-};
+use super::babyjubjub_fq_to_limbs;
+use super::fetch_g1;
+use super::LIMBNB;
 
 fn fetch_biguint(_limbs: &Vec<u64>) -> BigUint {
-    BigUint::from_bytes_le(_limbs.iter().map(|x| x.to_le_bytes()).flatten().collect::<Vec<_>>().as_slice())
+    BigUint::from_bytes_le(
+        _limbs
+            .iter()
+            .map(|x| x.to_le_bytes())
+            .flatten()
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
 }
-
-
 
 pub struct BabyJubjubSumContext {
     pub acc: jubjub::Point,
@@ -53,13 +57,13 @@ impl BabyJubjubSumContext {
     }
 
     pub fn babyjubjub_sum_push(&mut self, v: u64) {
-        if self.input_cursor < LIMBNB*2  {
+        if self.input_cursor < LIMBNB * 2 {
             self.limbs.push(v);
             self.input_cursor += 1;
-        } else if self.input_cursor < LIMBNB*2 + 4 {
+        } else if self.input_cursor < LIMBNB * 2 + 4 {
             self.coeffs.push(v);
             self.input_cursor += 1;
-            if self.input_cursor == LIMBNB*2 + 4 {
+            if self.input_cursor == LIMBNB * 2 + 4 {
                 self.input_cursor = 0;
             }
         }
@@ -69,17 +73,21 @@ impl BabyJubjubSumContext {
         let limbs = self.result_limbs.clone();
         match limbs {
             None => {
-                assert!(self.limbs.len() == LIMBNB*2);
+                assert!(self.limbs.len() == LIMBNB * 2);
                 let coeff = fetch_biguint(&self.coeffs.to_vec());
                 let g1 = fetch_g1(&self.limbs.to_vec());
                 log::debug!("acc is {:?}", self.acc);
                 log::debug!("g1 is {:?}", g1);
                 log::debug!("coeff is {:?} {}", coeff, self.coeffs.len());
-                self.acc = self.acc.projective().add(&g1.mul_scalar(&coeff).projective()).affine();
+                self.acc = self
+                    .acc
+                    .projective()
+                    .add(&g1.mul_scalar(&coeff).projective())
+                    .affine();
                 log::debug!("msm result: {:?}", self.acc);
                 self.babyjubjub_result_to_limbs(self.acc.clone());
-            },
-            _ => {()}
+            }
+            _ => (),
         };
         let ret = self.result_limbs.as_ref().unwrap()[self.result_cursor];
         self.result_cursor += 1;
@@ -93,7 +101,7 @@ impl BabyJubjubSumContext {
         let mut limbs = vec![];
         babyjubjub_fq_to_limbs(&mut limbs, g.x);
         babyjubjub_fq_to_limbs(&mut limbs, g.y);
-        self.result_limbs = Some (limbs);
+        self.result_limbs = Some(limbs);
     }
 }
 
@@ -101,9 +109,10 @@ impl ForeignContext for BabyJubjubSumContext {}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
-    let foreign_babyjubjubsum_plugin = env
-            .external_env
-            .register_plugin("foreign_babyjubjubsum", Box::new(BabyJubjubSumContext::default()));
+    let foreign_babyjubjubsum_plugin = env.external_env.register_plugin(
+        "foreign_babyjubjubsum",
+        Box::new(BabyJubjubSumContext::default()),
+    );
 
     env.external_env.register_function(
         "babyjubjub_sum_new",
@@ -142,8 +151,7 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
             |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BabyJubjubSumContext>().unwrap();
                 let ret = Some(wasmi::RuntimeValue::I64(
-                    context.babyjubjub_sum_finalize()
-                    as i64
+                    context.babyjubjub_sum_finalize() as i64
                 ));
                 ret
             },

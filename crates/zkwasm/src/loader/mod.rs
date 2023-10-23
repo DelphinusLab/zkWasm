@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
@@ -9,6 +8,7 @@ use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsVerifier;
+use std::marker::PhantomData;
 
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
@@ -43,19 +43,6 @@ mod err;
 
 const ENTRY: &str = "zkmain";
 
-/*
-pub struct ExecutionArg {
-    /// Public inputs for `wasm_input(1)`
-    pub public_inputs: Vec<u64>,
-    /// Private inputs for `wasm_input(0)`
-    pub private_inputs: Vec<u64>,
-    /// Context inputs for `wasm_read_context()`
-    pub context_inputs: Vec<u64>,
-    /// Context outputs for `wasm_write_context()`
-    pub context_outputs: Arc<Mutex<Vec<u64>>>,
-}
-*/
-
 pub struct ExecutionReturn {
     pub context_output: Vec<u64>,
 }
@@ -67,7 +54,6 @@ pub struct ZkWasmLoader<E: MultiMillerLoop, Arg, EnvBuilder: HostEnvBuilder<Arg 
     _data_arg: PhantomData<Arg>,
     _data_builder: PhantomData<EnvBuilder>,
     _data_e: PhantomData<E>,
-
 }
 
 impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
@@ -129,11 +115,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(builder.build_circuit::<E::Scalar>())
     }
 
-    pub fn new(
-        k: u32,
-        image: Vec<u8>,
-        phantom_functions: Vec<String>,
-    ) -> Result<Self> {
+    pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
         set_zkwasm_k(k);
 
         let module = wasmi::Module::from_buffer(&image)?;
@@ -196,7 +178,10 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(result)
     }
 
-    pub fn circuit_with_witness(&self, arg: T) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
+    pub fn circuit_with_witness(
+        &self,
+        arg: T,
+    ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
         let execution_result = self.run(arg, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs

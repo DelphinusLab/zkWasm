@@ -1,5 +1,6 @@
 use serde::ser::SerializeStruct;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::host_function::Signature;
 use crate::types::ValueType;

@@ -1,17 +1,17 @@
-use std::rc::Rc;
-use std::ops::Add;
-use delphinus_zkwasm::runtime::host::{host_env::HostEnv, ForeignContext};
+use delphinus_zkwasm::runtime::host::host_env::HostEnv;
+use delphinus_zkwasm::runtime::host::ForeignContext;
 use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::pairing::group::prime::PrimeCurveAffine;
-use zkwasm_host_circuits::host::ForeignInst::{
-    Bn254SumNew, Bn254SumScalar, Bn254SumG1, Bn254SumResult,
-};
+use std::ops::Add;
+use std::rc::Rc;
+use zkwasm_host_circuits::host::ForeignInst::Bn254SumG1;
+use zkwasm_host_circuits::host::ForeignInst::Bn254SumNew;
+use zkwasm_host_circuits::host::ForeignInst::Bn254SumResult;
+use zkwasm_host_circuits::host::ForeignInst::Bn254SumScalar;
 
-use super::{
-    bn254_fq_to_limbs,
-    fetch_g1,
-    fetch_fr,
-};
+use super::bn254_fq_to_limbs;
+use super::fetch_fr;
+use super::fetch_g1;
 
 struct BN254SumContext {
     pub acc: G1Affine,
@@ -21,13 +21,12 @@ struct BN254SumContext {
     pub result_cursor: usize,
 }
 
-
 impl BN254SumContext {
     fn bn254_result_to_limbs(&mut self, g: G1Affine) {
         let mut limbs = vec![];
         bn254_fq_to_limbs(&mut limbs, g.x);
         bn254_fq_to_limbs(&mut limbs, g.y);
-        self.result_limbs = Some (limbs);
+        self.result_limbs = Some(limbs);
         if g.is_identity().into() {
             self.result_limbs.as_mut().unwrap().append(&mut vec![1u64]);
         } else {
@@ -45,7 +44,6 @@ impl BN254SumContext {
         }
     }
 
-
     pub fn bn254_sum_new(&mut self, new: usize) {
         log::debug!("new bn254 sum context");
         self.result_limbs = None;
@@ -56,7 +54,6 @@ impl BN254SumContext {
             G1Affine::identity();
         }
     }
-
 
     fn bn254_sum_push_scalar(&mut self, v: u64) {
         log::debug!("push scalar {}", v);
@@ -81,8 +78,8 @@ impl ForeignContext for BN254SumContext {}
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_bn254sum_foreign(env: &mut HostEnv) {
     let foreign_bn254sum_plugin = env
-            .external_env
-            .register_plugin("foreign_bn254sum", Box::new(BN254SumContext::default()));
+        .external_env
+        .register_plugin("foreign_bn254sum", Box::new(BN254SumContext::default()));
 
     env.external_env.register_function(
         "bn254_sum_new",
@@ -97,7 +94,6 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
             },
         ),
     );
-
 
     env.external_env.register_function(
         "bn254_sum_scalar",
@@ -127,7 +123,6 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         ),
     );
 
-
     env.external_env.register_function(
         "bn254_sum_finalize",
         Bn254SumResult as usize,
@@ -148,10 +143,12 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
                         log::debug!("msm result: {:?}", g1result);
                         context.bn254_result_to_limbs(g1result);
                     },
-                    |_| {()}
+                    |_| (),
                 );
                 let limbs = context.result_limbs.clone().unwrap();
-                let ret = Some(wasmi::RuntimeValue::I64(limbs[context.result_cursor] as i64));
+                let ret = Some(wasmi::RuntimeValue::I64(
+                    limbs[context.result_cursor] as i64,
+                ));
                 context.result_cursor += 1;
                 ret
             },

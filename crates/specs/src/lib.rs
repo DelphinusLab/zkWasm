@@ -14,7 +14,8 @@ use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use mtable::MTable;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 #[macro_use]
 extern crate lazy_static;

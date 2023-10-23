@@ -94,8 +94,7 @@ pub trait AppBuilder: CommandBuilder {
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
         let phantom_functions = Self::parse_phantom_functions(&top_matches);
 
-        let param_dir =
-            load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("param"));
+        let param_dir = load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("param"));
 
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
@@ -111,9 +110,12 @@ pub trait AppBuilder: CommandBuilder {
                 &output_dir,
                 &param_dir,
             ),
-            Some(("checksum", _)) => {
-                exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
-            }
+            Some(("checksum", _)) => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
+                zkwasm_k,
+                wasm_binary,
+                phantom_functions,
+                &output_dir,
+            ),
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
@@ -131,12 +133,7 @@ pub trait AppBuilder: CommandBuilder {
                         warn!("All context paths are ignored when dry-run is running in service mode.");
                     }
 
-                    exec_dry_run_service(
-                        zkwasm_k,
-                        wasm_binary,
-                        phantom_functions,
-                        &listen
-                    )
+                    exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
@@ -150,8 +147,8 @@ pub trait AppBuilder: CommandBuilder {
                             public_inputs,
                             private_inputs,
                             context_inputs: context_in,
-                            context_outputs: Arc::new(Mutex::new(vec![]))
-                        }
+                            context_outputs: Arc::new(Mutex::new(vec![])),
+                        },
                     )?;
 
                     write_context_output(&context_output.lock().unwrap(), context_out_path)?;
@@ -182,20 +179,14 @@ pub trait AppBuilder: CommandBuilder {
                         private_inputs,
                         context_inputs: context_in,
                         context_outputs: context_out.clone(),
-                    }
+                    },
                 )?;
 
                 write_context_output(&context_out.lock().unwrap(), context_out_path)?;
 
                 Ok(())
             }
-            Some(("single-verify", _)) => {
-                exec_verify_proof(
-                    Self::NAME,
-                    &output_dir,
-                    &param_dir
-                )
-            }
+            Some(("single-verify", _)) => exec_verify_proof(Self::NAME, &output_dir, &param_dir),
             Some((_, _)) => todo!(),
             None => todo!(),
         }
