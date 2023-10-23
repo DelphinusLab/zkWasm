@@ -1,5 +1,5 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Result;
 use delphinus_zkwasm::loader::ZkWasmLoader;
@@ -11,7 +11,7 @@ fn main() -> Result<()> {
     let wasm = std::fs::read("wasm/context.wasm")?;
 
     let context_in: Vec<u64> = vec![2, 1];
-    let context_outputs = Rc::new(RefCell::new(vec![]));
+    let context_outputs = Arc::new(Mutex::new(vec![]));
 
     let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(18, wasm, vec![])?;
     let arg = ExecutionArg {
@@ -27,8 +27,8 @@ fn main() -> Result<()> {
     let arg = ExecutionArg {
         public_inputs: vec![],
         private_inputs: vec![],
-        context_inputs: context_outputs.borrow().to_vec(),
-        context_outputs: Rc::new(RefCell::new(vec![])),
+        context_inputs: context_outputs.lock().unwrap().to_vec(),
+        context_outputs: Arc::new(Mutex::new(vec![])),
     };
 
     let (circuit, instances) = loader.circuit_with_witness(arg)?;

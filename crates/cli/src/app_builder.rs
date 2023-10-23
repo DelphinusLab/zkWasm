@@ -6,11 +6,11 @@ use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use log::info;
 use log::warn;
-use std::cell::RefCell;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::exec::exec_dry_run;
 
@@ -140,7 +140,7 @@ pub trait AppBuilder: CommandBuilder {
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
-                    let context_output = Rc::new(RefCell::new(vec![]));
+                    let context_output = Arc::new(Mutex::new(vec![]));
 
                     exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
                         zkwasm_k,
@@ -150,11 +150,11 @@ pub trait AppBuilder: CommandBuilder {
                             public_inputs,
                             private_inputs,
                             context_inputs: context_in,
-                            context_outputs: Rc::new(RefCell::new(vec![])),
+                            context_outputs: Arc::new(Mutex::new(vec![]))
                         }
                     )?;
 
-                    write_context_output(&context_output.borrow(), context_out_path)?;
+                    write_context_output(&context_output.lock().unwrap(), context_out_path)?;
 
                     Ok(())
                 }
@@ -166,7 +166,7 @@ pub trait AppBuilder: CommandBuilder {
                 let context_out_path: Option<PathBuf> =
                     Self::parse_context_out_path_arg(&sub_matches);
 
-                let context_out = Rc::new(RefCell::new(vec![]));
+                let context_out = Arc::new(Mutex::new(vec![]));
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
@@ -185,7 +185,7 @@ pub trait AppBuilder: CommandBuilder {
                     }
                 )?;
 
-                write_context_output(&context_out.borrow(), context_out_path)?;
+                write_context_output(&context_out.lock().unwrap(), context_out_path)?;
 
                 Ok(())
             }

@@ -23,11 +23,11 @@ use notify::RecursiveMode;
 use notify::Watcher;
 use serde::Deserialize;
 use serde::Serialize;
-use std::cell::RefCell;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 use wasmi::RuntimeValue;
 use std::io::Write;
 
@@ -169,7 +169,7 @@ pub fn exec_dry_run_service(
                             let context_inputs = parse_args(
                                 sequence.context_input.iter().map(|s| s.as_str()).collect(),
                             );
-                            let context_outputs = Rc::new(RefCell::new(vec![]));
+                            let context_outputs = Arc::new(Mutex::new(vec![]));
 
                             let loader =
                                 ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
@@ -189,7 +189,7 @@ pub fn exec_dry_run_service(
                             println!("return value: {:?}", r);
 
                             write_context_output(
-                                &context_outputs.borrow().to_vec(),
+                                &context_outputs.lock().unwrap().to_vec(),
                                 sequence.context_output,
                             )
                             .unwrap();
@@ -312,3 +312,4 @@ pub fn exec_verify_proof(
 
     Ok(())
 }
+

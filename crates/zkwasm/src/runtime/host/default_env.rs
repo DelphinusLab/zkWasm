@@ -1,5 +1,5 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Mutex;
+use std::sync::Arc;
 
 use crate::foreign::context::runtime::register_context_foreign;
 use crate::foreign::log_helper::register_log_foreign;
@@ -18,7 +18,7 @@ pub struct ExecutionArg {
     /// Context inputs for `wasm_read_context()`
     pub context_inputs: Vec<u64>,
     /// Context outputs for `wasm_write_context()`
-    pub context_outputs: Rc<RefCell<Vec<u64>>>,
+    pub context_outputs: Arc<Mutex<Vec<u64>>>,
 }
 
 pub struct DefaultHostEnvBuilder;
@@ -31,7 +31,7 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
-        register_context_foreign(&mut env, vec![], Rc::new(RefCell::new(vec![])));
+        register_context_foreign(&mut env, vec![], Arc::new(Mutex::new(vec![])));
         env.finalize();
 
         (env, wasm_runtime_io)

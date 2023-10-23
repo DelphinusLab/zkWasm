@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
@@ -43,6 +42,19 @@ use anyhow::anyhow;
 mod err;
 
 const ENTRY: &str = "zkmain";
+
+/*
+pub struct ExecutionArg {
+    /// Public inputs for `wasm_input(1)`
+    pub public_inputs: Vec<u64>,
+    /// Private inputs for `wasm_input(0)`
+    pub private_inputs: Vec<u64>,
+    /// Context inputs for `wasm_read_context()`
+    pub context_inputs: Vec<u64>,
+    /// Context outputs for `wasm_write_context()`
+    pub context_outputs: Arc<Mutex<Vec<u64>>>,
+}
+*/
 
 pub struct ExecutionReturn {
     pub context_output: Vec<u64>,

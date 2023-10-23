@@ -1,5 +1,6 @@
-use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use specs::host_function::HostPlugin;
 use specs::host_function::Signature;
@@ -11,13 +12,13 @@ use crate::runtime::host::ForeignContext;
 
 use super::Op;
 
-pub struct Context {
-    pub inputs: Vec<u64>,
-    pub outputs: Rc<RefCell<Vec<u64>>>,
+struct Context {
+    inputs: Vec<u64>,
+    outputs: Arc<Mutex<Vec<u64>>>,
 }
 
 impl Context {
-    pub fn new(context_input: Vec<u64>, context_output: Rc<RefCell<Vec<u64>>>) -> Self {
+    fn new(context_input: Vec<u64>, context_output: Arc<Mutex<Vec<u64>>>) -> Self {
         let mut inputs = context_input.clone();
         inputs.reverse();
 
@@ -28,7 +29,7 @@ impl Context {
     }
 
     pub fn write_context(&mut self, value: u64) {
-        self.outputs.borrow_mut().push(value)
+        self.outputs.lock().unwrap().push(value)
     }
 
     pub fn read_context(&mut self) -> u64 {
@@ -43,7 +44,7 @@ impl ForeignContext for Context {}
 pub fn register_context_foreign(
     env: &mut HostEnv,
     context_input: Vec<u64>,
-    context_output: Rc<RefCell<Vec<u64>>>,
+    context_output: Arc<Mutex<Vec<u64>>>,
 ) {
     env.internal_env.register_plugin(
         HostPlugin::Context,

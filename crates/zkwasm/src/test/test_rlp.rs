@@ -1,5 +1,5 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::circuits::TestCircuit;
 use crate::loader::ZkWasmLoader;
@@ -160,7 +160,7 @@ fn build_circuit() -> Result<(
         public_inputs,
         private_inputs,
         context_inputs: vec![],
-        context_outputs: Rc::new(RefCell::new(vec![])),
+        context_outputs: Arc::new(Mutex::new(vec![])),
     })?;
 
     Ok((loader, circuit, instances))
