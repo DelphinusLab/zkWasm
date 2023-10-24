@@ -21,7 +21,7 @@ fn main() -> Result<()> {
         context_outputs: context_outputs.clone(),
     };
 
-    let (circuit, instances) = loader.circuit_with_witness(arg)?;
+    let (circuit, instances, _) = loader.circuit_with_witness(arg)?;
     loader.mock_test(&circuit, &instances)?;
 
     let arg = ExecutionArg {
@@ -31,7 +31,7 @@ fn main() -> Result<()> {
         context_outputs: Arc::new(Mutex::new(vec![])),
     };
 
-    let (circuit, instances) = loader.circuit_with_witness(arg)?;
+    let (circuit, instances, _) = loader.circuit_with_witness(arg)?;
     loader.mock_test(&circuit, &instances)?;
 
     Ok(())

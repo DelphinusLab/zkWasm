@@ -12,7 +12,7 @@ fn main() -> Result<()> {
 
     let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(18, wasm, vec![])?;
 
-    let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
+    let (circuit, instances, _) = loader.circuit_with_witness(ExecutionArg {
         public_inputs: vec![5],
         private_inputs: vec![],
         context_inputs: vec![],

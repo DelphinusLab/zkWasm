@@ -13,11 +13,10 @@ fn main() -> Result<()> {
     let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(
         18,
         wasm,
-        vec!["search"].into_iter().map(|s| s.to_owned()).collect(),
-        None,
+        vec!["search".to_owned()],
     )?;
 
-    let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
+    let (circuit, instances, _) = loader.circuit_with_witness(ExecutionArg {
         public_inputs: vec![2],
         private_inputs: vec![],
         context_inputs: vec![],

@@ -99,6 +99,7 @@ pub trait AppBuilder: CommandBuilder {
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
         fs::create_dir_all(&output_dir)?;
+        fs::create_dir_all(&param_dir)?;
 
         match top_matches.subcommand() {
             Some(("setup", _)) => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
