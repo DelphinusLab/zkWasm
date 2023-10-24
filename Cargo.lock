@@ -313,7 +313,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#7b486f9eef386c6262fe0d812cb62cc031c0c753"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#4744fc16a9e14491a1e07230f895aec3c5fd1fda"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -1037,7 +1037,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#3d92486eac82722f0519c6f25387e5019abaa8ce"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#9ac108049b488df640eecdd5eb18751062442898"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -1065,7 +1065,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#ce9772bfdd8c263ddbfd955f81d1f8351f41d5d2"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#4fc143e5a10a77cb24f31c0b792ec9a01d1bfd34"
 dependencies = [
  "ark-std",
  "blake2b_simd",
