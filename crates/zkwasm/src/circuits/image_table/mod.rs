@@ -1,13 +1,11 @@
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::plonk::Advice;
-use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::TableColumn;
 use num_bigint::BigUint;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::encode::image_table::ImageTableEncoder;
 use specs::imtable::InitMemoryTable;
 use specs::itable::InstructionTable;
-use specs::jtable::StaticFrameEntry;
 use specs::mtable::LocationType;
 use specs::CompilationTable;
 use std::marker::PhantomData;
@@ -21,10 +19,6 @@ mod configure;
 pub const IMAGE_COL_NAME: &str = "img_col";
 
 pub struct ImageTableLayouter<T: Clone> {
-    pub entry_fid: T,
-    pub initial_memory_pages: T,
-    pub maximal_memory_pages: T,
-    pub static_frame_entries: Vec<(T, T)>,
     /*
      * include:
      *   instruction table
@@ -37,24 +31,7 @@ pub struct ImageTableLayouter<T: Clone> {
 
 impl<T: Clone> ImageTableLayouter<T> {
     pub fn plain(&self) -> Vec<T> {
-        let mut buf = vec![];
-
-        buf.push(self.entry_fid.clone());
-        buf.push(self.initial_memory_pages.clone());
-        buf.push(self.maximal_memory_pages.clone());
-        buf.append(
-            &mut self
-                .static_frame_entries
-                .clone()
-                .to_vec()
-                .into_iter()
-                .map(|(enable, fid)| vec![enable, fid])
-                .collect::<Vec<Vec<_>>>()
-                .concat(),
-        );
-        buf.append(&mut self.lookup_entries.clone().unwrap());
-
-        buf
+        self.lookup_entries.clone().unwrap()
     }
 }
 
@@ -136,51 +113,6 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             cells
         }
 
-        fn msg_of_static_frame_table<F: FieldExt>(
-            static_frame_table: &Vec<StaticFrameEntry>,
-        ) -> Vec<(F, F)> {
-            let mut cells = static_frame_table
-                .into_iter()
-                .map(|entry| (F::one(), bn_to_field(&entry.encode())))
-                .collect::<Vec<_>>();
-
-            cells.resize(
-                2,
-                (
-                    F::zero(),
-                    bn_to_field(
-                        &StaticFrameEntry {
-                            enable: false,
-                            frame_id: 0,
-                            next_frame_id: 0,
-                            callee_fid: 0,
-                            fid: 0,
-                            iid: 0,
-                        }
-                        .encode(),
-                    ),
-                ),
-            );
-
-            cells
-        }
-
-        fn msg_of_memory_pages<F: FieldExt>(
-            init_memory_pages: u32,
-            maximal_memory_pages: u32,
-        ) -> (F, F) {
-            (
-                F::from(init_memory_pages as u64),
-                F::from(maximal_memory_pages as u64),
-            )
-        }
-
-        let entry_fid = F::from(self.fid_of_entry as u64);
-        let static_frame_entries = msg_of_static_frame_table(&self.static_jtable);
-        let (initial_memory_pages, maximal_memory_pages) = msg_of_memory_pages(
-            self.configure_table.init_memory_pages,
-            self.configure_table.maximal_memory_pages,
-        );
         let lookup_entries = msg_of_image_table(
             &self.itable,
             &self.itable.create_brtable(),
@@ -189,10 +121,6 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
         );
 
         ImageTableLayouter {
-            entry_fid,
-            static_frame_entries,
-            initial_memory_pages,
-            maximal_memory_pages,
             lookup_entries: Some(lookup_entries),
         }
     }
@@ -200,7 +128,7 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
 
 #[derive(Clone)]
 pub struct ImageTableConfig<F: FieldExt> {
-    col: Column<Advice>,
+    col: TableColumn,
     _mark: PhantomData<F>,
 }
 

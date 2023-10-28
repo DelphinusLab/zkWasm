@@ -10,12 +10,6 @@ pub trait CommandBuilder: ArgBuilder {
         app.subcommand(command)
     }
 
-    fn append_image_checksum_subcommand(app: App) -> App {
-        let command = Command::new("checksum");
-
-        app.subcommand(command)
-    }
-
     fn append_dry_run_subcommand(app: App) -> App {
         let command = Command::new("dry-run")
             .arg(Self::single_public_arg())

@@ -29,7 +29,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use wasmi::RuntimeValue;
-use std::io::Write;
 
 //const AGGREGATE_PREFIX: &'static str = "aggregate-circuit";
 
@@ -78,33 +77,6 @@ pub fn exec_setup(
             vkey.write(&mut fd)?;
         }
     }
-
-    Ok(())
-}
-
-pub fn exec_image_checksum(
-    zkwasm_k: u32,
-    wasm_binary: Vec<u8>,
-    phantom_functions: Vec<String>,
-    output_dir: &PathBuf,
-) -> Result<()> {
-    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions, None)?;
-
-    let params = load_or_build_unsafe_params::<Bn256>(
-        zkwasm_k,
-        Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
-    );
-
-    let checksum = loader.checksum(&params)?;
-    assert_eq!(checksum.len(), 1);
-    let checksum = checksum[0];
-
-    println!("image checksum: {:?}", checksum);
-
-    let mut fd =
-        std::fs::File::create(&output_dir.join(format!("checksum.data",)).as_path()).unwrap();
-
-    write!(fd, "{:?}", checksum)?;
 
     Ok(())
 }
@@ -268,12 +240,12 @@ pub fn exec_create_proof(
         info!("Mock test passed");
     }
 
-    let circuit: CircuitInfo<Bn256, TestCircuit<Fr>>  = CircuitInfo::new(
+    let circuit: CircuitInfo<Bn256, TestCircuit<Fr>> = CircuitInfo::new(
         circuit,
         prefix.to_string(),
         vec![instances],
         zkwasm_k as usize,
-        circuits_batcher::args::HashType::Poseidon
+        circuits_batcher::args::HashType::Poseidon,
     );
     circuit.proofloadinfo.save(output_dir);
     circuit.exec_create_proof(
@@ -281,7 +253,7 @@ pub fn exec_create_proof(
         param_dir,
         PKEY_CACHE.lock().as_mut().unwrap(),
         0,
-        K_PARAMS_CACHE.lock().as_mut().unwrap()
+        K_PARAMS_CACHE.lock().as_mut().unwrap(),
     );
 
     info!("Proof has been created.");
@@ -296,17 +268,21 @@ pub fn exec_verify_proof(
 ) -> Result<()> {
     let load_info = output_dir.join(format!("{}.loadinfo.json", prefix));
     let proofloadinfo = ProofLoadInfo::load(&load_info);
-    let proofs:Vec<ProofInfo<Bn256>> = ProofInfo::load_proof(&output_dir, &param_dir, &proofloadinfo);
+    let proofs: Vec<ProofInfo<Bn256>> =
+        ProofInfo::load_proof(&output_dir, &param_dir, &proofloadinfo);
     let params = load_or_build_unsafe_params::<Bn256>(
         proofloadinfo.k as u32,
         Some(&param_dir.join(format!("K{}.params", proofloadinfo.k))),
     );
     let mut public_inputs_size = 0;
     for proof in proofs.iter() {
-        public_inputs_size =
-            usize::max(public_inputs_size,
-                proof.instances.iter().fold(0, |acc, x| usize::max(acc, x.len()))
-            );
+        public_inputs_size = usize::max(
+            public_inputs_size,
+            proof
+                .instances
+                .iter()
+                .fold(0, |acc, x| usize::max(acc, x.len())),
+        );
     }
 
     let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();

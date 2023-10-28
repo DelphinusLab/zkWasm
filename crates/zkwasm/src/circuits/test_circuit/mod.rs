@@ -22,7 +22,6 @@ use crate::circuits::external_host_call_table::ExternalHostCallChip;
 use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
 use crate::circuits::image_table::EncodeCompilationTableValues;
 use crate::circuits::image_table::ImageTableChip;
-use crate::circuits::image_table::ImageTableLayouter;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
@@ -195,75 +194,66 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        let (entry_fid, static_frame_entries, initial_memory_pages, maximal_memory_pages) =
-            layouter.assign_region(
-                || "jtable mtable etable",
-                |region| {
-                    let mut ctx = Context::new(region);
+        layouter.assign_region(
+            || "jtable mtable etable",
+            |region| {
+                let mut ctx = Context::new(region);
 
-                    let memory_writing_table: MemoryWritingTable =
-                        self.tables.execution_tables.mtable.clone().into();
+                let memory_writing_table: MemoryWritingTable =
+                    self.tables.execution_tables.mtable.clone().into();
 
-                    let etable = exec_with_profile!(
-                        || "Prepare memory info for etable",
-                        EventTableWithMemoryInfo::new(
-                            &self.tables.execution_tables.etable,
-                            &memory_writing_table,
-                        )
-                    );
+                let etable = exec_with_profile!(
+                    || "Prepare memory info for etable",
+                    EventTableWithMemoryInfo::new(
+                        &self.tables.execution_tables.etable,
+                        &memory_writing_table,
+                    )
+                );
 
-                    let etable_permutation_cells = exec_with_profile!(
-                        || "Assign etable",
-                        echip.assign(
+                let etable_permutation_cells = exec_with_profile!(
+                    || "Assign etable",
+                    echip.assign(
+                        &mut ctx,
+                        &etable,
+                        &self.tables.compilation_tables.configure_table,
+                        self.tables.compilation_tables.fid_of_entry,
+                    )?
+                );
+
+                {
+                    ctx.reset();
+                    exec_with_profile!(
+                        || "Assign mtable",
+                        mchip.assign(
                             &mut ctx,
-                            &etable,
-                            &self.tables.compilation_tables.configure_table,
-                            self.tables.compilation_tables.fid_of_entry,
+                            etable_permutation_cells.rest_mops,
+                            &memory_writing_table,
+                            &self.tables.compilation_tables.imtable
                         )?
                     );
+                }
 
-                    {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign mtable",
-                            mchip.assign(
-                                &mut ctx,
-                                etable_permutation_cells.rest_mops,
-                                &memory_writing_table,
-                                &self.tables.compilation_tables.imtable
-                            )?
-                        );
-                    }
+                {
+                    ctx.reset();
+                    exec_with_profile!(
+                        || "Assign frame table",
+                        jchip.assign(
+                            &mut ctx,
+                            &self.tables.execution_tables.jtable,
+                            etable_permutation_cells.rest_jops,
+                            &self.tables.compilation_tables.static_jtable,
+                        )?
+                    )
+                };
 
-                    let jtable_info = {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign frame table",
-                            jchip.assign(
-                                &mut ctx,
-                                &self.tables.execution_tables.jtable,
-                                etable_permutation_cells.rest_jops,
-                                &self.tables.compilation_tables.static_jtable,
-                            )?
-                        )
-                    };
+                {
+                    ctx.reset();
+                    exec_with_profile!(|| "Assign bit table", bit_chip.assign(&mut ctx, &etable)?);
+                }
 
-                    {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign bit table",
-                            bit_chip.assign(&mut ctx, &etable)?
-                        );
-                    }
-
-                    Ok((
-                        etable_permutation_cells.fid_of_entry,
-                        jtable_info,
-                        etable_permutation_cells.initial_memory_pages,
-                        etable_permutation_cells.maximal_memory_pages,
-                    ))
-                },
-            )?;
+                Ok(())
+            },
+        )?;
 
         exec_with_profile!(
             || "Assign context cont chip",
@@ -281,13 +271,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 self.tables
                     .compilation_tables
                     .encode_compilation_table_values(),
-                ImageTableLayouter {
-                    entry_fid,
-                    static_frame_entries,
-                    initial_memory_pages,
-                    maximal_memory_pages,
-                    lookup_entries: None
-                }
             )?
         );
 

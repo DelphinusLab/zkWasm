@@ -22,9 +22,6 @@ use crate::circuits::utils::Context;
 pub(in crate::circuits) struct EventTablePermutationCells {
     pub(in crate::circuits) rest_mops: Option<Cell>,
     pub(in crate::circuits) rest_jops: Option<Cell>,
-    pub(in crate::circuits) fid_of_entry: Cell,
-    pub(in crate::circuits) initial_memory_pages: Cell,
-    pub(in crate::circuits) maximal_memory_pages: Cell,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
@@ -119,7 +116,7 @@ impl<F: FieldExt> EventTableChip<F> {
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
         rest_ops: Vec<(u32, u32)>,
-    ) -> Result<(Cell, Cell, Cell), Error> {
+    ) -> Result<(), Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.common_config.$cell.assign(ctx, $value)?
@@ -155,18 +152,18 @@ impl<F: FieldExt> EventTableChip<F> {
             external_host_call_index_cell,
             F::from(external_host_call_call_index as u64)
         );
-        let initial_memory_pages_cell = assign_advice!(
+        assign_constant!(
             mpages_cell,
             F::from(configure_table.init_memory_pages as u64)
         );
-        let maximal_memory_pages_cell = assign_advice!(
+        assign_constant!(
             maximal_memory_pages_cell,
             F::from(configure_table.maximal_memory_pages as u64)
         );
         assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
         assign_constant!(frame_id_cell, F::zero());
         assign_constant!(eid_cell, F::one());
-        let fid_of_entry_cell = assign_advice!(fid_cell, F::from(fid_of_entry as u64));
+        assign_constant!(fid_cell, F::from(fid_of_entry as u64));
         assign_constant!(iid_cell, F::zero());
 
         /*
@@ -175,11 +172,7 @@ impl<F: FieldExt> EventTableChip<F> {
         {
             let assigned_cell = assign_advice!(enabled_cell, F::zero());
             if assigned_cell.value().is_none() {
-                return Ok((
-                    fid_of_entry_cell.cell(),
-                    initial_memory_pages_cell.cell(),
-                    maximal_memory_pages_cell.cell(),
-                ));
+                return Ok(());
             }
         }
 
@@ -187,11 +180,7 @@ impl<F: FieldExt> EventTableChip<F> {
          * The length of event_table equals 0: without_witness
          */
         if event_table.0.len() == 0 {
-            return Ok((
-                fid_of_entry_cell.cell(),
-                initial_memory_pages_cell.cell(),
-                maximal_memory_pages_cell.cell(),
-            ));
+            return Ok(());
         }
 
         let status = {
@@ -320,11 +309,7 @@ impl<F: FieldExt> EventTableChip<F> {
             F::from(external_host_call_call_index as u64)
         );
 
-        Ok((
-            fid_of_entry_cell.cell(),
-            initial_memory_pages_cell.cell(),
-            maximal_memory_pages_cell.cell(),
-        ))
+        Ok(())
     }
 
     pub(in crate::circuits) fn assign(
@@ -349,7 +334,7 @@ impl<F: FieldExt> EventTableChip<F> {
         )?;
         ctx.reset();
 
-        let (fid_of_entry, initial_memory_pages, maximal_memory_pages) = self.assign_entries(
+        self.assign_entries(
             ctx,
             &self.config.op_configs,
             event_table,
@@ -362,9 +347,6 @@ impl<F: FieldExt> EventTableChip<F> {
         Ok(EventTablePermutationCells {
             rest_mops: Some(rest_mops_cell),
             rest_jops: Some(rest_jops_cell),
-            fid_of_entry,
-            initial_memory_pages,
-            maximal_memory_pages,
         })
     }
 }

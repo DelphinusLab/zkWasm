@@ -95,11 +95,11 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             let enable_cell = ctx
                 .region
-                .assign_advice(
+                .assign_advice_from_constant(
                     || "jtable enable",
                     self.config.data,
                     ctx.offset,
-                    || Ok(F::from(entry.enable as u64)),
+                    F::from(entry.enable as u64),
                 )?
                 .cell();
             ctx.next();
@@ -114,11 +114,11 @@ impl<F: FieldExt> JumpTableChip<F> {
 
             let entry_cell = ctx
                 .region
-                .assign_advice(
+                .assign_advice_from_constant(
                     || "jtable entry",
                     self.config.data,
                     ctx.offset,
-                    || Ok(bn_to_field(&entry.encode())),
+                    bn_to_field(&entry.encode()),
                 )?
                 .cell();
             ctx.next();

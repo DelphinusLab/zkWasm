@@ -15,7 +15,6 @@ use crate::exec::exec_dry_run;
 use super::command::CommandBuilder;
 use super::exec::exec_create_proof;
 use super::exec::exec_dry_run_service;
-use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_verify_proof;
 
@@ -71,7 +70,6 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_dry_run_subcommand(app);
         let app = Self::append_create_single_proof_subcommand(app);
         let app = Self::append_verify_single_proof_subcommand(app);
-        let app = Self::append_image_checksum_subcommand(app);
 
         app
     }
@@ -92,8 +90,7 @@ pub trait AppBuilder: CommandBuilder {
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
         let phantom_functions = Self::parse_phantom_functions(&top_matches);
 
-        let param_dir =
-            load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("param"));
+        let param_dir = load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("param"));
 
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
@@ -109,9 +106,6 @@ pub trait AppBuilder: CommandBuilder {
                 &output_dir,
                 &param_dir,
             ),
-            Some(("checksum", _)) => {
-                exec_image_checksum(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
-            }
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
@@ -182,11 +176,7 @@ pub trait AppBuilder: CommandBuilder {
                 let _proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
                 let _instance_path: PathBuf = Self::parse_single_instance_arg(&sub_matches);
 
-                exec_verify_proof(
-                    Self::NAME,
-                    &output_dir,
-                    &param_dir
-                )
+                exec_verify_proof(Self::NAME, &output_dir, &param_dir)
             }
             Some((_, _)) => todo!(),
             None => todo!(),

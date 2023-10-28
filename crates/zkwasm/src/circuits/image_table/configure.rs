@@ -7,15 +7,11 @@ use halo2_proofs::plonk::VirtualCells;
 use specs::encode::image_table::ImageTableEncoder;
 
 use super::ImageTableConfig;
-use super::IMAGE_COL_NAME;
-use crate::curr;
 
 impl<F: FieldExt> ImageTableConfig<F> {
     pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
-        let col = meta.named_advice_column(IMAGE_COL_NAME.to_owned());
-        meta.enable_equality(col);
         Self {
-            col,
+            col: meta.lookup_table_column(),
             _mark: PhantomData,
         }
     }
@@ -26,11 +22,8 @@ impl<F: FieldExt> ImageTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup_any(key, |meta| {
-            vec![(
-                ImageTableEncoder::Instruction.encode(expr(meta)),
-                curr!(meta, self.col),
-            )]
+        meta.lookup(key, |meta| {
+            vec![(ImageTableEncoder::Instruction.encode(expr(meta)), self.col)]
         });
     }
 
@@ -40,11 +33,8 @@ impl<F: FieldExt> ImageTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup_any(key, |meta| {
-            vec![(
-                ImageTableEncoder::InitMemory.encode(expr(meta)),
-                curr!(meta, self.col),
-            )]
+        meta.lookup(key, |meta| {
+            vec![(ImageTableEncoder::InitMemory.encode(expr(meta)), self.col)]
         });
     }
 
@@ -54,11 +44,8 @@ impl<F: FieldExt> ImageTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
-        meta.lookup_any(key, |meta| {
-            vec![(
-                ImageTableEncoder::BrTable.encode(expr(meta)),
-                curr!(meta, self.col),
-            )]
+        meta.lookup(key, |meta| {
+            vec![(ImageTableEncoder::BrTable.encode(expr(meta)), self.col)]
         });
     }
 }

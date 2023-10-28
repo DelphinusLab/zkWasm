@@ -3,7 +3,6 @@
 #![deny(unused_imports)]
 #![feature(thread_local)]
 
-pub mod checksum;
 pub mod circuits;
 pub mod foreign;
 pub mod loader;

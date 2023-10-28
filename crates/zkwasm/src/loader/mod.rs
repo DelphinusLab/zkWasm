@@ -5,7 +5,6 @@ use std::rc::Rc;
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::plonk::get_advice_commitments_from_transcript;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::verify_proof;
 use halo2_proofs::plonk::SingleVerifier;
@@ -24,11 +23,8 @@ use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
 use wasmi::RuntimeValue;
 
-use crate::checksum::CompilationTableWithParams;
-use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
-use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::loader::err::Error;
@@ -163,24 +159,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
-
-    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![],
-            vec![],
-            Rc::new(RefCell::new(vec![])),
-            None,
-        );
-        let compiled = self.compile(&env)?;
-
-        let table_with_params = CompilationTableWithParams {
-            table: &compiled.tables,
-            params,
-        };
-
-        Ok(table_with_params.checksum())
-    }
 }
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
@@ -301,25 +279,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             &mut PoseidonRead::init(&proof[..]),
         )
         .unwrap();
-
-        {
-            let img_col_idx = vkey
-                .cs
-                .named_advices
-                .iter()
-                .find(|(k, _)| k == IMAGE_COL_NAME)
-                .unwrap()
-                .1;
-            let img_col_commitment: Vec<E::G1Affine> =
-                get_advice_commitments_from_transcript::<E, _, _>(
-                    &vkey,
-                    &mut PoseidonRead::init(&proof[..]),
-                )
-                .unwrap();
-            let checksum = self.checksum(params)?;
-
-            assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
-        }
 
         Ok(())
     }
