@@ -26,6 +26,10 @@ Make sure the following packages are installed.
 ```
 clang lld
 ```
+## Install Instructions
+```
+git clone --recurse-submodules
+```
 
 ## Setup input:
 wasm code
