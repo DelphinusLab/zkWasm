@@ -72,17 +72,6 @@ impl Execution<RuntimeValue>
             let tracer = self.tracer.borrow();
 
             ExecutionTable {
-                initialization_state: InitializationState {
-                    eid: 1,
-                    fid: self.tables.fid_of_entry,
-                    iid: 0,
-                    frame_id: 0,
-                    sp: DEFAULT_VALUE_STACK_LIMIT as u32 - 1,
-                    initial_memory_pages: self.tables.configure_table.init_memory_pages,
-                    rest_jops: tracer.jtable.entries().len() as u32 * 2
-                        + self.tables.static_jtable.len() as u32,
-                    is_very_first_step: true,
-                },
                 etable: tracer.etable.clone(),
                 jtable: tracer.jtable.clone(),
             }
@@ -172,7 +161,24 @@ impl WasmiRuntime {
                 elem_table,
                 configure_table,
                 static_jtable,
-                fid_of_entry,
+                pre_initialization_state: InitializationState {
+                    eid: 1,
+                    fid: fid_of_entry,
+                    iid: 0,
+                    frame_id: 0,
+                    sp: DEFAULT_VALUE_STACK_LIMIT as u32 - 1,
+
+                    host_public_inputs: 1,
+                    context_in_index: 1,
+                    context_out_index: 1,
+                    external_host_call_call_index: 1,
+
+                    initial_memory_pages: configure_table.init_memory_pages,
+                    maximal_memory_pages: configure_table.maximal_memory_pages,
+
+                    #[cfg(feature = "continuation")]
+                    jops: 0,
+                },
             },
             instance,
             tracer,

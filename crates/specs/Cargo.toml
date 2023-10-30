@@ -19,3 +19,4 @@ rayon.workspace = true
 [features]
 default = []
 cuda = ["halo2_proofs/cuda"]
+continuation = []

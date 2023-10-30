@@ -20,7 +20,6 @@ pub mod config;
 pub mod image_table;
 pub mod jtable;
 pub mod rtable;
-pub mod state_table;
 pub mod test_circuit;
 pub mod utils;
 

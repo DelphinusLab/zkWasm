@@ -46,13 +46,19 @@ pub struct InitializationState<T> {
     pub iid: T,
     pub frame_id: T,
     pub sp: T,
+
+    pub host_public_inputs: T,
+    pub context_in_index: T,
+    pub context_out_index: T,
+    pub external_host_call_call_index: T,
+
     pub initial_memory_pages: T,
+    pub maximal_memory_pages: T,
 
     // TODO: open mtable
     // pub rest_mops: Option<T>,
-    pub rest_jops: T,
-
-    pub is_very_first_step: bool,
+    #[cfg(feature = "continuation")]
+    pub jops: T,
 }
 
 impl Default for InitializationState<u32> {
@@ -63,9 +69,63 @@ impl Default for InitializationState<u32> {
             iid: Default::default(),
             frame_id: Default::default(),
             sp: Default::default(),
+
+            host_public_inputs: Default::default(),
+            context_in_index: Default::default(),
+            context_out_index: Default::default(),
+            external_host_call_call_index: Default::default(),
+
             initial_memory_pages: Default::default(),
-            rest_jops: Default::default(),
-            is_very_first_step: Default::default(),
+            maximal_memory_pages: Default::default(),
+
+            #[cfg(feature = "continuation")]
+            jops: Default::default(),
+        }
+    }
+}
+
+impl<T: Clone> InitializationState<T> {
+    pub fn plain(&self) -> Vec<T> {
+        let mut v = vec![];
+
+        v.push(self.eid.clone());
+        v.push(self.fid.clone());
+        v.push(self.iid.clone());
+        v.push(self.frame_id.clone());
+        v.push(self.sp.clone());
+
+        v.push(self.host_public_inputs.clone());
+        v.push(self.context_in_index.clone());
+        v.push(self.context_out_index.clone());
+        v.push(self.external_host_call_call_index.clone());
+
+        v.push(self.initial_memory_pages.clone());
+        v.push(self.maximal_memory_pages.clone());
+
+        #[cfg(feature = "continuation")]
+        v.push(self.jops.clone());
+
+        v
+    }
+
+    pub fn map<U>(&self, f: impl Fn(&T) -> U) -> InitializationState<U> {
+        InitializationState {
+            eid: f(&self.eid),
+            fid: f(&self.fid),
+            iid: f(&self.iid),
+            frame_id: f(&self.frame_id),
+            sp: f(&self.sp),
+
+            host_public_inputs: f(&self.host_public_inputs),
+            context_in_index: f(&self.context_in_index),
+            context_out_index: f(&self.context_out_index),
+            external_host_call_call_index: f(&self.external_host_call_call_index),
+
+            initial_memory_pages: f(&self.initial_memory_pages),
+            maximal_memory_pages: f(&self.maximal_memory_pages),
+
+            #[cfg(feature = "continuation")]
+            jops: f(&self.jops),
         }
     }
 }
@@ -77,12 +137,11 @@ pub struct CompilationTable {
     pub elem_table: ElemTable,
     pub configure_table: ConfigureTable,
     pub static_jtable: Vec<StaticFrameEntry>,
-    pub fid_of_entry: u32,
+    pub pre_initialization_state: InitializationState<u32>,
 }
 
 #[derive(Default, Serialize, Clone)]
 pub struct ExecutionTable {
-    pub initialization_state: InitializationState<u32>,
     pub etable: EventTable,
     pub jtable: JumpTable,
 }
