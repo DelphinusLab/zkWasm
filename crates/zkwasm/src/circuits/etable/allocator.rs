@@ -43,6 +43,24 @@ impl<F: FieldExt> EventTableCellExpression<F> for AllocatedCell<F> {
     }
 }
 
+impl<F: FieldExt> EventTableCellExpression<F> for AllocatedU32Cell<F> {
+    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.u32_cell.0.col,
+            self.u32_cell.0.rot + EVENT_TABLE_ENTRY_ROWS as i32
+        )
+    }
+
+    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.u32_cell.0.col,
+            self.u32_cell.0.rot - EVENT_TABLE_ENTRY_ROWS as i32
+        )
+    }
+}
+
 macro_rules! impl_cell {
     ($x: ident) => {
         impl<F: FieldExt> EventTableCellExpression<F> for $x<F> {
@@ -157,11 +175,11 @@ pub(crate) enum EventTableCellType {
 const BIT_COLUMNS: usize = 12;
 const U8_COLUMNS: usize = 1;
 // Should be the multiple of 2.
-const U32_CELLS: usize = 2;
+const U32_CELLS: usize = if cfg!(feature = "continuation") { 2 } else { 0 };
 const U64_CELLS: usize = 5;
 const U16_COLUMNS: usize = U64_CELLS + (U32_CELLS / 2);
 const COMMON_RANGE_COLUMNS: usize = 7;
-const UNLIMITED_COLUMNS: usize = 8;
+const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") { 8 } else { 7 };
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
 
@@ -231,6 +249,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     * enable(meta),
             ]
         });
+        meta.enable_equality(u32_cell.0.col);
         AllocatedU32Cell {
             u16_cells_le,
             u32_cell,
@@ -431,6 +450,18 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         AllocatedCommonRangeCell(self.alloc(&EventTableCellType::CommonRange))
     }
 
+    pub(crate) fn alloc_state_cell(&mut self) -> AllocatedStateCell<F> {
+        #[cfg(not(feature = "continuation"))]
+        {
+            AllocatedCommonRangeCell(self.alloc(&EventTableCellType::CommonRange))
+        }
+
+        #[cfg(feature = "continuation")]
+        {
+            self.alloc_u32_cell()
+        }
+    }
+
     pub(crate) fn alloc_u8_cell(&mut self) -> AllocatedU8Cell<F> {
         AllocatedU8Cell(self.alloc(&EventTableCellType::U8))
     }
@@ -451,7 +482,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedStateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -501,7 +532,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedStateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -542,7 +573,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedStateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -590,7 +621,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedStateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,

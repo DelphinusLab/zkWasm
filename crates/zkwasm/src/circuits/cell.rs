@@ -14,6 +14,11 @@ use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 use crate::nextn;
 
+#[cfg(feature = "continuation")]
+pub(crate) type AllocatedStateCell<F> = AllocatedU32Cell<F>;
+#[cfg(not(feature = "continuation"))]
+pub(crate) type AllocatedStateCell<F> = AllocatedCommonRangeCell<F>;
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedCell<F: FieldExt> {
     pub(crate) col: Column<Advice>,
@@ -48,11 +53,6 @@ pub(crate) trait CellExpression<F: FieldExt> {
     ) -> Result<AssignedCell<F, F>, Error> {
         self.assign(ctx, if value { F::one() } else { F::zero() })
     }
-    fn assign_constant(
-        &self,
-        ctx: &mut Context<'_, F>,
-        value: F,
-    ) -> Result<AssignedCell<F, F>, Error>;
 }
 
 impl<F: FieldExt> CellExpression<F> for AllocatedCell<F> {
@@ -66,19 +66,6 @@ impl<F: FieldExt> CellExpression<F> for AllocatedCell<F> {
             self.col,
             (ctx.offset as i32 + self.rot) as usize,
             || Ok(value),
-        )
-    }
-
-    fn assign_constant(
-        &self,
-        ctx: &mut Context<'_, F>,
-        value: F,
-    ) -> Result<AssignedCell<F, F>, Error> {
-        ctx.region.assign_advice_from_constant(
-            || "assign cell",
-            self.col,
-            (ctx.offset as i32 + self.rot) as usize,
-            value,
         )
     }
 }
@@ -103,6 +90,10 @@ pub(crate) struct AllocatedU32Cell<F: FieldExt> {
 
 impl<F: FieldExt> AllocatedU32Cell<F> {
     pub(crate) fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.u32_cell.expr(meta)
+    }
+
+    pub(crate) fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         self.u32_cell.expr(meta)
     }
 }
@@ -149,21 +140,6 @@ macro_rules! define_cell {
 
                 self.0.assign(ctx, value)
             }
-
-            fn assign_constant(
-                &self,
-                ctx: &mut Context<'_, F>,
-                value: F,
-            ) -> Result<AssignedCell<F, F>, Error> {
-                assert!(
-                    value <= $limit,
-                    "assigned value {:?} exceeds the limit {:?}",
-                    value,
-                    $limit
-                );
-
-                self.0.assign_constant(ctx, value)
-            }
         }
     };
 }
@@ -187,18 +163,6 @@ impl<F: FieldExt> AllocatedU32Cell<F> {
             self.u16_cells_le[i].assign(ctx, (((value >> (i * 16)) & 0xffffu32) as u64).into())?;
         }
         self.u32_cell.assign(ctx, (value as u64).into())
-    }
-
-    pub(crate) fn assign_constant(
-        &self,
-        ctx: &mut Context<'_, F>,
-        value: u32,
-    ) -> Result<AssignedCell<F, F>, Error> {
-        for i in 0..2 {
-            self.u16_cells_le[i].assign(ctx, (((value >> (i * 16)) & 0xffffu32) as u64).into())?;
-        }
-
-        self.u32_cell.assign_constant(ctx, (value as u64).into())
     }
 }
 

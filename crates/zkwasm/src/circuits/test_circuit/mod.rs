@@ -46,7 +46,11 @@ use crate::runtime::memory_event_of_step;
 use super::config::zkwasm_k;
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 53;
+pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
+    53
+} else {
+    51
+};
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
@@ -129,9 +133,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         );
 
         assert_eq!(cols.count(), 0);
-
-        #[cfg(feature = "continuation")]
-        let state_table = StateTableConfig::configure(meta);
 
         let max_available_rows = (1 << zkwasm_k()) - (meta.blinding_factors() + 1 + RESERVE_ROWS);
         debug!("max_available_rows: {:?}", max_available_rows);

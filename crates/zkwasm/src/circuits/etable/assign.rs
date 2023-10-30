@@ -114,46 +114,60 @@ impl<F: FieldExt> EventTableChip<F> {
         configure_table: &ConfigureTable,
         initialization_state: &InitializationState<u32>,
     ) -> Result<InitializationState<Cell>, Error> {
-        macro_rules! assign_advice {
+        #[cfg(feature = "continuation")]
+        macro_rules! assign_state_advice {
             ($cell:ident, $value:expr) => {
                 self.config.common_config.$cell.assign(ctx, $value)?.cell()
             };
         }
 
-        let eid = assign_advice!(eid_cell, initialization_state.eid);
-        let fid = assign_advice!(fid_cell, F::from(initialization_state.fid as u64));
-        let iid = assign_advice!(iid_cell, F::from(initialization_state.iid as u64));
-        let sp = assign_advice!(sp_cell, F::from(initialization_state.sp as u64));
-        let frame_id = assign_advice!(frame_id_cell, F::from(initialization_state.frame_id as u64));
+        #[cfg(not(feature = "continuation"))]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                assign_common_range_advice!($cell, $value)
+            };
+        }
 
-        let host_public_inputs = assign_advice!(
-            input_index_cell,
-            F::from(initialization_state.host_public_inputs as u64)
-        );
-        let context_in_index = assign_advice!(
+        macro_rules! assign_common_range_advice {
+            ($cell:ident, $value:expr) => {
+                self.config
+                    .common_config
+                    .$cell
+                    .assign(ctx, F::from($value as u64))?
+                    .cell()
+            };
+        }
+
+        let eid = assign_state_advice!(eid_cell, initialization_state.eid);
+        let fid = assign_common_range_advice!(fid_cell, initialization_state.fid);
+        let iid = assign_common_range_advice!(iid_cell, initialization_state.iid);
+        let sp = assign_common_range_advice!(sp_cell, initialization_state.sp);
+        let frame_id = assign_state_advice!(frame_id_cell, initialization_state.frame_id);
+
+        let host_public_inputs =
+            assign_common_range_advice!(input_index_cell, initialization_state.host_public_inputs);
+        let context_in_index = assign_common_range_advice!(
             context_input_index_cell,
-            F::from(initialization_state.context_in_index as u64)
+            initialization_state.context_in_index
         );
-        let context_out_index = assign_advice!(
+        let context_out_index = assign_common_range_advice!(
             context_output_index_cell,
-            F::from(initialization_state.context_out_index as u64)
+            initialization_state.context_out_index
         );
-        let external_host_call_call_index = assign_advice!(
+        let external_host_call_call_index = assign_common_range_advice!(
             external_host_call_index_cell,
-            F::from(initialization_state.external_host_call_call_index as u64)
+            initialization_state.external_host_call_call_index
         );
 
-        let initial_memory_pages = assign_advice!(
-            mpages_cell,
-            F::from(initialization_state.initial_memory_pages as u64)
-        );
-        let maximal_memory_pages = assign_advice!(
+        let initial_memory_pages =
+            assign_common_range_advice!(mpages_cell, initialization_state.initial_memory_pages);
+        let maximal_memory_pages = assign_common_range_advice!(
             maximal_memory_pages_cell,
-            F::from(configure_table.maximal_memory_pages as u64)
+            configure_table.maximal_memory_pages
         );
 
         #[cfg(feature = "continuation")]
-        let jops = assign_advice!(jops_cell, F::from(initialization_state.jops as u64));
+        let jops = assign_common_range_advice!(jops_cell, initialization_state.jops);
 
         Ok(InitializationState {
             eid,
@@ -184,6 +198,24 @@ impl<F: FieldExt> EventTableChip<F> {
         rest_ops: Vec<(u32, u32)>,
         initialization_state: &InitializationState<u32>,
     ) -> Result<(), Error> {
+        #[cfg(feature = "continuation")]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                self.config.common_config.$cell.assign(ctx, $value)?.cell()
+            };
+        }
+
+        #[cfg(not(feature = "continuation"))]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                self.config
+                    .common_config
+                    .$cell
+                    .assign(ctx, F::from($value as u64))?
+                    .cell()
+            };
+        }
+
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.common_config.$cell.assign(ctx, $value)?
@@ -292,8 +324,8 @@ impl<F: FieldExt> EventTableChip<F> {
                 maximal_memory_pages_cell,
                 F::from(configure_table.maximal_memory_pages as u64)
             );
-            assign_advice!(frame_id_cell, F::from(entry.eentry.last_jump_eid as u64));
-            assign_advice!(eid_cell, entry.eentry.eid);
+            assign_state_advice!(frame_id_cell, entry.eentry.last_jump_eid);
+            assign_state_advice!(eid_cell, entry.eentry.eid);
             assign_advice!(fid_cell, F::from(entry.eentry.inst.fid as u64));
             assign_advice!(iid_cell, F::from(entry.eentry.inst.iid as u64));
             assign_advice!(itable_lookup_cell, bn_to_field(&entry.eentry.inst.encode()));
@@ -320,14 +352,11 @@ impl<F: FieldExt> EventTableChip<F> {
         }
 
         // Assign terminate status
-        assign_advice!(eid_cell, status.last().unwrap().eid);
+        assign_state_advice!(eid_cell, status.last().unwrap().eid);
         assign_advice!(fid_cell, F::from(status.last().unwrap().fid as u64));
         assign_advice!(iid_cell, F::from(status.last().unwrap().iid as u64));
         assign_advice!(sp_cell, F::from(status.last().unwrap().sp as u64));
-        assign_advice!(
-            frame_id_cell,
-            F::from(status.last().unwrap().last_jump_eid as u64)
-        );
+        assign_state_advice!(frame_id_cell, status.last().unwrap().last_jump_eid);
         assign_advice!(
             mpages_cell,
             F::from(status.last().unwrap().allocated_memory_pages as u64)

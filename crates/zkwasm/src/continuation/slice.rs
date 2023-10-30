@@ -40,41 +40,48 @@ impl Slices {
         let slices = etable_slices
             .into_iter()
             .enumerate()
-            .map(|(current_slice, etable_slice)| Slice {
-                table: Tables {
-                    compilation_tables: CompilationTable {
-                        itable: table.compilation_tables.itable.clone(),
-                        // TODO: imtable should be updated.
-                        imtable: table.compilation_tables.imtable.clone(),
-                        elem_table: table.compilation_tables.elem_table.clone(),
-                        configure_table: table.compilation_tables.configure_table,
-                        static_jtable: table.compilation_tables.static_jtable.clone(),
-                        // TODO: fid_of_entry should be updated or removed.
-                        fid_of_entry: table.compilation_tables.fid_of_entry,
-                    },
-                    execution_tables: ExecutionTable {
-                        initialization_state: if current_slice == 0 {
-                            table.execution_tables.initialization_state.clone()
-                        } else {
-                            let first_etable_entry = etable_slice.first().unwrap();
+            .map(|(current_slice, etable_slice)| {
+                let first_etable_entry = etable_slice.first().unwrap();
 
-                            InitializationState {
+                Slice {
+                    table: Tables {
+                        compilation_tables: CompilationTable {
+                            itable: table.compilation_tables.itable.clone(),
+                            // TODO: imtable should be updated.
+                            imtable: table.compilation_tables.imtable.clone(),
+                            elem_table: table.compilation_tables.elem_table.clone(),
+                            configure_table: table.compilation_tables.configure_table,
+                            static_jtable: table.compilation_tables.static_jtable.clone(),
+                            // TODO: fid_of_entry should be updated or removed.
+                            pre_initialization_state: InitializationState {
                                 eid: first_etable_entry.eid,
                                 fid: first_etable_entry.inst.fid,
                                 iid: first_etable_entry.inst.iid,
                                 frame_id: first_etable_entry.last_jump_eid,
                                 sp: first_etable_entry.sp,
+
+                                host_public_inputs: todo!(),
+                                context_in_index: todo!(),
+                                context_out_index: todo!(),
+                                external_host_call_call_index: todo!(),
+
                                 initial_memory_pages: first_etable_entry.allocated_memory_pages,
-                                rest_jops: todo!(),
-                                is_very_first_step: false,
-                            }
+                                maximal_memory_pages: table
+                                    .compilation_tables
+                                    .configure_table
+                                    .maximal_memory_pages,
+
+                                jops: todo!(),
+                            },
                         },
-                        etable: EventTable::new(etable_slice),
-                        jtable: table.execution_tables.jtable.clone(),
+                        execution_tables: ExecutionTable {
+                            etable: EventTable::new(etable_slice),
+                            jtable: table.execution_tables.jtable.clone(),
+                        },
                     },
-                },
-                current_slice,
-                total_slice,
+                    current_slice,
+                    total_slice,
+                }
             })
             .collect();
 
