@@ -59,7 +59,7 @@ const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
-    image_table: ImageTableConfig<F>,
+    pre_image_table: ImageTableConfig<F>,
     _mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -98,8 +98,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
         let rtable = RangeTableConfig::configure(meta);
-        let image_table = ImageTableConfig::configure(meta);
-        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
+        let pre_image_table = ImageTableConfig::configure(meta);
+        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &pre_image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
         let bit_table = BitTableConfig::configure(meta, &rtable);
@@ -124,7 +124,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             meta,
             &mut cols,
             &rtable,
-            &image_table,
+            &pre_image_table,
             &mtable,
             &jtable,
             &bit_table,
@@ -139,7 +139,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         Self::Config {
             rtable,
-            image_table,
+            pre_image_table,
             // TODO: open mtable
             _mtable: mtable,
             jtable,
@@ -161,7 +161,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let assign_timer = start_timer!(|| "Assign");
 
         let rchip = RangeTableChip::new(config.rtable);
-        let image_chip = ImageTableChip::new(config.image_table);
+        let pre_image_chip = ImageTableChip::new(config.pre_image_table);
         // TODO: open mtable
         // let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
@@ -274,7 +274,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         exec_with_profile!(
             || "Assign Image Table",
-            image_chip.assign(
+            pre_image_chip.assign(
                 &mut layouter,
                 self.tables
                     .compilation_tables
