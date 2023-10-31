@@ -15,6 +15,7 @@ use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::Tracer;
@@ -109,21 +110,15 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
-        let (env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![],
-            vec![],
-            Arc::new(Mutex::new(vec![])),
-        );
-
-        let compiled_module = self.compile(&env)?;
-
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
-                compilation_tables: compiled_module.tables,
+                compilation_tables: CompilationTable::default(),
                 execution_tables: ExecutionTable::default(),
+                post_image_table: CompilationTable::default(),
+                // This ensures that the permutation works even if there is no witness.
+                current_slice_index: 0,
+                total_slice_index: 1,
             },
-            public_inputs_and_outputs: wasm_runtime_io.public_inputs_and_outputs.borrow().clone(),
         };
 
         Ok(builder.build_circuit::<E::Scalar>())
@@ -218,7 +213,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
-            public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
         };
 
         println!("output:");

@@ -11,6 +11,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use log::debug;
+use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 
@@ -85,8 +86,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn without_witnesses(&self) -> Self {
         TestCircuit::new(Tables {
-            compilation_tables: self.tables.compilation_tables.clone(),
+            compilation_tables: CompilationTable::default(),
             execution_tables: ExecutionTable::default(),
+            post_image_table: CompilationTable::default(),
+            current_slice_index: self.tables.current_slice_index,
+            total_slice_index: self.tables.total_slice_index,
         })
     }
 
@@ -235,7 +239,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         &mut ctx,
                         &etable,
                         &self.tables.compilation_tables.configure_table,
-                        &self.tables.compilation_tables.pre_initialization_state
+                        &self.tables.compilation_tables.initialization_state,
+                        &self.tables.post_image_table.initialization_state,
+                        self.tables.is_last_slice()
                     )?
                 );
 
@@ -292,8 +298,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     .compilation_tables
                     .encode_compilation_table_values(),
                 ImageTableLayouter {
-                    initialization_state: etable_permutation_cells.initialization_state,
-                    static_frame_entries,
+                    initialization_state: etable_permutation_cells.pre_initialization_state,
+                    static_frame_entries: static_frame_entries.clone(),
                     lookup_entries: None
                 }
             )?
@@ -301,7 +307,17 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         exec_with_profile!(
             || "Assign Post Image Table",
-            post_image_chip.assign(&mut layouter, todo!(), todo!(),)?
+            post_image_chip.assign(
+                &mut layouter,
+                self.tables
+                    .post_image_table
+                    .encode_compilation_table_values(),
+                ImageTableLayouter {
+                    initialization_state: etable_permutation_cells.post_initialization_state,
+                    static_frame_entries,
+                    lookup_entries: None
+                }
+            )?
         );
 
         end_timer!(assign_timer);

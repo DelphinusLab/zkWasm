@@ -78,10 +78,7 @@ impl Execution<RuntimeValue>
         };
 
         Ok(ExecutionResult {
-            tables: Tables {
-                compilation_tables: self.tables.clone(),
-                execution_tables,
-            },
+            tables: Tables::new(self.tables, execution_tables),
             result,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
             outputs: wasm_io.outputs.borrow().clone(),
@@ -161,7 +158,7 @@ impl WasmiRuntime {
                 elem_table,
                 configure_table,
                 static_jtable,
-                pre_initialization_state: InitializationState {
+                initialization_state: InitializationState {
                     eid: 1,
                     fid: fid_of_entry,
                     iid: 0,

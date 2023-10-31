@@ -168,7 +168,7 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             cells
         }
 
-        let initialization_state = msg_of_initialization_state(&self.pre_initialization_state);
+        let initialization_state = msg_of_initialization_state(&self.initialization_state);
         let static_frame_entries = msg_of_static_frame_table(&self.static_jtable);
 
         let lookup_entries = msg_of_image_table(
