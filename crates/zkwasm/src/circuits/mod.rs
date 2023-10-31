@@ -19,6 +19,7 @@ mod traits;
 pub mod config;
 pub mod image_table;
 pub mod jtable;
+pub mod post_image_table;
 pub mod rtable;
 pub mod test_circuit;
 pub mod utils;

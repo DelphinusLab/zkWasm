@@ -26,6 +26,10 @@ use crate::circuits::image_table::ImageTableLayouter;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableConfig;
+use crate::circuits::post_image_table::PostImageTableChip;
+use crate::circuits::post_image_table::PostImageTableChipTrait;
+use crate::circuits::post_image_table::PostImageTableConfig;
+use crate::circuits::post_image_table::PostImageTableConfigTrait;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
@@ -58,8 +62,10 @@ const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
-    rtable: RangeTableConfig<F>,
     pre_image_table: ImageTableConfig<F>,
+    post_image_table: PostImageTableConfig<F>,
+
+    rtable: RangeTableConfig<F>,
     _mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -97,8 +103,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
-        let rtable = RangeTableConfig::configure(meta);
         let pre_image_table = ImageTableConfig::configure(meta);
+        let post_image_table = PostImageTableConfig::configure(meta);
+
+        let rtable = RangeTableConfig::configure(meta);
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &pre_image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
@@ -138,8 +146,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         debug!("max_available_rows: {:?}", max_available_rows);
 
         Self::Config {
-            rtable,
             pre_image_table,
+            post_image_table,
+
+            rtable,
             // TODO: open mtable
             _mtable: mtable,
             jtable,
@@ -162,6 +172,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rchip = RangeTableChip::new(config.rtable);
         let pre_image_chip = ImageTableChip::new(config.pre_image_table);
+        let post_image_chip = PostImageTableChip::new(config.post_image_table);
+
         // TODO: open mtable
         // let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
@@ -285,6 +297,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     lookup_entries: None
                 }
             )?
+        );
+
+        exec_with_profile!(
+            || "Assign Post Image Table",
+            post_image_chip.assign(&mut layouter, todo!(), todo!(),)?
         );
 
         end_timer!(assign_timer);

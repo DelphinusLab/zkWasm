@@ -424,6 +424,7 @@ dependencies = [
  "anyhow",
  "ark-std",
  "bitvec",
+ "cfg-if 0.1.10",
  "downcast-rs",
  "halo2_proofs",
  "halo2aggregator-s",
