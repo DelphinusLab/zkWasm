@@ -15,6 +15,7 @@ use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use mtable::MTable;
 use serde::Serialize;
+use serde::Deserialize;
 
 #[macro_use]
 extern crate lazy_static;
@@ -32,7 +33,7 @@ pub mod mtable;
 pub mod step;
 pub mod types;
 
-#[derive(Default, Serialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct CompilationTable {
     pub itable: InstructionTable,
     pub imtable: InitMemoryTable,
@@ -42,14 +43,14 @@ pub struct CompilationTable {
     pub fid_of_entry: u32,
 }
 
-#[derive(Default, Serialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct ExecutionTable {
     pub etable: EventTable,
     pub mtable: MTable,
     pub jtable: JumpTable,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
