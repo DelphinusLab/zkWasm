@@ -17,6 +17,7 @@ use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::config::zkwasm_k;
 
+use super::state::simulate_execution;
 use super::CompiledImage;
 use super::ExecutionResult;
 
@@ -77,8 +78,15 @@ impl Execution<RuntimeValue>
             }
         };
 
+        let post_image_table = simulate_execution(&self.tables, &execution_tables);
+
         Ok(ExecutionResult {
-            tables: Tables::new(self.tables, execution_tables),
+            tables: Tables {
+                compilation_tables: self.tables,
+                execution_tables: execution_tables,
+                post_image_table,
+                is_last_slice: true,
+            },
             result,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
             outputs: wasm_io.outputs.borrow().clone(),

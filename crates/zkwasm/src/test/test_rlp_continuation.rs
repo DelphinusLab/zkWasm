@@ -157,16 +157,34 @@ fn test_slices() -> Result<()> {
         context_outputs: Arc::new(Mutex::new(vec![])),
     })?;
 
-    let _slices = Slices::from_table(execution_result.tables, loader.slice_capability_with_k());
-    todo!("build circuits for all slices");
-    todo!("mock test for all circuits");
+    let mut slices =
+        Slices::new(execution_result.tables, loader.slice_capability_with_k()).into_iter();
+
+    let mut index = 0;
+    while let Some(slice) = slices.next() {
+        let circuit = slice.build_circuit();
+
+        println!("{:?}", index);
+        loader.mock_test(
+            &circuit,
+            execution_result
+                .public_inputs_and_outputs
+                .iter()
+                .map(|v| (*v).into())
+                .collect(),
+        )?;
+
+        index += 1;
+    }
+
+    Ok(())
 }
 
 mod tests {
     use super::*;
 
     #[test]
-    fn test_rlp_mock() {
+    fn test_rlp_mock_continuation() {
         test_slices().unwrap();
     }
 }

@@ -27,6 +27,7 @@ pub mod utils;
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
     pub tables: Tables,
+    slice_capability: Option<usize>,
     _data: PhantomData<F>,
 }
 
@@ -34,6 +35,16 @@ impl<F: FieldExt> TestCircuit<F> {
     pub fn new(tables: Tables) -> Self {
         TestCircuit {
             tables,
+            slice_capability: None,
+            _data: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "continuation")]
+    pub fn new_slice(tables: Tables, slice_capability: usize) -> Self {
+        TestCircuit {
+            tables: tables,
+            slice_capability: Some(slice_capability),
             _data: PhantomData,
         }
     }
@@ -61,7 +72,7 @@ pub struct ZkWasmCircuitBuilder {
 }
 
 impl ZkWasmCircuitBuilder {
-    pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-        TestCircuit::new(self.tables.clone())
+    pub fn build_circuit<F: FieldExt>(self) -> TestCircuit<F> {
+        TestCircuit::new(self.tables)
     }
 }

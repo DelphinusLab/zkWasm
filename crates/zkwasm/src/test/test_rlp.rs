@@ -170,7 +170,7 @@ mod tests {
         fn test_rlp_mock() {
             let (loader, circuit, instances) = build_circuit().unwrap();
 
-            loader.mock_test(&circuit, &instances).unwrap()
+            loader.mock_test(&circuit, instances).unwrap()
         }
     }
 

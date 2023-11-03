@@ -14,6 +14,7 @@ use specs::Tables;
 use self::wasmi_interpreter::WasmiRuntime;
 
 pub mod host;
+pub mod state;
 pub mod wasmi_interpreter;
 
 pub struct CompiledImage<I, T> {

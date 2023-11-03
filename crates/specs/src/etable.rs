@@ -54,6 +54,10 @@ impl EventTable {
         &mut self.0
     }
 
+    pub fn unwrap(self) -> Vec<EventTableEntry> {
+        self.0
+    }
+
     pub fn filter_foreign_entries(&self, foreign: HostPlugin) -> Vec<EventTableEntry> {
         self.0
             .clone()

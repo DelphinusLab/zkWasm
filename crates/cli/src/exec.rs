@@ -283,7 +283,7 @@ pub fn exec_create_proof(
 
     if true {
         info!("Mock test...");
-        loader.mock_test(&circuit, &instances)?;
+        loader.mock_test(&circuit, instances.clone())?;
         info!("Mock test passed");
     }
 
@@ -371,6 +371,8 @@ pub fn exec_aggregate_create_proof(
                         context_inputs,
                         context_outputs,
                     })?;
+
+                    let instance = instance.into_iter().map(|v| v.into()).collect();
 
                     circuits.push(circuit);
                     instances.push(vec![instance]);

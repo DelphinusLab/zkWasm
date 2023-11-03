@@ -89,8 +89,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             compilation_tables: CompilationTable::default(),
             execution_tables: ExecutionTable::default(),
             post_image_table: CompilationTable::default(),
-            current_slice_index: self.tables.current_slice_index,
-            total_slice_index: self.tables.total_slice_index,
+            is_last_slice: self.tables.is_last_slice,
         })
     }
 
@@ -181,7 +180,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         // TODO: open mtable
         // let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
-        let echip = EventTableChip::new(config.etable, config.max_available_rows);
+        let echip = EventTableChip::new(
+            config.etable,
+            config.max_available_rows,
+            self.slice_capability,
+        );
         let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
         let external_host_call_chip =
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);

@@ -11,10 +11,8 @@ use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
 use etable::EventTableEntry;
-use host_function::HostPlugin;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
-use itable::Opcode;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use mtable::AccessType;
@@ -24,7 +22,6 @@ use mtable::MemoryTableEntry;
 use rayon::prelude::IntoParallelRefIterator;
 use rayon::prelude::ParallelIterator;
 use serde::Serialize;
-use step::StepInfo;
 
 #[macro_use]
 extern crate lazy_static;
@@ -133,6 +130,7 @@ impl<T: Clone> InitializationState<T> {
     }
 }
 
+// TODO: make these tables RC
 #[derive(Default, Serialize, Debug, Clone)]
 pub struct CompilationTable {
     pub itable: InstructionTable,
@@ -154,8 +152,7 @@ pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
     pub post_image_table: CompilationTable,
-    pub current_slice_index: usize,
-    pub total_slice_index: usize,
+    pub is_last_slice: bool,
 }
 
 impl Tables {
@@ -217,82 +214,8 @@ impl Tables {
         MTable::new(memory_entries)
     }
 
-    pub fn new(compilation_tables: CompilationTable, execution_tables: ExecutionTable) -> Self {
-        let mut host_public_inputs = compilation_tables.initialization_state.host_public_inputs;
-        let mut context_in_index = compilation_tables.initialization_state.context_in_index;
-        let mut context_out_index = compilation_tables.initialization_state.context_out_index;
-        let mut external_host_call_call_index = compilation_tables
-            .initialization_state
-            .external_host_call_call_index;
-
-        for entry in execution_tables.etable.entries() {
-            match &entry.step_info {
-                StepInfo::CallHost {
-                    function_name,
-                    args,
-                    op_index_in_plugin,
-                    ..
-                } => {
-                    if *op_index_in_plugin == HostPlugin::HostInput as usize {
-                        if function_name == "wasm_input" && args[0] != 0
-                            || function_name == "wasm_output"
-                        {
-                            host_public_inputs += 1;
-                        }
-                    } else if *op_index_in_plugin == HostPlugin::Context as usize {
-                        if function_name == "wasm_read_context" {
-                            context_in_index += 1;
-                        } else if function_name == "wasm_write_context" {
-                            context_out_index += 1;
-                        }
-                    }
-                }
-                StepInfo::ExternalHostCall { .. } => external_host_call_call_index += 1,
-                _ => (),
-            }
-        }
-
-        let last_entry = execution_tables.etable.entries().last().unwrap();
-
-        let post_initialization_state = InitializationState {
-            eid: last_entry.eid + 1,
-            fid: 0,
-            iid: 0,
-            frame_id: 0,
-            // TODO: why not constant 4095?
-            sp: last_entry.sp
-                + if let Opcode::Return { drop, .. } = last_entry.inst.opcode {
-                    drop
-                } else {
-                    unreachable!()
-                },
-            host_public_inputs,
-            context_in_index,
-            context_out_index,
-            external_host_call_call_index,
-            initial_memory_pages: last_entry.allocated_memory_pages,
-            maximal_memory_pages: compilation_tables.configure_table.maximal_memory_pages,
-        };
-
-        Tables {
-            compilation_tables: compilation_tables.clone(),
-            execution_tables,
-            post_image_table: CompilationTable {
-                itable: compilation_tables.itable,
-                // FIXME: update imtable
-                imtable: compilation_tables.imtable,
-                elem_table: compilation_tables.elem_table,
-                configure_table: compilation_tables.configure_table,
-                static_jtable: compilation_tables.static_jtable,
-                initialization_state: post_initialization_state,
-            },
-            current_slice_index: 0,
-            total_slice_index: 1,
-        }
-    }
-
     pub fn is_last_slice(&self) -> bool {
-        self.current_slice_index == self.total_slice_index - 1
+        self.is_last_slice
     }
 }
 

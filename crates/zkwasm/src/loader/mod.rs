@@ -60,7 +60,7 @@ pub struct ExecutionReturn {
 }
 
 pub struct ZkWasmLoader<E: MultiMillerLoop> {
-    k: u32,
+    pub k: u32,
     module: wasmi::Module,
     phantom_functions: Vec<String>,
     _data: PhantomData<E>,
@@ -115,9 +115,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
                 compilation_tables: CompilationTable::default(),
                 execution_tables: ExecutionTable::default(),
                 post_image_table: CompilationTable::default(),
-                // This ensures that the permutation works even if there is no witness.
-                current_slice_index: 0,
-                total_slice_index: 1,
+                is_last_slice: true,
             },
         };
 
@@ -204,13 +202,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
         let execution_result = self.run(arg)?;
 
-        let instance: Vec<E::Scalar> = execution_result
-            .public_inputs_and_outputs
-            .clone()
-            .iter()
-            .map(|v| (*v).into())
-            .collect();
-
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
         };
@@ -218,15 +209,22 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         println!("output:");
         println!("{:?}", execution_result.outputs);
 
-        Ok((builder.build_circuit(), instance))
+        Ok((
+            builder.build_circuit(),
+            execution_result
+                .public_inputs_and_outputs
+                .into_iter()
+                .map(|v| v.into())
+                .collect(),
+        ))
     }
 
     pub fn mock_test(
         &self,
         circuit: &TestCircuit<E::Scalar>,
-        instances: &Vec<E::Scalar>,
+        instances: Vec<E::Scalar>,
     ) -> Result<()> {
-        let prover = MockProver::run(self.k, circuit, vec![instances.clone()])?;
+        let prover = MockProver::run(self.k, circuit, vec![instances])?;
         assert_eq!(prover.verify(), Ok(()));
 
         Ok(())

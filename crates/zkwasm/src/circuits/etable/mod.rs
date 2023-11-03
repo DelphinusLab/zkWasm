@@ -647,7 +647,20 @@ pub struct EventTableChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> EventTableChip<F> {
-    pub(super) fn new(config: EventTableConfig<F>, max_available_rows: usize) -> Self {
+    pub(super) fn new(
+        config: EventTableConfig<F>,
+        max_available_rows: usize,
+        slice_capability: Option<usize>,
+    ) -> Self {
+        let max_available_rows = if let Some(slice_capability) = slice_capability {
+            let rows = slice_capability * EVENT_TABLE_ENTRY_ROWS as usize;
+            assert!(rows <= max_available_rows);
+
+            rows
+        } else {
+            max_available_rows
+        };
+
         Self {
             config,
             max_available_rows: max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize
