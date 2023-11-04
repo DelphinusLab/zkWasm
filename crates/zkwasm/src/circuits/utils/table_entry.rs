@@ -163,7 +163,7 @@ impl<'a> EventTableWithMemoryInfo<'a> {
                 .map(|eentry| EventTableEntryWithMemoryInfo {
                     eentry: &eentry,
                     memory_rw_entires: memory_event_of_step(eentry, &mut 1)
-                        .iter()
+                        .into_iter()
                         .map(|mentry| {
                             let (start_eid, end_eid) = lookup_mtable_eid((
                                 &eentry.eid,
@@ -173,7 +173,7 @@ impl<'a> EventTableWithMemoryInfo<'a> {
                             ));
 
                             MemoryRWEntry {
-                                entry: mentry.clone(),
+                                entry: mentry,
                                 start_eid,
                                 end_eid,
                             }
