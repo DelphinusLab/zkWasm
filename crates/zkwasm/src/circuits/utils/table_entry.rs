@@ -114,19 +114,19 @@ pub struct MemoryRWEntry {
 }
 
 #[derive(Debug)]
-pub struct EventTableEntryWithMemoryInfo {
-    pub eentry: EventTableEntry,
+pub struct EventTableEntryWithMemoryInfo<'a> {
+    pub eentry: &'a EventTableEntry,
     pub memory_rw_entires: Vec<MemoryRWEntry>,
 }
 
 #[derive(Debug)]
-pub(crate) struct EventTableWithMemoryInfo(
-    pub(in crate::circuits) Vec<EventTableEntryWithMemoryInfo>,
+pub(crate) struct EventTableWithMemoryInfo<'a>(
+    pub(in crate::circuits) Vec<EventTableEntryWithMemoryInfo<'a>>,
 );
 
-impl EventTableWithMemoryInfo {
+impl<'a> EventTableWithMemoryInfo<'a> {
     pub(in crate::circuits) fn new(
-        event_table: &EventTable,
+        event_table: &'a EventTable,
         memory_writing_table: &MemoryWritingTable,
     ) -> Self {
         let lookup = memory_writing_table.build_lookup_mapping();
@@ -140,6 +140,7 @@ impl EventTableWithMemoryInfo {
                     .unwrap();
                 records[idx]
             } else {
+                println!("lookup eid: {}", eid);
                 let idx = records
                     .binary_search_by(|(start_eid, end_eid)| {
                         if eid <= start_eid {
@@ -160,7 +161,7 @@ impl EventTableWithMemoryInfo {
                 .entries()
                 .iter()
                 .map(|eentry| EventTableEntryWithMemoryInfo {
-                    eentry: eentry.clone(),
+                    eentry: &eentry,
                     memory_rw_entires: memory_event_of_step(eentry, &mut 1)
                         .iter()
                         .map(|mentry| {
