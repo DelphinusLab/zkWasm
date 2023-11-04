@@ -3,6 +3,7 @@ use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::CompilationTable;
 use specs::ExecutionTable;
+use specs::InitializationState;
 use specs::Tables;
 
 use crate::circuits::TestCircuit;
@@ -35,17 +36,9 @@ pub struct Slices {
 
 impl Slices {
     pub fn pop_etable_entries(&mut self) -> Vec<EventTableEntry> {
-        let entries = self
-            .remaining_etable_entries
+        self.remaining_etable_entries
             .drain(0..self.capability.min(self.remaining_etable_entries.len()))
-            .collect::<Vec<_>>();
-
-        if !self.remaining_etable_entries.is_empty() {
-            self.remaining_etable_entries
-                .insert(0, entries.last().unwrap().clone());
-        };
-
-        entries
+            .collect::<Vec<_>>()
     }
 
     pub fn new(table: Tables, capability: usize) -> Self {
@@ -73,8 +66,41 @@ impl Iterator for Slices {
             jtable: self.origin_table.execution_tables.jtable.clone(),
         };
 
-        let post_image_table =
-            simulate_execution(&self.current_compilation_table, &execution_tables);
+        let is_last_slice = self.remaining_etable_entries.is_empty();
+
+        let post_state = simulate_execution(&self.current_compilation_table, &execution_tables);
+
+        let post_image_table = CompilationTable {
+            itable: self.origin_table.compilation_tables.itable.clone(),
+            imtable: post_state.0,
+            elem_table: self.origin_table.compilation_tables.elem_table.clone(),
+            configure_table: self.origin_table.compilation_tables.configure_table.clone(),
+            static_jtable: self.origin_table.compilation_tables.static_jtable.clone(),
+            initialization_state: if is_last_slice {
+                post_state.1
+            } else {
+                let next_state = self.remaining_etable_entries.first().unwrap();
+
+                InitializationState {
+                    eid: next_state.eid,
+                    fid: next_state.inst.fid,
+                    iid: next_state.inst.iid,
+                    frame_id: next_state.last_jump_eid,
+                    sp: next_state.sp,
+                    host_public_inputs: post_state.1.host_public_inputs,
+                    context_in_index: post_state.1.context_in_index,
+                    context_out_index: post_state.1.context_out_index,
+                    external_host_call_call_index: post_state.1.external_host_call_call_index,
+                    initial_memory_pages: next_state.allocated_memory_pages,
+                    maximal_memory_pages: self
+                        .origin_table
+                        .compilation_tables
+                        .configure_table
+                        .maximal_memory_pages,
+                    jops: post_state.1.jops,
+                }
+            },
+        };
 
         let slice = Slice {
             table: Tables {

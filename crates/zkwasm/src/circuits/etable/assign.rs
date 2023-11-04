@@ -5,6 +5,9 @@ use log::debug;
 use specs::configure_table::ConfigureTable;
 use specs::itable::Opcode;
 use specs::itable::OpcodeClassPlain;
+use specs::jtable::JumpTable;
+use specs::jtable::StaticFrameEntry;
+use specs::mtable::MTable;
 use specs::InitializationState;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -196,8 +199,10 @@ impl<F: FieldExt> EventTableChip<F> {
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        rest_ops: Vec<(u32, u32)>,
+        // rest_ops: Vec<(u32, u32)>,
         initialization_state: &InitializationState<u32>,
+        mut rest_jops: u32,
+        mut rest_mops: u32,
     ) -> Result<(), Error> {
         #[cfg(feature = "continuation")]
         macro_rules! assign_state_advice {
@@ -275,7 +280,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     {
                         *drop
                     } else {
-                        unreachable!()
+                        0
                     },
                 last_jump_eid: 0,
                 allocated_memory_pages: status.last().unwrap().allocated_memory_pages,
@@ -286,9 +291,7 @@ impl<F: FieldExt> EventTableChip<F> {
             status
         };
 
-        for (index, (entry, (rest_mops, rest_jops))) in
-            event_table.0.iter().zip(rest_ops.iter()).enumerate()
-        {
+        for (index, entry) in event_table.0.iter().enumerate() {
             let step_status = StepStatus {
                 current: &status[index],
                 next: &status[index + 1],
@@ -307,8 +310,8 @@ impl<F: FieldExt> EventTableChip<F> {
             }
 
             assign_advice!(enabled_cell, F::one());
-            assign_advice!(rest_mops_cell, F::from(*rest_mops as u64));
-            assign_advice!(rest_jops_cell, F::from(*rest_jops as u64));
+            assign_advice!(rest_mops_cell, F::from(rest_mops as u64));
+            assign_advice!(rest_jops_cell, F::from(rest_jops as u64));
             assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
             assign_advice!(context_input_index_cell, F::from(context_in_index as u64));
             assign_advice!(context_output_index_cell, F::from(context_out_index as u64));
@@ -348,9 +351,13 @@ impl<F: FieldExt> EventTableChip<F> {
             if op_config.is_external_host_call(&entry.eentry) {
                 external_host_call_call_index += 1;
             }
+            rest_jops -= op_config.jops();
+            rest_mops -= op_config.memory_writing_ops(&entry.eentry);
 
             ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
         }
+
+        assign_advice!(rest_jops_cell, F::from(rest_jops as u64));
 
         Ok(())
     }
@@ -446,6 +453,8 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         event_table: &EventTableWithMemoryInfo,
+        frame_table: &JumpTable,
+        static_frame_entries: &Vec<StaticFrameEntry>,
         configure_table: &ConfigureTable,
         initialization_state: &InitializationState<u32>,
         post_initialization_state: &InitializationState<u32>,
@@ -454,16 +463,30 @@ impl<F: FieldExt> EventTableChip<F> {
         debug!("size of execution table: {}", event_table.0.len());
         assert!(event_table.0.len() * EVENT_TABLE_ENTRY_ROWS as usize <= self.max_available_rows);
 
-        let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
+        let rest_mops = if cfg!(feature = "continuation") {
+            let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
+
+            rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops)
+        } else {
+            // FIXME: compute from mops, hack here
+            let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
+
+            rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops)
+        };
+        let rest_jops = frame_table.entries().len() as u32 * 2 + static_frame_entries.len() as u32;
+
+        #[cfg(feature = "continuation")]
+        println!("jops: {:?}", initialization_state.jops);
+        println!("rest_jops: {:?}", rest_jops);
+
+        #[cfg(feature = "continuation")]
+        let rest_jops = rest_jops - initialization_state.jops;
 
         self.init(ctx)?;
         ctx.reset();
 
-        let (rest_mops_cell, rest_jops_cell) = self.assign_rest_ops_first_step(
-            ctx,
-            rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops),
-            rest_ops.first().map_or(0u32, |(_, rest_jops)| *rest_jops),
-        )?;
+        let (rest_mops_cell, rest_jops_cell) =
+            self.assign_rest_ops_first_step(ctx, rest_mops, rest_jops)?;
         ctx.reset();
 
         let pre_initialization_state_cells =
@@ -475,8 +498,10 @@ impl<F: FieldExt> EventTableChip<F> {
             &self.config.op_configs,
             event_table,
             configure_table,
-            rest_ops,
+            // rest_ops,
             &initialization_state,
+            rest_jops,
+            rest_mops,
         )?;
 
         let post_initialization_state_cells = self.assign_post_initialization_state(

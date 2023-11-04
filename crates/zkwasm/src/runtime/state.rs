@@ -1,4 +1,5 @@
 use specs::host_function::HostPlugin;
+use specs::imtable::InitMemoryTable;
 use specs::itable::Opcode;
 use specs::step::StepInfo;
 use specs::CompilationTable;
@@ -8,7 +9,7 @@ use specs::InitializationState;
 pub fn simulate_execution(
     compilation_table: &CompilationTable,
     execution_table: &ExecutionTable,
-) -> CompilationTable {
+) -> (InitMemoryTable, InitializationState<u32>) {
     let mut host_public_inputs = compilation_table.initialization_state.host_public_inputs;
     let mut context_in_index = compilation_table.initialization_state.context_in_index;
     let mut context_out_index = compilation_table.initialization_state.context_out_index;
@@ -64,7 +65,7 @@ pub fn simulate_execution(
             + if let Opcode::Return { drop, .. } = last_entry.inst.opcode {
                 drop
             } else {
-                unreachable!()
+                0
             },
 
         host_public_inputs,
@@ -79,13 +80,6 @@ pub fn simulate_execution(
         jops,
     };
 
-    CompilationTable {
-        itable: compilation_table.itable.clone(),
-        // FIXME: update imtable
-        imtable: compilation_table.imtable.clone(),
-        elem_table: compilation_table.elem_table.clone(),
-        configure_table: compilation_table.configure_table,
-        static_jtable: compilation_table.static_jtable.clone(),
-        initialization_state: post_initialization_state,
-    }
+    // FIXME: update imtable
+    (compilation_table.imtable.clone(), post_initialization_state)
 }

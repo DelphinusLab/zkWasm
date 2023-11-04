@@ -212,6 +212,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         ctx.reset();
 
         let mut rest_jops = jtable.entries().len() as u64 * 2 + static_entries.len() as u64;
+        println!("jtable rest_jops: {}", rest_jops);
 
         let frame_table_start_jump_cells =
             self.assign_static_entries(ctx, &mut rest_jops, static_entries)?;

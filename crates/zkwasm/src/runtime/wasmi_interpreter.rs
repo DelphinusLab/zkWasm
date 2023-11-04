@@ -78,7 +78,19 @@ impl Execution<RuntimeValue>
             }
         };
 
-        let post_image_table = simulate_execution(&self.tables, &execution_tables);
+        let post_image_table = {
+            let (imtable, initialization_state) =
+                simulate_execution(&self.tables, &execution_tables);
+
+            CompilationTable {
+                itable: self.tables.itable.clone(),
+                imtable,
+                elem_table: self.tables.elem_table.clone(),
+                configure_table: self.tables.configure_table,
+                static_jtable: self.tables.static_jtable.clone(),
+                initialization_state,
+            }
+        };
 
         Ok(ExecutionResult {
             tables: Tables {

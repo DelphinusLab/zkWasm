@@ -174,6 +174,7 @@ fn test_slices() -> Result<()> {
                 .collect(),
         )?;
 
+        println!("pass: {}", index);
         index += 1;
     }
 
