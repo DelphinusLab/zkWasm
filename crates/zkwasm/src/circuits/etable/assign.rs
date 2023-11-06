@@ -3,11 +3,11 @@ use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
 use specs::configure_table::ConfigureTable;
+use specs::etable::EventTableWithMemoryInfo;
 use specs::itable::Opcode;
 use specs::itable::OpcodeClassPlain;
 use specs::jtable::JumpTable;
 use specs::jtable::StaticFrameEntry;
-use specs::mtable::MTable;
 use specs::InitializationState;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -19,13 +19,12 @@ use crate::circuits::cell::CellExpression;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
-use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
 
 pub(in crate::circuits) struct EventTablePermutationCells {
     pub(in crate::circuits) pre_initialization_state: InitializationState<Cell>,
     pub(in crate::circuits) post_initialization_state: InitializationState<Cell>,
-    pub(in crate::circuits) rest_jops: Cell,
+    pub(in crate::circuits) total_jops: Cell,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
@@ -89,6 +88,22 @@ impl<F: FieldExt> EventTableChip<F> {
         )?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "continuation")]
+    fn assign_total_jops_first_step(
+        &self,
+        ctx: &mut Context<'_, F>,
+        total_jops: u32,
+    ) -> Result<Cell, Error> {
+        let rest_mops_cell = self
+            .config
+            .common_config
+            .total_jops_cell
+            .assign(ctx, F::from(total_jops as u64))?
+            .cell();
+
+        Ok(rest_mops_cell)
     }
 
     fn assign_rest_ops_first_step(
@@ -201,6 +216,7 @@ impl<F: FieldExt> EventTableChip<F> {
         configure_table: &ConfigureTable,
         // rest_ops: Vec<(u32, u32)>,
         initialization_state: &InitializationState<u32>,
+        total_jops: u32,
         mut rest_jops: u32,
         mut rest_mops: u32,
     ) -> Result<(), Error> {
@@ -310,6 +326,8 @@ impl<F: FieldExt> EventTableChip<F> {
             }
 
             assign_advice!(enabled_cell, F::one());
+            #[cfg(feature = "continuation")]
+            assign_advice!(total_jops_cell, F::from(total_jops as u64));
             assign_advice!(rest_mops_cell, F::from(rest_mops as u64));
             assign_advice!(rest_jops_cell, F::from(rest_jops as u64));
             assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
@@ -473,17 +491,24 @@ impl<F: FieldExt> EventTableChip<F> {
 
             rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops)
         };
-        let rest_jops = frame_table.entries().len() as u32 * 2 + static_frame_entries.len() as u32;
+        let total_jops = frame_table.entries().len() as u32 * 2 + static_frame_entries.len() as u32;
 
-        #[cfg(feature = "continuation")]
-        println!("jops: {:?}", initialization_state.jops);
-        println!("rest_jops: {:?}", rest_jops);
-
-        #[cfg(feature = "continuation")]
-        let rest_jops = rest_jops - initialization_state.jops;
+        // #[cfg(feature = "continuation")]
+        // println!("jops: {:?}", initialization_state.jops);
+        // println!("total_jops: {:?}", total_jops);
 
         self.init(ctx)?;
         ctx.reset();
+
+        #[cfg(feature = "continuation")]
+        let total_jops_cell = self.assign_total_jops_first_step(ctx, total_jops)?;
+
+        let rest_jops = total_jops
+            - if cfg!(feature = "continuation") {
+                initialization_state.jops
+            } else {
+                0
+            };
 
         let (rest_mops_cell, rest_jops_cell) =
             self.assign_rest_ops_first_step(ctx, rest_mops, rest_jops)?;
@@ -500,6 +525,7 @@ impl<F: FieldExt> EventTableChip<F> {
             configure_table,
             // rest_ops,
             &initialization_state,
+            total_jops,
             rest_jops,
             rest_mops,
         )?;
@@ -514,7 +540,11 @@ impl<F: FieldExt> EventTableChip<F> {
         Ok(EventTablePermutationCells {
             pre_initialization_state: pre_initialization_state_cells,
             post_initialization_state: post_initialization_state_cells,
-            rest_jops: rest_jops_cell,
+            total_jops: if cfg!(feature = "continuation") {
+                total_jops_cell
+            } else {
+                rest_jops_cell
+            },
         })
     }
 }

@@ -16,7 +16,6 @@ use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use mtable::AccessType;
-use mtable::LocationType;
 use mtable::MTable;
 use mtable::MemoryTableEntry;
 use rayon::prelude::IntoParallelRefIterator;
@@ -155,14 +154,13 @@ pub struct Tables {
     pub is_last_slice: bool,
 }
 
-impl Tables {
+impl EventTable {
     pub fn create_memory_table(
         &self,
+        imtable: &InitMemoryTable,
         memory_event_of_step: fn(&EventTableEntry, &mut u32) -> Vec<MemoryTableEntry>,
     ) -> MTable {
         let mut memory_entries = self
-            .execution_tables
-            .etable
             .entries()
             .par_iter()
             .map(|entry| memory_event_of_step(entry, &mut 1))
@@ -172,17 +170,9 @@ impl Tables {
         let init_value = memory_entries
             .par_iter()
             .map(|entry| {
-                if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
-                    let (_, _, value) = self
-                        .compilation_tables
-                        .imtable
-                        .try_find(entry.ltype, entry.offset)
-                        .unwrap();
-
-                    Some(value)
-                } else {
-                    None
-                }
+                imtable
+                    .try_find(entry.ltype, entry.offset)
+                    .map(|(_, _, value)| value)
             })
             .collect::<Vec<_>>();
 
@@ -213,13 +203,13 @@ impl Tables {
 
         MTable::new(memory_entries)
     }
-
-    pub fn is_last_slice(&self) -> bool {
-        self.is_last_slice
-    }
 }
 
 impl Tables {
+    pub fn is_last_slice(&self) -> bool {
+        self.is_last_slice
+    }
+
     pub fn write_json(&self, dir: Option<PathBuf>) {
         fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
             let mut folder = folder.clone();

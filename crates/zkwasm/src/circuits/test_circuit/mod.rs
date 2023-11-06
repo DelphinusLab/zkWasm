@@ -11,6 +11,8 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use log::debug;
+use specs::etable::EventTableWithMemoryInfo;
+use specs::mtable::MemoryWritingTable;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
@@ -33,8 +35,6 @@ use crate::circuits::post_image_table::PostImageTableConfig;
 use crate::circuits::post_image_table::PostImageTableConfigTrait;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
-use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
-use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
 use crate::circuits::TestCircuit;
 use crate::exec_with_profile;
@@ -52,7 +52,7 @@ use super::config::zkwasm_k;
 use super::image_table::ImageTableConfig;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    53
+    61
 } else {
     51
 };
@@ -225,14 +225,22 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                let memory_writing_table: MemoryWritingTable =
-                    self.tables.create_memory_table(memory_event_of_step).into();
+                let memory_writing_table: MemoryWritingTable = self
+                    .tables
+                    .execution_tables
+                    .etable
+                    .create_memory_table(
+                        &self.tables.compilation_tables.imtable,
+                        memory_event_of_step,
+                    )
+                    .into();
 
                 let etable = exec_with_profile!(
                     || "Prepare memory info for etable",
                     EventTableWithMemoryInfo::new(
                         &self.tables.execution_tables.etable,
                         &memory_writing_table,
+                        memory_event_of_step,
                     )
                 );
 
@@ -271,7 +279,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         jchip.assign(
                             &mut ctx,
                             &self.tables.execution_tables.jtable,
-                            etable_permutation_cells.rest_jops,
+                            etable_permutation_cells.total_jops,
                             &self.tables.compilation_tables.static_jtable,
                         )?
                     )

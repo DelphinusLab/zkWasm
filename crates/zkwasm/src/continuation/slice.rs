@@ -1,6 +1,7 @@
 use halo2_proofs::arithmetic::FieldExt;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
+use specs::mtable::MemoryWritingTable;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::InitializationState;
@@ -8,6 +9,7 @@ use specs::Tables;
 
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
+use crate::runtime::memory_event_of_step;
 use crate::runtime::state::simulate_execution;
 
 pub struct Slice {
@@ -32,6 +34,8 @@ pub struct Slices {
     capability: usize,
 
     origin_table: Tables,
+    // used to build post imtable
+    full_memory_writing_table: MemoryWritingTable,
 }
 
 impl Slices {
@@ -42,6 +46,11 @@ impl Slices {
     }
 
     pub fn new(table: Tables, capability: usize) -> Self {
+        let full_memory_writing_table = table
+            .execution_tables
+            .etable
+            .create_memory_table(&table.compilation_tables.imtable, memory_event_of_step)
+            .into();
         let remaining_etable_entries = table.execution_tables.etable.entries().clone();
 
         Self {
@@ -49,6 +58,7 @@ impl Slices {
             capability,
             current_compilation_table: table.compilation_tables.clone(),
             origin_table: table,
+            full_memory_writing_table,
         }
     }
 }
@@ -68,7 +78,14 @@ impl Iterator for Slices {
 
         let is_last_slice = self.remaining_etable_entries.is_empty();
 
-        let post_state = simulate_execution(&self.current_compilation_table, &execution_tables);
+        let post_state = simulate_execution(
+            &self.current_compilation_table,
+            &execution_tables,
+            &self.full_memory_writing_table,
+            memory_event_of_step,
+        );
+
+        // println!("{:?}", post_state);
 
         let post_image_table = CompilationTable {
             itable: self.origin_table.compilation_tables.itable.clone(),

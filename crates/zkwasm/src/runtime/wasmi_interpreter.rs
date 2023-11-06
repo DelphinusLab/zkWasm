@@ -15,8 +15,7 @@ use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
-use crate::circuits::config::zkwasm_k;
-
+use super::memory_event_of_step;
 use super::state::simulate_execution;
 use super::CompiledImage;
 use super::ExecutionResult;
@@ -79,8 +78,15 @@ impl Execution<RuntimeValue>
         };
 
         let post_image_table = {
-            let (imtable, initialization_state) =
-                simulate_execution(&self.tables, &execution_tables);
+            let (imtable, initialization_state) = simulate_execution(
+                &self.tables,
+                &execution_tables,
+                &(execution_tables
+                    .etable
+                    .create_memory_table(&self.tables.imtable, memory_event_of_step)
+                    .into()),
+                memory_event_of_step,
+            );
 
             CompilationTable {
                 itable: self.tables.itable.clone(),
@@ -165,7 +171,7 @@ impl WasmiRuntime {
         };
 
         let itable = tracer.borrow().itable.clone();
-        let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
+        let imtable = tracer.borrow().imtable.finalized();
         let elem_table = tracer.borrow().elem_table.clone();
         let configure_table = tracer.borrow().configure_table.clone();
         let static_jtable = tracer.borrow().static_jtable_entries.clone();

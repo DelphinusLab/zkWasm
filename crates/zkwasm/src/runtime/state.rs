@@ -1,14 +1,108 @@
+use std::collections::BTreeMap;
+
+use specs::etable::EventTable;
+use specs::etable::EventTableEntry;
+use specs::etable::EventTableWithMemoryInfo;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
+use specs::imtable::InitMemoryTableEntry;
 use specs::itable::Opcode;
+use specs::mtable::LocationType;
+use specs::mtable::MemoryTableEntry;
+use specs::mtable::MemoryWritingTable;
 use specs::step::StepInfo;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::InitializationState;
 
+pub fn update(
+    raw_init_memory_table: &InitMemoryTable,
+    execution_table: &EventTable,
+    // must be consistent for all slices
+    full_memory_writing_table: &MemoryWritingTable,
+    memory_event_of_step: fn(&EventTableEntry, &mut u32) -> Vec<MemoryTableEntry>,
+) -> InitMemoryTable {
+    let mut local_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
+    let mut global_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
+    let mut memory_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
+
+    // First insert imtable entries which may be overwritten.
+    for entry in raw_init_memory_table.entries() {
+        match entry.ltype {
+            LocationType::Stack => {
+                assert_eq!(entry.start_offset, entry.end_offset);
+
+                local_map.insert(entry.start_offset, entry.clone());
+            }
+            LocationType::Heap => {
+                for offset in entry.start_offset..=entry.end_offset {
+                    memory_map.insert(
+                        offset,
+                        InitMemoryTableEntry {
+                            ltype: entry.ltype,
+                            is_mutable: entry.is_mutable,
+                            start_offset: offset,
+                            end_offset: offset,
+                            vtype: entry.vtype,
+                            value: entry.value,
+
+                            start_eid: entry.start_eid,
+                            end_eid: entry.end_eid,
+                        },
+                    );
+                }
+            }
+            LocationType::Global => {
+                assert_eq!(entry.start_offset, entry.end_offset);
+
+                global_map.insert(entry.start_offset, entry.clone());
+            }
+        }
+    }
+
+    let event_table = EventTableWithMemoryInfo::new(
+        execution_table,
+        full_memory_writing_table,
+        memory_event_of_step,
+    );
+
+    for etable_entry in event_table.0 {
+        for mentry in etable_entry.memory_rw_entires {
+            let map = match mentry.entry.ltype {
+                LocationType::Stack => &mut local_map,
+                LocationType::Heap => &mut memory_map,
+                LocationType::Global => &mut global_map,
+            };
+
+            map.insert(
+                mentry.entry.offset,
+                InitMemoryTableEntry {
+                    ltype: mentry.entry.ltype,
+                    is_mutable: mentry.entry.is_mutable,
+                    start_offset: mentry.entry.offset,
+                    end_offset: mentry.entry.offset,
+                    vtype: mentry.entry.vtype,
+                    value: mentry.entry.value,
+                    start_eid: mentry.start_eid,
+                    end_eid: mentry.end_eid,
+                },
+            );
+        }
+    }
+
+    let mut init_memory_entries = vec![];
+    init_memory_entries.append(&mut local_map.into_iter().map(|(_, v)| v).collect::<Vec<_>>());
+    init_memory_entries.append(&mut global_map.into_iter().map(|(_, v)| v).collect::<Vec<_>>());
+    init_memory_entries.append(&mut memory_map.into_iter().map(|(_, v)| v).collect::<Vec<_>>());
+
+    InitMemoryTable::new(init_memory_entries)
+}
+
 pub fn simulate_execution(
     compilation_table: &CompilationTable,
     execution_table: &ExecutionTable,
+    full_memory_writing_table: &MemoryWritingTable,
+    memory_event_of_step: fn(&EventTableEntry, &mut u32) -> Vec<MemoryTableEntry>,
 ) -> (InitMemoryTable, InitializationState<u32>) {
     let mut host_public_inputs = compilation_table.initialization_state.host_public_inputs;
     let mut context_in_index = compilation_table.initialization_state.context_in_index;
@@ -80,6 +174,13 @@ pub fn simulate_execution(
         jops,
     };
 
-    // FIXME: update imtable
-    (compilation_table.imtable.clone(), post_initialization_state)
+    (
+        update(
+            &compilation_table.imtable,
+            &execution_table.etable,
+            full_memory_writing_table,
+            memory_event_of_step,
+        ),
+        post_initialization_state,
+    )
 }

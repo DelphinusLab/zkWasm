@@ -9,7 +9,6 @@ use super::mtable::MemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
-use super::utils::table_entry::EventTableEntryWithMemoryInfo;
 use super::utils::Context;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
@@ -56,6 +55,7 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
+use specs::etable::EventTableEntryWithMemoryInfo;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
 use std::collections::BTreeMap;
@@ -81,6 +81,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     rest_jops_cell: AllocatedCommonRangeCell<F>,
     #[cfg(feature = "continuation")]
     jops_cell: AllocatedCommonRangeCell<F>,
+    #[cfg(feature = "continuation")]
+    total_jops_cell: AllocatedCommonRangeCell<F>,
 
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
@@ -238,6 +240,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let rest_jops_cell = allocator.alloc_common_range_cell();
         #[cfg(feature = "continuation")]
         let jops_cell = allocator.alloc_common_range_cell();
+        #[cfg(feature = "continuation")]
+        let total_jops_cell = allocator.alloc_common_range_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
@@ -283,6 +287,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             rest_jops_cell,
             #[cfg(feature = "continuation")]
             jops_cell,
+            #[cfg(feature = "continuation")]
+            total_jops_cell,
             input_index_cell,
             context_input_index_cell,
             context_output_index_cell,

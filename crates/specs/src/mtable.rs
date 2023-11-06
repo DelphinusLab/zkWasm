@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 use strum_macros::EnumIter;
 
@@ -138,7 +140,7 @@ impl MemoryTableEntry {
 }
 
 #[derive(Default, Debug, Serialize, Clone)]
-pub struct MTable(Vec<MemoryTableEntry>);
+pub struct MTable(pub Vec<MemoryTableEntry>);
 
 impl MTable {
     pub fn to_string(&self) -> String {
@@ -152,4 +154,95 @@ impl MTable {
     pub(crate) fn new(entries: Vec<MemoryTableEntry>) -> MTable {
         MTable(entries)
     }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MemoryWritingEntry {
+    index: usize,
+    pub entry: MemoryTableEntry,
+    pub end_eid: u32,
+}
+
+impl MemoryWritingEntry {
+    fn is_same_memory_address(&self, other: &Self) -> bool {
+        self.entry.is_same_location(&other.entry)
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct MemoryWritingTable(pub Vec<MemoryWritingEntry>);
+
+impl From<MTable> for MemoryWritingTable {
+    fn from(value: MTable) -> Self {
+        let mut index = 0;
+
+        let mut entries: Vec<MemoryWritingEntry> = value
+            .0
+            .into_iter()
+            .filter_map(|entry| {
+                if entry.atype != AccessType::Read {
+                    let entry = Some(MemoryWritingEntry {
+                        index,
+                        entry,
+                        end_eid: u32::MAX,
+                    });
+
+                    index += 1;
+
+                    entry
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let entries_next = entries.clone();
+        let next_iter = entries_next.iter().skip(1);
+
+        entries.iter_mut().zip(next_iter).for_each(|(curr, next)| {
+            if curr.is_same_memory_address(next) {
+                curr.end_eid = next.entry.eid;
+            }
+        });
+
+        MemoryWritingTable(entries)
+    }
+}
+
+impl MemoryWritingTable {
+    // (location, offset) |-> Vec<(start_eid, end_eid)>
+    pub fn build_lookup_mapping(&self) -> BTreeMap<(LocationType, u32), Vec<(u32, u32)>> {
+        let mut mapping = BTreeMap::<_, Vec<(u32, u32)>>::new();
+
+        for entry in &self.0 {
+            let ltype = entry.entry.ltype;
+            let offset = entry.entry.offset;
+            let start_eid = entry.entry.eid;
+            let end_eid = entry.end_eid;
+
+            if let Some(entries) = mapping.get_mut(&(ltype, offset)) {
+                entries.push((start_eid, end_eid));
+            } else {
+                mapping.insert((ltype, offset), vec![(start_eid, end_eid)]);
+            }
+        }
+
+        mapping
+    }
+
+    // pub fn write_json(&self, dir: Option<PathBuf>) {
+    //     fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
+    //         let mut folder = folder.clone();
+    //         folder.push(filename);
+    //         let mut fd = std::fs::File::create(folder.as_path()).unwrap();
+    //         folder.pop();
+
+    //         fd.write(buf.as_bytes()).unwrap();
+    //     }
+
+    //     let mtable = serde_json::to_string(self).unwrap();
+
+    //     let dir = dir.unwrap_or(env::current_dir().unwrap());
+    //     write_file(&dir, "memory_writing_table.json", &mtable);
+    // }
 }

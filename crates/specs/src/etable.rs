@@ -2,6 +2,8 @@ use serde::Serialize;
 
 use super::itable::InstructionTableEntry;
 use crate::host_function::HostPlugin;
+use crate::mtable::AccessType;
+use crate::mtable::MemoryWritingTable;
 use crate::step::StepInfo;
 
 #[derive(Clone, Debug, Serialize)]
@@ -67,5 +69,86 @@ impl EventTable {
                 _ => false,
             })
             .collect::<Vec<_>>()
+    }
+}
+
+use std::cmp::Ordering;
+
+use crate::mtable::MemoryTableEntry;
+
+#[derive(Debug)]
+pub struct MemoryRWEntry {
+    pub entry: MemoryTableEntry,
+    pub start_eid: u32,
+    pub end_eid: u32,
+}
+
+#[derive(Debug)]
+pub struct EventTableEntryWithMemoryInfo<'a> {
+    pub eentry: &'a EventTableEntry,
+    pub memory_rw_entires: Vec<MemoryRWEntry>,
+}
+
+#[derive(Debug)]
+pub struct EventTableWithMemoryInfo<'a>(pub Vec<EventTableEntryWithMemoryInfo<'a>>);
+
+impl<'a> EventTableWithMemoryInfo<'a> {
+    pub fn new(
+        event_table: &'a EventTable,
+        memory_writing_table: &MemoryWritingTable,
+        memory_event_of_step: fn(&EventTableEntry, &mut u32) -> Vec<MemoryTableEntry>,
+    ) -> Self {
+        let lookup = memory_writing_table.build_lookup_mapping();
+
+        let lookup_mtable_eid = |(eid, ltype, offset, is_writing)| {
+            let records = lookup.get(&(ltype, offset)).unwrap();
+
+            if is_writing {
+                let idx = records
+                    .binary_search_by(|(start_eid, _)| start_eid.cmp(eid))
+                    .unwrap();
+                records[idx]
+            } else {
+                let idx = records
+                    .binary_search_by(|(start_eid, end_eid)| {
+                        if eid <= start_eid {
+                            Ordering::Greater
+                        } else if eid > end_eid {
+                            Ordering::Less
+                        } else {
+                            Ordering::Equal
+                        }
+                    })
+                    .unwrap();
+                records[idx]
+            }
+        };
+
+        EventTableWithMemoryInfo(
+            event_table
+                .entries()
+                .iter()
+                .map(|eentry| EventTableEntryWithMemoryInfo {
+                    eentry,
+                    memory_rw_entires: memory_event_of_step(eentry, &mut 1)
+                        .into_iter()
+                        .map(|mentry| {
+                            let (start_eid, end_eid) = lookup_mtable_eid((
+                                &eentry.eid,
+                                mentry.ltype,
+                                mentry.offset,
+                                mentry.atype == AccessType::Write,
+                            ));
+
+                            MemoryRWEntry {
+                                entry: mentry,
+                                start_eid,
+                                end_eid,
+                            }
+                        })
+                        .collect(),
+                })
+                .collect(),
+        )
     }
 }

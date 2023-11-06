@@ -9,12 +9,12 @@ use specs::encode::init_memory_table::encode_init_memory_table_entry;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::imtable::InitMemoryTable;
 use specs::mtable::LocationType;
+use specs::mtable::MemoryWritingTable;
 use specs::mtable::VarType;
 
 use crate::circuits::cell::CellExpression;
 use crate::circuits::mtable::MemoryTableChip;
 use crate::circuits::utils::bn_to_field;
-use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
 
 use super::MEMORY_TABLE_ENTRY_ROWS;

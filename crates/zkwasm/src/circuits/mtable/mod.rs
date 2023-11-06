@@ -39,10 +39,12 @@ pub struct MemoryTableConfig<F: FieldExt> {
     is_i64_cell: AllocatedBitCell<F>,
     is_init_cell: AllocatedBitCell<F>,
 
+    // FIXME: U32 if continuation
     start_eid_cell: AllocatedCommonRangeCell<F>,
     end_eid_cell: AllocatedCommonRangeCell<F>,
     eid_diff_cell: AllocatedCommonRangeCell<F>,
     rest_mops_cell: AllocatedCommonRangeCell<F>,
+    // FIXME: U32 if continuation
     offset_align_left: AllocatedCommonRangeCell<F>,
     offset_align_right: AllocatedCommonRangeCell<F>,
     offset_align_left_diff_cell: AllocatedCommonRangeCell<F>,
