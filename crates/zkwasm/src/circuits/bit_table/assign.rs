@@ -2,10 +2,10 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Error;
+use specs::etable::EventTableWithMemoryInfo;
 use specs::itable::UnaryOp;
 use specs::step::StepInfo;
 
-use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
 
 use super::BitTableChip;

@@ -9,7 +9,6 @@ use super::mtable::MemoryTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
-use super::utils::table_entry::EventTableEntryWithMemoryInfo;
 use super::utils::Context;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
@@ -56,6 +55,7 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
+use specs::etable::EventTableEntryWithMemoryInfo;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
 use std::collections::BTreeMap;
@@ -79,17 +79,24 @@ pub struct EventTableCommonConfig<F: FieldExt> {
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     rest_jops_cell: AllocatedCommonRangeCell<F>,
+    #[cfg(feature = "continuation")]
+    jops_cell: AllocatedCommonRangeCell<F>,
+    #[cfg(feature = "continuation")]
+    total_jops_cell: AllocatedCommonRangeCell<F>,
+
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
     external_host_call_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) sp_cell: AllocatedCommonRangeCell<F>,
     mpages_cell: AllocatedCommonRangeCell<F>,
-    frame_id_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) eid_cell: AllocatedU32Cell<F>,
+    maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
+
+    frame_id_cell: AllocatedStateCell<F>,
+    pub(crate) eid_cell: AllocatedStateCell<F>,
+
     fid_cell: AllocatedCommonRangeCell<F>,
     iid_cell: AllocatedCommonRangeCell<F>,
-    maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
@@ -231,19 +238,24 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let rest_mops_cell = allocator.alloc_common_range_cell();
         let rest_jops_cell = allocator.alloc_common_range_cell();
+        #[cfg(feature = "continuation")]
+        let jops_cell = allocator.alloc_common_range_cell();
+        #[cfg(feature = "continuation")]
+        let total_jops_cell = allocator.alloc_common_range_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
         let external_host_call_index_cell = allocator.alloc_common_range_cell();
-        let sp_cell = allocator.alloc_common_range_cell();
-        let mpages_cell = allocator.alloc_common_range_cell();
-        let frame_id_cell = allocator.alloc_common_range_cell();
-        let eid_cell = allocator.alloc_u32_cell();
+
+        let eid_cell = allocator.alloc_state_cell();
+        let frame_id_cell = allocator.alloc_state_cell();
+
         let fid_cell = allocator.alloc_common_range_cell();
         let iid_cell = allocator.alloc_common_range_cell();
+        let sp_cell = allocator.alloc_common_range_cell();
+        let mpages_cell = allocator.alloc_common_range_cell();
         let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
 
-        meta.enable_equality(eid_cell.u32_cell.0.col);
         // We only need to enable equality for the cells of states
         let used_common_range_cells_for_state = allocator
             .free_cells
@@ -273,6 +285,10 @@ impl<F: FieldExt> EventTableConfig<F> {
             ops,
             rest_mops_cell,
             rest_jops_cell,
+            #[cfg(feature = "continuation")]
+            jops_cell,
+            #[cfg(feature = "continuation")]
+            total_jops_cell,
             input_index_cell,
             context_input_index_cell,
             context_output_index_cell,
@@ -388,10 +404,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                     .into_iter()
                     .reduce(|acc, x| acc + x)
                     .unwrap()
-                    - enabled_cell.curr_expr(meta),
+                    - constant_from!(1),
             ]
             .into_iter()
-            .map(|expr| expr * fixed_curr!(meta, step_sel))
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
             .collect::<Vec<_>>()
         });
 
@@ -449,7 +465,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 rest_jops_cell.next_expr(meta) - rest_jops_cell.curr_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
-                None,
+                Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
         });
 
@@ -521,9 +537,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c6a. eid change", |meta| {
             vec![
-                (eid_cell.u32_cell.next_expr(meta)
-                    - eid_cell.u32_cell.curr_expr(meta)
-                    - constant_from!(1))
+                (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
                     * enabled_cell.curr_expr(meta)
                     * fixed_curr!(meta, step_sel),
             ]
@@ -636,14 +650,36 @@ impl<F: FieldExt> EventTableConfig<F> {
 pub struct EventTableChip<F: FieldExt> {
     config: EventTableConfig<F>,
     max_available_rows: usize,
+    #[cfg(feature = "continuation")]
+    permutation_row_offset: usize,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
-    pub(super) fn new(config: EventTableConfig<F>, max_available_rows: usize) -> Self {
+    pub(super) fn new(
+        config: EventTableConfig<F>,
+        max_available_rows: usize,
+        slice_capability: Option<usize>,
+    ) -> Self {
+        let max_available_rows = if let Some(slice_capability) = slice_capability {
+            let rows = slice_capability * EVENT_TABLE_ENTRY_ROWS as usize;
+            assert!(rows <= max_available_rows);
+
+            rows
+        } else {
+            max_available_rows
+        };
+
+        println!(
+            "slice capability: {:?}, max_available_rows: {}",
+            slice_capability, max_available_rows
+        );
+
         Self {
             config,
             max_available_rows: max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize
                 * EVENT_TABLE_ENTRY_ROWS as usize,
+            #[cfg(feature = "continuation")]
+            permutation_row_offset: max_available_rows - EVENT_TABLE_ENTRY_ROWS as usize,
         }
     }
 }

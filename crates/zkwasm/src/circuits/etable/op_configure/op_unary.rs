@@ -8,7 +8,7 @@ use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::rtable::pow_table_power_encode;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
-use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use specs::etable::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
 use crate::constant;
 use crate::constant_from;

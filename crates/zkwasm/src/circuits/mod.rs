@@ -19,6 +19,7 @@ mod traits;
 pub mod config;
 pub mod image_table;
 pub mod jtable;
+pub mod post_image_table;
 pub mod rtable;
 pub mod test_circuit;
 pub mod utils;
@@ -26,6 +27,7 @@ pub mod utils;
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
     pub tables: Tables,
+    slice_capability: Option<usize>,
     _data: PhantomData<F>,
 }
 
@@ -33,6 +35,16 @@ impl<F: FieldExt> TestCircuit<F> {
     pub fn new(tables: Tables) -> Self {
         TestCircuit {
             tables,
+            slice_capability: None,
+            _data: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "continuation")]
+    pub fn new_slice(tables: Tables, slice_capability: usize) -> Self {
+        TestCircuit {
+            tables: tables,
+            slice_capability: Some(slice_capability),
             _data: PhantomData,
         }
     }
@@ -57,11 +69,10 @@ pub(self) trait Lookup<F: FieldExt> {
 
 pub struct ZkWasmCircuitBuilder {
     pub tables: Tables,
-    pub public_inputs_and_outputs: Vec<u64>,
 }
 
 impl ZkWasmCircuitBuilder {
-    pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-        TestCircuit::new(self.tables.clone())
+    pub fn build_circuit<F: FieldExt>(self) -> TestCircuit<F> {
+        TestCircuit::new(self.tables)
     }
 }

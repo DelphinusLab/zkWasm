@@ -15,6 +15,7 @@ use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::Tracer;
@@ -59,7 +60,7 @@ pub struct ExecutionReturn {
 }
 
 pub struct ZkWasmLoader<E: MultiMillerLoop> {
-    k: u32,
+    pub k: u32,
     module: wasmi::Module,
     phantom_functions: Vec<String>,
     _data: PhantomData<E>,
@@ -109,21 +110,13 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
-        let (env, wasm_runtime_io) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![],
-            vec![],
-            Arc::new(Mutex::new(vec![])),
-        );
-
-        let compiled_module = self.compile(&env)?;
-
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
-                compilation_tables: compiled_module.tables,
+                compilation_tables: CompilationTable::default(),
                 execution_tables: ExecutionTable::default(),
+                post_image_table: CompilationTable::default(),
+                is_last_slice: true,
             },
-            public_inputs_and_outputs: wasm_runtime_io.public_inputs_and_outputs.borrow().clone(),
         };
 
         Ok(builder.build_circuit::<E::Scalar>())
@@ -209,30 +202,29 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
         let execution_result = self.run(arg)?;
 
-        let instance: Vec<E::Scalar> = execution_result
-            .public_inputs_and_outputs
-            .clone()
-            .iter()
-            .map(|v| (*v).into())
-            .collect();
-
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
-            public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
         };
 
         println!("output:");
         println!("{:?}", execution_result.outputs);
 
-        Ok((builder.build_circuit(), instance))
+        Ok((
+            builder.build_circuit(),
+            execution_result
+                .public_inputs_and_outputs
+                .into_iter()
+                .map(|v| v.into())
+                .collect(),
+        ))
     }
 
     pub fn mock_test(
         &self,
         circuit: &TestCircuit<E::Scalar>,
-        instances: &Vec<E::Scalar>,
+        instances: Vec<E::Scalar>,
     ) -> Result<()> {
-        let prover = MockProver::run(self.k, circuit, vec![instances.clone()])?;
+        let prover = MockProver::run(self.k, circuit, vec![instances])?;
         assert_eq!(prover.verify(), Ok(()));
 
         Ok(())

@@ -33,7 +33,6 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
 
     let builder = ZkWasmCircuitBuilder {
         tables: execution_result.tables,
-        public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
     };
 
     let circuit: TestCircuit<Fr> = builder.build_circuit();
@@ -135,7 +134,6 @@ mod tests {
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
-            public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
         };
 
         let proof = {

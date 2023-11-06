@@ -1,5 +1,3 @@
-use specs::configure_table::ConfigureTable;
-
 #[derive(Clone)]
 pub struct Status {
     pub eid: u32,
@@ -17,5 +15,5 @@ pub struct StepStatus<'a> {
     pub host_public_inputs: u32,
     pub context_in_index: u32,
     pub context_out_index: u32,
-    pub configure_table: ConfigureTable,
+    pub maximal_memory_pages: u32,
 }

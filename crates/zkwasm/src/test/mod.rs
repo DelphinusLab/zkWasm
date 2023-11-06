@@ -24,6 +24,9 @@ mod test_rlp;
 mod test_start;
 mod test_uniform_verifier;
 
+#[cfg(feature = "continuation")]
+mod test_rlp_continuation;
+
 /// Create circuit with trace and run mock test.
 fn test_circuit_mock<F: FieldExt>(
     execution_result: ExecutionResult<wasmi::RuntimeValue>,

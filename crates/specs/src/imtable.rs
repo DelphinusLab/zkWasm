@@ -1,10 +1,11 @@
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 
 use crate::mtable::LocationType;
 use crate::mtable::VarType;
 use serde::Serialize;
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct InitMemoryTableEntry {
     pub ltype: LocationType,
     pub is_mutable: bool,
@@ -13,35 +14,27 @@ pub struct InitMemoryTableEntry {
     pub vtype: VarType,
     /// convert from [u8; 8] via u64::from_le_bytes
     pub value: u64,
+
+    // for stack
+    pub start_eid: u32,
+    pub end_eid: u32,
 }
 
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct InitMemoryTable {
     entries: Vec<InitMemoryTableEntry>,
-    sorted_global_init_entries: Vec<InitMemoryTableEntry>,
+    sorted_global_init_entries: BTreeMap<u32, InitMemoryTableEntry>,
     sorted_heap_init_entries: Vec<InitMemoryTableEntry>,
+    sorted_stack_init_entries: BTreeMap<u32, InitMemoryTableEntry>,
 }
 
 impl InitMemoryTable {
-    pub fn new(entries: Vec<InitMemoryTableEntry>, k: u32) -> Self {
+    pub fn new(entries: Vec<InitMemoryTableEntry>) -> Self {
         let mut imtable = Self {
-            entries: entries
-                .into_iter()
-                .map(|entry| InitMemoryTableEntry {
-                    ltype: entry.ltype,
-                    is_mutable: entry.is_mutable,
-                    start_offset: entry.start_offset,
-                    end_offset: if entry.end_offset == u32::MAX {
-                        (1u32 << (k - 1)) - 1
-                    } else {
-                        entry.end_offset
-                    },
-                    vtype: entry.vtype,
-                    value: entry.value,
-                })
-                .collect(),
-            sorted_global_init_entries: vec![],
+            entries,
+            sorted_global_init_entries: BTreeMap::new(),
             sorted_heap_init_entries: vec![],
+            sorted_stack_init_entries: BTreeMap::new(),
         };
         imtable.sort();
         imtable.merge();
@@ -56,7 +49,13 @@ impl InitMemoryTable {
             .entries
             .iter()
             .filter(|entry| entry.ltype == LocationType::Global)
-            .map(|entry| entry.clone())
+            .map(|entry| (entry.start_offset, entry.clone()))
+            .collect();
+        imtable.sorted_stack_init_entries = imtable
+            .entries
+            .iter()
+            .filter(|entry| entry.ltype == LocationType::Stack)
+            .map(|entry| (entry.start_offset, entry.clone()))
             .collect();
 
         imtable
@@ -93,16 +92,18 @@ impl InitMemoryTable {
                 ));
             }
             LocationType::Global => {
-                for entry in self.sorted_global_init_entries.iter() {
-                    if entry.start_offset == offset {
-                        return Some((offset, offset, entry.value));
-                    }
-                }
+                return self
+                    .sorted_global_init_entries
+                    .get(&offset)
+                    .map(|entry| (offset, offset, entry.value))
             }
-            LocationType::Stack => unreachable!(),
+            LocationType::Stack => {
+                return self
+                    .sorted_stack_init_entries
+                    .get(&offset)
+                    .map(|entry| (offset, offset, entry.value))
+            }
         }
-
-        None
     }
 
     fn sort(&mut self) {
@@ -114,7 +115,7 @@ impl InitMemoryTable {
         let mut merged_entries: Vec<_> = self
             .entries()
             .iter()
-            .filter(|entry| entry.ltype == LocationType::Global)
+            .filter(|entry| entry.ltype != LocationType::Heap)
             .map(|entry| entry.clone())
             .collect();
 
@@ -128,7 +129,10 @@ impl InitMemoryTable {
             let mut scan = 0;
             let mut cursor = scan + 1;
             while scan < heap_initial.len() && cursor < heap_initial.len() {
-                if heap_initial[scan].value == heap_initial[cursor].value {
+                if heap_initial[scan].value == heap_initial[cursor].value
+                    && heap_initial[scan].start_eid == heap_initial[cursor].start_eid
+                    && heap_initial[scan].end_eid == heap_initial[cursor].end_eid
+                {
                     cursor += 1;
                 } else {
                     merged_entries.push(InitMemoryTableEntry {
@@ -138,6 +142,9 @@ impl InitMemoryTable {
                         end_offset: heap_initial[cursor - 1].end_offset,
                         vtype: VarType::I64,
                         value: heap_initial[scan].value,
+
+                        start_eid: heap_initial[scan].start_eid,
+                        end_eid: heap_initial[scan].end_eid,
                     });
 
                     scan = cursor;
@@ -151,6 +158,9 @@ impl InitMemoryTable {
                 end_offset: heap_initial[cursor - 1].end_offset,
                 vtype: VarType::I64,
                 value: heap_initial[scan].value,
+
+                start_eid: heap_initial[scan].start_eid,
+                end_eid: heap_initial[scan].end_eid,
             });
         }
 

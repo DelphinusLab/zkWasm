@@ -7,7 +7,7 @@ use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::utils::step_status::StepStatus;
-use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
+use specs::etable::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
 use crate::constant;
 use crate::constant_from;
@@ -196,7 +196,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
         meta: &mut VirtualCells<'_, F>,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        Some(common_config.eid_cell.u32_cell.curr_expr(meta))
+        Some(common_config.eid_cell.curr_expr(meta))
     }
 
     fn next_fid(

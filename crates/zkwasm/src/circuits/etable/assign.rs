@@ -3,11 +3,14 @@ use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
 use specs::configure_table::ConfigureTable;
+use specs::etable::EventTableWithMemoryInfo;
 use specs::itable::Opcode;
 use specs::itable::OpcodeClassPlain;
+use specs::jtable::JumpTable;
+use specs::jtable::StaticFrameEntry;
+use specs::InitializationState;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::EventTableChip;
 use super::EventTableOpcodeConfig;
@@ -16,15 +19,12 @@ use crate::circuits::cell::CellExpression;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
-use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
 
 pub(in crate::circuits) struct EventTablePermutationCells {
-    pub(in crate::circuits) rest_mops: Option<Cell>,
-    pub(in crate::circuits) rest_jops: Option<Cell>,
-    pub(in crate::circuits) fid_of_entry: Cell,
-    pub(in crate::circuits) initial_memory_pages: Cell,
-    pub(in crate::circuits) maximal_memory_pages: Cell,
+    pub(in crate::circuits) pre_initialization_state: InitializationState<Cell>,
+    pub(in crate::circuits) post_initialization_state: InitializationState<Cell>,
+    pub(in crate::circuits) total_jops: Cell,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
@@ -73,21 +73,37 @@ impl<F: FieldExt> EventTableChip<F> {
             ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
         }
 
-        ctx.region.assign_advice_from_constant(
-            || "etable: rest mops terminates",
-            self.config.common_config.rest_mops_cell.0.col,
-            ctx.offset,
-            F::zero(),
-        )?;
+        // ctx.region.assign_advice_from_constant(
+        //     || "etable: rest mops terminates",
+        //     self.config.common_config.rest_mops_cell.0.col,
+        //     ctx.offset,
+        //     F::zero(),
+        // )?;
 
-        ctx.region.assign_advice_from_constant(
-            || "etable: rest jops terminates",
-            self.config.common_config.rest_jops_cell.0.col,
-            ctx.offset,
-            F::zero(),
-        )?;
+        // ctx.region.assign_advice_from_constant(
+        //     || "etable: rest jops terminates",
+        //     self.config.common_config.rest_jops_cell.0.col,
+        //     ctx.offset,
+        //     F::zero(),
+        // )?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "continuation")]
+    fn assign_total_jops_first_step(
+        &self,
+        ctx: &mut Context<'_, F>,
+        total_jops: u32,
+    ) -> Result<Cell, Error> {
+        let rest_mops_cell = self
+            .config
+            .common_config
+            .total_jops_cell
+            .assign(ctx, F::from(total_jops as u64))?
+            .cell();
+
+        Ok(rest_mops_cell)
     }
 
     fn assign_rest_ops_first_step(
@@ -111,15 +127,212 @@ impl<F: FieldExt> EventTableChip<F> {
         Ok((rest_mops_cell.cell(), rest_mops_jell.cell()))
     }
 
+    fn assign_pre_initialization_state(
+        &self,
+        ctx: &mut Context<'_, F>,
+        configure_table: &ConfigureTable,
+        initialization_state: &InitializationState<u32>,
+    ) -> Result<InitializationState<Cell>, Error> {
+        #[cfg(feature = "continuation")]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                self.config.common_config.$cell.assign(ctx, $value)?.cell()
+            };
+        }
+
+        #[cfg(not(feature = "continuation"))]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                assign_common_range_advice!($cell, $value)
+            };
+        }
+
+        macro_rules! assign_common_range_advice {
+            ($cell:ident, $value:expr) => {
+                self.config
+                    .common_config
+                    .$cell
+                    .assign(ctx, F::from($value as u64))?
+                    .cell()
+            };
+        }
+
+        let eid = assign_state_advice!(eid_cell, initialization_state.eid);
+        let fid = assign_common_range_advice!(fid_cell, initialization_state.fid);
+        let iid = assign_common_range_advice!(iid_cell, initialization_state.iid);
+        let sp = assign_common_range_advice!(sp_cell, initialization_state.sp);
+        let frame_id = assign_state_advice!(frame_id_cell, initialization_state.frame_id);
+
+        let host_public_inputs =
+            assign_common_range_advice!(input_index_cell, initialization_state.host_public_inputs);
+        let context_in_index = assign_common_range_advice!(
+            context_input_index_cell,
+            initialization_state.context_in_index
+        );
+        let context_out_index = assign_common_range_advice!(
+            context_output_index_cell,
+            initialization_state.context_out_index
+        );
+        let external_host_call_call_index = assign_common_range_advice!(
+            external_host_call_index_cell,
+            initialization_state.external_host_call_call_index
+        );
+
+        let initial_memory_pages =
+            assign_common_range_advice!(mpages_cell, initialization_state.initial_memory_pages);
+        let maximal_memory_pages = assign_common_range_advice!(
+            maximal_memory_pages_cell,
+            configure_table.maximal_memory_pages
+        );
+
+        #[cfg(feature = "continuation")]
+        let jops = assign_common_range_advice!(jops_cell, initialization_state.jops);
+
+        Ok(InitializationState {
+            eid,
+            fid,
+            iid,
+            frame_id,
+            sp,
+
+            host_public_inputs,
+            context_in_index,
+            context_out_index,
+            external_host_call_call_index,
+
+            initial_memory_pages,
+            maximal_memory_pages,
+
+            #[cfg(feature = "continuation")]
+            jops,
+        })
+    }
+
+    fn assign_post_initialization_state(
+        &self,
+        ctx: &mut Context<'_, F>,
+        configure_table: &ConfigureTable,
+        initialization_state: &InitializationState<u32>,
+    ) -> Result<InitializationState<Cell>, Error> {
+        #[cfg(feature = "continuation")]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                self.config.common_config.$cell.assign(ctx, $value)?.cell()
+            };
+        }
+
+        #[cfg(not(feature = "continuation"))]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                assign_common_range_advice!($cell, $value)
+            };
+        }
+
+        macro_rules! assign_common_range_advice {
+            ($cell:ident, $value:expr) => {
+                self.config
+                    .common_config
+                    .$cell
+                    .assign(ctx, F::from($value as u64))?
+                    .cell()
+            };
+        }
+
+        ctx.reset();
+
+        while ctx.offset != self.permutation_row_offset {
+            ctx.next()
+        }
+
+        println!(
+            "ctxoffset: {}, permutation_row_offset: {}",
+            ctx.offset, self.permutation_row_offset
+        );
+
+        let eid = assign_state_advice!(eid_cell, initialization_state.eid);
+        let fid = assign_common_range_advice!(fid_cell, initialization_state.fid);
+        let iid = assign_common_range_advice!(iid_cell, initialization_state.iid);
+        let sp = assign_common_range_advice!(sp_cell, initialization_state.sp);
+        let frame_id = assign_state_advice!(frame_id_cell, initialization_state.frame_id);
+
+        let host_public_inputs =
+            assign_common_range_advice!(input_index_cell, initialization_state.host_public_inputs);
+        let context_in_index = assign_common_range_advice!(
+            context_input_index_cell,
+            initialization_state.context_in_index
+        );
+        let context_out_index = assign_common_range_advice!(
+            context_output_index_cell,
+            initialization_state.context_out_index
+        );
+        let external_host_call_call_index = assign_common_range_advice!(
+            external_host_call_index_cell,
+            initialization_state.external_host_call_call_index
+        );
+
+        let initial_memory_pages =
+            assign_common_range_advice!(mpages_cell, initialization_state.initial_memory_pages);
+        let maximal_memory_pages = assign_common_range_advice!(
+            maximal_memory_pages_cell,
+            configure_table.maximal_memory_pages
+        );
+
+        #[cfg(feature = "continuation")]
+        let jops = assign_common_range_advice!(jops_cell, initialization_state.jops);
+
+        ctx.reset();
+
+        Ok(InitializationState {
+            eid,
+            fid,
+            iid,
+            frame_id,
+            sp,
+
+            host_public_inputs,
+            context_in_index,
+            context_out_index,
+            external_host_call_call_index,
+
+            initial_memory_pages,
+            maximal_memory_pages,
+
+            #[cfg(feature = "continuation")]
+            jops,
+        })
+    }
+
     fn assign_entries(
         &self,
         ctx: &mut Context<'_, F>,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        fid_of_entry: u32,
-        rest_ops: Vec<(u32, u32)>,
-    ) -> Result<(Cell, Cell, Cell), Error> {
+        // rest_ops: Vec<(u32, u32)>,
+        initialization_state: &InitializationState<u32>,
+        total_jops: u32,
+        mut rest_jops: u32,
+        mut rest_mops: u32,
+        mut jops: u32,
+    ) -> Result<(), Error> {
+        #[cfg(feature = "continuation")]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                self.config.common_config.$cell.assign(ctx, $value)?.cell()
+            };
+        }
+
+        #[cfg(not(feature = "continuation"))]
+        macro_rules! assign_state_advice {
+            ($cell:ident, $value:expr) => {
+                self.config
+                    .common_config
+                    .$cell
+                    .assign(ctx, F::from($value as u64))?
+                    .cell()
+            };
+        }
+
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.common_config.$cell.assign(ctx, $value)?
@@ -132,52 +345,13 @@ impl<F: FieldExt> EventTableChip<F> {
             };
         }
 
-        macro_rules! assign_constant {
-            ($cell:ident, $value:expr) => {
-                self.config
-                    .common_config
-                    .$cell
-                    .assign_constant(ctx, $value)?
-            };
-        }
-
-        let mut host_public_inputs = 1u32;
-        let mut context_in_index = 1u32;
-        let mut context_out_index = 1u32;
-        let mut external_host_call_call_index = 1u32;
-
-        assign_constant!(input_index_cell, F::from(host_public_inputs as u64));
-        assign_constant!(context_input_index_cell, F::from(context_in_index as u64));
-        assign_constant!(context_output_index_cell, F::from(context_out_index as u64));
-        assign_constant!(
-            external_host_call_index_cell,
-            F::from(external_host_call_call_index as u64)
-        );
-        let initial_memory_pages_cell = assign_advice!(
-            mpages_cell,
-            F::from(configure_table.init_memory_pages as u64)
-        );
-        let maximal_memory_pages_cell = assign_advice!(
-            maximal_memory_pages_cell,
-            F::from(configure_table.maximal_memory_pages as u64)
-        );
-        assign_constant!(sp_cell, F::from(DEFAULT_VALUE_STACK_LIMIT as u64 - 1));
-        assign_constant!(frame_id_cell, F::zero());
-        assign_constant!(eid_cell, 1);
-        let fid_of_entry_cell = assign_advice!(fid_cell, F::from(fid_of_entry as u64));
-        assign_constant!(iid_cell, F::zero());
-
         /*
          * Skip subsequent advice assignment in the first pass to enhance performance.
          */
         {
             let assigned_cell = assign_advice!(enabled_cell, F::zero());
             if assigned_cell.value().is_none() {
-                return Ok((
-                    fid_of_entry_cell.cell(),
-                    initial_memory_pages_cell.cell(),
-                    maximal_memory_pages_cell.cell(),
-                ));
+                return Ok(());
             }
         }
 
@@ -185,12 +359,13 @@ impl<F: FieldExt> EventTableChip<F> {
          * The length of event_table equals 0: without_witness
          */
         if event_table.0.len() == 0 {
-            return Ok((
-                fid_of_entry_cell.cell(),
-                initial_memory_pages_cell.cell(),
-                maximal_memory_pages_cell.cell(),
-            ));
+            return Ok(());
         }
+
+        let mut host_public_inputs = initialization_state.host_public_inputs;
+        let mut context_in_index = initialization_state.context_in_index;
+        let mut context_out_index = initialization_state.context_out_index;
+        let mut external_host_call_call_index = initialization_state.external_host_call_call_index;
 
         let status = {
             let mut status = event_table
@@ -216,7 +391,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     {
                         *drop
                     } else {
-                        unreachable!()
+                        0
                     },
                 last_jump_eid: 0,
                 allocated_memory_pages: status.last().unwrap().allocated_memory_pages,
@@ -227,14 +402,12 @@ impl<F: FieldExt> EventTableChip<F> {
             status
         };
 
-        for (index, (entry, (rest_mops, rest_jops))) in
-            event_table.0.iter().zip(rest_ops.iter()).enumerate()
-        {
+        for (index, entry) in event_table.0.iter().enumerate() {
             let step_status = StepStatus {
                 current: &status[index],
                 next: &status[index + 1],
                 current_external_host_call_index: external_host_call_call_index,
-                configure_table: *configure_table,
+                maximal_memory_pages: configure_table.maximal_memory_pages,
                 host_public_inputs,
                 context_in_index,
                 context_out_index,
@@ -247,9 +420,16 @@ impl<F: FieldExt> EventTableChip<F> {
                 assign_advice_cell!(op, F::one());
             }
 
-            assign_advice!(enabled_cell, F::one());
-            assign_advice!(rest_mops_cell, F::from(*rest_mops as u64));
-            assign_advice!(rest_jops_cell, F::from(*rest_jops as u64));
+            if index != event_table.0.len() - 1 {
+                assign_advice!(enabled_cell, F::one());
+            }
+            #[cfg(feature = "continuation")]
+            assign_advice!(total_jops_cell, F::from(total_jops as u64));
+            #[cfg(feature = "continuation")]
+            assign_advice!(jops_cell, F::from(jops as u64));
+
+            assign_advice!(rest_mops_cell, F::from(rest_mops as u64));
+            assign_advice!(rest_jops_cell, F::from(rest_jops as u64));
             assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
             assign_advice!(context_input_index_cell, F::from(context_in_index as u64));
             assign_advice!(context_output_index_cell, F::from(context_out_index as u64));
@@ -266,8 +446,9 @@ impl<F: FieldExt> EventTableChip<F> {
                 maximal_memory_pages_cell,
                 F::from(configure_table.maximal_memory_pages as u64)
             );
-            assign_advice!(frame_id_cell, F::from(entry.eentry.last_jump_eid as u64));
-            assign_advice!(eid_cell, entry.eentry.eid);
+            assign_state_advice!(frame_id_cell, entry.eentry.last_jump_eid);
+            // println!("assign  eid: {} to ctx: {}", entry.eentry.eid, ctx.offset);
+            assign_state_advice!(eid_cell, entry.eentry.eid);
             assign_advice!(fid_cell, F::from(entry.eentry.inst.fid as u64));
             assign_advice!(iid_cell, F::from(entry.eentry.inst.iid as u64));
             assign_advice!(itable_lookup_cell, bn_to_field(&entry.eentry.inst.encode()));
@@ -289,19 +470,53 @@ impl<F: FieldExt> EventTableChip<F> {
             if op_config.is_external_host_call(&entry.eentry) {
                 external_host_call_call_index += 1;
             }
+            rest_jops -= op_config.jops();
+            jops += op_config.jops();
+            rest_mops -= op_config.memory_writing_ops(&entry.eentry);
+
+            ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
+        }
+
+        println!(
+            "assign terminate eid: {} to ctx: {}",
+            status.last().unwrap().eid,
+            ctx.offset
+        );
+
+        while ctx.offset < self.permutation_row_offset {
+            // Assign terminate status
+            assign_state_advice!(eid_cell, status.last().unwrap().eid);
+            assign_advice!(jops_cell, F::from(jops as u64));
+            assign_advice!(fid_cell, F::from(status.last().unwrap().fid as u64));
+            assign_advice!(iid_cell, F::from(status.last().unwrap().iid as u64));
+            assign_advice!(sp_cell, F::from(status.last().unwrap().sp as u64));
+            assign_state_advice!(frame_id_cell, status.last().unwrap().last_jump_eid);
+            assign_advice!(
+                mpages_cell,
+                F::from(status.last().unwrap().allocated_memory_pages as u64)
+            );
+            assign_advice!(
+                maximal_memory_pages_cell,
+                F::from(configure_table.maximal_memory_pages as u64)
+            );
+            assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
+            assign_advice!(context_input_index_cell, F::from(context_in_index as u64));
+            assign_advice!(context_output_index_cell, F::from(context_out_index as u64));
+            assign_advice!(
+                external_host_call_index_cell,
+                F::from(external_host_call_call_index as u64)
+            );
 
             ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
         }
 
         // Assign terminate status
-        assign_advice!(eid_cell, status.last().unwrap().eid);
+        assign_state_advice!(eid_cell, status.last().unwrap().eid);
+        assign_advice!(jops_cell, F::from(jops as u64));
         assign_advice!(fid_cell, F::from(status.last().unwrap().fid as u64));
         assign_advice!(iid_cell, F::from(status.last().unwrap().iid as u64));
         assign_advice!(sp_cell, F::from(status.last().unwrap().sp as u64));
-        assign_advice!(
-            frame_id_cell,
-            F::from(status.last().unwrap().last_jump_eid as u64)
-        );
+        assign_state_advice!(frame_id_cell, status.last().unwrap().last_jump_eid);
         assign_advice!(
             mpages_cell,
             F::from(status.last().unwrap().allocated_memory_pages as u64)
@@ -318,51 +533,187 @@ impl<F: FieldExt> EventTableChip<F> {
             F::from(external_host_call_call_index as u64)
         );
 
-        Ok((
-            fid_of_entry_cell.cell(),
-            initial_memory_pages_cell.cell(),
-            maximal_memory_pages_cell.cell(),
-        ))
+        Ok(())
     }
+
+    // fn assign_post_initialization_state(
+    //     &self,
+    //     ctx: &mut Context<'_, F>,
+    //     configure_table: &ConfigureTable,
+    //     initialization_state: &InitializationState<u32>,
+    //     last_slice: bool,
+    // ) -> Result<InitializationState<Cell>, Error> {
+    //     #[cfg(feature = "continuation")]
+    //     macro_rules! assign_state_advice {
+    //         ($cell:ident, $value:expr) => {
+    //             self.config.common_config.$cell.assign(ctx, $value)?.cell()
+    //         };
+    //     }
+
+    //     #[cfg(not(feature = "continuation"))]
+    //     macro_rules! assign_state_advice {
+    //         ($cell:ident, $value:expr) => {
+    //             assign_common_range_advice!($cell, $value)
+    //         };
+    //     }
+
+    //     macro_rules! assign_common_range_advice {
+    //         ($cell:ident, $value:expr) => {
+    //             self.config
+    //                 .common_config
+    //                 .$cell
+    //                 .assign(ctx, F::from($value as u64))?
+    //                 .cell()
+    //         };
+    //     }
+
+    //     let mut assign_one_step_state = || -> Result<InitializationState<Cell>, Error> {
+    //         let eid = assign_state_advice!(eid_cell, initialization_state.eid);
+    //         let fid = assign_common_range_advice!(fid_cell, initialization_state.fid);
+    //         let iid = assign_common_range_advice!(iid_cell, initialization_state.iid);
+    //         let sp = assign_common_range_advice!(sp_cell, initialization_state.sp);
+    //         let frame_id = assign_state_advice!(frame_id_cell, initialization_state.frame_id);
+
+    //         let host_public_inputs = assign_common_range_advice!(
+    //             input_index_cell,
+    //             initialization_state.host_public_inputs
+    //         );
+    //         let context_in_index = assign_common_range_advice!(
+    //             context_input_index_cell,
+    //             initialization_state.context_in_index
+    //         );
+    //         let context_out_index = assign_common_range_advice!(
+    //             context_output_index_cell,
+    //             initialization_state.context_out_index
+    //         );
+    //         let external_host_call_call_index = assign_common_range_advice!(
+    //             external_host_call_index_cell,
+    //             initialization_state.external_host_call_call_index
+    //         );
+
+    //         let initial_memory_pages =
+    //             assign_common_range_advice!(mpages_cell, initialization_state.initial_memory_pages);
+    //         let maximal_memory_pages = assign_common_range_advice!(
+    //             maximal_memory_pages_cell,
+    //             configure_table.maximal_memory_pages
+    //         );
+
+    //         #[cfg(feature = "continuation")]
+    //         let jops = assign_common_range_advice!(jops_cell, initialization_state.jops);
+
+    //         Ok(InitializationState {
+    //             eid,
+    //             fid,
+    //             iid,
+    //             frame_id,
+    //             sp,
+
+    //             host_public_inputs,
+    //             context_in_index,
+    //             context_out_index,
+    //             external_host_call_call_index,
+
+    //             initial_memory_pages,
+    //             maximal_memory_pages,
+
+    //             #[cfg(feature = "continuation")]
+    //             jops,
+    //         })
+    //     };
+
+    //     // #[cfg(feature = "continuation")]
+    //     // if last_slice {
+    //     //     while ctx.offset < self.permutation_row_offset {
+    //     //         let _ = assign_one_step_state()?;
+
+    //     //         ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
+    //     //     }
+    //     // }
+
+    //     let initialization_state = assign_one_step_state()?;
+
+    //     Ok(initialization_state)
+    // }
 
     pub(in crate::circuits) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
         event_table: &EventTableWithMemoryInfo,
+        frame_table: &JumpTable,
+        static_frame_entries: &Vec<StaticFrameEntry>,
         configure_table: &ConfigureTable,
-        fid_of_entry: u32,
+        initialization_state: &InitializationState<u32>,
+        post_initialization_state: &InitializationState<u32>,
+        last_slice: bool,
     ) -> Result<EventTablePermutationCells, Error> {
         debug!("size of execution table: {}", event_table.0.len());
         assert!(event_table.0.len() * EVENT_TABLE_ENTRY_ROWS as usize <= self.max_available_rows);
 
-        let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
+        let rest_mops = if cfg!(feature = "continuation") {
+            let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
+
+            rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops)
+        } else {
+            // FIXME: compute from mops, hack here
+            let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
+
+            rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops)
+        };
+        let total_jops = frame_table.entries().len() as u32 * 2 + static_frame_entries.len() as u32;
 
         self.init(ctx)?;
         ctx.reset();
 
-        let (rest_mops_cell, rest_jops_cell) = self.assign_rest_ops_first_step(
-            ctx,
-            rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops),
-            rest_ops.first().map_or(0u32, |(_, rest_jops)| *rest_jops),
-        )?;
+        #[cfg(feature = "continuation")]
+        let total_jops_cell = self.assign_total_jops_first_step(ctx, total_jops)?;
+
+        let rest_jops = total_jops
+            - if cfg!(feature = "continuation") {
+                initialization_state.jops
+            } else {
+                0
+            };
+
+        let (rest_mops_cell, rest_jops_cell) =
+            self.assign_rest_ops_first_step(ctx, rest_mops, rest_jops)?;
         ctx.reset();
 
-        let (fid_of_entry, initial_memory_pages, maximal_memory_pages) = self.assign_entries(
+        let pre_initialization_state_cells =
+            self.assign_pre_initialization_state(ctx, configure_table, initialization_state)?;
+        ctx.reset();
+
+        let post_initialization_state_cells =
+            self.assign_post_initialization_state(ctx, configure_table, initialization_state)?;
+        ctx.reset();
+
+        self.assign_entries(
             ctx,
             &self.config.op_configs,
             event_table,
             configure_table,
-            fid_of_entry,
-            rest_ops,
+            // rest_ops,
+            &initialization_state,
+            total_jops,
+            rest_jops,
+            rest_mops,
+            initialization_state.jops,
         )?;
-        ctx.reset();
+
+        // let post_initialization_state_cells = self.assign_post_initialization_state(
+        //     ctx,
+        //     configure_table,
+        //     post_initialization_state,
+        //     last_slice,
+        // )?;
 
         Ok(EventTablePermutationCells {
-            rest_mops: Some(rest_mops_cell),
-            rest_jops: Some(rest_jops_cell),
-            fid_of_entry,
-            initial_memory_pages,
-            maximal_memory_pages,
+            pre_initialization_state: pre_initialization_state_cells,
+            post_initialization_state: post_initialization_state_cells,
+            total_jops: if cfg!(feature = "continuation") {
+                total_jops_cell
+            } else {
+                rest_jops_cell
+            },
         })
     }
 }
