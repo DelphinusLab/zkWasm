@@ -23,6 +23,24 @@ impl<F: FieldExt> ImageTableChip<F> {
             initialization_state: &InitializationState<F>,
             permutation_cells: &InitializationState<Cell>,
         ) -> Result<(), Error> {
+            macro_rules! assign {
+                ($field:ident) => {
+                    let cell = ctx
+                        .region
+                        .assign_advice(
+                            || "image table",
+                            col,
+                            ctx.offset,
+                            || Ok(initialization_state.$field),
+                        )?
+                        .cell();
+
+                    // ctx.region.constrain_equal(cell, permutation_cells.$field)?;
+
+                    ctx.next();
+                };
+            }
+
             macro_rules! assign_and_perm {
                 ($field:ident) => {
                     let cell = ctx

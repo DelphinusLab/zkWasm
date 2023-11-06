@@ -404,10 +404,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                     .into_iter()
                     .reduce(|acc, x| acc + x)
                     .unwrap()
-                    - enabled_cell.curr_expr(meta),
+                    - constant_from!(1),
             ]
             .into_iter()
-            .map(|expr| expr * fixed_curr!(meta, step_sel))
+            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
             .collect::<Vec<_>>()
         });
 
@@ -465,7 +465,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 rest_jops_cell.next_expr(meta) - rest_jops_cell.curr_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
-                None,
+                Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
         });
 
@@ -650,6 +650,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 pub struct EventTableChip<F: FieldExt> {
     config: EventTableConfig<F>,
     max_available_rows: usize,
+    #[cfg(feature = "continuation")]
+    permutation_row_offset: usize,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
@@ -667,10 +669,17 @@ impl<F: FieldExt> EventTableChip<F> {
             max_available_rows
         };
 
+        println!(
+            "slice capability: {:?}, max_available_rows: {}",
+            slice_capability, max_available_rows
+        );
+
         Self {
             config,
             max_available_rows: max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize
                 * EVENT_TABLE_ENTRY_ROWS as usize,
+            #[cfg(feature = "continuation")]
+            permutation_row_offset: max_available_rows - EVENT_TABLE_ENTRY_ROWS as usize,
         }
     }
 }

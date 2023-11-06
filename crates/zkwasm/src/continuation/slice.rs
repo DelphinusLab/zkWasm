@@ -78,14 +78,17 @@ impl Iterator for Slices {
 
         let is_last_slice = self.remaining_etable_entries.is_empty();
 
+        if !is_last_slice {
+            self.remaining_etable_entries
+                .insert(0, execution_tables.etable.entries().last().unwrap().clone());
+        }
+
         let post_state = simulate_execution(
             &self.current_compilation_table,
             &execution_tables,
             &self.full_memory_writing_table,
             memory_event_of_step,
         );
-
-        // println!("{:?}", post_state);
 
         let post_image_table = CompilationTable {
             itable: self.origin_table.compilation_tables.itable.clone(),
