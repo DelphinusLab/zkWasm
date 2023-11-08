@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
+use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BrTableEntry {
     pub fid: u32,
     pub iid: u32,
@@ -25,7 +26,7 @@ impl BrTable {
     }
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElemEntry {
     pub table_idx: u32,
     pub type_idx: u32,
@@ -33,7 +34,7 @@ pub struct ElemEntry {
     pub func_idx: u32,
 }
 
-#[derive(Debug, Default, Serialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct ElemTable(BTreeMap<(u32, u32), ElemEntry>);
 
 impl ElemTable {

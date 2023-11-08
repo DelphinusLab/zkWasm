@@ -1,16 +1,36 @@
+use self::host_env::HostEnv;
+use super::wasmi_interpreter::WasmRuntimeIO;
 use downcast_rs::impl_downcast;
 use downcast_rs::Downcast;
+use serde::Deserialize;
+use serde::Serialize;
 use specs::external_host_call_table::ExternalHostCallSignature;
 use specs::host_function::HostFunctionDesc;
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 use wasmi::RuntimeArgs;
 use wasmi::RuntimeValue;
 use wasmi::Signature;
 
-pub mod host_env;
+pub trait ContextOutput {
+    fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>>;
+}
 
-mod external_circuit_plugin;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Sequence {
+    private_inputs: Vec<String>,
+    public_inputs: Vec<String>,
+    context_input: Vec<String>,
+    pub context_output: Option<PathBuf>,
+}
+
+pub mod default_env;
+pub mod external_circuit_plugin;
+
+pub mod host_env;
 mod internal_circuit_plugin;
 
 trait MatchForeignOpSignature {
@@ -66,4 +86,14 @@ struct HostFunctionExecutionEnv {
 struct HostFunction {
     desc: HostFunctionDesc,
     execution_env: HostFunctionExecutionEnv,
+}
+
+/// Implement `HostEnvBuilder` to support customized foreign plugins.
+pub trait HostEnvBuilder {
+    /// Argument type
+    type Arg;
+    /// Create an empty env without value, this is used by compiling, computing hash
+    fn create_env_without_value() -> (HostEnv, WasmRuntimeIO);
+    /// Create an env with execution parameters, this is used by dry-run, run
+    fn create_env(env: Self::Arg) -> (HostEnv, WasmRuntimeIO);
 }

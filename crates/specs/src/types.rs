@@ -1,10 +1,11 @@
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::external_host_call_table::ExternalHostCallSignature;
 use crate::host_function::HostPlugin;
 use crate::mtable::VarType;
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ValueType {
     I32,
     I64,

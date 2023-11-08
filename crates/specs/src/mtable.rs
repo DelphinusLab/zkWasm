@@ -1,18 +1,19 @@
 use std::collections::HashSet;
 
+use serde::Deserialize;
 use serde::Serialize;
 use strum_macros::EnumIter;
 
 use crate::imtable::InitMemoryTable;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 pub enum LocationType {
     Stack = 1,
     Heap = 2,
     Global = 3,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Hash, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum AccessType {
     Read = 1,
     Write = 2,
@@ -25,7 +26,9 @@ impl AccessType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, Serialize, Hash, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, EnumIter, Serialize, Deserialize, Hash, PartialOrd, Ord,
+)]
 pub enum VarType {
     I64 = 0,
     I32 = 1,
@@ -40,7 +43,9 @@ impl VarType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
+)]
 pub enum MemoryReadSize {
     U8 = 1,
     S8,
@@ -51,7 +56,9 @@ pub enum MemoryReadSize {
     I64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
+)]
 pub enum MemoryStoreSize {
     Byte8 = 1,
     Byte16,
@@ -113,7 +120,7 @@ impl MemoryReadSize {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
 pub struct MemoryTableEntry {
     pub eid: u32,
     /*
@@ -141,7 +148,7 @@ impl MemoryTableEntry {
     }
 }
 
-#[derive(Default, Debug, Serialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct MTable(Vec<MemoryTableEntry>);
 
 impl MTable {

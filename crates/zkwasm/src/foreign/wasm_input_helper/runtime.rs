@@ -10,11 +10,11 @@ use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use super::Op;
 
-struct Context {
-    public_inputs: Vec<u64>,
-    private_inputs: Vec<u64>,
-    instance: Rc<RefCell<Vec<u64>>>,
-    output: Rc<RefCell<Vec<u64>>>,
+pub struct Context {
+    pub public_inputs: Vec<u64>,
+    pub private_inputs: Vec<u64>,
+    pub instance: Rc<RefCell<Vec<u64>>>,
+    pub output: Rc<RefCell<Vec<u64>>>,
 }
 
 impl Context {
@@ -46,17 +46,35 @@ impl Context {
         self.private_inputs.remove(0)
     }
 
-    pub fn push_public(&mut self, value: u64) {
+    fn push_public(&mut self, value: u64) {
         let mut instance = self.instance.borrow_mut();
         instance.push(value)
     }
 
-    pub fn push_output(&mut self, value: u64) {
+    fn push_output(&mut self, value: u64) {
         let mut instance = self.instance.borrow_mut();
         instance.push(value);
 
         let mut output = self.output.borrow_mut();
         output.push(value);
+    }
+
+    pub fn wasm_input(&mut self, arg: i32) -> u64 {
+        assert!(arg == 0 || arg == 1);
+
+        let input = if arg == 1 {
+            let value = self.pop_public();
+            self.push_public(value);
+            value
+        } else {
+            self.pop_private()
+        };
+
+        input
+    }
+
+    pub fn wasm_output(&mut self, value: u64) {
+        self.push_output(value);
     }
 }
 
@@ -75,15 +93,7 @@ pub fn register_wasm_input_foreign(
             let context = context.downcast_mut::<Context>().unwrap();
 
             let arg: i32 = args.nth(0);
-            assert!(arg == 0 || arg == 1);
-
-            let input = if arg == 1 {
-                let value = context.pop_public();
-                context.push_public(value);
-                value
-            } else {
-                context.pop_private()
-            };
+            let input = context.wasm_input(arg);
 
             Some(wasmi::RuntimeValue::I64(input as i64))
         },
@@ -94,7 +104,7 @@ pub fn register_wasm_input_foreign(
             let context = context.downcast_mut::<Context>().unwrap();
 
             let value: i64 = args.nth(0);
-            context.push_output(value as u64);
+            context.wasm_output(value as u64);
 
             None
         },

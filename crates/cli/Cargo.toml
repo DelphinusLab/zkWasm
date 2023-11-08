@@ -18,10 +18,12 @@ hex = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 delphinus-zkwasm = { path = "../zkwasm" }
+delphinus-host = { path = "../host" }
 anyhow.workspace = true
 halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 wasmi.workspace = true
+circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git" }
 
 [features]
 default = []

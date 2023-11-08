@@ -23,6 +23,9 @@ pub mod rtable;
 pub mod test_circuit;
 pub mod utils;
 
+pub type CompilationTable = specs::CompilationTable;
+pub type ExecutionTable = specs::ExecutionTable;
+
 #[derive(Default, Clone)]
 pub struct TestCircuit<F: FieldExt> {
     pub tables: Tables,

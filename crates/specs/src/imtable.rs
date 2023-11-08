@@ -2,9 +2,10 @@ use std::cmp::Ordering;
 
 use crate::mtable::LocationType;
 use crate::mtable::VarType;
+use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InitMemoryTableEntry {
     pub ltype: LocationType,
     pub is_mutable: bool,
@@ -15,7 +16,7 @@ pub struct InitMemoryTableEntry {
     pub value: u64,
 }
 
-#[derive(Serialize, Default, Debug, Clone)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct InitMemoryTable {
     entries: Vec<InitMemoryTableEntry>,
     sorted_global_init_entries: Vec<InitMemoryTableEntry>,

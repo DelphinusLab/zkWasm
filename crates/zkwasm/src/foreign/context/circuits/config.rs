@@ -15,8 +15,8 @@ use super::ContextContHelperTableConfig;
 
 impl<F: FieldExt> ContextContHelperTableConfig<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>, from_zero_index: Column<Fixed>) -> Self {
-        let input = meta.advice_column();
-        let output = meta.advice_column();
+        let input = meta.named_advice_column("context_input".to_string());
+        let output = meta.named_advice_column("context_output".to_string());
         meta.enable_equality(input);
         meta.enable_equality(output);
 

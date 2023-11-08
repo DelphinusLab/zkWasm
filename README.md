@@ -35,7 +35,7 @@ git clone --recurse-submodules
 wasm code
 
 ## Runtime input:
-input of wasm function and the top level function must be main.
+input of wasm function and the top level function must be zkmain
 
 ## Proving target:
 simulation of wasm execution of target wasm bytecode with particular inputs are correct.
@@ -53,9 +53,13 @@ cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-ve
 ```
 with OPTIONS:
 ```
+    --param [<PARAM_PATH>...]
+            Path of the setup related files (circuit info, vkey, params, etc).
     -o, --output [<OUTPUT_PATH>...]
             Path of the output files.
             The md5 of the wasm binary file is the default path if not supplied.
+    -p, --param [<OUTPUT_PATH>...]
+            Path of the parameter files. (trusted setup, etc)
 
         --private [<PRIVATE_INPUT>...]
             Private arguments of your wasm program arguments of format value:type where
@@ -66,15 +70,7 @@ with OPTIONS:
             type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
 ```
 ## Batch prove and verify:
-```
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> aggregate-prove [OPTIONS]
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> aggregate-verify --proof <PROOF_PATH> --instances <AGGREGATE_INSTANCE_PATH>
-```
-
-## Generate verify contract:
-```
-cargo run --release --function <FUNCTION_NAME> --wasm <WASM_BINARY> solidity-aggregate-verifier --proof <PROOF_PATH> --instances <AGGREGATE_INSTANCE_PATH>
-```
+Please see zkWASM continuation batcher at https://github.com/DelphinusLab/continuation-batcher for batching proof with host circuits and verifier generation in smart contracts.
 
 # Operations Spec [WIP]
 We uses z3 (https://github.com/Z3Prover/z3) to check that all operation are compiled to zkp circuits correctly.

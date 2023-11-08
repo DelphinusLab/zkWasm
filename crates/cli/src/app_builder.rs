@@ -2,6 +2,8 @@ use anyhow::Result;
 use clap::App;
 use clap::AppSettings;
 use delphinus_zkwasm::circuits::config::MIN_K;
+use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use log::info;
 use log::warn;
 use std::fs;
@@ -13,13 +15,10 @@ use std::sync::Mutex;
 use crate::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
-use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
 use super::exec::exec_dry_run_service;
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
-use super::exec::exec_solidity_aggregate_proof;
-use super::exec::exec_verify_aggregate_proof;
 use super::exec::exec_verify_proof;
 
 fn load_or_generate_output_path(wasm_md5: &String, path: Option<&PathBuf>) -> PathBuf {
@@ -65,6 +64,7 @@ pub trait AppBuilder: CommandBuilder {
             .setting(AppSettings::SubcommandRequired)
             .arg(Self::zkwasm_k_arg())
             .arg(Self::output_path_arg())
+            .arg(Self::param_path_arg())
             .arg(Self::function_name_arg())
             .arg(Self::phantom_functions_arg())
             .arg(Self::zkwasm_file_arg());
@@ -73,9 +73,6 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_dry_run_subcommand(app);
         let app = Self::append_create_single_proof_subcommand(app);
         let app = Self::append_verify_single_proof_subcommand(app);
-        let app = Self::append_create_aggregate_proof_subcommand(app);
-        let app = Self::append_verify_aggregate_verify_subcommand(app);
-        let app = Self::append_generate_solidity_verifier(app);
         let app = Self::append_image_checksum_subcommand(app);
 
         app
@@ -97,22 +94,29 @@ pub trait AppBuilder: CommandBuilder {
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
         let phantom_functions = Self::parse_phantom_functions(&top_matches);
 
+        let param_dir = load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("param"));
+
         let output_dir =
             load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
         fs::create_dir_all(&output_dir)?;
+        fs::create_dir_all(&param_dir)?;
 
         match top_matches.subcommand() {
-            Some(("setup", _)) => exec_setup(
+            Some(("setup", _)) => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
                 zkwasm_k,
                 Self::AGGREGATE_K,
                 Self::NAME,
                 wasm_binary,
                 phantom_functions,
                 &output_dir,
+                &param_dir,
             ),
-            Some(("checksum", _)) => {
-                exec_image_checksum(zkwasm_k, wasm_binary, phantom_functions, &output_dir)
-            }
+            Some(("checksum", _)) => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
+                zkwasm_k,
+                wasm_binary,
+                phantom_functions,
+                &output_dir,
+            ),
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
@@ -130,20 +134,27 @@ pub trait AppBuilder: CommandBuilder {
                         warn!("All context paths are ignored when dry-run is running in service mode.");
                     }
 
-                    exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
+                    exec_dry_run_service::<ExecutionArg, DefaultHostEnvBuilder>(
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        &listen,
+                    )
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
                     let context_output = Arc::new(Mutex::new(vec![]));
 
-                    exec_dry_run(
+                    exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
                         zkwasm_k,
                         wasm_binary,
                         phantom_functions,
-                        public_inputs,
-                        private_inputs,
-                        context_in,
-                        context_output.clone(),
+                        ExecutionArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs: context_in,
+                            context_outputs: Arc::new(Mutex::new(vec![])),
+                        },
                     )?;
 
                     write_context_output(&context_output.lock().unwrap(), context_out_path)?;
@@ -162,99 +173,26 @@ pub trait AppBuilder: CommandBuilder {
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
-                exec_create_proof(
+                exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
                     Self::NAME,
                     zkwasm_k,
                     wasm_binary,
                     phantom_functions,
                     &output_dir,
-                    public_inputs,
-                    private_inputs,
-                    context_in,
-                    context_out.clone(),
+                    &param_dir,
+                    ExecutionArg {
+                        public_inputs,
+                        private_inputs,
+                        context_inputs: context_in,
+                        context_outputs: context_out.clone(),
+                    },
                 )?;
 
                 write_context_output(&context_out.lock().unwrap(), context_out_path)?;
 
                 Ok(())
             }
-            Some(("single-verify", sub_matches)) => {
-                let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let instance_path: PathBuf = Self::parse_single_instance_arg(&sub_matches);
-
-                exec_verify_proof(
-                    Self::NAME,
-                    zkwasm_k,
-                    wasm_binary,
-                    phantom_functions,
-                    &output_dir,
-                    &proof_path,
-                    &instance_path,
-                )
-            }
-            Some(("aggregate-prove", sub_matches)) => {
-                let public_inputs: Vec<Vec<u64>> = Self::parse_aggregate_public_args(&sub_matches);
-                let private_inputs: Vec<Vec<u64>> =
-                    Self::parse_aggregate_private_args(&sub_matches);
-                let context_inputs = public_inputs.iter().map(|_| vec![]).collect();
-                let context_outputs = public_inputs
-                    .iter()
-                    .map(|_| Arc::new(Mutex::new(vec![])))
-                    .collect();
-
-                for instances in &public_inputs {
-                    assert!(instances.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
-                }
-
-                assert_eq!(public_inputs.len(), Self::N_PROOFS);
-                assert_eq!(private_inputs.len(), Self::N_PROOFS);
-
-                exec_aggregate_create_proof(
-                    zkwasm_k,
-                    Self::AGGREGATE_K,
-                    Self::NAME,
-                    wasm_binary,
-                    phantom_functions,
-                    &output_dir,
-                    public_inputs,
-                    private_inputs,
-                    context_inputs,
-                    context_outputs,
-                )
-            }
-
-            Some(("aggregate-verify", sub_matches)) => {
-                let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let instances_path: PathBuf = Self::parse_aggregate_instance(&sub_matches);
-
-                exec_verify_aggregate_proof(
-                    Self::AGGREGATE_K as u32,
-                    &output_dir,
-                    &proof_path,
-                    &instances_path,
-                    Self::N_PROOFS,
-                )
-            }
-
-            Some(("solidity-aggregate-verifier", sub_matches)) => {
-                let proof_path: PathBuf = Self::parse_proof_path_arg(&sub_matches);
-                let instances_path: PathBuf = Self::parse_aggregate_instance(&sub_matches);
-                let aux_only: bool = Self::parse_auxonly(&sub_matches);
-                let sol_path: PathBuf = Self::parse_sol_dir_arg(&sub_matches);
-
-                exec_solidity_aggregate_proof(
-                    zkwasm_k,
-                    Self::AGGREGATE_K,
-                    Self::MAX_PUBLIC_INPUT_SIZE,
-                    &output_dir,
-                    &proof_path,
-                    &sol_path,
-                    &instances_path,
-                    Self::N_PROOFS,
-                    aux_only,
-                )
-            }
-
+            Some(("single-verify", _)) => exec_verify_proof(Self::NAME, &output_dir, &param_dir),
             Some((_, _)) => todo!(),
             None => todo!(),
         }

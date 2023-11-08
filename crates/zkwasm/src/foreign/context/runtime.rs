@@ -28,11 +28,11 @@ impl Context {
         }
     }
 
-    fn push_output(&mut self, value: u64) {
+    pub fn write_context(&mut self, value: u64) {
         self.outputs.lock().unwrap().push(value)
     }
 
-    fn pop_input(&mut self) -> u64 {
+    pub fn read_context(&mut self) -> u64 {
         self.inputs
             .pop()
             .expect("Failed to pop value from context_in array, please check you inputs")
@@ -62,7 +62,7 @@ pub fn register_context_foreign(
         Rc::new(|context: &mut dyn ForeignContext, _args: RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
 
-            Some(wasmi::RuntimeValue::I64(context.pop_input() as i64))
+            Some(wasmi::RuntimeValue::I64(context.read_context() as i64))
         }),
     );
 
@@ -78,7 +78,7 @@ pub fn register_context_foreign(
             let context = context.downcast_mut::<Context>().unwrap();
 
             let value: i64 = args.nth(0);
-            context.push_output(value as u64);
+            context.write_context(value as u64);
 
             None
         }),

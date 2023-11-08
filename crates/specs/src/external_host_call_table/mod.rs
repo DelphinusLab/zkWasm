@@ -1,4 +1,5 @@
 use serde::ser::SerializeStruct;
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::host_function::Signature;
@@ -7,7 +8,7 @@ use crate::types::ValueType;
 pub mod encode;
 mod table;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 pub enum ExternalHostCallSignature {
     Argument,
     Return,

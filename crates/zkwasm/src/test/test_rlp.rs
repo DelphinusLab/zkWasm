@@ -2,14 +2,19 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::circuits::TestCircuit;
-use crate::loader::ExecutionArg;
 use crate::loader::ZkWasmLoader;
+use crate::runtime::host::default_env::DefaultHostEnvBuilder;
+use crate::runtime::host::default_env::ExecutionArg;
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
 
-fn build_circuit() -> Result<(ZkWasmLoader<Bn256>, TestCircuit<Fr>, Vec<Fr>)> {
+fn build_circuit() -> Result<(
+    ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder>,
+    TestCircuit<Fr>,
+    Vec<Fr>,
+)> {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -149,9 +154,9 @@ fn build_circuit() -> Result<(ZkWasmLoader<Bn256>, TestCircuit<Fr>, Vec<Fr>)> {
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256>::new(20, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(20, wasm, vec![])?;
 
-    let (circuit, instances) = loader.circuit_with_witness(ExecutionArg {
+    let (circuit, instances, _) = loader.circuit_with_witness(ExecutionArg {
         public_inputs,
         private_inputs,
         context_inputs: vec![],
