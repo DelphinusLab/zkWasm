@@ -49,6 +49,8 @@ cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-ve
 ```
 with OPTIONS:
 ```
+    --param [<PARAM_PATH>...]
+            Path of the setup related files (circuit info, vkey, params, etc).
     -o, --output [<OUTPUT_PATH>...]
             Path of the output files.
             The md5 of the wasm binary file is the default path if not supplied.
