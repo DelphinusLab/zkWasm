@@ -40,19 +40,19 @@ impl InstructionMergingProfile for EventTable {
                 }
 
                 if let Opcode::Const { .. } = &entry.inst.opcode {
-                    match const_opt.get_mut(&(next_entry.inst.opcode.clone().into())) {
+                    match const_opt.get_mut(&((&next_entry.inst.opcode).into())) {
                         Some(counter) => *counter = *counter + 1,
                         None => {
-                            const_opt.insert(next_entry.inst.opcode.clone().into(), 1);
+                            const_opt.insert((&next_entry.inst.opcode).into(), 1);
                         }
                     }
                 }
 
                 if let Opcode::LocalGet { .. } = &entry.inst.opcode {
-                    match local_get_opt.get_mut(&(next_entry.inst.opcode.clone().into())) {
+                    match local_get_opt.get_mut(&((&next_entry.inst.opcode).into())) {
                         Some(counter) => *counter = *counter + 1,
                         None => {
-                            local_get_opt.insert(next_entry.inst.opcode.clone().into(), 1);
+                            local_get_opt.insert((&next_entry.inst.opcode).into(), 1);
                         }
                     }
                 }

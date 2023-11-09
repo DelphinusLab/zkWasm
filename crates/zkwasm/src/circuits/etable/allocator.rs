@@ -8,6 +8,7 @@ use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::utils::bit::BitColumn;
 use crate::circuits::utils::common_range::CommonRangeColumn;
 use crate::circuits::utils::u16::U16Column;
+use crate::circuits::utils::u32_state::AllocatedU32StateCell;
 use crate::circuits::utils::u8::U8Column;
 use crate::circuits::Context;
 use crate::circuits::Lookup;
@@ -63,6 +64,24 @@ impl_cell!(AllocatedU8Cell);
 impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedUnlimitedCell);
 impl_cell!(AllocatedJumpTableLookupCell);
+
+impl<F: FieldExt> EventTableCellExpression<F> for AllocatedU32Cell<F> {
+    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.u32_cell.0.col,
+            self.u32_cell.0.rot + EVENT_TABLE_ENTRY_ROWS as i32
+        )
+    }
+
+    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.u32_cell.0.col,
+            self.u32_cell.0.rot - EVENT_TABLE_ENTRY_ROWS as i32
+        )
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedJumpTableLookupCell<F: FieldExt>(pub(crate) AllocatedCell<F>);
@@ -231,6 +250,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     * enable(meta),
             ]
         });
+        meta.enable_equality(u32_cell.0.col);
+
         AllocatedU32Cell {
             u16_cells_le,
             u32_cell,
@@ -430,6 +451,16 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         AllocatedCommonRangeCell(self.alloc(&EventTableCellType::CommonRange))
     }
 
+    pub(crate) fn alloc_u32_state_cell(&mut self) -> AllocatedU32StateCell<F> {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "continuation")] {
+                self.alloc_u32_cell()
+            } else {
+                self.alloc_common_range_cell()
+            }
+        }
+    }
+
     pub(crate) fn alloc_u8_cell(&mut self) -> AllocatedU8Cell<F> {
         AllocatedU8Cell(self.alloc(&EventTableCellType::U8))
     }
@@ -450,7 +481,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedU32StateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -500,7 +531,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedU32StateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -541,7 +572,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedU32StateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -589,7 +620,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         &mut self,
         name: &'static str,
         constraint_builder: &mut ConstraintBuilder<F>,
-        eid: AllocatedU32Cell<F>,
+        eid: AllocatedU32StateCell<F>,
         location_type: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         offset: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
         is_i32: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F> + 'static,
@@ -624,6 +655,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         cell
     }
 
+    #[allow(dead_code)]
     pub(crate) fn alloc_u32_cell(&mut self) -> AllocatedU32Cell<F> {
         self.free_u32_cells.pop().expect("no more free u32 cells")
     }

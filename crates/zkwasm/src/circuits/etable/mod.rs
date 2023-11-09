@@ -10,6 +10,7 @@ use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
+use super::utils::u32_state::AllocatedU32StateCell;
 use super::utils::Context;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
@@ -78,15 +79,16 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     ops: [AllocatedBitCell<F>; OP_CAPABILITY],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    rest_jops_cell: AllocatedCommonRangeCell<F>,
+    // If continuation is enabled, it's an incremental counter; otherwise, it's decremental.
+    jops_cell: AllocatedCommonRangeCell<F>,
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
     external_host_call_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) sp_cell: AllocatedCommonRangeCell<F>,
     mpages_cell: AllocatedCommonRangeCell<F>,
-    frame_id_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) eid_cell: AllocatedU32Cell<F>,
+    frame_id_cell: AllocatedU32StateCell<F>,
+    pub(crate) eid_cell: AllocatedU32StateCell<F>,
     fid_cell: AllocatedCommonRangeCell<F>,
     iid_cell: AllocatedCommonRangeCell<F>,
     maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
@@ -230,20 +232,19 @@ impl<F: FieldExt> EventTableConfig<F> {
         let enabled_cell = allocator.alloc_bit_cell();
 
         let rest_mops_cell = allocator.alloc_common_range_cell();
-        let rest_jops_cell = allocator.alloc_common_range_cell();
+        let jops_cell = allocator.alloc_common_range_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
         let external_host_call_index_cell = allocator.alloc_common_range_cell();
         let sp_cell = allocator.alloc_common_range_cell();
         let mpages_cell = allocator.alloc_common_range_cell();
-        let frame_id_cell = allocator.alloc_common_range_cell();
-        let eid_cell = allocator.alloc_u32_cell();
+        let frame_id_cell = allocator.alloc_u32_state_cell();
+        let eid_cell = allocator.alloc_u32_state_cell();
         let fid_cell = allocator.alloc_common_range_cell();
         let iid_cell = allocator.alloc_common_range_cell();
         let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
 
-        meta.enable_equality(eid_cell.u32_cell.0.col);
         // We only need to enable equality for the cells of states
         let used_common_range_cells_for_state = allocator
             .free_cells
@@ -272,7 +273,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             enabled_cell,
             ops,
             rest_mops_cell,
-            rest_jops_cell,
+            jops_cell,
             input_index_cell,
             context_input_index_cell,
             context_output_index_cell,
@@ -446,7 +447,11 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c5b. rest_jops change", |meta| {
             vec![sum_ops_expr_with_init(
-                rest_jops_cell.next_expr(meta) - rest_jops_cell.curr_expr(meta),
+                if cfg!(feature = "continuation") {
+                    jops_cell.curr_expr(meta) - jops_cell.next_expr(meta)
+                } else {
+                    jops_cell.next_expr(meta) - jops_cell.curr_expr(meta)
+                },
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
                 None,
@@ -521,9 +526,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c6a. eid change", |meta| {
             vec![
-                (eid_cell.u32_cell.next_expr(meta)
-                    - eid_cell.u32_cell.curr_expr(meta)
-                    - constant_from!(1))
+                (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
                     * enabled_cell.curr_expr(meta)
                     * fixed_curr!(meta, step_sel),
             ]

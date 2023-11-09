@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ark-std = { version = "0.3.0", features = ["print-trace"] }
 bitvec = "1.0.1"
+cfg-if = "1.0.0"
 downcast-rs = "1.2.0"
 hex = "0.4.3"
 log = "0.4.17"
@@ -34,3 +35,4 @@ rusty-fork = "0.3.0"
 [features]
 default = []
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
+continuation = ["specs/continuation"]

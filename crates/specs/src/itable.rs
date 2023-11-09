@@ -296,12 +296,12 @@ pub enum Opcode {
 
 impl Opcode {
     pub fn mops(&self) -> u64 {
-        let opcode_class: OpcodeClass = self.clone().into();
+        let opcode_class: OpcodeClass = self.into();
         opcode_class.mops()
     }
 
     pub fn jops(&self) -> u64 {
-        let opcode_class: OpcodeClass = self.clone().into();
+        let opcode_class: OpcodeClass = self.into();
         opcode_class.jops()
     }
 
@@ -414,7 +414,7 @@ impl Into<BigUint> for Opcode {
             Opcode::InternalHostCall {
                 op_index_in_plugin, ..
             } => {
-                let opcode_class_plain: OpcodeClassPlain = self.into();
+                let opcode_class_plain: OpcodeClassPlain = (&self).into();
 
                 (BigUint::from(opcode_class_plain.0) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(op_index_in_plugin as u64))
@@ -537,7 +537,7 @@ impl Into<BigUint> for Opcode {
     }
 }
 
-impl Into<OpcodeClass> for Opcode {
+impl Into<OpcodeClass> for &Opcode {
     fn into(self) -> OpcodeClass {
         match self {
             Opcode::LocalGet { .. } => OpcodeClass::LocalGet,
@@ -573,12 +573,12 @@ impl Into<OpcodeClass> for Opcode {
     }
 }
 
-impl Into<OpcodeClassPlain> for Opcode {
+impl Into<OpcodeClassPlain> for &Opcode {
     fn into(self) -> OpcodeClassPlain {
-        let class: OpcodeClass = self.clone().into();
+        let class: OpcodeClass = self.into();
 
         if let Opcode::InternalHostCall { plugin, .. } = self {
-            OpcodeClassPlain(class as usize + plugin as usize)
+            OpcodeClassPlain(class as usize + (*plugin) as usize)
         } else {
             OpcodeClassPlain(class as usize)
         }
@@ -645,7 +645,7 @@ impl InstructionTable {
         let mut opcodeclass: HashSet<OpcodeClassPlain> = HashSet::new();
 
         self.entries().iter().for_each(|entry| {
-            opcodeclass.insert(entry.opcode.clone().into());
+            opcodeclass.insert((&entry.opcode).into());
         });
 
         opcodeclass

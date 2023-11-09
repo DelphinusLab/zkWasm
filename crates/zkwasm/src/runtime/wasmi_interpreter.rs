@@ -1,10 +1,12 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
 use specs::jtable::StaticFrameEntry;
+use specs::state::InitializationState;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
@@ -12,9 +14,9 @@ use wasmi::Externals;
 use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
+use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
-use crate::circuits::config::zkwasm_k;
-
+use super::state::UpdateCompilationTable;
 use super::CompiledImage;
 use super::ExecutionResult;
 
@@ -71,14 +73,32 @@ impl Execution<RuntimeValue>
 
             ExecutionTable {
                 etable: tracer.etable.clone(),
-                jtable: tracer.jtable.clone(),
+                jtable: Arc::new(tracer.jtable.clone()),
+            }
+        };
+
+        let updated_init_memory_table = self
+            .tables
+            .update_init_memory_table(&execution_tables.etable);
+
+        let post_image_table = {
+            CompilationTable {
+                itable: self.tables.itable.clone(),
+                imtable: updated_init_memory_table,
+                elem_table: self.tables.elem_table.clone(),
+                configure_table: self.tables.configure_table.clone(),
+                static_jtable: self.tables.static_jtable.clone(),
+                initialization_state: self
+                    .tables
+                    .update_initialization_state(&execution_tables.etable, true),
             }
         };
 
         Ok(ExecutionResult {
             tables: Tables {
-                compilation_tables: self.tables.clone(),
+                compilation_tables: self.tables,
                 execution_tables,
+                post_image_table,
             },
             result,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
@@ -145,11 +165,29 @@ impl WasmiRuntime {
             }
         };
 
-        let itable = tracer.borrow().itable.clone();
-        let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
-        let elem_table = tracer.borrow().elem_table.clone();
-        let configure_table = tracer.borrow().configure_table.clone();
-        let static_jtable = tracer.borrow().static_jtable_entries.clone();
+        let itable = Arc::new(tracer.borrow().itable.clone());
+        let imtable = tracer.borrow().imtable.finalized();
+        let elem_table = Arc::new(tracer.borrow().elem_table.clone());
+        let configure_table = Arc::new(tracer.borrow().configure_table.clone());
+        let static_jtable = Arc::new(tracer.borrow().static_jtable_entries.clone());
+        let initialization_state = InitializationState {
+            eid: 1,
+            fid: fid_of_entry,
+            iid: 0,
+            frame_id: 0,
+            sp: DEFAULT_VALUE_STACK_LIMIT as u32 - 1,
+
+            host_public_inputs: 1,
+            context_in_index: 1,
+            context_out_index: 1,
+            external_host_call_call_index: 1,
+
+            initial_memory_pages: configure_table.init_memory_pages,
+            maximal_memory_pages: configure_table.maximal_memory_pages,
+
+            #[cfg(feature = "continuation")]
+            jops: 0,
+        };
 
         Ok(CompiledImage {
             entry: entry.to_owned(),
@@ -159,7 +197,7 @@ impl WasmiRuntime {
                 elem_table,
                 configure_table,
                 static_jtable,
-                fid_of_entry,
+                initialization_state,
             },
             instance,
             tracer,

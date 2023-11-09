@@ -14,6 +14,7 @@ use specs::Tables;
 use self::wasmi_interpreter::WasmiRuntime;
 
 pub mod host;
+pub mod state;
 pub mod wasmi_interpreter;
 
 pub struct CompiledImage<I, T> {
@@ -34,7 +35,7 @@ pub struct ExecutionResult<R> {
 // TODO: use feature
 pub type WasmInterpreter = WasmiRuntime;
 
-pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<MemoryTableEntry> {
+pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
     let eid = event.eid;
     let sp_before_execution = event.sp;
 
@@ -55,7 +56,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
@@ -65,7 +65,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp + 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -76,7 +75,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
@@ -86,7 +84,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp - 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -106,7 +103,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
 
             let mut ops = vec![MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -116,7 +112,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             }];
 
             sp = sp + 1;
-            *emid = (*emid).checked_add(1).unwrap();
 
             if *condition != 0 {
                 return ops;
@@ -126,7 +121,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
@@ -136,7 +130,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp + 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -147,7 +140,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
@@ -157,7 +149,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp - 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -177,7 +168,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
 
             let mut ops = vec![MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -187,7 +177,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             }];
 
             sp = sp + 1;
-            *emid = (*emid).checked_add(1).unwrap();
 
             if *condition == 0 {
                 return ops;
@@ -197,7 +186,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
@@ -207,7 +195,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp + 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -218,7 +205,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
@@ -228,7 +214,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp - 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -248,7 +233,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
 
             let mut ops = vec![MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -258,13 +242,11 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             }];
 
             sp = sp + 1;
-            *emid = (*emid).checked_add(1).unwrap();
 
             {
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
@@ -274,7 +256,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp + 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -285,7 +266,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
@@ -295,7 +275,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp - 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -316,7 +295,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Read,
@@ -326,7 +304,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp + 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -337,7 +314,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 for i in 0..keep.len() {
                     ops.push(MemoryTableEntry {
                         eid,
-                        emid: *emid,
                         offset: sp,
                         ltype: LocationType::Stack,
                         atype: AccessType::Write,
@@ -347,7 +323,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     });
 
                     sp = sp - 1;
-                    *emid = (*emid).checked_add(1).unwrap();
                 }
             }
 
@@ -366,7 +341,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
 
             ops.push(MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -375,11 +349,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 value: *cond,
             });
             sp = sp + 1;
-            *emid = (*emid).checked_add(1).unwrap();
 
             ops.push(MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -388,11 +360,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 value: *val2,
             });
             sp = sp + 1;
-            *emid = (*emid).checked_add(1).unwrap();
 
             ops.push(MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -401,11 +371,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 value: *val1,
             });
 
-            *emid = (*emid).checked_add(1).unwrap();
-
             ops.push(MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
@@ -413,7 +380,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *result,
             });
-            *emid = (*emid).checked_add(1).unwrap();
 
             ops
         }
@@ -423,7 +389,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::CallIndirect { offset, .. } => {
             let stack_read = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -431,7 +396,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *offset as u64,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             vec![stack_read]
         }
@@ -447,7 +411,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             for (i, (ty, val)) in signature.params.iter().zip(args.iter()).enumerate() {
                 mops.push(MemoryTableEntry {
                     eid,
-                    emid: *emid,
                     offset: sp_before_execution + args.len() as u32 - i as u32,
                     ltype: LocationType::Stack,
                     atype: AccessType::Read,
@@ -455,8 +418,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     is_mutable: true,
                     value: *val,
                 });
-
-                *emid = (*emid).checked_add(1).unwrap();
             }
 
             sp = sp + args.len() as u32;
@@ -464,7 +425,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             if let Some(ty) = signature.return_type {
                 mops.push(MemoryTableEntry {
                     eid,
-                    emid: *emid,
                     offset: sp,
                     ltype: LocationType::Stack,
                     atype: AccessType::Write,
@@ -472,8 +432,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     is_mutable: true,
                     value: ret_val.unwrap(),
                 });
-
-                *emid = (*emid).checked_add(1).unwrap();
             }
 
             mops
@@ -482,7 +440,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             ExternalHostCallSignature::Argument => {
                 let stack_read = MemoryTableEntry {
                     eid,
-                    emid: *emid,
                     offset: sp_before_execution + 1,
                     ltype: LocationType::Stack,
                     atype: AccessType::Read,
@@ -490,14 +447,12 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     is_mutable: true,
                     value: value.unwrap(),
                 };
-                *emid = (*emid).checked_add(1).unwrap();
 
                 vec![stack_read]
             }
             ExternalHostCallSignature::Return => {
                 let stack_write = MemoryTableEntry {
                     eid,
-                    emid: *emid,
                     offset: sp_before_execution,
                     ltype: LocationType::Stack,
                     atype: AccessType::Write,
@@ -505,7 +460,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     is_mutable: true,
                     value: value.unwrap(),
                 };
-                *emid = (*emid).checked_add(1).unwrap();
 
                 vec![stack_write]
             }
@@ -518,7 +472,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => {
             let read = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + depth,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -526,11 +479,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             let write = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
@@ -538,7 +489,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
             vec![read, write]
         }
         StepInfo::SetLocal {
@@ -550,7 +500,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
 
             let read = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -558,13 +507,11 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             sp += 1;
 
             let write = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp + depth,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
@@ -572,7 +519,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             vec![read, write]
         }
@@ -583,7 +529,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => {
             let read = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -592,11 +537,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 value: *value,
             };
 
-            *emid = (*emid).checked_add(1).unwrap();
-
             let write = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + depth,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
@@ -604,7 +546,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
+
             vec![read, write]
         }
 
@@ -617,7 +559,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => {
             let global_get = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: *idx,
                 ltype: LocationType::Global,
                 atype: AccessType::Read,
@@ -625,11 +566,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: *is_mutable,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             let stack_write = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
@@ -637,7 +576,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             vec![global_get, stack_write]
         }
@@ -649,7 +587,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => {
             let stack_read = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -657,11 +594,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             let global_set = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: *idx,
                 ltype: LocationType::Global,
                 atype: AccessType::Write,
@@ -669,7 +604,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: *is_mutable,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             vec![stack_read, global_set]
         }
@@ -686,7 +620,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => {
             let load_address_from_stack = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -694,11 +627,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *raw_address as u64,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             let load_value1 = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: (*effective_address) / 8,
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
@@ -710,10 +641,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             };
 
             let load_value2 = if *effective_address % 8 + load_size.byte_size() as u32 > 8 {
-                *emid = (*emid).checked_add(1).unwrap();
                 Some(MemoryTableEntry {
                     eid,
-                    emid: *emid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
                     atype: AccessType::Read,
@@ -727,10 +656,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 None
             };
 
-            *emid = (*emid).checked_add(1).unwrap();
             let push_value = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Write,
@@ -760,7 +687,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => {
             let load_value_from_stack = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + 1,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -768,11 +694,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *value,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             let load_address_from_stack = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: sp_before_execution + 2,
                 ltype: LocationType::Stack,
                 atype: AccessType::Read,
@@ -780,11 +704,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 is_mutable: true,
                 value: *raw_address as u64,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             let load_value1 = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: effective_address / 8,
                 ltype: LocationType::Heap,
                 atype: AccessType::Read,
@@ -794,11 +716,9 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *pre_block_value1,
             };
-            *emid = (*emid).checked_add(1).unwrap();
 
             let write_value1 = MemoryTableEntry {
                 eid,
-                emid: *emid,
                 offset: effective_address / 8,
                 ltype: LocationType::Heap,
                 atype: AccessType::Write,
@@ -810,10 +730,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
             };
 
             if *effective_address % 8 + store_size.byte_size() as u32 > 8 {
-                *emid = (*emid).checked_add(1).unwrap();
                 let load_value2 = MemoryTableEntry {
                     eid,
-                    emid: *emid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
                     atype: AccessType::Read,
@@ -824,10 +742,8 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
                     value: *pre_block_value2,
                 };
 
-                *emid = (*emid).checked_add(1).unwrap();
                 let write_value2 = MemoryTableEntry {
                     eid,
-                    emid: *emid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
                     atype: AccessType::Write,
@@ -858,7 +774,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::MemorySize => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I32,
             VarType::I32,
             &[],
@@ -867,7 +782,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::MemoryGrow { grow_size, result } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I32,
             VarType::I32,
             &[*grow_size as u32 as u64],
@@ -877,7 +791,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I32,
             VarType::I32,
             &[],
@@ -894,7 +807,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I32,
             VarType::I32,
             &[*right as u32 as u64, *left as u32 as u64],
@@ -905,7 +817,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I32,
             VarType::I32,
             &[*right as u32 as u64, *left as u32 as u64],
@@ -923,7 +834,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I64,
             VarType::I64,
             &[*right as u64, *left as u64],
@@ -933,7 +843,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::I64Const { value } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I64,
             VarType::I64,
             &[],
@@ -944,7 +853,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I64,
             VarType::I32,
             &[*right as u64, *left as u64],
@@ -958,7 +866,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             *vtype,
             *vtype,
             &[*operand],
@@ -972,7 +879,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             *vtype,
             VarType::I32,
             &[*value],
@@ -982,7 +888,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::I32WrapI64 { value, result } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I64,
             VarType::I32,
             &[*value as u64],
@@ -991,7 +896,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         StepInfo::I64ExtendI32 { value, result, .. } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I32,
             VarType::I64,
             &[*value as u32 as u64],
@@ -1001,7 +905,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         | StepInfo::I32SignExtendI16 { value, result } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I32,
             VarType::I32,
             &[*value as u32 as u64],
@@ -1012,7 +915,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
         | StepInfo::I64SignExtendI32 { value, result } => mem_op_from_stack_only_step(
             sp_before_execution,
             eid,
-            emid,
             VarType::I64,
             VarType::I64,
             &[*value as u64],
@@ -1024,7 +926,6 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
 pub(crate) fn mem_op_from_stack_only_step(
     sp_before_execution: u32,
     eid: u32,
-    emid: &mut u32,
     inputs_type: VarType,
     outputs_type: VarType,
     pop_value: &[u64],
@@ -1036,7 +937,6 @@ pub(crate) fn mem_op_from_stack_only_step(
     for i in 0..pop_value.len() {
         mem_op.push(MemoryTableEntry {
             eid,
-            emid: *emid,
             offset: sp + 1,
             ltype: LocationType::Stack,
             atype: AccessType::Read,
@@ -1044,14 +944,12 @@ pub(crate) fn mem_op_from_stack_only_step(
             is_mutable: true,
             value: pop_value[i],
         });
-        *emid = (*emid).checked_add(1).unwrap();
         sp = sp + 1;
     }
 
     for i in 0..push_value.len() {
         mem_op.push(MemoryTableEntry {
             eid,
-            emid: *emid,
             offset: sp,
             ltype: LocationType::Stack,
             atype: AccessType::Write,
@@ -1060,7 +958,6 @@ pub(crate) fn mem_op_from_stack_only_step(
             value: push_value[i],
         });
         sp = sp - 1;
-        *emid = (*emid).checked_add(1).unwrap();
     }
 
     mem_op

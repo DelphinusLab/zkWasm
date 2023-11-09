@@ -21,14 +21,14 @@ impl InstructionStatistic for EventTable {
 
         let mut map = BTreeMap::<OpcodeClass, Counter>::new();
         for entry in self.entries() {
-            let mut mentries = memory_event_of_step(entry, &mut 1);
+            let mut mentries = memory_event_of_step(entry);
 
-            if let Some(counter) = map.get_mut(&entry.inst.opcode.clone().into()) {
+            if let Some(counter) = map.get_mut(&((&entry.inst.opcode).into())) {
                 counter.counter += 1;
                 counter.mentries.append(&mut mentries);
             } else {
                 map.insert(
-                    entry.inst.opcode.clone().into(),
+                    (&entry.inst.opcode).into(),
                     Counter {
                         counter: 1,
                         mentries,

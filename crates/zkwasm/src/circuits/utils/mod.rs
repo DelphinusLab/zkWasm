@@ -8,6 +8,7 @@ pub mod common_range;
 pub mod row_diff;
 pub mod step_status;
 pub mod u16;
+pub mod u32_state;
 pub mod u8;
 
 pub mod table_entry;
