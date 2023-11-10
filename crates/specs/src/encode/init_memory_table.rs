@@ -15,7 +15,7 @@ pub fn encode_init_memory_table_entry<T: FromBn>(
     eid: T,
     value: T,
 ) -> T {
-    const LTYPE_SHIFT: u32 = IS_MUTABLE_SHIFT + 8;
+    const LTYPE_SHIFT: u32 = IS_MUTABLE_SHIFT + 1;
     const IS_MUTABLE_SHIFT: u32 = START_OFFSET_SHIFT + COMMON_RANGE_OFFSET;
     const START_OFFSET_SHIFT: u32 = END_OFFSET_SHIFT + COMMON_RANGE_OFFSET;
     const END_OFFSET_SHIFT: u32 = EID_OFFSET_SHIFT + 32;

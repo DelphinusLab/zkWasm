@@ -88,10 +88,12 @@ impl UpdateCompilationTable for CompilationTable {
             }
         }
 
-        let mut init_memory_entries = vec![];
-        init_memory_entries.append(&mut local_map.into_iter().map(|(_, v)| v).collect::<Vec<_>>());
-        init_memory_entries.append(&mut global_map.into_iter().map(|(_, v)| v).collect::<Vec<_>>());
-        init_memory_entries.append(&mut memory_map.into_iter().map(|(_, v)| v).collect::<Vec<_>>());
+        let init_memory_entries = vec![]
+            .into_iter()
+            .chain(local_map.into_values())
+            .chain(global_map.into_values())
+            .chain(memory_map.into_values())
+            .collect();
 
         InitMemoryTable::new(init_memory_entries)
     }
@@ -112,6 +114,7 @@ impl UpdateCompilationTable for CompilationTable {
 
         for entry in execution_table.entries() {
             match &entry.step_info {
+                // TODO: fix hard code
                 StepInfo::CallHost {
                     function_name,
                     args,
@@ -133,7 +136,7 @@ impl UpdateCompilationTable for CompilationTable {
                     }
                 }
                 StepInfo::ExternalHostCall { .. } => external_host_call_call_index += 1,
-                StepInfo::Call { .. } | StepInfo::Return { .. } => {
+                StepInfo::Call { .. } | StepInfo::CallIndirect { .. } | StepInfo::Return { .. } => {
                     #[cfg(feature = "continuation")]
                     {
                         jops += 1;
