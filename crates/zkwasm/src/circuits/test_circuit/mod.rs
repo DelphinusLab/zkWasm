@@ -11,6 +11,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use log::debug;
+use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 
@@ -47,7 +48,7 @@ use crate::runtime::memory_event_of_step;
 use super::config::zkwasm_k;
 use super::image_table::ImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 53;
+pub const VAR_COLUMNS: usize = 56;
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
@@ -76,8 +77,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn without_witnesses(&self) -> Self {
         TestCircuit::new(Tables {
-            compilation_tables: self.tables.compilation_tables.clone(),
+            compilation_tables: CompilationTable::default(),
             execution_tables: ExecutionTable::default(),
+            post_image_table: CompilationTable::default(),
         })
     }
 
@@ -196,75 +198,66 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        let (entry_fid, static_frame_entries, initial_memory_pages, maximal_memory_pages) =
-            layouter.assign_region(
-                || "jtable mtable etable",
-                |region| {
-                    let mut ctx = Context::new(region);
+        let (etable_permutation_cells, static_frame_entries) = layouter.assign_region(
+            || "jtable mtable etable",
+            |region| {
+                let mut ctx = Context::new(region);
 
-                    let memory_writing_table: MemoryWritingTable =
-                        self.tables.create_memory_table(memory_event_of_step).into();
+                let memory_writing_table: MemoryWritingTable =
+                    self.tables.create_memory_table(memory_event_of_step).into();
 
-                    let etable = exec_with_profile!(
-                        || "Prepare memory info for etable",
-                        EventTableWithMemoryInfo::new(
-                            &self.tables.execution_tables.etable,
-                            &memory_writing_table,
-                        )
-                    );
+                let etable = exec_with_profile!(
+                    || "Prepare memory info for etable",
+                    EventTableWithMemoryInfo::new(
+                        &self.tables.execution_tables.etable,
+                        &memory_writing_table,
+                    )
+                );
 
-                    let etable_permutation_cells = exec_with_profile!(
-                        || "Assign etable",
-                        echip.assign(
+                let etable_permutation_cells = exec_with_profile!(
+                    || "Assign etable",
+                    echip.assign(
+                        &mut ctx,
+                        &etable,
+                        &self.tables.compilation_tables.configure_table,
+                        &self.tables.compilation_tables.initialization_state,
+                    )?
+                );
+
+                {
+                    ctx.reset();
+                    exec_with_profile!(
+                        || "Assign mtable",
+                        mchip.assign(
                             &mut ctx,
-                            &etable,
-                            &self.tables.compilation_tables.configure_table,
-                            self.tables.compilation_tables.fid_of_entry,
+                            etable_permutation_cells.rest_mops,
+                            &memory_writing_table,
+                            &self.tables.compilation_tables.imtable
                         )?
                     );
+                }
 
-                    {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign mtable",
-                            mchip.assign(
-                                &mut ctx,
-                                etable_permutation_cells.rest_mops,
-                                &memory_writing_table,
-                                &self.tables.compilation_tables.imtable
-                            )?
-                        );
-                    }
+                let jtable_info = {
+                    ctx.reset();
+                    exec_with_profile!(
+                        || "Assign frame table",
+                        jchip.assign(
+                            &mut ctx,
+                            &self.tables.execution_tables.jtable,
+                            etable_permutation_cells.rest_jops,
+                            &self.tables.compilation_tables.static_jtable,
+                        )?
+                    )
+                };
 
-                    let jtable_info = {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign frame table",
-                            jchip.assign(
-                                &mut ctx,
-                                &self.tables.execution_tables.jtable,
-                                etable_permutation_cells.rest_jops,
-                                &self.tables.compilation_tables.static_jtable,
-                            )?
-                        )
-                    };
+                {
+                    ctx.reset();
+                    exec_with_profile!(|| "Assign bit table", bit_chip.assign(&mut ctx, &etable)?);
+                }
 
-                    {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign bit table",
-                            bit_chip.assign(&mut ctx, &etable)?
-                        );
-                    }
-
-                    Ok((
-                        etable_permutation_cells.fid_of_entry,
-                        jtable_info,
-                        etable_permutation_cells.initial_memory_pages,
-                        etable_permutation_cells.maximal_memory_pages,
-                    ))
-                },
-            )?;
+                Ok((etable_permutation_cells, jtable_info))
+            },
+        )?;
 
         exec_with_profile!(
             || "Assign context cont chip",
@@ -276,17 +269,15 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         );
 
         exec_with_profile!(
-            || "Assign Image Table",
+            || "Assign Pre Image Table",
             image_chip.assign(
                 &mut layouter,
                 self.tables
                     .compilation_tables
                     .encode_compilation_table_values(),
                 ImageTableLayouter {
-                    entry_fid,
+                    initialization_state: etable_permutation_cells.pre_initialization_state,
                     static_frame_entries,
-                    initial_memory_pages,
-                    maximal_memory_pages,
                     lookup_entries: None
                 }
             )?

@@ -26,3 +26,4 @@ wasmi.workspace = true
 [features]
 default = []
 cuda = ["delphinus-zkwasm/cuda"]
+continuation = ["delphinus-zkwasm/continuation", "specs/continuation"]

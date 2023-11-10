@@ -3,6 +3,7 @@ use super::cell::*;
 use super::image_table::ImageTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
+use super::utils::u32_state::AllocatedU32StateCell;
 use crate::constant_from;
 use crate::fixed_curr;
 use halo2_proofs::arithmetic::FieldExt;
@@ -39,16 +40,16 @@ pub struct MemoryTableConfig<F: FieldExt> {
     is_i64_cell: AllocatedBitCell<F>,
     is_init_cell: AllocatedBitCell<F>,
 
-    start_eid_cell: AllocatedCommonRangeCell<F>,
-    end_eid_cell: AllocatedCommonRangeCell<F>,
-    eid_diff_cell: AllocatedCommonRangeCell<F>,
+    start_eid_cell: AllocatedU32StateCell<F>,
+    end_eid_cell: AllocatedU32StateCell<F>,
+    eid_diff_cell: AllocatedU32StateCell<F>,
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    offset_align_left: AllocatedCommonRangeCell<F>,
-    offset_align_right: AllocatedCommonRangeCell<F>,
-    offset_align_left_diff_cell: AllocatedCommonRangeCell<F>,
-    offset_align_right_diff_cell: AllocatedCommonRangeCell<F>,
-    offset_cell: AllocatedCommonRangeCell<F>,
-    offset_diff_cell: AllocatedCommonRangeCell<F>,
+    offset_align_left: AllocatedU32Cell<F>,
+    offset_align_right: AllocatedU32Cell<F>,
+    offset_align_left_diff_cell: AllocatedU32Cell<F>,
+    offset_align_right_diff_cell: AllocatedU32Cell<F>,
+    offset_cell: AllocatedU32Cell<F>,
+    offset_diff_cell: AllocatedU32Cell<F>,
 
     offset_diff_inv_cell: AllocatedUnlimitedCell<F>,
     offset_diff_inv_helper_cell: AllocatedUnlimitedCell<F>,
@@ -82,18 +83,18 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let is_i64_cell = allocator.alloc_bit_cell();
         let is_init_cell = allocator.alloc_bit_cell();
 
-        let start_eid_cell = allocator.alloc_common_range_cell();
-        let end_eid_cell = allocator.alloc_common_range_cell();
-        let eid_diff_cell = allocator.alloc_common_range_cell();
+        let start_eid_cell = allocator.alloc_u32_state_cell();
+        let end_eid_cell = allocator.alloc_u32_state_cell();
+        let eid_diff_cell = allocator.alloc_u32_state_cell();
         let rest_mops_cell = allocator.alloc_common_range_cell();
 
-        let offset_align_left = allocator.alloc_common_range_cell();
-        let offset_align_right = allocator.alloc_common_range_cell();
-        let offset_cell = allocator.alloc_common_range_cell();
-        let offset_align_left_diff_cell = allocator.alloc_common_range_cell();
-        let offset_align_right_diff_cell = allocator.alloc_common_range_cell();
+        let offset_align_left = allocator.alloc_u32_cell();
+        let offset_align_right = allocator.alloc_u32_cell();
+        let offset_cell = allocator.alloc_u32_cell();
+        let offset_align_left_diff_cell = allocator.alloc_u32_cell();
+        let offset_align_right_diff_cell = allocator.alloc_u32_cell();
 
-        let offset_diff_cell = allocator.alloc_common_range_cell();
+        let offset_diff_cell = allocator.alloc_u32_cell();
         let offset_diff_inv_cell = allocator.alloc_unlimited_cell();
         let offset_diff_inv_helper_cell = allocator.alloc_unlimited_cell();
         let encode_cell = allocator.alloc_unlimited_cell();
@@ -188,6 +189,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         meta.create_gate("mc7a. init", |meta| {
             vec![
+                // TODO: This may not be true if continuation is enabled.
                 is_init_cell.curr_expr(meta) * start_eid_cell.curr_expr(meta),
                 // offset_left_align <= offset && offset <= offset_right_align
                 is_init_cell.curr_expr(meta)
@@ -229,6 +231,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                         is_mutable.curr_expr(meta),
                         offset_align_left.curr_expr(meta),
                         offset_align_right.curr_expr(meta),
+                        start_eid_cell.curr_expr(meta),
                         value.u64_cell.curr_expr(meta),
                     )
                     - init_encode_cell.curr_expr(meta),

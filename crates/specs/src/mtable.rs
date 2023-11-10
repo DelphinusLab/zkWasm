@@ -112,13 +112,6 @@ impl MemoryReadSize {
 #[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
 pub struct MemoryTableEntry {
     pub eid: u32,
-    /*
-       Emid is sub memory op id of eid.
-       E.g. an opcode gets a value from stack top and changes it.
-       This event has two memory ops on the same memory address,
-       So we need emid to seq the r/w op, which is an incremental value starting from 1.
-    */
-    pub emid: u32,
     pub offset: u32,
     pub ltype: LocationType,
     pub atype: AccessType,

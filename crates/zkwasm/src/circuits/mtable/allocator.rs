@@ -14,6 +14,7 @@ use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::bit::BitColumn;
 use crate::circuits::utils::common_range::CommonRangeColumn;
 use crate::circuits::utils::u16::U16Column;
+use crate::circuits::utils::u32_state::AllocatedU32StateCell;
 use crate::constant_from;
 use crate::fixed_curr;
 use crate::nextn;
@@ -54,6 +55,24 @@ impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedUnlimitedCell);
 
+impl<F: FieldExt> MemoryTableCellExpression<F> for AllocatedU32Cell<F> {
+    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.u32_cell.0.col,
+            self.u32_cell.0.rot + MEMORY_TABLE_ENTRY_ROWS as i32
+        )
+    }
+
+    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.u32_cell.0.col,
+            self.u32_cell.0.rot - MEMORY_TABLE_ENTRY_ROWS as i32
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum MemoryTableCellType {
     Bit = 1,
@@ -63,15 +82,17 @@ pub(super) enum MemoryTableCellType {
 }
 
 const BIT_COLUMNS: usize = 3;
-const U16_COLUMNS: usize = 1;
-const COMMON_RANGE_COLUMNS: usize = 3;
-const UNLIMITED_COLUMNS: usize = 2;
+const U16_COLUMNS: usize = U32_CELLS / 2 + U64_CELLS;
+const COMMON_RANGE_COLUMNS: usize = 2;
+const UNLIMITED_COLUMNS: usize = 3;
+const U32_CELLS: usize = 6;
 const U64_CELLS: usize = 1;
 
 #[derive(Debug, Clone)]
 pub(super) struct MemoryTableCellAllocator<F: FieldExt> {
     all_cols: BTreeMap<MemoryTableCellType, Vec<Column<Advice>>>,
     free_cells: BTreeMap<MemoryTableCellType, (usize, u32)>,
+    free_u32_cells: Vec<AllocatedU32Cell<F>>,
     free_u64_cells: Vec<AllocatedU64Cell<F>>,
     _mark: PhantomData<F>,
 }
@@ -80,6 +101,29 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
     pub fn enable_equality(&mut self, meta: &mut ConstraintSystem<F>, t: &MemoryTableCellType) {
         for c in self.all_cols.get(t).unwrap() {
             meta.enable_equality(*c);
+        }
+    }
+
+    pub(super) fn prepare_alloc_u32_cell(
+        &mut self,
+        meta: &mut ConstraintSystem<F>,
+        enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) -> AllocatedU32Cell<F> {
+        let u16_cells_le = [0; 2].map(|_| self.alloc_u16_cell());
+        let u32_cell = self.alloc_unlimited_cell();
+        meta.create_gate("mc9. value", |meta| {
+            let init = u32_cell.curr_expr(meta);
+            vec![
+                (0..2)
+                    .into_iter()
+                    .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
+                    .fold(init, |acc, x| acc - x)
+                    * enable(meta),
+            ]
+        });
+        AllocatedU32Cell {
+            u16_cells_le,
+            u32_cell,
         }
     }
 
@@ -113,6 +157,10 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut allocator = Self::_new(meta, sel.clone(), rtable, cols);
+        for _ in 0..U32_CELLS {
+            let cell = allocator.prepare_alloc_u32_cell(meta, |meta| fixed_curr!(meta, sel));
+            allocator.free_u32_cells.push(cell);
+        }
         for _ in 0..U64_CELLS {
             let cell = allocator.prepare_alloc_u64_cell(meta, |meta| fixed_curr!(meta, sel));
             allocator.free_u64_cells.push(cell);
@@ -168,6 +216,7 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
                 ]
                 .into_iter(),
             ),
+            free_u32_cells: vec![],
             free_u64_cells: vec![],
             _mark: PhantomData,
         }
@@ -180,8 +229,6 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
             rot: v.1 as i32,
             _mark: PhantomData,
         };
-
-        assert!(v.0 < BIT_COLUMNS);
 
         v.1 += 1;
         if v.1 == MEMORY_TABLE_ENTRY_ROWS as u32 {
@@ -200,12 +247,26 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
         AllocatedCommonRangeCell(self.alloc(&MemoryTableCellType::CommonRange))
     }
 
+    pub(super) fn alloc_u32_state_cell(&mut self) -> AllocatedU32StateCell<F> {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "continuation")] {
+                self.alloc_u32_cell()
+            } else {
+                AllocatedCommonRangeCell(self.alloc(&MemoryTableCellType::CommonRange))
+            }
+        }
+    }
+
     pub(super) fn alloc_u16_cell(&mut self) -> AllocatedU16Cell<F> {
         AllocatedU16Cell(self.alloc(&MemoryTableCellType::U16))
     }
 
     pub(super) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell(self.alloc(&MemoryTableCellType::Unlimited))
+    }
+
+    pub(super) fn alloc_u32_cell(&mut self) -> AllocatedU32Cell<F> {
+        self.free_u32_cells.pop().expect("no more free u32 cells")
     }
 
     pub(super) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {

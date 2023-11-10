@@ -57,7 +57,6 @@ pub(self) trait Lookup<F: FieldExt> {
 
 pub struct ZkWasmCircuitBuilder {
     pub tables: Tables,
-    pub public_inputs_and_outputs: Vec<u64>,
 }
 
 impl ZkWasmCircuitBuilder {

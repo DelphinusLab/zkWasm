@@ -196,7 +196,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
         meta: &mut VirtualCells<'_, F>,
         common_config: &EventTableCommonConfig<F>,
     ) -> Option<Expression<F>> {
-        Some(common_config.eid_cell.u32_cell.curr_expr(meta))
+        Some(common_config.eid_cell.curr_expr(meta))
     }
 
     fn next_fid(

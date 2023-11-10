@@ -78,6 +78,22 @@ impl<F: FieldExt> MemoryTableChip<F> {
             };
         }
 
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "continuation")] {
+                macro_rules! assign_u32_state {
+                    ($cell:ident, $value:expr) => {
+                        self.config.$cell.assign(ctx, $value)?
+                    }
+                }
+            } else {
+                macro_rules! assign_u32_state {
+                    ($cell:ident, $value:expr) => {
+                        assign_advice!($cell, F::from($value as u64))
+                    }
+                }
+            }
+        }
+
         macro_rules! assign_bit {
             ($cell:ident) => {
                 assign_advice!($cell, F::one())
@@ -113,19 +129,19 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
 
             if entry.entry.atype.is_init() {
-                let (left_offset, right_offset, value) = imtable
+                let (left_offset, right_offset, _, value) = imtable
                     .try_find(entry.entry.ltype, entry.entry.offset)
                     .unwrap();
 
-                assign_advice!(offset_align_left, F::from(left_offset as u64));
-                assign_advice!(offset_align_right, F::from(right_offset as u64));
+                assign_advice!(offset_align_left, left_offset);
+                assign_advice!(offset_align_right, right_offset);
                 assign_advice!(
                     offset_align_left_diff_cell,
-                    F::from((entry.entry.offset - left_offset) as u64)
+                    entry.entry.offset - left_offset
                 );
                 assign_advice!(
                     offset_align_right_diff_cell,
-                    F::from((right_offset - entry.entry.offset) as u64)
+                    right_offset - entry.entry.offset
                 );
 
                 assign_advice!(
@@ -135,19 +151,17 @@ impl<F: FieldExt> MemoryTableChip<F> {
                         (entry.entry.is_mutable as u64).into(),
                         left_offset.into(),
                         right_offset.into(),
+                        entry.entry.eid.into(),
                         value.into()
                     ))
                 );
             }
 
-            assign_advice!(start_eid_cell, F::from(entry.entry.eid as u64));
-            assign_advice!(end_eid_cell, F::from(entry.end_eid as u64));
-            assign_advice!(
-                eid_diff_cell,
-                F::from((entry.end_eid - entry.entry.eid - 1) as u64)
-            );
+            assign_u32_state!(start_eid_cell, entry.entry.eid);
+            assign_u32_state!(end_eid_cell, entry.end_eid);
+            assign_u32_state!(eid_diff_cell, entry.end_eid - entry.entry.eid - 1);
             assign_advice!(rest_mops_cell, F::from(rest_mops));
-            assign_advice!(offset_cell, F::from(entry.entry.offset as u64));
+            assign_advice!(offset_cell, entry.entry.offset);
             assign_advice!(value, entry.entry.value);
 
             assign_advice!(
@@ -175,7 +189,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         let mut cache = HashMap::new();
         for (curr, next) in mtable.0.iter().zip(mtable.0.iter().skip(1)) {
             if curr.entry.ltype == next.entry.ltype {
-                let offset_diff = (next.entry.offset - curr.entry.offset) as u64;
+                let offset_diff = next.entry.offset - curr.entry.offset;
 
                 assign_bit!(is_next_same_ltype_cell);
 
@@ -183,16 +197,19 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     curr.entry.offset == next.entry.offset,
                     is_next_same_offset_cell
                 );
-                assign_advice!(offset_diff_cell, F::from(offset_diff));
+                assign_advice!(offset_diff_cell, offset_diff);
                 let invert = if let Some(f) = cache.get(&offset_diff) {
                     *f
                 } else {
-                    let f = F::from(offset_diff).invert().unwrap_or(F::zero());
+                    let f = F::from(offset_diff as u64).invert().unwrap_or(F::zero());
                     cache.insert(offset_diff, f);
                     f
                 };
                 assign_advice!(offset_diff_inv_cell, invert);
-                assign_advice!(offset_diff_inv_helper_cell, invert * F::from(offset_diff));
+                assign_advice!(
+                    offset_diff_inv_helper_cell,
+                    invert * F::from(offset_diff as u64)
+                );
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);

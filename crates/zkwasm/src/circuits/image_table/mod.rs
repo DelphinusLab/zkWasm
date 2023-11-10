@@ -9,6 +9,7 @@ use specs::imtable::InitMemoryTable;
 use specs::itable::InstructionTable;
 use specs::jtable::StaticFrameEntry;
 use specs::mtable::LocationType;
+use specs::state::InitializationState;
 use specs::CompilationTable;
 use std::marker::PhantomData;
 
@@ -21,9 +22,7 @@ mod configure;
 pub const IMAGE_COL_NAME: &str = "img_col";
 
 pub struct ImageTableLayouter<T: Clone> {
-    pub entry_fid: T,
-    pub initial_memory_pages: T,
-    pub maximal_memory_pages: T,
+    pub initialization_state: InitializationState<T>,
     pub static_frame_entries: Vec<(T, T)>,
     /*
      * include:
@@ -39,9 +38,7 @@ impl<T: Clone> ImageTableLayouter<T> {
     pub fn plain(&self) -> Vec<T> {
         let mut buf = vec![];
 
-        buf.push(self.entry_fid.clone());
-        buf.push(self.initial_memory_pages.clone());
-        buf.push(self.maximal_memory_pages.clone());
+        buf.append(&mut self.initialization_state.plain());
         buf.append(
             &mut self
                 .static_frame_entries
@@ -64,6 +61,12 @@ pub trait EncodeCompilationTableValues<F: Clone> {
 
 impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
     fn encode_compilation_table_values(&self) -> ImageTableLayouter<F> {
+        fn msg_of_initialization_state<F: FieldExt>(
+            initialization_state: &InitializationState<u32>,
+        ) -> InitializationState<F> {
+            initialization_state.map(|field| F::from(*field as u64))
+        }
+
         fn msg_of_instruction_table<F: FieldExt>(instruction_table: &InstructionTable) -> Vec<F> {
             let mut cells = vec![];
 
@@ -165,22 +168,8 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             cells
         }
 
-        fn msg_of_memory_pages<F: FieldExt>(
-            init_memory_pages: u32,
-            maximal_memory_pages: u32,
-        ) -> (F, F) {
-            (
-                F::from(init_memory_pages as u64),
-                F::from(maximal_memory_pages as u64),
-            )
-        }
-
-        let entry_fid = F::from(self.fid_of_entry as u64);
+        let initialization_state = msg_of_initialization_state(&self.initialization_state);
         let static_frame_entries = msg_of_static_frame_table(&self.static_jtable);
-        let (initial_memory_pages, maximal_memory_pages) = msg_of_memory_pages(
-            self.configure_table.init_memory_pages,
-            self.configure_table.maximal_memory_pages,
-        );
         let lookup_entries = msg_of_image_table(
             &self.itable,
             &self.itable.create_brtable(),
@@ -189,10 +178,8 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
         );
 
         ImageTableLayouter {
-            entry_fid,
+            initialization_state,
             static_frame_entries,
-            initial_memory_pages,
-            maximal_memory_pages,
             lookup_entries: Some(lookup_entries),
         }
     }

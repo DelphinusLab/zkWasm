@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::env;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
@@ -16,12 +17,12 @@ use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use mtable::AccessType;
-use mtable::LocationType;
 use mtable::MTable;
 use mtable::MemoryTableEntry;
 use rayon::prelude::IntoParallelRefIterator;
 use rayon::prelude::ParallelIterator;
 use serde::Serialize;
+use state::InitializationState;
 
 #[macro_use]
 extern crate lazy_static;
@@ -36,59 +37,53 @@ pub mod imtable;
 pub mod itable;
 pub mod jtable;
 pub mod mtable;
+pub mod state;
 pub mod step;
 pub mod types;
 
 #[derive(Default, Serialize, Debug, Clone)]
 pub struct CompilationTable {
-    pub itable: InstructionTable,
+    pub itable: Arc<InstructionTable>,
     pub imtable: InitMemoryTable,
-    pub elem_table: ElemTable,
-    pub configure_table: ConfigureTable,
-    pub static_jtable: Vec<StaticFrameEntry>,
-    pub fid_of_entry: u32,
+    pub elem_table: Arc<ElemTable>,
+    pub configure_table: Arc<ConfigureTable>,
+    pub static_jtable: Arc<Vec<StaticFrameEntry>>,
+    pub initialization_state: InitializationState<u32>,
 }
 
 #[derive(Default, Serialize, Clone)]
 pub struct ExecutionTable {
     pub etable: EventTable,
-    pub jtable: JumpTable,
+    pub jtable: Arc<JumpTable>,
 }
 
 #[derive(Default, Clone)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
+    pub post_image_table: CompilationTable,
 }
 
 impl Tables {
     pub fn create_memory_table(
         &self,
-        memory_event_of_step: fn(&EventTableEntry, &mut u32) -> Vec<MemoryTableEntry>,
+        memory_event_of_step: fn(&EventTableEntry) -> Vec<MemoryTableEntry>,
     ) -> MTable {
         let mut memory_entries = self
             .execution_tables
             .etable
             .entries()
             .par_iter()
-            .map(|entry| memory_event_of_step(entry, &mut 1))
+            .map(|entry| memory_event_of_step(entry))
             .collect::<Vec<Vec<_>>>()
             .concat();
 
         let init_value = memory_entries
             .par_iter()
             .map(|entry| {
-                if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
-                    let (_, _, value) = self
-                        .compilation_tables
-                        .imtable
-                        .try_find(entry.ltype, entry.offset)
-                        .unwrap();
-
-                    Some(value)
-                } else {
-                    None
-                }
+                self.compilation_tables
+                    .imtable
+                    .try_find(entry.ltype, entry.offset)
             })
             .collect::<Vec<_>>();
 
@@ -97,12 +92,10 @@ impl Tables {
         memory_entries
             .iter()
             .zip(init_value.into_iter())
-            .for_each(|(entry, init_value)| {
-                // If it's heap or global
-                if let Some(value) = init_value {
+            .for_each(|(entry, init_memory_entry)| {
+                if let Some((_, _, eid, value)) = init_memory_entry {
                     set.insert(MemoryTableEntry {
-                        eid: 0,
-                        emid: 0,
+                        eid,
                         offset: entry.offset,
                         ltype: entry.ltype,
                         atype: AccessType::Init,
@@ -115,7 +108,7 @@ impl Tables {
 
         memory_entries.append(&mut set.into_iter().collect());
 
-        memory_entries.sort_by_key(|item| (item.ltype, item.offset, item.eid, item.emid));
+        memory_entries.sort_by_key(|item| (item.ltype, item.offset, item.eid));
 
         MTable::new(memory_entries)
     }

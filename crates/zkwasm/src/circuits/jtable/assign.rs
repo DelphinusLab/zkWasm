@@ -69,8 +69,6 @@ impl<F: FieldExt> JumpTableChip<F> {
     ) -> Result<Vec<(Cell, Cell)>, Error> {
         let mut static_entries = static_entries.clone();
 
-        assert!(static_entries.len() == 1 || static_entries.len() == 2);
-
         let mut cells = vec![];
 
         static_entries.resize(
