@@ -13,6 +13,7 @@ use super::Op;
 pub struct Context {
     pub public_inputs: Vec<u64>,
     pub private_inputs: Vec<u64>,
+    pub witness_queue: Vec<u64>,
     pub instance: Rc<RefCell<Vec<u64>>>,
     pub output: Rc<RefCell<Vec<u64>>>,
 }
@@ -27,6 +28,7 @@ impl Context {
         Context {
             public_inputs,
             private_inputs,
+            witness_queue: vec![],
             instance,
             output,
         }
@@ -44,6 +46,14 @@ impl Context {
             panic!("failed to read private input, please checkout your input");
         }
         self.private_inputs.remove(0)
+    }
+
+    fn inject_witness(&mut self, v: u64) {
+        self.witness_queue.insert(0, v);
+    }
+
+    fn pop_witness(&mut self) -> u64 {
+        self.witness_queue.pop().unwrap()
     }
 
     fn push_public(&mut self, value: u64) {
@@ -73,6 +83,15 @@ impl Context {
         input
     }
 
+    pub fn wasm_witness_inject(&mut self, arg: u64) {
+        self.inject_witness(arg);
+    }
+
+    pub fn wasm_witness_pop(&mut self) -> u64 {
+        self.pop_witness()
+    }
+
+
     pub fn wasm_output(&mut self, value: u64) {
         self.push_output(value);
     }
@@ -95,6 +114,23 @@ pub fn register_wasm_input_foreign(
             let arg: i32 = args.nth(0);
             let input = context.wasm_input(arg);
 
+            Some(wasmi::RuntimeValue::I64(input as i64))
+        },
+    );
+
+    let wasm_witness_inject = Rc::new(
+        |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            let context = context.downcast_mut::<Context>().unwrap();
+            let value: i64 = args.nth(0);
+            context.wasm_witness_inject(value as u64);
+            None
+        },
+    );
+
+    let wasm_witness_pop = Rc::new(
+        |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            let context = context.downcast_mut::<Context>().unwrap();
+            let input = context.wasm_witness_pop();
             Some(wasmi::RuntimeValue::I64(input as i64))
         },
     );
@@ -129,6 +165,28 @@ pub fn register_wasm_input_foreign(
         HostPlugin::HostInput,
         Op::WasmInput as usize,
         wasm_input,
+    );
+
+    env.internal_env.register_function(
+        "wasm_witness_inject",
+        specs::host_function::Signature {
+            params: vec![ValueType::I64],
+            return_type: None,
+        },
+        HostPlugin::HostInput,
+        Op::WasmWitnessInject as usize,
+        wasm_witness_inject,
+    );
+
+    env.internal_env.register_function(
+        "wasm_witness_pop",
+        specs::host_function::Signature {
+            params: vec![],
+            return_type: Some(ValueType::I64),
+        },
+        HostPlugin::HostInput,
+        Op::WasmWitnessPop as usize,
+        wasm_witness_pop,
     );
 
     env.internal_env.register_function(
