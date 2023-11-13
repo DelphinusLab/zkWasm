@@ -18,6 +18,10 @@ use strum::IntoEnumIterator;
 
 const POW_OP: u64 = 4;
 
+pub fn maximal_common_range() -> u32 {
+    (1u32 << (zkwasm_k() - 1)) - 1
+}
+
 /*
  * | Comment   | Op  | left(u8) | right                       | result   |
  * | --------- | --- | -------- | --------------------------- | -------- |
@@ -163,11 +167,11 @@ impl<F: FieldExt> RangeTableChip<F> {
         layouter.assign_table(
             || "common range table",
             |mut table| {
-                for i in 0..(1 << (zkwasm_k() - 1)) {
+                for i in 0..=maximal_common_range() {
                     table.assign_cell(
                         || "range table",
                         self.config.common_range_col,
-                        i,
+                        i as usize,
                         || Ok(F::from(i as u64)),
                     )?;
                 }

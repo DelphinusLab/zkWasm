@@ -1,3 +1,4 @@
+use log::error;
 use serde::Serialize;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
@@ -10,9 +11,16 @@ use std::collections::BTreeMap;
 use std::env;
 use std::io::Write;
 use std::path::PathBuf;
+use thiserror::Error;
 
-use crate::circuits::config::zkwasm_k;
+use crate::circuits::rtable::maximal_common_range;
 use crate::runtime::memory_event_of_step;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Failed to lookup memory writing in MemoryWritingTable. It is usually because K is insufficient for the execution, please increase K and try again.")]
+    CircuitSizeNotEnough,
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::circuits) struct MemoryWritingEntry {
@@ -32,7 +40,7 @@ pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl From<MTable> for MemoryWritingTable {
     fn from(value: MTable) -> Self {
-        let maximal_eid = (1u32 << (zkwasm_k() - 1)) - 1;
+        let maximal_eid = maximal_common_range();
         let mut index = 0;
 
         let mut entries: Vec<MemoryWritingEntry> = value
@@ -128,58 +136,72 @@ impl EventTableWithMemoryInfo {
     pub(in crate::circuits) fn new(
         event_table: &EventTable,
         memory_writing_table: &MemoryWritingTable,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let lookup = memory_writing_table.build_lookup_mapping();
 
-        let lookup_mtable_eid = |(eid, ltype, offset, is_writing)| {
+        let lookup_mtable_eid = |(eid, ltype, offset, is_writing)| -> Result<(u32, u32), Error> {
             let records = lookup.get(&(ltype, offset)).unwrap();
 
+            // The MemoryWritingTable uses maximal_common_range as maximal end eid, hence
+            // searching will be failed if eid exceeds maximal_common_range.
+            if eid > maximal_common_range() {
+                error!(
+                    "eid {} exceeds the maximal common range {}",
+                    eid,
+                    maximal_common_range()
+                );
+
+                return Err(Error::CircuitSizeNotEnough);
+            }
+
             if is_writing {
-                let idx = records
-                    .binary_search_by(|(start_eid, _)| start_eid.cmp(eid))
-                    .unwrap();
-                records[idx]
+                let idx = records.binary_search_by(|(start_eid, _)| start_eid.cmp(&eid));
+
+                Ok(records[idx.unwrap()])
             } else {
-                let idx = records
-                    .binary_search_by(|(start_eid, end_eid)| {
-                        if eid <= start_eid {
-                            Ordering::Greater
-                        } else if eid > end_eid {
-                            Ordering::Less
-                        } else {
-                            Ordering::Equal
-                        }
-                    })
-                    .unwrap();
-                records[idx]
+                let idx = records.binary_search_by(|(start_eid, end_eid)| {
+                    if eid <= *start_eid {
+                        Ordering::Greater
+                    } else if eid > *end_eid {
+                        Ordering::Less
+                    } else {
+                        Ordering::Equal
+                    }
+                });
+
+                Ok(records[idx.unwrap()])
             }
         };
 
-        EventTableWithMemoryInfo(
-            event_table
-                .entries()
-                .iter()
-                .map(|eentry| EventTableEntryWithMemoryInfo {
-                    eentry: eentry.clone(),
-                    memory_rw_entires: memory_event_of_step(eentry, &mut 1)
-                        .iter()
-                        .map(|mentry| {
-                            let (start_eid, end_eid) = lookup_mtable_eid((
-                                &eentry.eid,
-                                mentry.ltype,
-                                mentry.offset,
-                                mentry.atype == AccessType::Write,
-                            ));
+        let entries = event_table
+            .entries()
+            .iter()
+            .map(|eentry| {
+                let memory_rw_entires = memory_event_of_step(eentry, &mut 1)
+                    .into_iter()
+                    .map(|mentry| {
+                        let (start_eid, end_eid) = lookup_mtable_eid((
+                            eentry.eid,
+                            mentry.ltype,
+                            mentry.offset,
+                            mentry.atype == AccessType::Write,
+                        ))?;
 
-                            MemoryRWEntry {
-                                entry: mentry.clone(),
-                                start_eid,
-                                end_eid,
-                            }
+                        Ok(MemoryRWEntry {
+                            entry: mentry.clone(),
+                            start_eid,
+                            end_eid,
                         })
-                        .collect(),
+                    })
+                    .collect::<Result<_, _>>()?;
+
+                Ok(EventTableEntryWithMemoryInfo {
+                    eentry: eentry.clone(),
+                    memory_rw_entires,
                 })
-                .collect(),
-        )
+            })
+            .collect::<Result<_, _>>()?;
+
+        Ok(EventTableWithMemoryInfo(entries))
     }
 }
