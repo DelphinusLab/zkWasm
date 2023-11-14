@@ -741,7 +741,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#64ccffddc97faff24a00d248270fe84f6693c130"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#9ac108049b488df640eecdd5eb18751062442898"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -1661,6 +1661,7 @@ dependencies = [
 name = "specs"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 1.0.0",
  "halo2_proofs",
  "lazy_static",
  "num-bigint",

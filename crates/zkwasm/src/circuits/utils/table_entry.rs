@@ -32,7 +32,11 @@ pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl From<MTable> for MemoryWritingTable {
     fn from(value: MTable) -> Self {
-        let maximal_eid = (1u32 << (zkwasm_k() - 1)) - 1;
+        let maximal_eid = if cfg!(feature = "continuation") {
+            u32::MAX
+        } else {
+            (1u32 << (zkwasm_k() - 1)) - 1
+        };
         let mut index = 0;
 
         let mut entries: Vec<MemoryWritingEntry> = value
@@ -151,6 +155,7 @@ impl EventTableWithMemoryInfo {
                         }
                     })
                     .unwrap();
+
                 records[idx]
             }
         };

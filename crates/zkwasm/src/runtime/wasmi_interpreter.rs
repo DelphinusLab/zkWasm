@@ -79,7 +79,7 @@ impl Execution<RuntimeValue>
 
         let updated_init_memory_table = self
             .tables
-            .update_init_memory_table(&execution_tables.etable);
+            .update_init_memory_table(&execution_tables.etable.entries());
 
         let post_image_table = {
             CompilationTable {
@@ -90,7 +90,7 @@ impl Execution<RuntimeValue>
                 static_jtable: self.tables.static_jtable.clone(),
                 initialization_state: self
                     .tables
-                    .update_initialization_state(&execution_tables.etable, true),
+                    .update_initialization_state(&execution_tables.etable.entries(), true),
             }
         };
 
@@ -99,6 +99,7 @@ impl Execution<RuntimeValue>
                 compilation_tables: self.tables,
                 execution_tables,
                 post_image_table,
+                is_last_slice: true,
             },
             result,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),

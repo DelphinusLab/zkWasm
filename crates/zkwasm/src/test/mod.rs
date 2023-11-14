@@ -16,11 +16,12 @@ use wabt::Features;
 use wasmi::ImportsBuilder;
 use wasmi::RuntimeValue;
 
-#[cfg(test)]
 mod test_wasm_instructions;
 
 mod spec;
 mod test_rlp;
+#[cfg(feature = "continuation")]
+mod test_rlp_slice;
 mod test_start;
 mod test_uniform_verifier;
 
@@ -46,7 +47,7 @@ fn test_circuit_mock<F: FieldExt>(
 
     execution_result.tables.profile_tables();
 
-    let circuit = TestCircuit::new(execution_result.tables);
+    let circuit = TestCircuit::new(execution_result.tables, None);
     let prover = MockProver::run(zkwasm_k(), &circuit, vec![instance])?;
     assert_eq!(prover.verify(), Ok(()));
 

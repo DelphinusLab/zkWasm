@@ -35,7 +35,7 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
         tables: execution_result.tables,
     };
 
-    let circuit: TestCircuit<Fr> = builder.build_circuit();
+    let circuit: TestCircuit<Fr> = builder.build_circuit(None);
 
     let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
@@ -142,7 +142,7 @@ mod tests {
             create_proof(
                 &params,
                 &uniform_verifier_pk,
-                &[builder.build_circuit()],
+                &[builder.build_circuit(None)],
                 &[&[&instances]],
                 OsRng,
                 &mut transcript,

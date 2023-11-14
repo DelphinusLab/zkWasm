@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
-use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
 use specs::encode::init_memory_table::encode_init_memory_table_entry;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::imtable::InitMemoryTable;
+use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 
@@ -35,7 +35,15 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 ctx.region.assign_advice_from_constant(
                     || "rest_mops terminate",
                     self.config.rest_mops_cell.0.col,
-                    ctx.offset,
+                    ctx.offset + self.config.rest_mops_cell.0.rot as usize,
+                    F::zero(),
+                )?;
+
+                #[cfg(feature = "continuation")]
+                ctx.region.assign_advice_from_constant(
+                    || "rest_memory_updating_ops terminate",
+                    self.config.rest_memory_updating_ops.0.col,
+                    ctx.offset + self.config.rest_memory_updating_ops.0.rot as usize,
                     F::zero(),
                 )?;
             }
@@ -46,10 +54,25 @@ impl<F: FieldExt> MemoryTableChip<F> {
         Ok(())
     }
 
-    fn constraint_rest_mops_permutation(
+    #[cfg(feature = "continuation")]
+    fn constrain_rest_memory_updating_ops(
         &self,
         ctx: &mut Context<'_, F>,
-        etable_rest_mops_cell: Option<Cell>,
+        rest_memory_updating_ops: u32,
+    ) -> Result<AssignedCell<F, F>, Error> {
+        // Overwrite in assign_entries
+        let cell = self
+            .config
+            .rest_memory_updating_ops
+            .assign(ctx, F::from(rest_memory_updating_ops as u64))?;
+
+        Ok(cell)
+    }
+
+    fn constrain_rest_mops_permutation(
+        &self,
+        ctx: &mut Context<'_, F>,
+        etable_rest_mops_cell: &Option<AssignedCell<F, F>>,
         init_rest_mops: u64,
     ) -> Result<AssignedCell<F, F>, Error> {
         let cell = self
@@ -59,7 +82,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
         if etable_rest_mops_cell.is_some() {
             ctx.region
-                .constrain_equal(cell.cell(), etable_rest_mops_cell.unwrap())?;
+                .constrain_equal(cell.cell(), etable_rest_mops_cell.as_ref().unwrap().cell())?;
         }
 
         Ok(cell)
@@ -70,7 +93,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         mtable: &MemoryWritingTable,
         init_rest_mops: u64,
-        imtable: &InitMemoryTable,
+        _imtable: &InitMemoryTable,
+        mut _rest_memory_updating_ops: u32,
     ) -> Result<(), Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
@@ -110,7 +134,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
         let mut rest_mops = init_rest_mops;
 
-        for entry in &mtable.0 {
+        let mut iter = mtable.0.iter().peekable();
+
+        while let Some(entry) = iter.next() {
             assign_bit!(enabled_cell);
 
             match entry.entry.ltype {
@@ -128,34 +154,37 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
 
-            if entry.entry.atype.is_init() {
-                let (left_offset, right_offset, _, value) = imtable
-                    .try_find(entry.entry.ltype, entry.entry.offset)
-                    .unwrap();
-
-                assign_advice!(offset_align_left, left_offset);
-                assign_advice!(offset_align_right, right_offset);
-                assign_advice!(
-                    offset_align_left_diff_cell,
-                    entry.entry.offset - left_offset
-                );
-                assign_advice!(
-                    offset_align_right_diff_cell,
-                    right_offset - entry.entry.offset
-                );
-
-                assign_advice!(
-                    init_encode_cell,
-                    bn_to_field(&encode_init_memory_table_entry(
-                        (entry.entry.ltype as u64).into(),
-                        (entry.entry.is_mutable as u64).into(),
-                        left_offset.into(),
-                        right_offset.into(),
-                        entry.entry.eid.into(),
-                        value.into()
-                    ))
-                );
+            if ctx.offset == 207328 {
+                println!("is init: {}", entry.entry.atype.is_init());
             }
+
+            //if entry.entry.atype.is_init() {
+            // let init_memory_entry = imtable
+            //     .try_find(entry.entry.ltype, entry.entry.offset)
+            //     .unwrap();
+
+            // assign_advice!(offset_align_left, left_offset);
+            // assign_advice!(offset_align_right, right_offset);
+            // assign_advice!(
+            //     offset_align_left_diff_cell,
+            //     entry.entry.offset - left_offset
+            // );
+            // assign_advice!(
+            //     offset_align_right_diff_cell,
+            //     right_offset - entry.entry.offset
+            // );
+
+            assign_advice!(
+                init_encode_cell,
+                bn_to_field(&encode_init_memory_table_entry(
+                    (entry.entry.ltype as u64).into(),
+                    entry.entry.offset.into(),
+                    (entry.entry.is_mutable as u64).into(),
+                    entry.entry.eid.into(),
+                    entry.entry.value.into()
+                ))
+            );
+            //}
 
             assign_u32_state!(start_eid_cell, entry.entry.eid);
             assign_u32_state!(end_eid_cell, entry.end_eid);
@@ -163,6 +192,12 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_advice!(rest_mops_cell, F::from(rest_mops));
             assign_advice!(offset_cell, entry.entry.offset);
             assign_advice!(value, entry.entry.value);
+
+            #[cfg(feature = "continuation")]
+            assign_advice!(
+                rest_memory_updating_ops,
+                F::from(_rest_memory_updating_ops as u64)
+            );
 
             assign_advice!(
                 encode_cell,
@@ -179,6 +214,20 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             if !entry.entry.atype.is_init() {
                 rest_mops -= 1;
+            }
+
+            if let Some(next_entry) = iter.peek() {
+                if entry.entry.atype == AccessType::Write
+                    && !entry.entry.is_same_location(&next_entry.entry)
+                {
+                    _rest_memory_updating_ops -= 1;
+                }
+            } else {
+                // It's last entry
+
+                if entry.entry.atype == AccessType::Write {
+                    _rest_memory_updating_ops -= 1;
+                }
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
@@ -215,16 +264,40 @@ impl<F: FieldExt> MemoryTableChip<F> {
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
 
+        println!("mtable end: {}", ctx.offset);
+
         Ok(())
+    }
+
+    fn compute_rest_memory_updating_ops(&self, mtable: &MemoryWritingTable) -> u32 {
+        let mut ops = 0u32;
+
+        let mut iter = mtable.0.iter().peekable();
+
+        while let Some(entry) = iter.next() {
+            if let Some(next_entry) = iter.peek() {
+                if entry.entry.atype == AccessType::Write
+                    && !entry.entry.is_same_location(&next_entry.entry)
+                {
+                    ops += 1;
+                }
+            } else {
+                if entry.entry.atype == AccessType::Write {
+                    ops += 1;
+                }
+            }
+        }
+
+        ops
     }
 
     pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        etable_rest_mops_cell: Option<Cell>,
+        etable_rest_mops_cell: &Option<AssignedCell<F, F>>,
         mtable: &MemoryWritingTable,
         imtable: &InitMemoryTable,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<AssignedCell<F, F>>, Error> {
         debug!("size of memory writing table: {}", mtable.0.len());
         assert!(mtable.0.len() * (MEMORY_TABLE_ENTRY_ROWS as usize) < self.maximal_available_rows);
 
@@ -236,17 +309,35 @@ impl<F: FieldExt> MemoryTableChip<F> {
         self.assign_fixed(ctx)?;
         ctx.reset();
 
+        let _rest_memory_updating_ops = self.compute_rest_memory_updating_ops(mtable);
+
+        #[cfg(feature = "continuation")]
+        let rest_memory_updating_ops =
+            self.constrain_rest_memory_updating_ops(ctx, _rest_memory_updating_ops)?;
+
         let rest_mops_cell =
-            self.constraint_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
+            self.constrain_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
 
         /*
          * Skip subsequent advice assignment in the first pass to enhance performance.
          */
         if rest_mops_cell.value().is_some() {
-            self.assign_entries(ctx, mtable, rest_mops, imtable)?;
+            self.assign_entries(
+                ctx,
+                mtable,
+                rest_mops,
+                imtable,
+                self.compute_rest_memory_updating_ops(mtable),
+            )?;
             ctx.reset();
         }
 
-        Ok(())
+        cfg_if::cfg_if! {
+            if #[cfg(feature="continuation")] {
+                Ok(Some(rest_memory_updating_ops))
+            } else {
+                Ok(None)
+            }
+        }
     }
 }

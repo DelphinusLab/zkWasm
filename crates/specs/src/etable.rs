@@ -46,6 +46,10 @@ impl EventTable {
         Self(entries)
     }
 
+    pub fn unwrap(self) -> Vec<EventTableEntry> {
+        self.0
+    }
+
     pub fn entries(&self) -> &Vec<EventTableEntry> {
         &self.0
     }

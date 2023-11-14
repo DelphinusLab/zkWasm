@@ -57,11 +57,23 @@ pub struct ExecutionTable {
     pub jtable: Arc<JumpTable>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
     pub post_image_table: CompilationTable,
+    pub is_last_slice: bool,
+}
+
+impl Tables {
+    pub fn default(last_slice_circuit: bool) -> Self {
+        Self {
+            compilation_tables: CompilationTable::default(),
+            execution_tables: ExecutionTable::default(),
+            post_image_table: CompilationTable::default(),
+            is_last_slice: last_slice_circuit,
+        }
+    }
 }
 
 impl Tables {
@@ -93,15 +105,15 @@ impl Tables {
             .iter()
             .zip(init_value.into_iter())
             .for_each(|(entry, init_memory_entry)| {
-                if let Some((_, _, eid, value)) = init_memory_entry {
+                if let Some(init_memory_entry) = init_memory_entry {
                     set.insert(MemoryTableEntry {
-                        eid,
+                        eid: init_memory_entry.eid,
                         offset: entry.offset,
                         ltype: entry.ltype,
                         atype: AccessType::Init,
                         vtype: entry.vtype,
                         is_mutable: entry.is_mutable,
-                        value,
+                        value: init_memory_entry.value,
                     });
                 }
             });
@@ -124,7 +136,7 @@ impl Tables {
         }
 
         let itable = serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap();
-        let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
+        // let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
         let etable = serde_json::to_string_pretty(&self.execution_tables.etable).unwrap();
         let external_host_call_table = serde_json::to_string_pretty(
             &self
@@ -137,7 +149,7 @@ impl Tables {
 
         let dir = dir.unwrap_or(env::current_dir().unwrap());
         write_file(&dir, "itable.json", &itable);
-        write_file(&dir, "imtable.json", &imtable);
+        // write_file(&dir, "imtable.json", &imtable);
         write_file(&dir, "etable.json", &etable);
         write_file(&dir, "jtable.json", &jtable);
         write_file(&dir, "external_host_table.json", &external_host_call_table);

@@ -67,7 +67,11 @@ impl<T: Clone> InitializationState<T> {
         v
     }
 
-    pub fn map<U>(&self, f: impl Fn(&T) -> U) -> InitializationState<U> {
+    pub fn for_each<U>(&self, f: impl FnMut(&T) -> U) {
+        self.map(f);
+    }
+
+    pub fn map<U>(&self, mut f: impl FnMut(&T) -> U) -> InitializationState<U> {
         InitializationState {
             eid: f(&self.eid),
             fid: f(&self.fid),

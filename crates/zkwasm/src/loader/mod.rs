@@ -15,8 +15,6 @@ use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
-use specs::CompilationTable;
-use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
@@ -60,7 +58,7 @@ pub struct ExecutionReturn {
 }
 
 pub struct ZkWasmLoader<E: MultiMillerLoop> {
-    k: u32,
+    pub k: u32,
     module: wasmi::Module,
     phantom_functions: Vec<String>,
     _data: PhantomData<E>,
@@ -109,16 +107,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         )
     }
 
-    fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
+    fn circuit_without_witness(&self, last_slice_circuit: bool) -> Result<TestCircuit<E::Scalar>> {
         let builder = ZkWasmCircuitBuilder {
-            tables: Tables {
-                compilation_tables: CompilationTable::default(),
-                execution_tables: ExecutionTable::default(),
-                post_image_table: CompilationTable::default(),
-            },
+            tables: Tables::default(last_slice_circuit),
         };
 
-        Ok(builder.build_circuit::<E::Scalar>())
+        Ok(builder.build_circuit::<E::Scalar>(None))
     }
 
     pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
@@ -139,8 +133,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(loader)
     }
 
-    pub fn create_vkey(&self, params: &Params<E::G1Affine>) -> Result<VerifyingKey<E::G1Affine>> {
-        let circuit = self.circuit_without_witness()?;
+    pub fn create_vkey(
+        &self,
+        params: &Params<E::G1Affine>,
+        last_slice_circuit: bool,
+    ) -> Result<VerifyingKey<E::G1Affine>> {
+        let circuit = self.circuit_without_witness(last_slice_circuit)?;
 
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
@@ -215,7 +213,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         println!("output:");
         println!("{:?}", execution_result.outputs);
 
-        Ok((builder.build_circuit(), instance))
+        Ok((builder.build_circuit(None), instance))
     }
 
     pub fn mock_test(
@@ -337,7 +335,7 @@ mod tests {
             }
 
             let params = prepare_param(self.k);
-            let vkey = self.create_vkey(&params).unwrap();
+            let vkey = self.create_vkey(&params, true).unwrap();
 
             let proof = self
                 .create_proof(&params, vkey.clone(), circuit, &instances)

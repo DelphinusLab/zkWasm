@@ -1,6 +1,9 @@
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::Expression;
+use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
@@ -12,30 +15,72 @@ use specs::mtable::LocationType;
 use specs::state::InitializationState;
 use specs::CompilationTable;
 use std::marker::PhantomData;
+use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
-use crate::circuits::config::max_image_table_rows;
+use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::bn_to_field;
+use crate::curr;
+
+use super::test_circuit::RESERVE_ROWS;
 
 mod assign;
 mod configure;
 
 pub const IMAGE_COL_NAME: &str = "img_col";
+pub const INIT_MEMORY_ENTRIES_OFFSET: usize = 40960;
+/*
+ * 8192: 64 * 1024 / 8
+ * A page is 64KB, an entry is 8B
+ */
+pub const PAGE_ENTRIES: u32 = 8192;
+
+/// Compute maximal number of pages supported by the circuit.
+/// circuit size - reserved rows for blind - initialization_state/static frame entries/instructions/br_table
+///   - stack entries - global entries
+pub fn compute_maximal_pages(k: u32) -> u32 {
+    let bytes: u32 =
+        ((1usize << k) - RESERVE_ROWS - INIT_MEMORY_ENTRIES_OFFSET - DEFAULT_VALUE_STACK_LIMIT * 2)
+            .try_into()
+            .unwrap();
+
+    let pages = bytes / PAGE_ENTRIES;
+
+    pages
+}
+
+pub(crate) struct InitMemoryLayouter {
+    pub(crate) stack: u32,
+    pub(crate) global: u32,
+    pub(crate) pages: u32,
+}
+
+impl InitMemoryLayouter {
+    fn for_each(self, mut f: impl FnMut((LocationType, u32))) {
+        for offset in 0..self.stack {
+            f((LocationType::Stack, offset))
+        }
+
+        for offset in 0..self.global {
+            f((LocationType::Global, offset))
+        }
+
+        for offset in 0..(self.pages * PAGE_ENTRIES) {
+            f((LocationType::Heap, offset))
+        }
+    }
+}
 
 pub struct ImageTableLayouter<T: Clone> {
     pub initialization_state: InitializationState<T>,
     pub static_frame_entries: Vec<(T, T)>,
-    /*
-     * include:
-     *   instruction table
-     *   br table
-     *   elem table
-     *   init memory table
-     */
-    pub lookup_entries: Option<Vec<T>>,
+    pub instructions: Option<Vec<T>>,
+    pub br_table: Option<Vec<T>>,
+    pub init_memory_entries: Option<Vec<T>>,
+    pub rest_memory_writing_ops: Option<T>,
 }
 
-impl<T: Clone> ImageTableLayouter<T> {
-    pub fn plain(&self) -> Vec<T> {
+impl<F: FieldExt> ImageTableLayouter<F> {
+    pub fn plain(&self) -> Vec<F> {
         let mut buf = vec![];
 
         buf.append(&mut self.initialization_state.plain());
@@ -49,7 +94,10 @@ impl<T: Clone> ImageTableLayouter<T> {
                 .collect::<Vec<Vec<_>>>()
                 .concat(),
         );
-        buf.append(&mut self.lookup_entries.clone().unwrap());
+        buf.append(&mut self.instructions.clone().unwrap());
+        buf.append(&mut self.br_table.clone().unwrap());
+        buf.append(&mut vec![F::zero(); INIT_MEMORY_ENTRIES_OFFSET - buf.len()]);
+        buf.append(&mut self.init_memory_entries.clone().unwrap());
 
         buf
     }
@@ -102,39 +150,29 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
         }
 
         fn msg_of_init_memory_table<F: FieldExt>(init_memory_table: &InitMemoryTable) -> Vec<F> {
-            let heap_entries = init_memory_table.filter(LocationType::Heap);
-            let global_entries = init_memory_table.filter(LocationType::Global);
-
             let mut cells = vec![];
 
             cells.push(bn_to_field(
                 &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
             ));
 
-            for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
-                cells.push(bn_to_field::<F>(
-                    &ImageTableEncoder::InitMemory.encode(v.encode()),
-                ));
-            }
+            let layouter = InitMemoryLayouter {
+                stack: DEFAULT_VALUE_STACK_LIMIT as u32,
+                global: DEFAULT_VALUE_STACK_LIMIT as u32,
+                pages: compute_maximal_pages(zkwasm_k()),
+            };
 
-            cells
-        }
-
-        fn msg_of_image_table<F: FieldExt>(
-            instruction_table: &InstructionTable,
-            br_table: &BrTable,
-            elem_table: &ElemTable,
-            init_memory_table: &InitMemoryTable,
-        ) -> Vec<F> {
-            let mut cells = vec![];
-
-            cells.append(&mut msg_of_instruction_table(instruction_table));
-            cells.append(&mut msg_of_br_table(br_table, elem_table));
-            cells.append(&mut msg_of_init_memory_table(init_memory_table));
-
-            for _ in cells.len()..(max_image_table_rows() as usize) {
-                cells.push(F::zero());
-            }
+            layouter.for_each(|(ltype, offset)| {
+                if let Some(entry) = init_memory_table.try_find(ltype, offset) {
+                    cells.push(bn_to_field::<F>(
+                        &ImageTableEncoder::InitMemory.encode(entry.encode()),
+                    ));
+                } else {
+                    cells.push(bn_to_field::<F>(
+                        &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
+                    ));
+                }
+            });
 
             cells
         }
@@ -170,25 +208,36 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
 
         let initialization_state = msg_of_initialization_state(&self.initialization_state);
         let static_frame_entries = msg_of_static_frame_table(&self.static_jtable);
-        let lookup_entries = msg_of_image_table(
-            &self.itable,
+
+        let instructions = Some(msg_of_instruction_table(&self.itable));
+        let br_table = Some(msg_of_br_table(
             &self.itable.create_brtable(),
             &self.elem_table,
-            &self.imtable,
-        );
+        ));
+        let init_memory_entries = Some(msg_of_init_memory_table(&self.imtable));
 
         ImageTableLayouter {
             initialization_state,
             static_frame_entries,
-            lookup_entries: Some(lookup_entries),
+            instructions,
+            br_table,
+            init_memory_entries,
+            rest_memory_writing_ops: None,
         }
     }
 }
 
 #[derive(Clone)]
 pub struct ImageTableConfig<F: FieldExt> {
+    _memory_addr_sel: Column<Fixed>,
     col: Column<Advice>,
     _mark: PhantomData<F>,
+}
+
+impl<F: FieldExt> ImageTableConfig<F> {
+    pub fn expr(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        curr!(meta, self.col)
+    }
 }
 
 #[derive(Clone)]

@@ -1,12 +1,9 @@
-use std::collections::BTreeMap;
-
-use specs::etable::EventTable;
+use specs::etable::EventTableEntry;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::Opcode;
 use specs::mtable::AccessType;
-use specs::mtable::LocationType;
 use specs::state::InitializationState;
 use specs::step::StepInfo;
 use specs::CompilationTable;
@@ -14,72 +11,33 @@ use specs::CompilationTable;
 use super::memory_event_of_step;
 
 pub(crate) trait UpdateCompilationTable {
-    fn update_init_memory_table(&self, execution_table: &EventTable) -> InitMemoryTable;
+    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable;
 
     fn update_initialization_state(
         &self,
-        execution_table: &EventTable,
+        execution_table: &Vec<EventTableEntry>,
         is_last_slice: bool,
     ) -> InitializationState<u32>;
 }
 
 impl UpdateCompilationTable for CompilationTable {
-    fn update_init_memory_table(&self, execution_table: &EventTable) -> InitMemoryTable {
-        let mut local_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
-        let mut global_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
-        let mut memory_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
-
+    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable {
         // First insert origin imtable entries which may be overwritten.
-        for entry in self.imtable.entries() {
-            match entry.ltype {
-                LocationType::Stack => {
-                    assert_eq!(entry.start_offset, entry.end_offset);
+        let mut map = self.imtable.entries().clone();
 
-                    local_map.insert(entry.start_offset, entry.clone());
-                }
-                LocationType::Heap => {
-                    for offset in entry.start_offset..=entry.end_offset {
-                        memory_map.insert(
-                            offset,
-                            InitMemoryTableEntry {
-                                ltype: entry.ltype,
-                                is_mutable: entry.is_mutable,
-                                start_offset: offset,
-                                end_offset: offset,
-                                vtype: entry.vtype,
-                                value: entry.value,
-                                eid: entry.eid,
-                            },
-                        );
-                    }
-                }
-                LocationType::Global => {
-                    assert_eq!(entry.start_offset, entry.end_offset);
-
-                    global_map.insert(entry.start_offset, entry.clone());
-                }
-            }
-        }
-
-        for etable_entry in execution_table.entries() {
+        let mut it = execution_table.iter();
+        while let Some(etable_entry) = it.next() {
             let memory_writing_entires = memory_event_of_step(etable_entry)
                 .into_iter()
                 .filter(|entry| entry.atype == AccessType::Write);
 
             for mentry in memory_writing_entires {
-                let map = match mentry.ltype {
-                    LocationType::Stack => &mut local_map,
-                    LocationType::Heap => &mut memory_map,
-                    LocationType::Global => &mut global_map,
-                };
-
                 map.insert(
-                    mentry.offset,
+                    (mentry.ltype, mentry.offset),
                     InitMemoryTableEntry {
                         ltype: mentry.ltype,
                         is_mutable: mentry.is_mutable,
-                        start_offset: mentry.offset,
-                        end_offset: mentry.offset,
+                        offset: mentry.offset,
                         vtype: mentry.vtype,
                         value: mentry.value,
                         eid: etable_entry.eid,
@@ -88,19 +46,12 @@ impl UpdateCompilationTable for CompilationTable {
             }
         }
 
-        let init_memory_entries = vec![]
-            .into_iter()
-            .chain(local_map.into_values())
-            .chain(global_map.into_values())
-            .chain(memory_map.into_values())
-            .collect();
-
-        InitMemoryTable::new(init_memory_entries)
+        InitMemoryTable(map)
     }
 
     fn update_initialization_state(
         &self,
-        execution_table: &EventTable,
+        execution_table: &Vec<EventTableEntry>,
         is_last_slice: bool,
     ) -> InitializationState<u32> {
         let mut host_public_inputs = self.initialization_state.host_public_inputs;
@@ -112,7 +63,7 @@ impl UpdateCompilationTable for CompilationTable {
         #[cfg(feature = "continuation")]
         let mut jops = self.initialization_state.jops;
 
-        for entry in execution_table.entries() {
+        for entry in execution_table {
             match &entry.step_info {
                 // TODO: fix hard code
                 StepInfo::CallHost {
@@ -146,7 +97,7 @@ impl UpdateCompilationTable for CompilationTable {
             }
         }
 
-        let last_entry = execution_table.entries().last().unwrap();
+        let last_entry = execution_table.last().unwrap();
 
         let post_initialization_state = if is_last_slice {
             InitializationState {
@@ -179,7 +130,6 @@ impl UpdateCompilationTable for CompilationTable {
                 fid: last_entry.inst.fid,
                 iid: last_entry.inst.iid,
                 frame_id: last_entry.last_jump_eid,
-                // TODO: why not constant 4095?
                 sp: last_entry.sp,
 
                 host_public_inputs,

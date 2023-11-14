@@ -1,5 +1,5 @@
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Cell;
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::plonk::Error;
 use specs::jtable::JumpTable;
 use specs::jtable::StaticFrameEntry;
@@ -14,7 +14,7 @@ impl<F: FieldExt> JumpTableChip<F> {
     fn constraint_to_etable_jops(
         &self,
         ctx: &mut Context<'_, F>,
-        etable_rest_jops_cell: Cell,
+        etable_rest_jops_cell: &AssignedCell<F, F>,
     ) -> Result<(), Error> {
         /*
          * Assign a meaningless rest_jops value to get the cell which should equal to the
@@ -30,7 +30,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         )?;
 
         ctx.region
-            .constrain_equal(cell.cell(), etable_rest_jops_cell)?;
+            .constrain_equal(cell.cell(), etable_rest_jops_cell.cell())?;
 
         Ok(())
     }
@@ -66,7 +66,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         ctx: &mut Context<'_, F>,
         rest_jops: &mut u64,
         static_entries: &Vec<StaticFrameEntry>,
-    ) -> Result<Vec<(Cell, Cell)>, Error> {
+    ) -> Result<Vec<(AssignedCell<F, F>, AssignedCell<F, F>)>, Error> {
         let mut static_entries = static_entries.clone();
 
         let mut cells = vec![];
@@ -91,15 +91,12 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || Ok(F::one()),
             )?;
 
-            let enable_cell = ctx
-                .region
-                .assign_advice(
-                    || "jtable enable",
-                    self.config.data,
-                    ctx.offset,
-                    || Ok(F::from(entry.enable as u64)),
-                )?
-                .cell();
+            let enable_cell = ctx.region.assign_advice(
+                || "jtable enable",
+                self.config.data,
+                ctx.offset,
+                || Ok(F::from(entry.enable as u64)),
+            )?;
             ctx.next();
 
             ctx.region.assign_advice(
@@ -110,15 +107,12 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            let entry_cell = ctx
-                .region
-                .assign_advice(
-                    || "jtable entry",
-                    self.config.data,
-                    ctx.offset,
-                    || Ok(bn_to_field(&entry.encode())),
-                )?
-                .cell();
+            let entry_cell = ctx.region.assign_advice(
+                || "jtable entry",
+                self.config.data,
+                ctx.offset,
+                || Ok(bn_to_field(&entry.encode())),
+            )?;
             ctx.next();
 
             cells.push((enable_cell, entry_cell));
@@ -201,11 +195,11 @@ impl<F: FieldExt> JumpTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         jtable: &JumpTable,
-        etable_rest_jops_cell: Option<Cell>,
+        etable_jops_cell: &Option<AssignedCell<F, F>>,
         static_entries: &Vec<StaticFrameEntry>,
-    ) -> Result<Vec<(Cell, Cell)>, Error> {
-        if etable_rest_jops_cell.is_some() {
-            self.constraint_to_etable_jops(ctx, etable_rest_jops_cell.unwrap())?;
+    ) -> Result<Vec<(AssignedCell<F, F>, AssignedCell<F, F>)>, Error> {
+        if etable_jops_cell.is_some() {
+            self.constraint_to_etable_jops(ctx, etable_jops_cell.as_ref().unwrap())?;
         }
 
         self.init(ctx)?;
