@@ -24,6 +24,6 @@ halo2_proofs.workspace = true
 wasmi.workspace = true
 
 [features]
-default = []
+default = ["continuation"]
 cuda = ["delphinus-zkwasm/cuda"]
 continuation = ["delphinus-zkwasm/continuation", "specs/continuation"]

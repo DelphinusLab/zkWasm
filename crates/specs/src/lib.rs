@@ -62,6 +62,7 @@ pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
     pub post_image_table: CompilationTable,
+    pub is_last_slice: bool,
 }
 
 impl Tables {

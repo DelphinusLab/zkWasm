@@ -8,7 +8,6 @@ use specs::encode::image_table::ImageTableEncoder;
 use specs::imtable::InitMemoryTable;
 use specs::itable::InstructionTable;
 use specs::jtable::StaticFrameEntry;
-use specs::mtable::LocationType;
 use specs::state::InitializationState;
 use specs::CompilationTable;
 use std::marker::PhantomData;
@@ -102,16 +101,13 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
         }
 
         fn msg_of_init_memory_table<F: FieldExt>(init_memory_table: &InitMemoryTable) -> Vec<F> {
-            let heap_entries = init_memory_table.filter(LocationType::Heap);
-            let global_entries = init_memory_table.filter(LocationType::Global);
-
             let mut cells = vec![];
 
             cells.push(bn_to_field(
                 &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
             ));
 
-            for v in heap_entries.into_iter().chain(global_entries.into_iter()) {
+            for v in init_memory_table.entries() {
                 cells.push(bn_to_field::<F>(
                     &ImageTableEncoder::InitMemory.encode(v.encode()),
                 ));

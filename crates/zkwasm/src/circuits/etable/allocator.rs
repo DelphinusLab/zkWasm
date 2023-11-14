@@ -91,8 +91,8 @@ pub(crate) struct AllocatedMemoryTableLookupReadCell<F: FieldExt> {
     pub(crate) encode_cell: AllocatedUnlimitedCell<F>,
     pub(crate) start_eid_cell: AllocatedUnlimitedCell<F>,
     pub(crate) end_eid_cell: AllocatedUnlimitedCell<F>,
-    pub(crate) start_eid_diff_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) end_eid_diff_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) start_eid_diff_cell: AllocatedU32StateCell<F>,
+    pub(crate) end_eid_diff_cell: AllocatedU32StateCell<F>,
     pub(crate) value_cell: AllocatedUnlimitedCell<F>,
 }
 
@@ -125,10 +125,16 @@ impl<F: FieldExt> AllocatedMemoryTableLookupReadCell<F> {
             ),
         )?;
         self.start_eid_cell.assign_u32(ctx, start_eid)?;
-        self.start_eid_diff_cell
-            .assign_u32(ctx, eid - start_eid - 1)?;
+        cfg_if::cfg_if! {
+            if #[cfg(feature="continuation")] {
+                self.start_eid_diff_cell.assign(ctx, eid - start_eid - 1)?;
+                self.end_eid_diff_cell.assign(ctx, end_eid - eid)?;
+            } else {
+                self.start_eid_diff_cell.assign_u32(ctx, eid - start_eid - 1)?;
+                self.end_eid_diff_cell.assign_u32(ctx, end_eid - eid)?;
+            }
+        }
         self.end_eid_cell.assign_u32(ctx, end_eid)?;
-        self.end_eid_diff_cell.assign_u32(ctx, end_eid - eid)?;
         self.value_cell.assign(ctx, value.into())?;
 
         Ok(())
@@ -175,12 +181,19 @@ pub(crate) enum EventTableCellType {
 
 const BIT_COLUMNS: usize = 12;
 const U8_COLUMNS: usize = 1;
-// Should be the multiple of 2.
-const U32_CELLS: usize = 2;
+const U32_CELLS: usize = if cfg!(feature = "continuation") {
+    10
+} else {
+    0
+};
 const U64_CELLS: usize = 5;
 const U16_COLUMNS: usize = U64_CELLS + (U32_CELLS / 2);
-const COMMON_RANGE_COLUMNS: usize = 7;
-const UNLIMITED_COLUMNS: usize = 8;
+const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 5 } else { 7 };
+const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
+    10
+} else {
+    7
+};
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
 
@@ -499,8 +512,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             end_eid_cell: cells[1],
             encode_cell: cells[2],
             value_cell: cells[3],
-            start_eid_diff_cell: self.alloc_common_range_cell(),
-            end_eid_diff_cell: self.alloc_common_range_cell(),
+            start_eid_diff_cell: self.alloc_u32_state_cell(),
+            end_eid_diff_cell: self.alloc_u32_state_cell(),
         };
 
         constraint_builder.constraints.push((
@@ -589,8 +602,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             end_eid_cell: cells[1],
             encode_cell: cells[2],
             value_cell: cells[3],
-            start_eid_diff_cell: self.alloc_common_range_cell(),
-            end_eid_diff_cell: self.alloc_common_range_cell(),
+            start_eid_diff_cell: self.alloc_u32_state_cell(),
+            end_eid_diff_cell: self.alloc_u32_state_cell(),
         };
 
         constraint_builder.constraints.push((

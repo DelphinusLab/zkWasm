@@ -11,8 +11,6 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use log::debug;
-use specs::CompilationTable;
-use specs::ExecutionTable;
 use specs::Tables;
 
 use crate::circuits::bit_table::BitTableChip;
@@ -28,6 +26,9 @@ use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
 use crate::circuits::mtable::MemoryTableConfig;
+use crate::circuits::post_image_table::PostImageTableChip;
+use crate::circuits::post_image_table::PostImageTableChipTrait;
+use crate::circuits::post_image_table::PostImageTableConfigTrait;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
@@ -47,8 +48,13 @@ use crate::runtime::memory_event_of_step;
 
 use super::config::zkwasm_k;
 use super::image_table::ImageTableConfig;
+use super::post_image_table::PostImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 56;
+pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
+    63
+} else {
+    54
+};
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
@@ -58,6 +64,7 @@ const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     image_table: ImageTableConfig<F>,
+    post_image_table: PostImageTableConfig<F>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -76,11 +83,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit::new(Tables {
-            compilation_tables: CompilationTable::default(),
-            execution_tables: ExecutionTable::default(),
-            post_image_table: CompilationTable::default(),
-        })
+        TestCircuit::new(Tables::default(), self.slice_capability)
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -98,6 +101,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rtable = RangeTableConfig::configure(meta);
         let image_table = ImageTableConfig::configure(meta);
+        let post_image_table = PostImageTableConfig::configure(meta);
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
@@ -139,6 +143,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         Self::Config {
             rtable,
             image_table,
+            post_image_table,
             mtable,
             jtable,
             etable,
@@ -160,9 +165,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rchip = RangeTableChip::new(config.rtable);
         let image_chip = ImageTableChip::new(config.image_table);
+        let post_image_chip = PostImageTableChip::new(config.post_image_table);
         let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
-        let echip = EventTableChip::new(config.etable, config.max_available_rows);
+        let echip = EventTableChip::new(
+            config.etable,
+            self.slice_capability,
+            config.max_available_rows,
+        );
         let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
         let external_host_call_chip =
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
@@ -221,11 +231,13 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         &etable,
                         &self.tables.compilation_tables.configure_table,
                         &self.tables.compilation_tables.initialization_state,
+                        &self.tables.post_image_table.initialization_state,
                     )?
                 );
 
                 {
                     ctx.reset();
+
                     exec_with_profile!(
                         || "Assign mtable",
                         mchip.assign(
@@ -277,6 +289,21 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     .encode_compilation_table_values(),
                 ImageTableLayouter {
                     initialization_state: etable_permutation_cells.pre_initialization_state,
+                    static_frame_entries: static_frame_entries.clone(),
+                    lookup_entries: None
+                }
+            )?
+        );
+
+        exec_with_profile!(
+            || "Assign Post Image Table",
+            post_image_chip.assign(
+                &mut layouter,
+                self.tables
+                    .post_image_table
+                    .encode_compilation_table_values(),
+                ImageTableLayouter {
+                    initialization_state: etable_permutation_cells.post_initialization_state,
                     static_frame_entries,
                     lookup_entries: None
                 }

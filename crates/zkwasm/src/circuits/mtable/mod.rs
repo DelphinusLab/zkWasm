@@ -189,8 +189,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         meta.create_gate("mc7a. init", |meta| {
             vec![
-                // TODO: This may not be true if continuation is enabled.
-                is_init_cell.curr_expr(meta) * start_eid_cell.curr_expr(meta),
                 // offset_left_align <= offset && offset <= offset_right_align
                 is_init_cell.curr_expr(meta)
                     * (offset_align_left.curr_expr(meta)
@@ -203,6 +201,14 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .into_iter()
             .map(|x| x * fixed_curr!(meta, entry_sel))
             .collect::<Vec<_>>()
+        });
+
+        #[cfg(not(feature = "continuation"))]
+        meta.create_gate("mc7a. init start_eid equals 0", |meta| {
+            vec![is_init_cell.curr_expr(meta) * start_eid_cell.curr_expr(meta)]
+                .into_iter()
+                .map(|x| x * fixed_curr!(meta, entry_sel))
+                .collect::<Vec<_>>()
         });
 
         meta.create_gate(

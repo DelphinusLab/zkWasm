@@ -82,10 +82,10 @@ pub(super) enum MemoryTableCellType {
 }
 
 const BIT_COLUMNS: usize = 3;
-const U16_COLUMNS: usize = U32_CELLS / 2 + U64_CELLS;
+const U16_COLUMNS: usize = U32_CELLS.next_multiple_of(2) / 2 + U64_CELLS;
 const COMMON_RANGE_COLUMNS: usize = 2;
-const UNLIMITED_COLUMNS: usize = 3;
-const U32_CELLS: usize = 6;
+const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 3 };
+const U32_CELLS: usize = if cfg!(feature = "continuation") { 9 } else { 6 };
 const U64_CELLS: usize = 1;
 
 #[derive(Debug, Clone)]

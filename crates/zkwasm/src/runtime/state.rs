@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use specs::etable::EventTable;
+use specs::etable::EventTableEntry;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
@@ -14,17 +14,17 @@ use specs::CompilationTable;
 use super::memory_event_of_step;
 
 pub(crate) trait UpdateCompilationTable {
-    fn update_init_memory_table(&self, execution_table: &EventTable) -> InitMemoryTable;
+    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable;
 
     fn update_initialization_state(
         &self,
-        execution_table: &EventTable,
+        execution_table: &Vec<EventTableEntry>,
         is_last_slice: bool,
     ) -> InitializationState<u32>;
 }
 
 impl UpdateCompilationTable for CompilationTable {
-    fn update_init_memory_table(&self, execution_table: &EventTable) -> InitMemoryTable {
+    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable {
         let mut local_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
         let mut global_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
         let mut memory_map = BTreeMap::<u32, InitMemoryTableEntry>::new();
@@ -61,7 +61,8 @@ impl UpdateCompilationTable for CompilationTable {
             }
         }
 
-        for etable_entry in execution_table.entries() {
+        let mut it = execution_table.iter();
+        while let Some(etable_entry) = it.next() {
             let memory_writing_entires = memory_event_of_step(etable_entry)
                 .into_iter()
                 .filter(|entry| entry.atype == AccessType::Write);
@@ -100,7 +101,7 @@ impl UpdateCompilationTable for CompilationTable {
 
     fn update_initialization_state(
         &self,
-        execution_table: &EventTable,
+        execution_table: &Vec<EventTableEntry>,
         is_last_slice: bool,
     ) -> InitializationState<u32> {
         let mut host_public_inputs = self.initialization_state.host_public_inputs;
@@ -112,7 +113,7 @@ impl UpdateCompilationTable for CompilationTable {
         #[cfg(feature = "continuation")]
         let mut jops = self.initialization_state.jops;
 
-        for entry in execution_table.entries() {
+        for entry in execution_table {
             match &entry.step_info {
                 // TODO: fix hard code
                 StepInfo::CallHost {
@@ -146,7 +147,7 @@ impl UpdateCompilationTable for CompilationTable {
             }
         }
 
-        let last_entry = execution_table.entries().last().unwrap();
+        let last_entry = execution_table.last().unwrap();
 
         let post_initialization_state = if is_last_slice {
             InitializationState {
@@ -179,7 +180,6 @@ impl UpdateCompilationTable for CompilationTable {
                 fid: last_entry.inst.fid,
                 iid: last_entry.inst.iid,
                 frame_id: last_entry.last_jump_eid,
-                // TODO: why not constant 4095?
                 sp: last_entry.sp,
 
                 host_public_inputs,
