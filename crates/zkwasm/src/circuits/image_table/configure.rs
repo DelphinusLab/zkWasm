@@ -7,12 +7,30 @@ use halo2_proofs::plonk::VirtualCells;
 use specs::encode::image_table::ImageTableEncoder;
 
 use super::ImageTableConfig;
-use super::IMAGE_COL_NAME;
-use crate::curr;
 
 impl<F: FieldExt> ImageTableConfig<F> {
+    fn expr(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        cfg_if::cfg_if! {
+            if #[cfg(feature="uniform-circuit")] {
+                use crate::curr;
+
+                curr!(meta, self.col)
+            } else {
+                use crate::fixed_curr;
+
+                fixed_curr!(meta, self.col)
+            }
+        }
+    }
+
     pub(in crate::circuits) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
-        let col = meta.named_advice_column(IMAGE_COL_NAME.to_owned());
+        cfg_if::cfg_if! {
+            if #[cfg(feature="uniform-circuit")] {
+                let col = meta.named_advice_column(super::IMAGE_COL_NAME.to_owned());
+            } else {
+                let col = meta.fixed_column();
+            }
+        }
         meta.enable_equality(col);
         Self {
             col,
@@ -29,7 +47,7 @@ impl<F: FieldExt> ImageTableConfig<F> {
         meta.lookup_any(key, |meta| {
             vec![(
                 ImageTableEncoder::Instruction.encode(expr(meta)),
-                curr!(meta, self.col),
+                self.expr(meta),
             )]
         });
     }
@@ -43,7 +61,7 @@ impl<F: FieldExt> ImageTableConfig<F> {
         meta.lookup_any(key, |meta| {
             vec![(
                 ImageTableEncoder::InitMemory.encode(expr(meta)),
-                curr!(meta, self.col),
+                self.expr(meta),
             )]
         });
     }
@@ -57,7 +75,7 @@ impl<F: FieldExt> ImageTableConfig<F> {
         meta.lookup_any(key, |meta| {
             vec![(
                 ImageTableEncoder::BrTable.encode(expr(meta)),
-                curr!(meta, self.col),
+                self.expr(meta),
             )]
         });
     }

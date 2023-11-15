@@ -1,7 +1,6 @@
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::plonk::get_advice_commitments_from_transcript;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::verify_proof;
 use halo2_proofs::plonk::SingleVerifier;
@@ -25,7 +24,6 @@ use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
-use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::loader::err::Error;
@@ -255,7 +253,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         )
         .unwrap();
 
+        #[cfg(feature = "uniform-circuit")]
         {
+            use crate::circuits::image_table::IMAGE_COL_NAME;
+            use halo2_proofs::plonk::get_advice_commitments_from_transcript;
+
             let img_col_idx = vkey
                 .cs
                 .named_advices

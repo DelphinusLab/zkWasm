@@ -23,6 +23,7 @@ mod test_wasm_instructions;
 mod spec;
 mod test_rlp;
 mod test_start;
+#[cfg(feature = "uniform-circuit")]
 mod test_uniform_verifier;
 
 /// Create circuit with trace and run mock test.
