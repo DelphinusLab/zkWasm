@@ -49,9 +49,7 @@ pub struct ZkWasmLoader<E: MultiMillerLoop, Arg, EnvBuilder: HostEnvBuilder<Arg 
     k: u32,
     module: wasmi::Module,
     phantom_functions: Vec<String>,
-    _data_arg: PhantomData<Arg>,
-    _data_builder: PhantomData<EnvBuilder>,
-    _data_e: PhantomData<E>,
+    _mark: PhantomData<(Arg, EnvBuilder, E)>,
 }
 
 impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
@@ -113,6 +111,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(builder.build_circuit::<E::Scalar>())
     }
 
+    /// Create a ZkWasm Loader
+    /// Arguments:
+    /// - k: the size of circuit
+    /// - image: wasm binary
+    /// - phantom_functions: regular expressions of phantom function
     pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
         set_zkwasm_k(k);
 
@@ -122,9 +125,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             k,
             module,
             phantom_functions,
-            _data_e: PhantomData,
-            _data_builder: PhantomData,
-            _data_arg: PhantomData,
+            _mark: PhantomData,
         };
 
         loader.precheck()?;
