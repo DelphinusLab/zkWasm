@@ -12,13 +12,9 @@ impl<F: FieldExt> ImageTableConfig<F> {
     fn expr(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
         cfg_if::cfg_if! {
             if #[cfg(feature="uniform-circuit")] {
-                use crate::curr;
-
-                curr!(meta, self.col)
+                crate::curr!(meta, self.col)
             } else {
-                use crate::fixed_curr;
-
-                fixed_curr!(meta, self.col)
+                crate::fixed_curr!(meta, self.col)
             }
         }
     }
