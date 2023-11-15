@@ -1,11 +1,4 @@
 use halo2_proofs::arithmetic::FieldExt;
-cfg_if::cfg_if! {
-    if #[cfg(feature="uniform-circuit")] {
-        use halo2_proofs::plonk::Advice;
-    } else {
-        use halo2_proofs::plonk::Fixed;
-    }
-}
 use halo2_proofs::plonk::Column;
 use num_bigint::BigUint;
 use specs::brtable::BrTable;
@@ -207,14 +200,14 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
 #[cfg(feature = "uniform-circuit")]
 #[derive(Clone)]
 pub struct ImageTableConfig<F: FieldExt> {
-    col: Column<Advice>,
+    col: Column<halo2_proofs::plonk::Advice>,
     _mark: PhantomData<F>,
 }
 
 #[cfg(not(feature = "uniform-circuit"))]
 #[derive(Clone)]
 pub struct ImageTableConfig<F: FieldExt> {
-    col: Column<Fixed>,
+    col: Column<halo2_proofs::plonk::Fixed>,
     _mark: PhantomData<F>,
 }
 
