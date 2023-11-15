@@ -28,3 +28,4 @@ circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher
 [features]
 default = []
 cuda = ["delphinus-zkwasm/cuda"]
+uniform-circuit = ["delphinus-zkwasm/uniform-circuit"]

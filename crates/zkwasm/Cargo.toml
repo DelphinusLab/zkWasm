@@ -27,6 +27,7 @@ sha2 = "0.10.6"
 poseidon = { git = "https://github.com/lanbones/poseidon" }
 
 anyhow.workspace = true
+cfg-if.workspace = true
 halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
@@ -42,3 +43,4 @@ rusty-fork = "0.3.0"
 [features]
 default = []
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
+uniform-circuit = []

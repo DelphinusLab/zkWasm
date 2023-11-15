@@ -19,22 +19,44 @@ impl<F: FieldExt> ImageTableChip<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                macro_rules! assign_one_line {
-                    ($v: expr) => {{
-                        let cell = ctx
-                            .region
-                            .assign_advice(
-                                || "image table",
-                                self.config.col,
-                                ctx.offset,
-                                || Ok($v),
-                            )?
-                            .cell();
+                cfg_if::cfg_if! {
+                    if #[cfg(feature="uniform-circuit")] {
+                        macro_rules! assign_one_line {
+                            ($v: expr) => {{
+                                let cell = ctx
+                                    .region
+                                    .assign_advice(
+                                        || "image table",
+                                        self.config.col,
+                                        ctx.offset,
+                                        || Ok($v),
+                                    )?
+                                    .cell();
 
-                        ctx.next();
+                                ctx.next();
 
-                        cell
-                    }};
+                                cell
+                            }};
+                        }
+                    } else {
+                        macro_rules! assign_one_line {
+                            ($v: expr) => {{
+                                let cell = ctx
+                                    .region
+                                    .assign_fixed(
+                                        || "image table",
+                                        self.config.col,
+                                        ctx.offset,
+                                        || Ok($v),
+                                    )?
+                                    .cell();
+
+                                ctx.next();
+
+                                cell
+                            }};
+                        }
+                    }
                 }
 
                 let entry_fid_cell = assign_one_line!(image_table.entry_fid);
