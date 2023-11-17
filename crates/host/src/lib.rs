@@ -13,6 +13,9 @@ use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zkwasm_host_circuits::host::db::TreeDB;
+use specs::args::parse_args;
+use delphinus_zkwasm::runtime::host::Sequence;
+use delphinus_zkwasm::runtime::host::ContextOutput;
 
 pub struct ExecutionArg {
     /// Public inputs for `wasm_input(1)`
@@ -25,6 +28,30 @@ pub struct ExecutionArg {
     pub context_outputs: Arc<Mutex<Vec<u64>>>,
     /// db src
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
+}
+
+impl ContextOutput for ExecutionArg {
+    fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>> {
+        self.context_outputs.clone()
+    }
+}
+
+
+
+impl From<Sequence> for ExecutionArg {
+    fn from(seq: Sequence) -> ExecutionArg {
+        let private_inputs = parse_args(seq.private_inputs.iter().map(|s| s.as_str()).collect());
+        let public_inputs = parse_args(seq.public_inputs.iter().map(|s| s.as_str()).collect());
+        let context_inputs = parse_args(seq.context_input.iter().map(|s| s.as_str()).collect());
+        let context_outputs = Arc::new(Mutex::new(vec![]));
+        ExecutionArg {
+            private_inputs,
+            public_inputs,
+            context_inputs,
+            context_outputs,
+            tree_db: None,
+        }
+    }
 }
 
 pub struct StandardHostEnvBuilder;

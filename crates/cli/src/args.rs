@@ -23,6 +23,7 @@ pub trait ArgBuilder {
         )
         .value_parser(value_parser!(PathBuf))
     }
+
     fn parse_zkwasm_file_arg(matches: &ArgMatches) -> PathBuf {
         matches
             .get_one::<PathBuf>("wasm")
@@ -35,11 +36,24 @@ pub trait ArgBuilder {
             -f --function <FUNCTION_NAME> "Function you would like to run."
         )
     }
+
     fn parse_function_name(matches: &ArgMatches) -> String {
         matches
             .get_one::<String>("function")
             .expect("function is required")
             .to_string()
+    }
+
+    fn host_mode_arg<'a>() -> Arg<'a> {
+        arg!(
+            -h --host <HOST_MODE> "Which host env you would like to run your binary."
+        )
+    }
+
+    fn parse_host_mode(matches: &ArgMatches) -> String {
+        matches
+            .get_one::<String>("host")
+            .map_or("default".to_string(), |v| v.to_string())
     }
 
     fn phantom_functions_arg<'a>() -> Arg<'a> {
