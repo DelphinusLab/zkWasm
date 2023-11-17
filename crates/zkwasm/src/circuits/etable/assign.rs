@@ -484,6 +484,7 @@ impl<F: FieldExt> EventTableChip<F> {
         configure_table: &ConfigureTable,
         initialization_state: &InitializationState<u32>,
         post_initialization_state: &InitializationState<u32>,
+        is_last_slice: bool,
     ) -> Result<EventTablePermutationCells, Error> {
         debug!("size of execution table: {}", event_table.0.len());
         // assert!(event_table.0.len() * EVENT_TABLE_ENTRY_ROWS as usize <= self.max_available_rows);
@@ -519,7 +520,11 @@ impl<F: FieldExt> EventTableChip<F> {
         if cfg!(feature = "continuation") {
             Ok(EventTablePermutationCells {
                 rest_mops: Some(rest_mops_cell),
-                rest_jops: None,
+                rest_jops: if is_last_slice {
+                    Some(post_initialization_state_cells.jops)
+                } else {
+                    None
+                },
                 pre_initialization_state: pre_initialization_state_cells,
                 post_initialization_state: post_initialization_state_cells,
             })

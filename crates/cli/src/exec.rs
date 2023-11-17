@@ -78,7 +78,7 @@ pub fn exec_setup(
             info!("Create Verifying to {:?}", vk_path);
             let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-            let vkey = loader.create_vkey(&params)?;
+            let vkey = loader.create_vkey(&params, true)?;
 
             let mut fd = std::fs::File::create(&vk_path)?;
             vkey.write(&mut fd)?;

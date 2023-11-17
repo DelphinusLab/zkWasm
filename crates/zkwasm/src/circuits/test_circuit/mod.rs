@@ -83,7 +83,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit::new(Tables::default(), self.slice_capability)
+        TestCircuit::new(
+            Tables::default(self.tables.is_last_slice),
+            self.slice_capability,
+        )
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -95,6 +98,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             meta.enable_constant(constants);
             meta.enable_equality(constants);
         }
+
         let foreign_table_from_zero_index = meta.fixed_column();
 
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
@@ -232,6 +236,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         &self.tables.compilation_tables.configure_table,
                         &self.tables.compilation_tables.initialization_state,
                         &self.tables.post_image_table.initialization_state,
+                        self.tables.is_last_slice,
                     )?
                 );
 

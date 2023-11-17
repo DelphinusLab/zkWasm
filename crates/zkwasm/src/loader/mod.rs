@@ -107,9 +107,9 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         )
     }
 
-    fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
+    fn circuit_without_witness(&self, last_slice_circuit: bool) -> Result<TestCircuit<E::Scalar>> {
         let builder = ZkWasmCircuitBuilder {
-            tables: Tables::default(),
+            tables: Tables::default(last_slice_circuit),
         };
 
         Ok(builder.build_circuit::<E::Scalar>(None))
@@ -133,8 +133,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(loader)
     }
 
-    pub fn create_vkey(&self, params: &Params<E::G1Affine>) -> Result<VerifyingKey<E::G1Affine>> {
-        let circuit = self.circuit_without_witness()?;
+    pub fn create_vkey(
+        &self,
+        params: &Params<E::G1Affine>,
+        last_slice_circuit: bool,
+    ) -> Result<VerifyingKey<E::G1Affine>> {
+        let circuit = self.circuit_without_witness(last_slice_circuit)?;
 
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
@@ -331,7 +335,7 @@ mod tests {
             }
 
             let params = prepare_param(self.k);
-            let vkey = self.create_vkey(&params).unwrap();
+            let vkey = self.create_vkey(&params, true).unwrap();
 
             let proof = self
                 .create_proof(&params, vkey.clone(), circuit, &instances)

@@ -57,12 +57,23 @@ pub struct ExecutionTable {
     pub jtable: Arc<JumpTable>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
     pub post_image_table: CompilationTable,
     pub is_last_slice: bool,
+}
+
+impl Tables {
+    pub fn default(last_slice_circuit: bool) -> Self {
+        Self {
+            compilation_tables: CompilationTable::default(),
+            execution_tables: ExecutionTable::default(),
+            post_image_table: CompilationTable::default(),
+            is_last_slice: last_slice_circuit,
+        }
+    }
 }
 
 impl Tables {

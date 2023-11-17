@@ -24,7 +24,7 @@ pub mod rtable;
 pub mod test_circuit;
 pub mod utils;
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct TestCircuit<F: FieldExt> {
     pub tables: Tables,
     pub slice_capability: Option<usize>,
