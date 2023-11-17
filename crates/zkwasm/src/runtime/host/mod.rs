@@ -21,9 +21,9 @@ pub trait ContextOutput {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Sequence {
-    private_inputs: Vec<String>,
-    public_inputs: Vec<String>,
-    context_input: Vec<String>,
+    pub private_inputs: Vec<String>,
+    pub public_inputs: Vec<String>,
+    pub context_input: Vec<String>,
     pub context_output: Option<PathBuf>,
 }
 

@@ -4,6 +4,8 @@ use clap::AppSettings;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
+use delphinus_host::ExecutionArg as StandardArg;
+use delphinus_host::StandardHostEnvBuilder as StandardEnvBuilder;
 use log::info;
 use std::fs;
 use std::io::Write;
@@ -65,7 +67,8 @@ pub trait AppBuilder: CommandBuilder {
             .arg(Self::param_path_arg())
             .arg(Self::function_name_arg())
             .arg(Self::phantom_functions_arg())
-            .arg(Self::zkwasm_file_arg());
+            .arg(Self::zkwasm_file_arg())
+            .arg(Self::host_mode_arg());
 
         let app = Self::append_setup_subcommand(app);
         let app = Self::append_dry_run_subcommand(app);
@@ -99,22 +102,53 @@ pub trait AppBuilder: CommandBuilder {
         fs::create_dir_all(&output_dir)?;
         fs::create_dir_all(&param_dir)?;
 
+        let host_mode = Self::parse_host_mode(&top_matches);
+
         match top_matches.subcommand() {
-            Some(("setup", _)) => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
-                zkwasm_k,
-                Self::AGGREGATE_K,
-                Self::NAME,
-                wasm_binary,
-                phantom_functions,
-                &output_dir,
-                &param_dir,
-            ),
-            Some(("checksum", _)) => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
-                zkwasm_k,
-                wasm_binary,
-                phantom_functions,
-                &output_dir,
-            ),
+            Some(("setup", _)) => match host_mode.as_str() {
+                "default" => {
+                    exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
+                        zkwasm_k,
+                        Self::AGGREGATE_K,
+                        Self::NAME,
+                        wasm_binary,
+                        phantom_functions,
+                        &output_dir,
+                        &param_dir,
+                    )
+                },
+                _ => {
+                    exec_setup::<StandardArg, StandardEnvBuilder>(
+                        zkwasm_k,
+                        Self::AGGREGATE_K,
+                        Self::NAME,
+                        wasm_binary,
+                        phantom_functions,
+                        &output_dir,
+                        &param_dir,
+                    )
+                }
+            },
+
+            Some(("checksum", _)) => match host_mode.as_str() {
+                "default" => {
+                    exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        &output_dir,
+                    )
+                },
+                &_ => {
+                    exec_image_checksum::<StandardArg, StandardEnvBuilder>(
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        &output_dir,
+                    )
+                }
+            },
+
             Some(("dry-run", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
@@ -126,22 +160,40 @@ pub trait AppBuilder: CommandBuilder {
 
                 let context_output = Arc::new(Mutex::new(vec![]));
 
-                exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
-                    zkwasm_k,
-                    wasm_binary,
-                    phantom_functions,
-                    ExecutionArg {
-                        public_inputs,
-                        private_inputs,
-                        context_inputs: context_in,
-                        context_outputs: Arc::new(Mutex::new(vec![])),
+                match host_mode.as_str() {
+                    "default" => {
+                        exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
+                            zkwasm_k,
+                            wasm_binary,
+                            phantom_functions,
+                            ExecutionArg {
+                                public_inputs,
+                                private_inputs,
+                                context_inputs: context_in,
+                                context_outputs: Arc::new(Mutex::new(vec![])),
+                            },
+                            )?;
                     },
-                )?;
+                    _ => {
+                        exec_dry_run::<StandardArg, StandardEnvBuilder>(
+                            zkwasm_k,
+                            wasm_binary,
+                            phantom_functions,
+                            StandardArg {
+                                public_inputs,
+                                private_inputs,
+                                context_inputs: context_in,
+                                context_outputs: Arc::new(Mutex::new(vec![])),
+                                tree_db: None,
+                            },
+                            )?;
+                    }
+                };
 
                 write_context_output(&context_output.lock().unwrap(), context_out_path)?;
-
                 Ok(())
             }
+
             Some(("single-prove", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
@@ -152,21 +204,41 @@ pub trait AppBuilder: CommandBuilder {
                 let context_out = Arc::new(Mutex::new(vec![]));
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
-
-                exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
-                    Self::NAME,
-                    zkwasm_k,
-                    wasm_binary,
-                    phantom_functions,
-                    &output_dir,
-                    &param_dir,
-                    ExecutionArg {
-                        public_inputs,
-                        private_inputs,
-                        context_inputs: context_in,
-                        context_outputs: context_out.clone(),
-                    },
-                )?;
+                match host_mode.as_str() {
+                "default" => {
+                    exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
+                        Self::NAME,
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        &output_dir,
+                        &param_dir,
+                        ExecutionArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs: context_in,
+                            context_outputs: context_out.clone(),
+                        },
+                    )?;
+                },
+                _ => {
+                    exec_create_proof::<StandardArg, StandardEnvBuilder>(
+                        Self::NAME,
+                        zkwasm_k,
+                        wasm_binary,
+                        phantom_functions,
+                        &output_dir,
+                        &param_dir,
+                        StandardArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs: context_in,
+                            context_outputs: context_out.clone(),
+                            tree_db: None,
+                        },
+                    )?;
+                }
+                };
 
                 write_context_output(&context_out.lock().unwrap(), context_out_path)?;
 
