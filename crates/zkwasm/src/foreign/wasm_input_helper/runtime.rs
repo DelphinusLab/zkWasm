@@ -48,7 +48,7 @@ impl Context {
         self.private_inputs.remove(0)
     }
 
-    fn inject_witness(&mut self, v: u64) {
+    fn insert_witness(&mut self, v: u64) {
         self.witness_queue.insert(0, v);
     }
 
@@ -83,8 +83,8 @@ impl Context {
         input
     }
 
-    pub fn wasm_witness_inject(&mut self, arg: u64) {
-        self.inject_witness(arg);
+    pub fn wasm_witness_insert(&mut self, arg: u64) {
+        self.insert_witness(arg);
     }
 
     pub fn wasm_witness_pop(&mut self) -> u64 {
@@ -118,11 +118,11 @@ pub fn register_wasm_input_foreign(
         },
     );
 
-    let wasm_witness_inject = Rc::new(
+    let wasm_witness_insert = Rc::new(
         |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
             let value: i64 = args.nth(0);
-            context.wasm_witness_inject(value as u64);
+            context.wasm_witness_insert(value as u64);
             None
         },
     );
@@ -168,14 +168,14 @@ pub fn register_wasm_input_foreign(
     );
 
     env.internal_env.register_function(
-        "wasm_witness_inject",
+        "wasm_witness_insert",
         specs::host_function::Signature {
             params: vec![ValueType::I64],
             return_type: None,
         },
         HostPlugin::HostInput,
         Op::WasmWitnessInject as usize,
-        wasm_witness_inject,
+        wasm_witness_insert,
     );
 
     env.internal_env.register_function(
