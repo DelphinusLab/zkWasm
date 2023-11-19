@@ -313,7 +313,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#7eccb6358a3b68d13be901791bd0661f0545ea06"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#d6b25e71db1254e9621b0b1e816bba14d7c45c40"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -328,6 +328,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "log",
+ "lru",
  "md5",
  "num",
  "num-bigint",
@@ -1071,7 +1072,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#64ccffddc97faff24a00d248270fe84f6693c130"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#9ac108049b488df640eecdd5eb18751062442898"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -1099,7 +1100,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#953bbbd50ee05211e2395e69c9760095b80f6408"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#4fc143e5a10a77cb24f31c0b792ec9a01d1bfd34"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -3305,7 +3306,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#e4dbc533b04963c0e3eb2db5101c0b096a0eea8b"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#ed5feda2d52b8b78f95f74e67aa562f16e7756b4"
 dependencies = [
  "ark-std",
  "circuits-batcher",

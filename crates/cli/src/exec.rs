@@ -1,6 +1,8 @@
 use anyhow::Result;
 use circuits_batcher::proof::CircuitInfo;
 use circuits_batcher::proof::ProofInfo;
+use circuits_batcher::proof::K_PARAMS_CACHE;
+use circuits_batcher::proof::PKEY_CACHE;
 use circuits_batcher::proof::ProofLoadInfo;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
@@ -138,7 +140,13 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
         circuits_batcher::args::HashType::Poseidon,
     );
     circuit.proofloadinfo.save(output_dir);
-    circuit.exec_create_proof(output_dir, param_dir, 0);
+    circuit.exec_create_proof(
+        output_dir,
+        param_dir,
+        PKEY_CACHE.lock().as_mut().unwrap(),
+        0,
+        K_PARAMS_CACHE.lock().as_mut().unwrap(),
+    );
 
     info!("Proof has been created.");
 
