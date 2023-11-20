@@ -70,6 +70,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         host::ecc_helper::bn254::sum::register_bn254sum_foreign(&mut env);
         host::ecc_helper::bn254::pair::register_bn254pair_foreign(&mut env);
         host::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign(&mut env);
+        host::witness_helper::register_witness_foreign(&mut env);
         env.finalize();
 
         (env, wasm_runtime_io)
@@ -87,6 +88,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         host::ecc_helper::bn254::sum::register_bn254sum_foreign(&mut env);
         host::ecc_helper::bn254::pair::register_bn254pair_foreign(&mut env);
         host::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign(&mut env);
+        host::witness_helper::register_witness_foreign(&mut env);
         env.finalize();
 
         (env, wasm_runtime_io)
