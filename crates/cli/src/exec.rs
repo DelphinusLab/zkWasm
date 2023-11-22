@@ -1,9 +1,9 @@
 use anyhow::Result;
 use circuits_batcher::proof::CircuitInfo;
 use circuits_batcher::proof::ProofInfo;
+use circuits_batcher::proof::ProofLoadInfo;
 use circuits_batcher::proof::K_PARAMS_CACHE;
 use circuits_batcher::proof::PKEY_CACHE;
-use circuits_batcher::proof::ProofLoadInfo;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;

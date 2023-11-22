@@ -46,5 +46,4 @@ pub fn register_log_foreign(env: &mut HostEnv) {
         foreign_log_plugin,
         printchar,
     );
-
 }

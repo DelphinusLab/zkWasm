@@ -1,11 +1,11 @@
 use anyhow::Result;
 use clap::App;
 use clap::AppSettings;
+use delphinus_host::ExecutionArg as StandardArg;
+use delphinus_host::StandardHostEnvBuilder as StandardEnvBuilder;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
-use delphinus_host::ExecutionArg as StandardArg;
-use delphinus_host::StandardHostEnvBuilder as StandardEnvBuilder;
 use log::info;
 use std::fs;
 use std::io::Write;
@@ -106,47 +106,39 @@ pub trait AppBuilder: CommandBuilder {
 
         match top_matches.subcommand() {
             Some(("setup", _)) => match host_mode.as_str() {
-                "default" => {
-                    exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
-                        zkwasm_k,
-                        Self::AGGREGATE_K,
-                        Self::NAME,
-                        wasm_binary,
-                        phantom_functions,
-                        &output_dir,
-                        &param_dir,
-                    )
-                },
-                _ => {
-                    exec_setup::<StandardArg, StandardEnvBuilder>(
-                        zkwasm_k,
-                        Self::AGGREGATE_K,
-                        Self::NAME,
-                        wasm_binary,
-                        phantom_functions,
-                        &output_dir,
-                        &param_dir,
-                    )
-                }
+                "default" => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
+                    zkwasm_k,
+                    Self::AGGREGATE_K,
+                    Self::NAME,
+                    wasm_binary,
+                    phantom_functions,
+                    &output_dir,
+                    &param_dir,
+                ),
+                _ => exec_setup::<StandardArg, StandardEnvBuilder>(
+                    zkwasm_k,
+                    Self::AGGREGATE_K,
+                    Self::NAME,
+                    wasm_binary,
+                    phantom_functions,
+                    &output_dir,
+                    &param_dir,
+                ),
             },
 
             Some(("checksum", _)) => match host_mode.as_str() {
-                "default" => {
-                    exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
-                        zkwasm_k,
-                        wasm_binary,
-                        phantom_functions,
-                        &output_dir,
-                    )
-                },
-                &_ => {
-                    exec_image_checksum::<StandardArg, StandardEnvBuilder>(
-                        zkwasm_k,
-                        wasm_binary,
-                        phantom_functions,
-                        &output_dir,
-                    )
-                }
+                "default" => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
+                    zkwasm_k,
+                    wasm_binary,
+                    phantom_functions,
+                    &output_dir,
+                ),
+                &_ => exec_image_checksum::<StandardArg, StandardEnvBuilder>(
+                    zkwasm_k,
+                    wasm_binary,
+                    phantom_functions,
+                    &output_dir,
+                ),
             },
 
             Some(("dry-run", sub_matches)) => {
@@ -205,39 +197,39 @@ pub trait AppBuilder: CommandBuilder {
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
                 match host_mode.as_str() {
-                "default" => {
-                    exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
-                        Self::NAME,
-                        zkwasm_k,
-                        wasm_binary,
-                        phantom_functions,
-                        &output_dir,
-                        &param_dir,
-                        ExecutionArg {
-                            public_inputs,
-                            private_inputs,
-                            context_inputs: context_in,
-                            context_outputs: context_out.clone(),
-                        },
-                    )?;
-                },
-                _ => {
-                    exec_create_proof::<StandardArg, StandardEnvBuilder>(
-                        Self::NAME,
-                        zkwasm_k,
-                        wasm_binary,
-                        phantom_functions,
-                        &output_dir,
-                        &param_dir,
-                        StandardArg {
-                            public_inputs,
-                            private_inputs,
-                            context_inputs: context_in,
-                            context_outputs: context_out.clone(),
-                            tree_db: None,
-                        },
-                    )?;
-                }
+                    "default" => {
+                        exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
+                            Self::NAME,
+                            zkwasm_k,
+                            wasm_binary,
+                            phantom_functions,
+                            &output_dir,
+                            &param_dir,
+                            ExecutionArg {
+                                public_inputs,
+                                private_inputs,
+                                context_inputs: context_in,
+                                context_outputs: context_out.clone(),
+                            },
+                        )?;
+                    }
+                    _ => {
+                        exec_create_proof::<StandardArg, StandardEnvBuilder>(
+                            Self::NAME,
+                            zkwasm_k,
+                            wasm_binary,
+                            phantom_functions,
+                            &output_dir,
+                            &param_dir,
+                            StandardArg {
+                                public_inputs,
+                                private_inputs,
+                                context_inputs: context_in,
+                                context_outputs: context_out.clone(),
+                                tree_db: None,
+                            },
+                        )?;
+                    }
                 };
 
                 write_context_output(&context_out.lock().unwrap(), context_out_path)?;
