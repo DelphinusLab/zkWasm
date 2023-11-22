@@ -5,7 +5,7 @@ use crate::HostEnv;
 use zkwasm_host_circuits::host::ForeignInst::WitnessInsert;
 use zkwasm_host_circuits::host::ForeignInst::WitnessPop;
 
-#[derive (Default)]
+#[derive(Default)]
 pub struct WitnessContext {
     pub buf: Vec<u64>,
 }

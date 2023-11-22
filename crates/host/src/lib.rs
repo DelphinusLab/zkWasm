@@ -9,13 +9,13 @@ use delphinus_zkwasm::foreign::wasm_input_helper::runtime::register_wasm_input_f
 use delphinus_zkwasm::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
+use delphinus_zkwasm::runtime::host::ContextOutput;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::host::Sequence;
+use specs::args::parse_args;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zkwasm_host_circuits::host::db::TreeDB;
-use specs::args::parse_args;
-use delphinus_zkwasm::runtime::host::Sequence;
-use delphinus_zkwasm::runtime::host::ContextOutput;
 
 pub struct ExecutionArg {
     /// Public inputs for `wasm_input(1)`
@@ -35,8 +35,6 @@ impl ContextOutput for ExecutionArg {
         self.context_outputs.clone()
     }
 }
-
-
 
 impl From<Sequence> for ExecutionArg {
     fn from(seq: Sequence) -> ExecutionArg {
