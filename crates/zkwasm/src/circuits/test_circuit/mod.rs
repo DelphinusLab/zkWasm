@@ -13,6 +13,7 @@ use halo2_proofs::plonk::Fixed;
 use log::debug;
 use log::info;
 use specs::Tables;
+use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
@@ -24,6 +25,7 @@ use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::image_table::EncodeCompilationTableValues;
 use crate::circuits::image_table::ImageTableChip;
 use crate::circuits::image_table::ImageTableLayouter;
+use crate::circuits::image_table::INIT_MEMORY_ENTRIES_OFFSET;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
@@ -33,6 +35,7 @@ use crate::circuits::post_image_table::PostImageTableChipTrait;
 use crate::circuits::post_image_table::PostImageTableConfigTrait;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
+use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
@@ -308,10 +311,30 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
+        let mut image_table_assigner = ImageTableAssigner::<
+            INIT_MEMORY_ENTRIES_OFFSET,
+            DEFAULT_VALUE_STACK_LIMIT,
+            DEFAULT_VALUE_STACK_LIMIT,
+        >::new(
+            // Add one for default lookup value
+            self.tables.compilation_tables.itable.entries().len() + 1,
+            // FIXME: avoid compute
+            self.tables
+                .compilation_tables
+                .itable
+                .create_brtable()
+                .entries()
+                .len()
+                + self.tables.compilation_tables.elem_table.entries().len()
+                + 1,
+            compute_maximal_pages(zkwasm_k()),
+        );
+
         let pre_image_table_cells = exec_with_profile!(
             || "Assign Pre Image Table",
             image_chip.assign(
                 &mut layouter,
+                &mut image_table_assigner,
                 self.tables
                     .compilation_tables
                     .encode_compilation_table_values(),

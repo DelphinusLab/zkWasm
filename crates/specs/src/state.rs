@@ -20,6 +20,16 @@ pub struct InitializationState<T> {
     pub jops: T,
 }
 
+impl<T> InitializationState<T> {
+    pub fn field_count() -> usize {
+        if cfg!(feature = "continuation") {
+            12
+        } else {
+            11
+        }
+    }
+}
+
 impl Default for InitializationState<u32> {
     fn default() -> Self {
         Self {
