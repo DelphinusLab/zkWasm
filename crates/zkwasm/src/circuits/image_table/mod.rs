@@ -75,6 +75,7 @@ pub struct ImageTableLayouter<T: Clone> {
     pub static_frame_entries: Vec<(T, T)>,
     pub instructions: Option<Vec<T>>,
     pub br_table: Option<Vec<T>>,
+    pub padding: Option<Vec<T>>,
     pub init_memory_entries: Option<Vec<T>>,
     pub rest_memory_writing_ops: Option<T>,
 }
@@ -221,6 +222,7 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             static_frame_entries,
             instructions,
             br_table,
+            padding: None,
             init_memory_entries,
             rest_memory_writing_ops: None,
         }

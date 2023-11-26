@@ -25,108 +25,6 @@ impl<F: FieldExt> ImageTableChip<F> {
         image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
     ) -> Result<ImageTableLayouter<AssignedCell<F, F>>, Error> {
-        macro_rules! assign {
-            ($ctx:expr, $col:expr, $v:expr) => {{
-                let cell =
-                    $ctx.region
-                        .assign_advice(|| "image table", $col, $ctx.offset, || Ok($v))?;
-
-                $ctx.next();
-
-                Ok::<AssignedCell<F, F>, Error>(cell)
-            }};
-        }
-
-        // fn assign_and_perm_initialization_state<F: FieldExt>(
-        //     ctx: &mut Context<F>,
-        //     col: Column<Advice>,
-        //     initialization_state: &InitializationState<AssignedCell<F, F>>,
-        // ) -> Result<InitializationState<AssignedCell<F, F>>, Error> {
-        //     let initialization_state = initialization_state.map(|field| {
-        //         field
-        //             .copy_advice(
-        //                 || "image table: initialization state",
-        //                 &mut ctx.region,
-        //                 col,
-        //                 ctx.offset,
-        //             )
-        //             .unwrap();
-
-        //         ctx.next();
-
-        //         field.clone()
-        //     });
-
-        //     Ok::<_, Error>(initialization_state)
-        // }
-
-        // fn assign_static_frame_entries<F: FieldExt>(
-        //     ctx: &mut Context<F>,
-        //     col: Column<Advice>,
-        //     static_frame_entries: &Vec<(AssignedCell<F, F>, AssignedCell<F, F>)>,
-        // ) -> Result<(), Error> {
-        //     for (enable, entry) in static_frame_entries {
-        //         enable.copy_advice(
-        //             || "image table: static frame entry",
-        //             &mut ctx.region,
-        //             col,
-        //             ctx.offset,
-        //         )?;
-        //         ctx.next();
-
-        //         entry.copy_advice(
-        //             || "image table: static frame entry",
-        //             &mut ctx.region,
-        //             col,
-        //             ctx.offset,
-        //         )?;
-        //         ctx.next();
-        //     }
-
-        //     Ok(())
-        // }
-
-        // fn assign_instructions<F: FieldExt>(
-        //     ctx: &mut Context<F>,
-        //     col: Column<Advice>,
-        //     instructions: &Vec<F>,
-        // ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        //     let entries = instructions
-        //         .iter()
-        //         .map(|entry| assign!(ctx, col, *entry))
-        //         .collect::<Result<Vec<_>, Error>>()?;
-
-        //     Ok(entries)
-        // }
-
-        // fn assign_br_table<F: FieldExt>(
-        //     ctx: &mut Context<F>,
-        //     col: Column<Advice>,
-        //     br_table: &Vec<F>,
-        // ) -> Result<Vec<AssignedCell<F, F>>, Error> {
-        //     let entries = br_table
-        //         .iter()
-        //         .map(|entry| assign!(ctx, col, *entry))
-        //         .collect::<Result<Vec<_>, Error>>()?;
-
-        //     Ok(entries)
-        // }
-
-        // fn assign_init_memory_entries<F: FieldExt>(
-        //     ctx: &mut Context<F>,
-        //     col: Column<Advice>,
-        //     init_memory_entries: &Vec<F>,
-        // ) -> Result<(), Error> {
-        //     assert!(ctx.offset < INIT_MEMORY_ENTRIES_OFFSET);
-        //     ctx.offset = INIT_MEMORY_ENTRIES_OFFSET;
-
-        //     for entry in init_memory_entries {
-        //         assign!(ctx, col, *entry)?;
-        //     }
-
-        //     Ok(())
-        // }
-
         layouter.assign_region(
             || "pre image table",
             |region| {
@@ -294,29 +192,12 @@ impl<F: FieldExt> ImageTableChip<F> {
                     init_memory_handler,
                 )?;
 
-                // let instructions = assign_instructions(
-                //     &mut ctx,
-                //     self.config.col,
-                //     image_table.instructions.as_ref().unwrap(),
-                // )
-                // .ok();
-                // let br_table = assign_br_table(
-                //     &mut ctx,
-                //     self.config.col,
-                //     image_table.br_table.as_ref().unwrap(),
-                // )
-                // .ok();
-                // assign_init_memory_entries(
-                //     &mut ctx,
-                //     self.config.col,
-                //     &image_table.init_memory_entries.as_ref().unwrap(),
-                // )?;
-
                 Ok(ImageTableLayouter {
                     initialization_state: result.initialization_state,
                     static_frame_entries: result.static_frame_entries,
                     instructions: Some(result.instructions),
                     br_table: Some(result.br_table_entires),
+                    padding: Some(result.padding_entires),
                     init_memory_entries: None,
                     rest_memory_writing_ops: None,
                 })

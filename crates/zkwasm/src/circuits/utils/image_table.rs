@@ -27,7 +27,7 @@ pub(crate) struct Layouter<T> {
     pub(crate) instructions: Vec<T>,
     pub(crate) br_table_entires: Vec<T>,
     // NOTE: padding entries also need constain_equal for other image
-    pub(crate) _padding_entires: Vec<T>,
+    pub(crate) padding_entires: Vec<T>,
     pub(crate) _init_memory_entires: Vec<T>,
 }
 
@@ -36,7 +36,7 @@ pub(crate) struct ImageTableAssigner<
     const STACK_CAPABILITY: usize,
     const GLOBAL_CAPABILITY: usize,
 > {
-    _heap_capability: u32,
+    pub(crate) heap_capability: u32,
     initialization_state_offset: usize,
     static_frame_entries_offset: usize,
     instruction_offset: usize,
@@ -64,7 +64,7 @@ impl<
         assert!(padding_offset <= init_memory_offset);
 
         Self {
-            _heap_capability: pages_capability * PAGE_ENTRIES,
+            heap_capability: pages_capability * PAGE_ENTRIES,
             initialization_state_offset,
             static_frame_entries_offset,
             instruction_offset,
@@ -129,7 +129,7 @@ impl<
         let static_frame_entries = self.exec_static_frame_entries(static_frame_entries_handler)?;
         let instructions = self.exec_instruction(instruction_handler)?;
         let br_table_entires = self.exec_br_table_entires(br_table_handler)?;
-        let _padding_entires = self.exec_padding_entires(padding_handler)?;
+        let padding_entires = self.exec_padding_entires(padding_handler)?;
         let _init_memory_entires = self.exec_init_memory_entires(init_memory_entries_handler)?;
 
         Ok(Layouter {
@@ -137,7 +137,7 @@ impl<
             static_frame_entries,
             instructions,
             br_table_entires,
-            _padding_entires,
+            padding_entires,
             _init_memory_entires,
         })
     }

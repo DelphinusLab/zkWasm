@@ -186,8 +186,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rchip = RangeTableChip::new(config.rtable);
         let image_chip = ImageTableChip::new(config.image_table);
-        let post_image_chip =
-            PostImageTableChip::new(config.post_image_table, config.circuit_maximal_pages);
+        let post_image_chip = PostImageTableChip::new(config.post_image_table);
         let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
         let echip = EventTableChip::new(
@@ -327,7 +326,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 .len()
                 + self.tables.compilation_tables.elem_table.entries().len()
                 + 1,
-            compute_maximal_pages(zkwasm_k()),
+            config.circuit_maximal_pages,
         );
 
         let pre_image_table_cells = exec_with_profile!(
@@ -343,6 +342,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     static_frame_entries,
                     instructions: None,
                     br_table: None,
+                    padding: None,
                     init_memory_entries: None,
                     rest_memory_writing_ops: None,
                 }
@@ -353,6 +353,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             || "Assign Post Image Table",
             post_image_chip.assign(
                 &mut layouter,
+                &mut image_table_assigner,
                 self.tables
                     .compilation_tables
                     .encode_compilation_table_values(),
@@ -364,6 +365,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     static_frame_entries: pre_image_table_cells.static_frame_entries,
                     instructions: pre_image_table_cells.instructions,
                     br_table: pre_image_table_cells.br_table,
+                    padding: pre_image_table_cells.padding,
                     init_memory_entries: pre_image_table_cells.init_memory_entries,
                     rest_memory_writing_ops,
                 }
