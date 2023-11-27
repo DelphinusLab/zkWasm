@@ -17,24 +17,24 @@ pub fn encode_init_memory_table_entry<T: FromBn>(
     eid: T,
     value: T,
 ) -> T {
-    const LTYPE_SHIFT: u32 = OFFSET_SHIFT + 32;
+    const LTYPE_SHIFT: u32 = OFFSET_SHIFT + u32::BITS;
     const OFFSET_SHIFT: u32 = IS_MUTABLE_SHIFT + 1;
-    const IS_MUTABLE_SHIFT: u32 = EID_OFFSET_SHIFT + 32;
+    const IS_MUTABLE_SHIFT: u32 = EID_OFFSET_SHIFT + u32::BITS;
     const EID_OFFSET_SHIFT: u32 = VALUE_SHIFT + 64;
     const VALUE_SHIFT: u32 = 0;
 
     assert!(LTYPE_SHIFT + 8 <= INIT_MEMORY_ENCODE_BOUNDARY);
 
+    let encode = is_mutable * T::from_bn(&(1u64.to_biguint().unwrap() << IS_MUTABLE_SHIFT))
+        + eid * T::from_bn(&(1u64.to_biguint().unwrap() << EID_OFFSET_SHIFT))
+        + value;
+
     if cfg!(feature = "continuation") {
+        encode
+    } else {
         ltype * T::from_bn(&(1u64.to_biguint().unwrap() << LTYPE_SHIFT))
             + offset * T::from_bn(&(1u64.to_biguint().unwrap() << OFFSET_SHIFT))
-            + is_mutable * T::from_bn(&(1u64.to_biguint().unwrap() << IS_MUTABLE_SHIFT))
-            + eid * T::from_bn(&(1u64.to_biguint().unwrap() << EID_OFFSET_SHIFT))
-            + value
-    } else {
-        is_mutable * T::from_bn(&(1u64.to_biguint().unwrap() << IS_MUTABLE_SHIFT))
-            + eid * T::from_bn(&(1u64.to_biguint().unwrap() << EID_OFFSET_SHIFT))
-            + value
+            + encode
     }
 }
 

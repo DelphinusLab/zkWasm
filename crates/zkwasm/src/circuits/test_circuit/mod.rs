@@ -56,9 +56,9 @@ use super::image_table::ImageTableConfig;
 use super::post_image_table::PostImageTableConfig;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    63
+    59
 } else {
-    54
+    51
 };
 
 // Reserve a few rows to keep usable rows away from blind rows.
