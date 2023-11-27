@@ -6,7 +6,7 @@ use crate::encode::instruction_table::INSTRUCTION_ENCODE_BOUNDARY;
 
 use super::FromBn;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy)]
 pub enum ImageTableEncoder {
     Instruction = 1,
     BrTable = 2,

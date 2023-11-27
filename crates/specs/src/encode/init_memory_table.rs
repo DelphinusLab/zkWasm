@@ -20,7 +20,7 @@ pub fn encode_init_memory_table_entry<T: FromBn>(
     const LTYPE_SHIFT: u32 = OFFSET_SHIFT + u32::BITS;
     const OFFSET_SHIFT: u32 = IS_MUTABLE_SHIFT + 1;
     const IS_MUTABLE_SHIFT: u32 = EID_OFFSET_SHIFT + u32::BITS;
-    const EID_OFFSET_SHIFT: u32 = VALUE_SHIFT + 64;
+    const EID_OFFSET_SHIFT: u32 = VALUE_SHIFT + u64::BITS;
     const VALUE_SHIFT: u32 = 0;
 
     assert!(LTYPE_SHIFT + 8 <= INIT_MEMORY_ENCODE_BOUNDARY);
