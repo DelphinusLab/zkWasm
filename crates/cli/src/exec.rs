@@ -23,6 +23,7 @@ pub fn exec_setup<Arg, Builder>(
     prefix: &str,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
+    envconfig: Builder::HostConfig,
     _output_dir: &PathBuf,
     param_dir: &PathBuf,
 ) -> Result<()>
@@ -59,7 +60,7 @@ where
             let loader =
                 ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-            let vkey = loader.create_vkey(&params)?;
+            let vkey = loader.create_vkey(&params, envconfig)?;
 
             let mut fd = std::fs::File::create(&vk_path)?;
             vkey.write(&mut fd)?;
@@ -72,6 +73,7 @@ where
 pub fn exec_image_checksum<Arg, Builder>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
+    hostenv: Builder::HostConfig,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
 ) -> Result<()>
@@ -86,7 +88,7 @@ where
         Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
     );
 
-    let checksum = loader.checksum(&params)?;
+    let checksum = loader.checksum(&params, hostenv)?;
     assert_eq!(checksum.len(), 1);
     let checksum = checksum[0];
 

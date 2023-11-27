@@ -47,8 +47,9 @@ pub struct DefaultHostEnvBuilder;
 
 impl HostEnvBuilder for DefaultHostEnvBuilder {
     type Arg = ExecutionArg;
+    type HostConfig = ();
 
-    fn create_env_without_value() -> (HostEnv, WasmRuntimeIO) {
+    fn create_env_without_value(_config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
         let mut env = HostEnv::new();
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);

@@ -612,7 +612,7 @@ dependencies = [
  "strum_macros",
  "wabt",
  "wasmi",
- "zkwasm-host-circuits",
+ "zkwasm-host-circuits 0.1.0 (git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=xgao/keccak)",
 ]
 
 [[package]]
@@ -645,7 +645,7 @@ dependencies = [
  "strum_macros",
  "wabt",
  "wasmi",
- "zkwasm-host-circuits",
+ "zkwasm-host-circuits 0.1.0 (git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main)",
 ]
 
 [[package]]
@@ -1337,6 +1337,15 @@ dependencies = [
  "hermit-abi 0.3.2",
  "rustix",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
 ]
 
 [[package]]
@@ -3306,7 +3315,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#0008f27948149eb8b5ae6bf4309132aab304a6f2"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#4fae3e15d1ce9006ef46f1427a24b1627d55f479"
 dependencies = [
  "ark-std",
  "circuits-batcher",
@@ -3321,6 +3330,34 @@ dependencies = [
  "num-bigint",
  "poseidon",
  "rand",
+ "ripemd",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "subtle",
+]
+
+[[package]]
+name = "zkwasm-host-circuits"
+version = "0.1.0"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=xgao/keccak#e0a24b87532b05c175d39db802a0b7b1e6f1af94"
+dependencies = [
+ "ark-std",
+ "circuits-batcher",
+ "clap",
+ "ff",
+ "halo2_proofs",
+ "halo2ecc-s",
+ "hex",
+ "itertools",
+ "lazy_static",
+ "lru",
+ "mongodb",
+ "num-bigint",
+ "poseidon",
+ "rand",
+ "rand_core",
  "ripemd",
  "serde",
  "serde_json",

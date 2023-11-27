@@ -100,8 +100,8 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         )
     }
 
-    fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
-        let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value();
+    fn circuit_without_witness(&self, envconfig: EnvBuilder::HostConfig) -> Result<TestCircuit<E::Scalar>> {
+        let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
 
         let compiled_module = self.compile(&env, true)?;
 
@@ -139,14 +139,14 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(loader)
     }
 
-    pub fn create_vkey(&self, params: &Params<E::G1Affine>) -> Result<VerifyingKey<E::G1Affine>> {
-        let circuit = self.circuit_without_witness()?;
+    pub fn create_vkey(&self, params: &Params<E::G1Affine>, envconfig: EnvBuilder::HostConfig) -> Result<VerifyingKey<E::G1Affine>> {
+        let circuit = self.circuit_without_witness(envconfig)?;
 
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
 
-    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
-        let (env, _) = EnvBuilder::create_env_without_value();
+    pub fn checksum(&self, params: &Params<E::G1Affine>, envconfig: EnvBuilder::HostConfig) -> Result<Vec<E::G1Affine>> {
+        let (env, _) = EnvBuilder::create_env_without_value(envconfig);
         let compiled = self.compile(&env, true)?;
 
         let table_with_params = CompilationTableWithParams {
@@ -329,7 +329,7 @@ mod tests {
             }
 
             let params = prepare_param(self.k);
-            let vkey = self.create_vkey(&params).unwrap();
+            let vkey = self.create_vkey(&params, ()).unwrap();
 
             let proof = self
                 .create_proof(&params, vkey.clone(), circuit, &instances)

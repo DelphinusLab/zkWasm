@@ -6,6 +6,8 @@ use delphinus_host::StandardHostEnvBuilder as StandardEnvBuilder;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
+use delphinus_host::HostEnvConfig;
+
 use log::info;
 use std::fs;
 use std::io::Write;
@@ -112,6 +114,7 @@ pub trait AppBuilder: CommandBuilder {
                     Self::NAME,
                     wasm_binary,
                     phantom_functions,
+                    (),
                     &output_dir,
                     &param_dir,
                 ),
@@ -121,6 +124,7 @@ pub trait AppBuilder: CommandBuilder {
                     Self::NAME,
                     wasm_binary,
                     phantom_functions,
+                    HostEnvConfig::default(),
                     &output_dir,
                     &param_dir,
                 ),
@@ -130,12 +134,14 @@ pub trait AppBuilder: CommandBuilder {
                 "default" => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
+                    (),
                     phantom_functions,
                     &output_dir,
                 ),
                 &_ => exec_image_checksum::<StandardArg, StandardEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
+                    HostEnvConfig::default(),
                     phantom_functions,
                     &output_dir,
                 ),
