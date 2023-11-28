@@ -154,24 +154,23 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 }
 
 impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
-    pub fn dry_run(&self, arg: T) -> Result<Option<RuntimeValue>> {
-        let (mut env, _) = EnvBuilder::create_env(arg);
-
-        let compiled_module = self.compile(&env)?;
-
-        compiled_module.dry_run(&mut env)
-    }
-
-    pub fn run(&self, arg: T, write_to_file: bool) -> Result<ExecutionResult<RuntimeValue>> {
+    pub fn run(
+        &self,
+        arg: T,
+        dryrun: bool,
+        write_to_file: bool,
+    ) -> Result<ExecutionResult<RuntimeValue>> {
         let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg);
         let compiled_module = self.compile(&env)?;
 
-        let result = compiled_module.run(&mut env, wasm_runtime_io)?;
+        let result = compiled_module.run(&mut env, dryrun, wasm_runtime_io)?;
 
-        result.tables.profile_tables();
+        if !dryrun {
+            result.tables.profile_tables();
 
-        if write_to_file {
-            result.tables.write_json(None);
+            if write_to_file {
+                result.tables.write_json(None);
+            }
         }
 
         Ok(result)
@@ -181,7 +180,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         arg: T,
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
-        let execution_result = self.run(arg, true)?;
+        let execution_result = self.run(arg, true, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()

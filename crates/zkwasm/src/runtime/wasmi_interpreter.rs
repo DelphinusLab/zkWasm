@@ -34,11 +34,10 @@ impl WasmRuntimeIO {
 }
 
 pub trait Execution<R> {
-    fn dry_run<E: Externals>(self, externals: &mut E) -> Result<Option<R>>;
-
     fn run<E: Externals>(
         self,
         externals: &mut E,
+        dryrun: bool,
         wasm_io: WasmRuntimeIO,
     ) -> Result<ExecutionResult<R>>;
 }
@@ -46,17 +45,10 @@ pub trait Execution<R> {
 impl Execution<RuntimeValue>
     for CompiledImage<wasmi::NotStartedModuleRef<'_>, wasmi::tracer::Tracer>
 {
-    fn dry_run<E: Externals>(self, externals: &mut E) -> Result<Option<RuntimeValue>> {
-        let instance = self.instance.run_start(externals).unwrap();
-
-        let result = instance.invoke_export(&self.entry, &[], externals)?;
-
-        Ok(result)
-    }
-
     fn run<E: Externals>(
         self,
         externals: &mut E,
+        dryrun: bool,
         wasm_io: WasmRuntimeIO,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         let instance = self
@@ -67,7 +59,7 @@ impl Execution<RuntimeValue>
         let result =
             instance.invoke_export_trace(&self.entry, &[], externals, self.tracer.clone())?;
 
-        let execution_tables = {
+        let execution_tables = if !dryrun {
             let tracer = self.tracer.borrow();
 
             let mtable = {
@@ -87,6 +79,8 @@ impl Execution<RuntimeValue>
                 mtable,
                 jtable: tracer.jtable.clone(),
             }
+        } else {
+            ExecutionTable::default()
         };
 
         Ok(ExecutionResult {
@@ -115,7 +109,8 @@ impl WasmiRuntime {
         entry: &str,
         phantom_functions: &Vec<String>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions);
+        let tracer =
+            wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, false);
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))

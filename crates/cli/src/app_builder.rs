@@ -136,7 +136,7 @@ pub trait AppBuilder: CommandBuilder {
                         context_inputs: context_in,
                         context_outputs: Arc::new(Mutex::new(vec![])),
                     },
-                    )?;
+                )?;
 
                 write_context_output(&context_output.lock().unwrap(), context_out_path)?;
 
