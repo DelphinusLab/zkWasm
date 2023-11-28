@@ -175,14 +175,4 @@ pub trait ArgBuilder {
             .get_many::<String>("auxonly")
             .map_or(false, |_| true)
     }
-
-    fn dry_run_service_arg<'a>() -> Arg<'a> {
-        arg!(
-            -l --listen [LISTEN_PATH] "Execute dry-run as service."
-        )
-        .value_parser(value_parser!(PathBuf))
-    }
-    fn parse_dry_run_service_arg(matches: &ArgMatches) -> Option<PathBuf> {
-        matches.get_one("listen").cloned()
-    }
 }
