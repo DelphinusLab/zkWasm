@@ -170,6 +170,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_inputs: context_in,
                                 context_outputs: Arc::new(Mutex::new(vec![])),
                             },
+                            ()
                             )?;
                     },
                     _ => {
@@ -184,6 +185,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_outputs: Arc::new(Mutex::new(vec![])),
                                 tree_db: None,
                             },
+                            HostEnvConfig::default()
                             )?;
                     }
                 };
@@ -217,6 +219,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_inputs: context_in,
                                 context_outputs: context_out.clone(),
                             },
+                            ()
                         )?;
                     }
                     _ => {
@@ -234,6 +237,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_outputs: context_out.clone(),
                                 tree_db: None,
                             },
+                            HostEnvConfig::default()
                         )?;
                     }
                 };

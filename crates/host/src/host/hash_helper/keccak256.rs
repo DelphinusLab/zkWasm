@@ -72,7 +72,7 @@ pub fn register_keccak_foreign(env: &mut HostEnv) {
         .register_plugin("foreign_keccak", Box::new(Keccak256Context::default()));
 
     env.external_env.register_function(
-        "sha256_new",
+        "keccak_new",
         Keccak256New as usize,
         ExternalHostCallSignature::Argument,
         foreign_keccak_plugin.clone(),

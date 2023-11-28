@@ -107,10 +107,11 @@ pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     arg: Arg,
+    config: Builder::HostConfig,
 ) -> Result<()> {
     let loader =
         ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
-    loader.run(arg, true, false)?;
+    loader.run(arg, config, true, false)?;
     Ok(())
 }
 
@@ -122,11 +123,12 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
     output_dir: &PathBuf,
     param_dir: &PathBuf,
     arg: Arg,
+    config: Builder::HostConfig,
 ) -> Result<()> {
     let loader =
         ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-    let (circuit, instances, _) = loader.circuit_with_witness(arg)?;
+    let (circuit, instances, _) = loader.circuit_with_witness(arg, config)?;
 
     if true {
         info!("Mock test...");

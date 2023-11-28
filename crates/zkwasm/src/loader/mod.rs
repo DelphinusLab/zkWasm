@@ -162,10 +162,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn run(
         &self,
         arg: T,
+        config: EnvBuilder::HostConfig,
         dryrun: bool,
         write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
-        let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg);
+        let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
         let compiled_module = self.compile(&env, dryrun)?;
 
         let result = compiled_module.run(&mut env, dryrun, wasm_runtime_io)?;
@@ -184,8 +185,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn circuit_with_witness(
         &self,
         arg: T,
+        config: EnvBuilder::HostConfig
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
-        let execution_result = self.run(arg, false, true)?;
+        let execution_result = self.run(arg, config, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()

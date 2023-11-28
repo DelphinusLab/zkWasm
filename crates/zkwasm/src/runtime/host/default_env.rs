@@ -60,7 +60,7 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         (env, wasm_runtime_io)
     }
 
-    fn create_env(arg: Self::Arg) -> (HostEnv, WasmRuntimeIO) {
+    fn create_env(arg: Self::Arg, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
         let mut env = HostEnv::new();
         let wasm_runtime_io =
             register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);

@@ -66,6 +66,8 @@ impl Default for HostEnvConfig {
                 OpType::POSEIDONHASH,
                 OpType::MERKLE,
                 OpType::JUBJUBSUM,
+                OpType::KECCAKHASH,
+                OpType::BN256SUM,
             ]
         }
     }
@@ -107,30 +109,21 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, vec![], Arc::new(Mutex::new(vec![])));
         envconfig.register_ops(&mut env);
-        host::hash_helper::poseidon::register_poseidon_foreign(&mut env);
-        host::merkle_helper::merkle::register_merkle_foreign(&mut env, None);
-        host::ecc_helper::bn254::sum::register_bn254sum_foreign(&mut env);
-        host::ecc_helper::bn254::pair::register_bn254pair_foreign(&mut env);
-        host::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign(&mut env);
         host::witness_helper::register_witness_foreign(&mut env);
         env.finalize();
 
         (env, wasm_runtime_io)
     }
 
-    fn create_env(arg: Self::Arg) -> (HostEnv, WasmRuntimeIO) {
+    fn create_env(arg: Self::Arg, envconfig: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
         let mut env = HostEnv::new();
         let wasm_runtime_io =
             register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, arg.context_inputs, arg.context_outputs);
-        host::hash_helper::poseidon::register_poseidon_foreign(&mut env);
-        host::merkle_helper::merkle::register_merkle_foreign(&mut env, arg.tree_db);
-        host::ecc_helper::bn254::sum::register_bn254sum_foreign(&mut env);
-        host::ecc_helper::bn254::pair::register_bn254pair_foreign(&mut env);
-        host::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign(&mut env);
         host::witness_helper::register_witness_foreign(&mut env);
+        envconfig.register_ops(&mut env);
         env.finalize();
 
         (env, wasm_runtime_io)
