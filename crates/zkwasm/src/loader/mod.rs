@@ -103,7 +103,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value();
 
-        let compiled_module = self.compile(&env)?;
+        let compiled_module = self.compile(&env, true)?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
@@ -147,7 +147,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
     pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
         let (env, _) = EnvBuilder::create_env_without_value();
-        let compiled = self.compile(&env)?;
+        let compiled = self.compile(&env, true)?;
 
         let table_with_params = CompilationTableWithParams {
             table: &compiled.tables,
@@ -185,7 +185,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         arg: T,
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
-        let execution_result = self.run(arg, true, true)?;
+        let execution_result = self.run(arg, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()
