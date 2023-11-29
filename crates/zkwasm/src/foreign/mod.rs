@@ -16,12 +16,14 @@ use halo2_proofs::plonk::VirtualCells;
 
 use self::context::runtime::register_context_foreign;
 use self::log_helper::register_log_foreign;
+use self::phantom_helper::register_phantom_helper_foreign;
 use self::require_helper::register_require_foreign;
 use self::wasm_input_helper::runtime::register_wasm_input_foreign;
 
 pub mod context;
 pub mod keccak_helper;
 pub mod log_helper;
+pub mod phantom_helper;
 pub mod require_helper;
 pub mod wasm_input_helper;
 
@@ -63,6 +65,7 @@ impl HostEnv {
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
+        register_phantom_helper_foreign(&mut env);
         register_context_foreign(&mut env, context_input, context_output);
         env.finalize();
 

@@ -114,8 +114,15 @@ impl WasmiRuntime {
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
         entry: &str,
         phantom_functions: &Vec<String>,
+        // Expose the phantom status of interpreter
+        is_in_phantom: Rc<RefCell<bool>>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions);
+        let tracer = wasmi::tracer::Tracer::new(
+            host_plugin_lookup.clone(),
+            phantom_functions,
+            false,
+            is_in_phantom,
+        );
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))

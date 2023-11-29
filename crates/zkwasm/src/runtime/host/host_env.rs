@@ -25,6 +25,8 @@ pub struct HostEnv {
     finalized: Rc<RefCell<bool>>,
     cached_lookup: Option<HashMap<usize, HostFunction>>,
 
+    pub(crate) is_in_phantom: Rc<RefCell<bool>>,
+
     /// Profile foreign function time
     time_profile: BTreeMap<String, u128>,
 }
@@ -48,6 +50,7 @@ impl HostEnv {
             cached_lookup: None,
             finalized,
             time_profile: BTreeMap::new(),
+            is_in_phantom: Rc::new(RefCell::new(false)),
         }
     }
 

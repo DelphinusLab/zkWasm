@@ -105,6 +105,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             &env.function_description_table(),
             ENTRY,
             &self.phantom_functions,
+            env.is_in_phantom.clone(),
         )
     }
 

@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::TestCircuit;
@@ -78,6 +81,7 @@ fn compile_then_execute_wasm(
         &env.function_description_table(),
         function_name,
         &vec![],
+        Rc::new(RefCell::new(false)),
     )
     .unwrap();
 
