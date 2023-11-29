@@ -612,7 +612,7 @@ dependencies = [
  "strum_macros",
  "wabt",
  "wasmi",
- "zkwasm-host-circuits 0.1.0 (git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=xgao/keccak)",
+ "zkwasm-host-circuits",
 ]
 
 [[package]]
@@ -645,7 +645,7 @@ dependencies = [
  "strum_macros",
  "wabt",
  "wasmi",
- "zkwasm-host-circuits 0.1.0 (git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main)",
+ "zkwasm-host-circuits",
 ]
 
 [[package]]
@@ -3310,32 +3310,6 @@ checksum = "8ca6c5a4d66c1a9ea261811cf4773c27343de7e5033e1b75ea3f297dc7db3c1a"
 dependencies = [
  "flume",
  "scopeguard",
-]
-
-[[package]]
-name = "zkwasm-host-circuits"
-version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#4fae3e15d1ce9006ef46f1427a24b1627d55f479"
-dependencies = [
- "ark-std",
- "circuits-batcher",
- "clap",
- "ff",
- "halo2_proofs",
- "halo2ecc-s",
- "hex",
- "lazy_static",
- "lru",
- "mongodb",
- "num-bigint",
- "poseidon",
- "rand",
- "ripemd",
- "serde",
- "serde_json",
- "strum",
- "strum_macros",
- "subtle",
 ]
 
 [[package]]

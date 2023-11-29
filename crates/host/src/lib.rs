@@ -12,12 +12,13 @@ use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ContextOutput;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use delphinus_zkwasm::runtime::host::Sequence;
+use serde::Deserialize;
+use serde::Serialize;
 use specs::args::parse_args;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zkwasm_host_circuits::host::db::TreeDB;
 use zkwasm_host_circuits::proof::OpType;
-use serde::{Deserialize, Serialize};
 
 pub struct ExecutionArg {
     /// Public inputs for `wasm_input(1)`
@@ -56,7 +57,7 @@ impl From<Sequence> for ExecutionArg {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HostEnvConfig {
-    pub ops: Vec<OpType>
+    pub ops: Vec<OpType>,
 }
 
 impl Default for HostEnvConfig {
@@ -68,7 +69,7 @@ impl Default for HostEnvConfig {
                 OpType::JUBJUBSUM,
                 OpType::KECCAKHASH,
                 OpType::BN256SUM,
-            ]
+            ],
         }
     }
 }
@@ -93,8 +94,6 @@ impl HostEnvConfig {
         }
     }
 }
-
-
 
 pub struct StandardHostEnvBuilder;
 

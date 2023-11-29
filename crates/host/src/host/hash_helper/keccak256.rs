@@ -1,10 +1,10 @@
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use std::rc::Rc;
+use zkwasm_host_circuits::host::keccak256::Keccak;
 use zkwasm_host_circuits::host::ForeignInst::Keccak256Finalize;
 use zkwasm_host_circuits::host::ForeignInst::Keccak256New;
 use zkwasm_host_circuits::host::ForeignInst::Keccak256Push;
-use zkwasm_host_circuits::host::keccak256::Keccak;
 
 pub use zkwasm_host_circuits::host::keccak256::KECCAK_HASHER;
 
@@ -47,7 +47,7 @@ impl Keccak256Context {
     }
 
     pub fn keccak_push(&mut self, v: u64) {
-        self.buf.push(v)
+        self.buf.push(v);
     }
 
     pub fn keccak_finalize(&mut self) -> u64 {
