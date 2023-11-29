@@ -107,10 +107,11 @@ impl WasmiRuntime {
         imports: &I,
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
         entry: &str,
+        dry_run: bool,
         phantom_functions: &Vec<String>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
         let tracer =
-            wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, false);
+            wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, dry_run);
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))

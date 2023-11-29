@@ -83,7 +83,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(())
     }
 
-    pub fn compile(&self, env: &HostEnv) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
+    pub fn compile(
+        &self,
+        env: &HostEnv,
+        dryrun: bool,
+    ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
         WasmInterpreter::compile(
@@ -91,6 +95,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             &imports,
             &env.function_description_table(),
             ENTRY,
+            dryrun,
             &self.phantom_functions,
         )
     }
@@ -161,7 +166,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg);
-        let compiled_module = self.compile(&env)?;
+        let compiled_module = self.compile(&env, dryrun)?;
 
         let result = compiled_module.run(&mut env, dryrun, wasm_runtime_io)?;
 
