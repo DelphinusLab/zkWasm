@@ -54,21 +54,27 @@ cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-ve
 ```
 with OPTIONS:
 ```
-    --param [<PARAM_PATH>...]
-            Path of the setup related files (circuit info, vkey, params, etc).
+    -h, --help                         
+        Print help information
+
+    -k [<K>...]                        
+        Circuit Size K
+
     -o, --output [<OUTPUT_PATH>...]
-            Path of the output files.
-            The md5 of the wasm binary file is the default path if not supplied.
+        Path of the output files.
+        The md5 of the wasm binary file is the default path if not supplied.
+
     -p, --param [<OUTPUT_PATH>...]
-            Path of the parameter files. (trusted setup, etc)
+        Path of the parameter files. (trusted setup, etc)
+        The md5 of the wasm binary file is the default path if not supplied.
 
-        --private [<PRIVATE_INPUT>...]
-            Private arguments of your wasm program arguments of format value:type where
-            type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
+    --private [<PRIVATE_INPUT>...]
+        Private arguments of your wasm program arguments of format value:type where
+        type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
 
-        --public [<PUBLIC_INPUT>...]
-            Public arguments of your wasm program arguments of format value:type where
-            type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
+    --public [<PUBLIC_INPUT>...]
+        Public arguments of your wasm program arguments of format value:type where
+        type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
 ```
 ## Batch prove and verify:
 Please see zkWASM continuation batcher at https://github.com/DelphinusLab/continuation-batcher for batching proof with host circuits and verifier generation in smart contracts.
