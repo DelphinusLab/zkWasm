@@ -28,7 +28,8 @@ clang lld
 ```
 ## Install Instructions
 ```
-git clone --recurse-submodules
+git clone --recurse-submodules https://github.com/DelphinusLab/zkwasm
+cargo build
 ```
 
 ## Setup input:
