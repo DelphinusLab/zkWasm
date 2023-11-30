@@ -28,7 +28,7 @@ pub fn register_phantom_helper_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "is_in_phantom",
-        0,
+        1,
         ExternalHostCallSignature::Return,
         foreign_phantom_helper_plugin,
         cb,

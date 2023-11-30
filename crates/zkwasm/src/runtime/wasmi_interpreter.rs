@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::env;
 use std::rc::Rc;
 
 use crate::circuits::config::zkwasm_k;
@@ -122,6 +123,7 @@ impl WasmiRuntime {
             phantom_functions,
             false,
             is_in_phantom,
+            env::var("ZKWASM_MEMORY_SANITY_CHECK").map_or(false, |v| v == "1"),
         );
         let tracer = Rc::new(RefCell::new(tracer));
 
