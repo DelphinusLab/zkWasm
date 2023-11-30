@@ -49,7 +49,7 @@ cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> setup [OP
 ## Single prove and verify:
 ```
 cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-prove [OPTIONS]
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-verify [OPTIONS] --proof <PROOF_PATH>
+cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-verify [OPTIONS]
 ```
 with OPTIONS:
 ```
