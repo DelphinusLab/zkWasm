@@ -1,4 +1,3 @@
-use super::itable::InstructionTableEntry;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -18,7 +17,8 @@ pub struct JumpTableEntry {
     pub eid: u32,
     pub last_jump_eid: u32,
     pub callee_fid: u32,
-    pub inst: Box<InstructionTableEntry>,
+    pub fid: u32,
+    pub iid: u32,
 }
 
 impl JumpTableEntry {

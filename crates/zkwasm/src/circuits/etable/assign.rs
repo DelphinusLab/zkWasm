@@ -3,8 +3,9 @@ use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
 use specs::configure_table::ConfigureTable;
-use specs::itable::Opcode;
+use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
+use specs::step::StepInfo;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
@@ -31,6 +32,7 @@ impl<F: FieldExt> EventTableChip<F> {
     fn compute_rest_mops_and_jops(
         &self,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
     ) -> Vec<(u32, u32)> {
         let mut rest_ops = vec![];
@@ -40,9 +42,9 @@ impl<F: FieldExt> EventTableChip<F> {
             .iter()
             .rev()
             .fold((0, 0), |(rest_mops_sum, rest_jops_sum), entry| {
-                let op_config = op_configs
-                    .get(&entry.eentry.inst.opcode.clone().into())
-                    .unwrap();
+                let instruction = itable.get(entry.eentry.fid, entry.eentry.iid);
+
+                let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
 
                 let acc = (
                     rest_mops_sum + op_config.memory_writing_ops(&entry.eentry),
@@ -115,6 +117,7 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
@@ -200,11 +203,12 @@ impl<F: FieldExt> EventTableChip<F> {
                 .iter()
                 .map(|entry| Status {
                     eid: entry.eentry.eid,
-                    fid: entry.eentry.inst.fid,
-                    iid: entry.eentry.inst.iid,
+                    fid: entry.eentry.fid,
+                    iid: entry.eentry.iid,
                     sp: entry.eentry.sp,
                     last_jump_eid: entry.eentry.last_jump_eid,
                     allocated_memory_pages: entry.eentry.allocated_memory_pages,
+                    itable,
                 })
                 .collect::<Vec<_>>();
 
@@ -213,8 +217,8 @@ impl<F: FieldExt> EventTableChip<F> {
                 fid: 0,
                 iid: 0,
                 sp: status.last().unwrap().sp
-                    + if let Opcode::Return { drop, .. } =
-                        &event_table.0.last().unwrap().eentry.inst.opcode
+                    + if let StepInfo::Return { drop, .. } =
+                        &event_table.0.last().unwrap().eentry.step_info
                     {
                         *drop
                     } else {
@@ -222,6 +226,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     },
                 last_jump_eid: 0,
                 allocated_memory_pages: status.last().unwrap().allocated_memory_pages,
+                itable,
             };
 
             status.push(terminate_status);
@@ -232,6 +237,8 @@ impl<F: FieldExt> EventTableChip<F> {
         for (index, (entry, (rest_mops, rest_jops))) in
             event_table.0.iter().zip(rest_ops.iter()).enumerate()
         {
+            let instruction = entry.eentry.get_instruction(itable);
+
             let step_status = StepStatus {
                 current: &status[index],
                 next: &status[index + 1],
@@ -243,7 +250,7 @@ impl<F: FieldExt> EventTableChip<F> {
             };
 
             {
-                let class: OpcodeClassPlain = entry.eentry.inst.opcode.clone().into();
+                let class: OpcodeClassPlain = (&instruction.opcode).into();
 
                 let op = self.config.common_config.ops[class.index()];
                 assign_advice_cell!(op, F::one());
@@ -270,13 +277,11 @@ impl<F: FieldExt> EventTableChip<F> {
             );
             assign_advice!(frame_id_cell, F::from(entry.eentry.last_jump_eid as u64));
             assign_advice!(eid_cell, F::from(entry.eentry.eid as u64));
-            assign_advice!(fid_cell, F::from(entry.eentry.inst.fid as u64));
-            assign_advice!(iid_cell, F::from(entry.eentry.inst.iid as u64));
-            assign_advice!(itable_lookup_cell, bn_to_field(&entry.eentry.inst.encode()));
+            assign_advice!(fid_cell, F::from(entry.eentry.fid as u64));
+            assign_advice!(iid_cell, F::from(entry.eentry.iid as u64));
+            assign_advice!(itable_lookup_cell, bn_to_field(&instruction.encode()));
 
-            let op_config = op_configs
-                .get(&entry.eentry.inst.opcode.clone().into())
-                .unwrap();
+            let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
             op_config.assign(ctx, &step_status, &entry)?;
 
             if op_config.is_host_public_input(&entry.eentry) {
@@ -330,6 +335,7 @@ impl<F: FieldExt> EventTableChip<F> {
     pub(in crate::circuits) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
+        itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
@@ -337,7 +343,8 @@ impl<F: FieldExt> EventTableChip<F> {
         debug!("size of execution table: {}", event_table.0.len());
         assert!(event_table.0.len() * EVENT_TABLE_ENTRY_ROWS as usize <= self.max_available_rows);
 
-        let rest_ops = self.compute_rest_mops_and_jops(&self.config.op_configs, event_table);
+        let rest_ops =
+            self.compute_rest_mops_and_jops(&self.config.op_configs, itable, event_table);
 
         self.init(ctx)?;
         ctx.reset();
@@ -352,6 +359,7 @@ impl<F: FieldExt> EventTableChip<F> {
         let (fid_of_entry, initial_memory_pages, maximal_memory_pages) = self.assign_entries(
             ctx,
             &self.config.op_configs,
+            itable,
             event_table,
             configure_table,
             fid_of_entry,
