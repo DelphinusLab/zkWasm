@@ -115,7 +115,8 @@ impl WasmiRuntime {
         entry: &str,
         phantom_functions: &Vec<String>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions);
+        let tracer =
+            wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, false);
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
@@ -137,7 +138,7 @@ impl WasmiRuntime {
                     iid: 0,
                 });
 
-            if instance.has_start() {
+            if let Some(idx_of_start_function) = module.module().start_section() {
                 tracer
                     .clone()
                     .borrow_mut()
@@ -146,14 +147,14 @@ impl WasmiRuntime {
                         enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
-                        callee_fid: 0, // the fid of start function is always 0
+                        callee_fid: idx_of_start_function,
                         fid: idx_of_entry,
                         iid: 0,
                     });
             }
 
             if instance.has_start() {
-                0
+                module.module().start_section().unwrap()
             } else {
                 idx_of_entry
             }
