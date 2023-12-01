@@ -25,7 +25,7 @@ impl InstructionTableEntry {
         encode_instruction_table_entry(
             BigUint::from(self.fid),
             BigUint::from(self.iid),
-            self.opcode.clone().into(),
+            (&self.opcode).into(),
         )
     }
 }

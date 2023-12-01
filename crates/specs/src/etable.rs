@@ -1,18 +1,26 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::itable::InstructionTableEntry;
 use crate::host_function::HostPlugin;
+use crate::itable::InstructionTable;
+use crate::itable::InstructionTableEntry;
 use crate::step::StepInfo;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventTableEntry {
     pub eid: u32,
+    pub fid: u32,
+    pub iid: u32,
     pub sp: u32,
     pub allocated_memory_pages: u32,
     pub last_jump_eid: u32,
-    pub inst: InstructionTableEntry,
     pub step_info: StepInfo,
+}
+
+impl EventTableEntry {
+    pub fn get_instruction<'a>(&self, itable: &'a InstructionTable) -> &'a InstructionTableEntry {
+        itable.get(self.fid, self.iid)
+    }
 }
 
 pub struct RestMops {

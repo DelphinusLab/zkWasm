@@ -7,6 +7,7 @@ use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsVerifier;
+use log::warn;
 use std::marker::PhantomData;
 
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
@@ -120,8 +121,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         set_zkwasm_k(k);
 
         let mut module = wasmi::Module::from_buffer(&image)?;
-        let parity_module = module.module().clone().parse_names().unwrap();
-        module.module = parity_module;
+        if let Ok(parity_module) = module.module().clone().parse_names() {
+            module.module = parity_module;
+        } else {
+            warn!("Failed to parse name section of the wasm binary.");
+        }
 
         let loader = Self {
             k,

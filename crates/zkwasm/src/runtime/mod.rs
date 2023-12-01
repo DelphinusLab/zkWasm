@@ -417,7 +417,7 @@ pub fn memory_event_of_step(event: &EventTableEntry, emid: &mut u32) -> Vec<Memo
 
             ops
         }
-        StepInfo::Call { index: _, .. } => {
+        StepInfo::Call { index: _ } => {
             vec![]
         }
         StepInfo::CallIndirect { offset, .. } => {
