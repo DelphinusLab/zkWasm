@@ -78,6 +78,7 @@ fn compile_then_execute_wasm(
         &imports,
         &env.function_description_table(),
         function_name,
+        false,
         &vec![],
     )
     .unwrap();
