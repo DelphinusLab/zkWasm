@@ -18,7 +18,6 @@ use crate::types::ValueType;
 use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::btree_map::Iter;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -596,63 +595,83 @@ pub struct InstructionTableEntry {
     pub function_name: String,
     pub iid: u32,
     pub opcode: Opcode,
+    pub encode: BigUint,
 }
 
 impl InstructionTableEntry {
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
+    pub fn new(fid: u32, function_name: String, iid: u32, opcode: Opcode) -> Self {
+        let encode = InstructionTableEntry::encode(fid, iid, &opcode);
 
-    pub fn encode_instruction_address(&self) -> BigUint {
-        let mut bn = BigUint::from(0u64);
-        bn += self.fid;
-        bn = bn << 16;
-        bn += self.iid;
-        bn
-    }
-}
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct InstructionTableInternal(Vec<InstructionTableEntry>);
-
-impl InstructionTableInternal {
-    pub fn push(&mut self, fid: u32, function_name: String, iid: u32, opcode: Opcode) {
-        self.0.push(InstructionTableEntry {
+        Self {
             fid,
             function_name,
             iid,
             opcode,
-        })
+            encode,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct InstructionTable(Rc<BTreeMap<(u32, u32), InstructionTableEntry>>);
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct InstructionTableInternal {
+    instructions: BTreeMap<(u32, u32), InstructionTableEntry>,
+    instruction_number_of_function: Vec<u32>,
+}
+
+impl InstructionTableInternal {
+    pub fn push(&mut self, fid: u32, function_name: String, iid: u32, opcode: Opcode) {
+        if self.instruction_number_of_function.len() <= fid as usize {
+            self.instruction_number_of_function
+                .resize(fid as usize + 1, 0);
+        }
+
+        self.instruction_number_of_function[fid as usize] =
+            self.instruction_number_of_function[fid as usize].max(iid + 1);
+
+        self.instructions.insert(
+            (fid, iid),
+            InstructionTableEntry::new(fid, function_name, iid, opcode),
+        );
+    }
+}
+
+// Use Option because iid may be discontinuous
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+pub struct InstructionTable(Rc<Vec<Vec<Option<InstructionTableEntry>>>>);
 
 impl InstructionTable {
     pub fn new(entries: InstructionTableInternal) -> Self {
-        Self(Rc::new(
-            entries
-                .0
-                .into_iter()
-                .map(|entry| ((entry.fid, entry.iid), entry))
-                .collect(),
-        ))
+        let mut v = Vec::with_capacity(entries.instruction_number_of_function.len());
+        for maximal_iid in entries.instruction_number_of_function.iter() {
+            v.push(vec![None; *maximal_iid as usize])
+        }
+
+        entries
+            .instructions
+            .into_iter()
+            .for_each(|((fid, iid), instruction)| {
+                v[fid as usize][iid as usize] = Some(instruction.into())
+            });
+
+        Self(Rc::new(v))
     }
 
-    pub fn get(&self, fid: u32, iid: u32) -> &InstructionTableEntry {
-        self.0.get(&(fid, iid)).unwrap()
+    pub fn get(&self, fid: u32, iid: u32) -> &Option<InstructionTableEntry> {
+        &self.0[fid as usize][iid as usize]
     }
 
-    pub fn entries(&self) -> Iter<(u32, u32), InstructionTableEntry> {
-        self.0.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &InstructionTableEntry> {
+        self.0.iter().flatten().filter_map(|e| e.as_ref())
     }
 
     pub fn create_brtable(&self) -> BrTable {
         let entries: Vec<Vec<BrTableEntry>> = self
-            .0
             .iter()
-            .map(|(_, entry)| match &entry.opcode {
+            .map(|entry| match &entry.opcode {
                 Opcode::BrTable { targets } => targets
                     .iter()
                     .enumerate()
@@ -676,24 +695,5 @@ impl InstructionTable {
 impl Into<InstructionTable> for InstructionTableInternal {
     fn into(self) -> InstructionTable {
         InstructionTable::new(self)
-    }
-}
-
-impl Serialize for InstructionTable {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.values().collect::<Vec<_>>().serialize(serializer)
-    }
-}
-impl<'de> Deserialize<'de> for InstructionTable {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let internal = InstructionTableInternal::deserialize(deserializer);
-
-        internal.map(|internal| internal.into())
     }
 }

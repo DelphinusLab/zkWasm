@@ -2,35 +2,31 @@ import json
 import copy
 import sys
 
-def analyze_itable(itable):
-    dict = {}
-
-    for entry in itable:
-        dict[(entry["fid"], entry["iid"])] = entry
-
-    return dict
-
 def name_of_function(itable:dict, func_index):
-    return itable[func_index, 0]["function_name"]
+    return itable[func_index][0]["function_name"]
+
+def name_of_opcode(opcode):
+    if not type(opcode) == str:
+        if len(opcode.items()) != 1:
+            print("Panic")
+            exit(1)
+
+        for key, value in opcode.items():
+            opcode = key
+            break
+
+    return opcode
 
 def analyze_etable(itable:dict, etable):
     dict = {}
     frame = []
 
     for entry in etable:
-        inst = itable[(entry["fid"], entry["iid"])]
+        inst = itable[entry["fid"]][entry["iid"]]
+        opcode = name_of_opcode(inst["opcode"])
 
         if len(frame) == 0:
             frame.append(inst["function_name"])
-
-        if not type(inst["opcode"]) == str:
-            if len(inst["opcode"].items()) != 1:
-                print("Panic")
-                exit(1)
-
-            for key, value in inst["opcode"].items():
-                opcode = key
-                break
 
         if tuple(frame) not in dict:
                 dict[tuple(frame)] = 1
@@ -64,8 +60,6 @@ def main():
     itable = json.load(itable)
     etable = open(etable_path)
     etable = json.load(etable)
-
-    itable = analyze_itable(itable)
 
     dict = analyze_etable(itable, etable)
     generate_log(dict)

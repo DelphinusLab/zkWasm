@@ -70,9 +70,9 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
                 &ImageTableEncoder::Instruction.encode(BigUint::from(0u64)),
             ));
 
-            for (_, e) in instruction_table.entries() {
+            for e in instruction_table.iter() {
                 cells.push(bn_to_field(
-                    &ImageTableEncoder::Instruction.encode(e.encode()),
+                    &ImageTableEncoder::Instruction.encode(e.encode.clone()),
                 ));
             }
 
