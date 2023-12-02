@@ -19,7 +19,7 @@ pub struct EventTableEntry {
 
 impl EventTableEntry {
     pub fn get_instruction<'a>(&self, itable: &'a InstructionTable) -> &'a InstructionTableEntry {
-        itable.get(self.fid, self.iid)
+        &itable.get(self.fid, self.iid).as_ref().unwrap()
     }
 }
 
