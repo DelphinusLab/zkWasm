@@ -654,7 +654,7 @@ impl InstructionTable {
             .instructions
             .into_iter()
             .for_each(|((fid, iid), instruction)| {
-                v[fid as usize][iid as usize] = Some(instruction.into())
+                v[fid as usize][iid as usize] = Some(instruction)
             });
 
         Self(Rc::new(v))
