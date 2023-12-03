@@ -18,7 +18,6 @@ use crate::types::ValueType;
 use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::rc::Rc;
 use strum_macros::EnumIter;
@@ -617,25 +616,26 @@ impl InstructionTableEntry {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct InstructionTableInternal {
-    instructions: BTreeMap<(u32, u32), InstructionTableEntry>,
-    instruction_number_of_function: Vec<u32>,
-}
+pub struct InstructionTableInternal(Vec<Vec<Option<InstructionTableEntry>>>);
 
 impl InstructionTableInternal {
     pub fn push(&mut self, fid: u32, function_name: String, iid: u32, opcode: Opcode) {
-        if self.instruction_number_of_function.len() <= fid as usize {
-            self.instruction_number_of_function
-                .resize(fid as usize + 1, 0);
+        let fid = fid as usize;
+        let iid = iid as usize;
+
+        if self.0.len() <= fid {
+            self.0.resize(fid + 1, vec![]);
+        }
+        if self.0[fid].len() <= iid {
+            self.0[fid].resize(iid + 1, None);
         }
 
-        self.instruction_number_of_function[fid as usize] =
-            self.instruction_number_of_function[fid as usize].max(iid + 1);
-
-        self.instructions.insert(
-            (fid, iid),
-            InstructionTableEntry::new(fid, function_name, iid, opcode),
-        );
+        self.0[fid][iid] = Some(InstructionTableEntry::new(
+            fid as u32,
+            function_name,
+            iid as u32,
+            opcode,
+        ));
     }
 }
 
@@ -645,19 +645,7 @@ pub struct InstructionTable(Rc<Vec<Vec<Option<InstructionTableEntry>>>>);
 
 impl InstructionTable {
     pub fn new(entries: InstructionTableInternal) -> Self {
-        let mut v = Vec::with_capacity(entries.instruction_number_of_function.len());
-        for maximal_iid in entries.instruction_number_of_function.iter() {
-            v.push(vec![None; *maximal_iid as usize])
-        }
-
-        entries
-            .instructions
-            .into_iter()
-            .for_each(|((fid, iid), instruction)| {
-                v[fid as usize][iid as usize] = Some(instruction)
-            });
-
-        Self(Rc::new(v))
+        Self(Rc::new(entries.0))
     }
 
     pub fn get(&self, fid: u32, iid: u32) -> &Option<InstructionTableEntry> {
