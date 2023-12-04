@@ -247,6 +247,8 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         vkey: VerifyingKey<E::G1Affine>,
         instances: Vec<E::Scalar>,
         proof: Vec<u8>,
+        #[cfg(feature = "uniform-circuit")]
+        config: EnvBuilder::HostConfig,
     ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
@@ -278,7 +280,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
                     &mut PoseidonRead::init(&proof[..]),
                 )
                 .unwrap();
-            let checksum = self.checksum(params)?;
+            let checksum = self.checksum(params, config)?;
 
             assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
         }
