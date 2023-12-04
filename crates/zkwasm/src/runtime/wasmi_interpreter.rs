@@ -133,7 +133,7 @@ impl WasmiRuntime {
                     iid: 0,
                 });
 
-            if instance.has_start() {
+            if let Some(idx_of_start_function) = module.module().start_section() {
                 tracer
                     .clone()
                     .borrow_mut()
@@ -142,20 +142,20 @@ impl WasmiRuntime {
                         enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
-                        callee_fid: 0, // the fid of start function is always 0
+                        callee_fid: idx_of_start_function,
                         fid: idx_of_entry,
                         iid: 0,
                     });
             }
 
             if instance.has_start() {
-                0
+                module.module().start_section().unwrap()
             } else {
                 idx_of_entry
             }
         };
 
-        let itable = tracer.borrow().itable.clone();
+        let itable = tracer.borrow().itable.clone().into();
         let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
         let elem_table = tracer.borrow().elem_table.clone();
         let configure_table = tracer.borrow().configure_table.clone();

@@ -121,7 +121,6 @@ pub trait AppBuilder: CommandBuilder {
                 let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
                 let context_out_path: Option<PathBuf> =
                     Self::parse_context_out_path_arg(&sub_matches);
-
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
                 let context_output = Arc::new(Mutex::new(vec![]));
@@ -134,7 +133,7 @@ pub trait AppBuilder: CommandBuilder {
                         public_inputs,
                         private_inputs,
                         context_inputs: context_in,
-                        context_outputs: Arc::new(Mutex::new(vec![])),
+                        context_outputs: context_output.clone(),
                     },
                 )?;
 
