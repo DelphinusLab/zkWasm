@@ -1,30 +1,19 @@
-use crate::app_builder::write_context_output;
 use anyhow::Result;
 use circuits_batcher::proof::CircuitInfo;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
-use delphinus_zkwasm::runtime::host::ContextOutput;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
-use delphinus_zkwasm::runtime::host::Sequence;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::native_verifier;
-use log::debug;
-use log::error;
 use log::info;
-use notify::event::AccessMode;
-use notify::RecursiveMode;
-use notify::Watcher;
-use std::fs;
 use std::io::Write;
-use std::path::Path;
 use std::path::PathBuf;
-use wasmi::RuntimeValue;
 
 pub fn exec_setup<Arg, Builder>(
     zkwasm_k: u32,
@@ -109,92 +98,6 @@ where
     Ok(())
 }
 
-pub fn exec_dry_run_service<Arg, Builder>(
-    zkwasm_k: u32,
-    wasm_binary: Vec<u8>,
-    phantom_functions: Vec<String>,
-    listen: &PathBuf,
-) -> Result<()>
-where
-    Arg: ContextOutput + From<Sequence>,
-    Builder: HostEnvBuilder<Arg = Arg>,
-{
-    use notify::event::AccessKind;
-    use notify::event::EventKind;
-    use notify::event::ModifyKind;
-    use notify::event::RenameMode;
-    use notify::Event;
-
-    info!("Dry-run service is running.");
-    info!("{:?} is watched", listen);
-
-    let mut watcher =
-        notify::recommended_watcher(move |handler: Result<Event, _>| match handler {
-            Ok(event) => {
-                debug!("Event {:?}", event);
-
-                match event.kind {
-                    EventKind::Access(AccessKind::Close(AccessMode::Write))
-                    | EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
-                        assert_eq!(event.paths.len(), 1);
-                        let path = event.paths.first().unwrap();
-
-                        if let Some(ext) = path.extension() {
-                            if ext.eq("done") {
-                                return;
-                            };
-                        }
-
-                        info!("Receive a request from file {:?}", path);
-
-                        let json = fs::read_to_string(path).unwrap();
-                        if let Ok(sequence) = serde_json::from_str::<Sequence>(&json) {
-                            let arg: Arg = sequence.clone().into();
-                            let context_output_data = arg.get_context_outputs();
-
-                            let loader = ZkWasmLoader::<Bn256, Arg, Builder>::new(
-                                zkwasm_k,
-                                wasm_binary.clone(),
-                                phantom_functions.clone(),
-                            )
-                            .unwrap();
-                            let r = loader.dry_run(arg).unwrap();
-                            println!("return value: {:?}", r);
-
-                            write_context_output(
-                                &context_output_data.lock().unwrap().to_vec(),
-                                sequence.context_output,
-                            )
-                            .unwrap();
-
-                            fs::write(
-                                Path::new(&format!("{}.done", path.to_str().unwrap())),
-                                if let Some(r) = r {
-                                    match r {
-                                        RuntimeValue::I32(v) => v.to_string(),
-                                        RuntimeValue::I64(v) => v.to_string(),
-                                        _ => unreachable!(),
-                                    }
-                                } else {
-                                    "".to_owned()
-                                },
-                            )
-                            .unwrap();
-                        } else {
-                            error!("Failed to parse file {:?}, the request is ignored.", path);
-                        }
-                    }
-                    _ => (),
-                }
-            }
-            Err(e) => println!("watch error: {:?}", e),
-        })?;
-
-    loop {
-        watcher.watch(listen.as_path(), RecursiveMode::NonRecursive)?;
-    }
-}
-
 pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
@@ -203,9 +106,7 @@ pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
 ) -> Result<()> {
     let loader =
         ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
-
-    loader.dry_run(arg)?;
-
+    loader.run(arg, true, false)?;
     Ok(())
 }
 

@@ -5,7 +5,6 @@ use delphinus_zkwasm::circuits::config::MIN_K;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use log::info;
-use log::warn;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -16,7 +15,6 @@ use crate::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
 use super::exec::exec_create_proof;
-use super::exec::exec_dry_run_service;
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_verify_proof;
@@ -123,44 +121,25 @@ pub trait AppBuilder: CommandBuilder {
                 let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
                 let context_out_path: Option<PathBuf> =
                     Self::parse_context_out_path_arg(&sub_matches);
-                let service_mode = Self::parse_dry_run_service_arg(&sub_matches);
+                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
-                if let Some(listen) = service_mode {
-                    if !public_inputs.is_empty() || !private_inputs.is_empty() {
-                        warn!("All private/public inputs are ignored when dry-run is running in service mode.");
-                    }
+                let context_output = Arc::new(Mutex::new(vec![]));
 
-                    if !context_in.is_empty() || context_out_path.is_some() {
-                        warn!("All context paths are ignored when dry-run is running in service mode.");
-                    }
+                exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
+                    zkwasm_k,
+                    wasm_binary,
+                    phantom_functions,
+                    ExecutionArg {
+                        public_inputs,
+                        private_inputs,
+                        context_inputs: context_in,
+                        context_outputs: context_output.clone(),
+                    },
+                )?;
 
-                    exec_dry_run_service::<ExecutionArg, DefaultHostEnvBuilder>(
-                        zkwasm_k,
-                        wasm_binary,
-                        phantom_functions,
-                        &listen,
-                    )
-                } else {
-                    assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+                write_context_output(&context_output.lock().unwrap(), context_out_path)?;
 
-                    let context_output = Arc::new(Mutex::new(vec![]));
-
-                    exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
-                        zkwasm_k,
-                        wasm_binary,
-                        phantom_functions,
-                        ExecutionArg {
-                            public_inputs,
-                            private_inputs,
-                            context_inputs: context_in,
-                            context_outputs: context_output.clone(),
-                        },
-                    )?;
-
-                    write_context_output(&context_output.lock().unwrap(), context_out_path)?;
-
-                    Ok(())
-                }
+                Ok(())
             }
             Some(("single-prove", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);

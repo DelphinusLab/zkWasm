@@ -20,7 +20,6 @@ pub trait CommandBuilder: ArgBuilder {
         let command = Command::new("dry-run")
             .arg(Self::single_public_arg())
             .arg(Self::single_private_arg())
-            .arg(Self::dry_run_service_arg())
             .arg(Self::context_in_arg())
             .arg(Self::context_out_path_arg());
 

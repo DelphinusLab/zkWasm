@@ -84,7 +84,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(())
     }
 
-    pub fn compile(&self, env: &HostEnv) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
+    pub fn compile(
+        &self,
+        env: &HostEnv,
+        dryrun: bool,
+    ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
         WasmInterpreter::compile(
@@ -92,6 +96,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             &imports,
             &env.function_description_table(),
             ENTRY,
+            dryrun,
             &self.phantom_functions,
         )
     }
@@ -99,7 +104,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value();
 
-        let compiled_module = self.compile(&env)?;
+        let compiled_module = self.compile(&env, true)?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
@@ -148,7 +153,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
     pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
         let (env, _) = EnvBuilder::create_env_without_value();
-        let compiled = self.compile(&env)?;
+        let compiled = self.compile(&env, true)?;
 
         let table_with_params = CompilationTableWithParams {
             table: &compiled.tables,
@@ -160,24 +165,23 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 }
 
 impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
-    pub fn dry_run(&self, arg: T) -> Result<Option<RuntimeValue>> {
-        let (mut env, _) = EnvBuilder::create_env(arg);
-
-        let compiled_module = self.compile(&env)?;
-
-        compiled_module.dry_run(&mut env)
-    }
-
-    pub fn run(&self, arg: T, write_to_file: bool) -> Result<ExecutionResult<RuntimeValue>> {
+    pub fn run(
+        &self,
+        arg: T,
+        dryrun: bool,
+        write_to_file: bool,
+    ) -> Result<ExecutionResult<RuntimeValue>> {
         let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg);
-        let compiled_module = self.compile(&env)?;
+        let compiled_module = self.compile(&env, dryrun)?;
 
-        let result = compiled_module.run(&mut env, wasm_runtime_io)?;
+        let result = compiled_module.run(&mut env, dryrun, wasm_runtime_io)?;
 
-        result.tables.profile_tables();
+        if !dryrun {
+            result.tables.profile_tables();
 
-        if write_to_file {
-            result.tables.write_json(None);
+            if write_to_file {
+                result.tables.write_json(None);
+            }
         }
 
         Ok(result)
@@ -187,7 +191,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         arg: T,
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
-        let execution_result = self.run(arg, true)?;
+        let execution_result = self.run(arg, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()
