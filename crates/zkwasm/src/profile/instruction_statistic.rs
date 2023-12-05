@@ -1,8 +1,8 @@
 use log::debug;
-use specs::etable::EventTable;
 use specs::itable::OpcodeClass;
 use specs::mtable::AccessType;
 use specs::mtable::MemoryTableEntry;
+use specs::Tables;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
@@ -12,7 +12,7 @@ pub trait InstructionStatistic {
     fn profile_instruction(&self);
 }
 
-impl InstructionStatistic for EventTable {
+impl InstructionStatistic for Tables {
     fn profile_instruction(&self) {
         struct Counter {
             counter: usize,
@@ -20,15 +20,19 @@ impl InstructionStatistic for EventTable {
         }
 
         let mut map = BTreeMap::<OpcodeClass, Counter>::new();
-        for entry in self.entries() {
+        for entry in self.execution_tables.etable.entries() {
             let mut mentries = memory_event_of_step(entry, &mut 1);
 
-            if let Some(counter) = map.get_mut(&entry.inst.opcode.clone().into()) {
+            let opcode = &entry
+                .get_instruction(&self.compilation_tables.itable)
+                .opcode;
+
+            if let Some(counter) = map.get_mut(&opcode.into()) {
                 counter.counter += 1;
                 counter.mentries.append(&mut mentries);
             } else {
                 map.insert(
-                    entry.inst.opcode.clone().into(),
+                    opcode.into(),
                     Counter {
                         counter: 1,
                         mentries,
@@ -45,7 +49,10 @@ impl InstructionStatistic for EventTable {
             a.iter().sum()
         };
 
-        debug!("etable entries: {}", self.entries().len());
+        debug!(
+            "etable entries: {}",
+            self.execution_tables.etable.entries().len()
+        );
         debug!("mtable entries: {}", total_mentries);
 
         struct Summary {

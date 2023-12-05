@@ -45,8 +45,8 @@ impl JumpTableEntry {
             self.eid.to_biguint().unwrap(),
             self.last_jump_eid.to_biguint().unwrap(),
             self.callee_fid.to_biguint().unwrap(),
-            self.inst.fid.to_biguint().unwrap(),
-            self.inst.iid.to_biguint().unwrap(),
+            self.fid.to_biguint().unwrap(),
+            self.iid.to_biguint().unwrap(),
         )
     }
 }
