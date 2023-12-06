@@ -7,6 +7,7 @@ use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsVerifier;
+use log::warn;
 use std::marker::PhantomData;
 
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
@@ -83,7 +84,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(())
     }
 
-    pub fn compile(&self, env: &HostEnv) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
+    pub fn compile(
+        &self,
+        env: &HostEnv,
+        dryrun: bool,
+    ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
         WasmInterpreter::compile(
@@ -91,14 +96,15 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             &imports,
             &env.function_description_table(),
             ENTRY,
+            dryrun,
             &self.phantom_functions,
         )
     }
 
-    fn circuit_without_witness(&self) -> Result<TestCircuit<E::Scalar>> {
-        let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value();
+    fn circuit_without_witness(&self, envconfig: EnvBuilder::HostConfig) -> Result<TestCircuit<E::Scalar>> {
+        let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
 
-        let compiled_module = self.compile(&env)?;
+        let compiled_module = self.compile(&env, true)?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
@@ -119,7 +125,12 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
         set_zkwasm_k(k);
 
-        let module = wasmi::Module::from_buffer(&image)?;
+        let mut module = wasmi::Module::from_buffer(&image)?;
+        if let Ok(parity_module) = module.module().clone().parse_names() {
+            module.module = parity_module;
+        } else {
+            warn!("Failed to parse name section of the wasm binary.");
+        }
 
         let loader = Self {
             k,
@@ -134,15 +145,15 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(loader)
     }
 
-    pub fn create_vkey(&self, params: &Params<E::G1Affine>) -> Result<VerifyingKey<E::G1Affine>> {
-        let circuit = self.circuit_without_witness()?;
+    pub fn create_vkey(&self, params: &Params<E::G1Affine>, envconfig: EnvBuilder::HostConfig) -> Result<VerifyingKey<E::G1Affine>> {
+        let circuit = self.circuit_without_witness(envconfig)?;
 
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
 
-    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
-        let (env, _) = EnvBuilder::create_env_without_value();
-        let compiled = self.compile(&env)?;
+    pub fn checksum(&self, params: &Params<E::G1Affine>, envconfig: EnvBuilder::HostConfig) -> Result<Vec<E::G1Affine>> {
+        let (env, _) = EnvBuilder::create_env_without_value(envconfig);
+        let compiled = self.compile(&env, true)?;
 
         let table_with_params = CompilationTableWithParams {
             table: &compiled.tables,
@@ -154,24 +165,24 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 }
 
 impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
-    pub fn dry_run(&self, arg: T) -> Result<Option<RuntimeValue>> {
-        let (mut env, _) = EnvBuilder::create_env(arg);
+    pub fn run(
+        &self,
+        arg: T,
+        config: EnvBuilder::HostConfig,
+        dryrun: bool,
+        write_to_file: bool,
+    ) -> Result<ExecutionResult<RuntimeValue>> {
+        let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
+        let compiled_module = self.compile(&env, dryrun)?;
 
-        let compiled_module = self.compile(&env)?;
+        let result = compiled_module.run(&mut env, dryrun, wasm_runtime_io)?;
 
-        compiled_module.dry_run(&mut env)
-    }
+        if !dryrun {
+            result.tables.profile_tables();
 
-    pub fn run(&self, arg: T, write_to_file: bool) -> Result<ExecutionResult<RuntimeValue>> {
-        let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg);
-        let compiled_module = self.compile(&env)?;
-
-        let result = compiled_module.run(&mut env, wasm_runtime_io)?;
-
-        result.tables.profile_tables();
-
-        if write_to_file {
-            result.tables.write_json(None);
+            if write_to_file {
+                result.tables.write_json(None);
+            }
         }
 
         Ok(result)
@@ -180,8 +191,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn circuit_with_witness(
         &self,
         arg: T,
+        config: EnvBuilder::HostConfig
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
-        let execution_result = self.run(arg, true)?;
+        let execution_result = self.run(arg, config, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()
@@ -241,6 +253,8 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         vkey: VerifyingKey<E::G1Affine>,
         instances: Vec<E::Scalar>,
         proof: Vec<u8>,
+        #[cfg(feature = "uniform-circuit")]
+        config: EnvBuilder::HostConfig,
     ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
@@ -272,7 +286,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
                     &mut PoseidonRead::init(&proof[..]),
                 )
                 .unwrap();
-            let checksum = self.checksum(params)?;
+            let checksum = self.checksum(params, config)?;
 
             assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
         }
@@ -325,7 +339,7 @@ mod tests {
             }
 
             let params = prepare_param(self.k);
-            let vkey = self.create_vkey(&params).unwrap();
+            let vkey = self.create_vkey(&params, ()).unwrap();
 
             let proof = self
                 .create_proof(&params, vkey.clone(), circuit, &instances)

@@ -191,7 +191,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                 assert!(keep.len() <= 1);
 
                 let index = *index as u32 as u64;
-                let targets = match &entry.eentry.inst.opcode {
+                let targets = match &entry.eentry.get_instruction(step.current.itable).opcode {
                     specs::itable::Opcode::BrTable { targets } => targets.clone(),
                     _ => unreachable!(),
                 };

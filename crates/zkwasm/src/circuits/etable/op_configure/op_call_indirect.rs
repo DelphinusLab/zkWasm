@@ -134,6 +134,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                 type_index,
                 offset,
                 func_index,
+                ..
             } => {
                 self.table_index.assign(ctx, F::from(*table_index as u64))?;
                 self.type_index.assign(ctx, F::from(*type_index as u64))?;

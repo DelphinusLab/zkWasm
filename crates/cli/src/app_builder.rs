@@ -6,8 +6,9 @@ use delphinus_host::StandardHostEnvBuilder as StandardEnvBuilder;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
+use delphinus_host::HostEnvConfig;
+
 use log::info;
-use log::warn;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -18,7 +19,6 @@ use crate::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
 use super::exec::exec_create_proof;
-use super::exec::exec_dry_run_service;
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_verify_proof;
@@ -114,6 +114,7 @@ pub trait AppBuilder: CommandBuilder {
                     Self::NAME,
                     wasm_binary,
                     phantom_functions,
+                    (),
                     &output_dir,
                     &param_dir,
                 ),
@@ -123,6 +124,7 @@ pub trait AppBuilder: CommandBuilder {
                     Self::NAME,
                     wasm_binary,
                     phantom_functions,
+                    HostEnvConfig::default(),
                     &output_dir,
                     &param_dir,
                 ),
@@ -132,12 +134,14 @@ pub trait AppBuilder: CommandBuilder {
                 "default" => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
+                    (),
                     phantom_functions,
                     &output_dir,
                 ),
                 &_ => exec_image_checksum::<StandardArg, StandardEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
+                    HostEnvConfig::default(),
                     phantom_functions,
                     &output_dir,
                 ),
@@ -149,69 +153,44 @@ pub trait AppBuilder: CommandBuilder {
                 let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
                 let context_out_path: Option<PathBuf> =
                     Self::parse_context_out_path_arg(&sub_matches);
-                let service_mode = Self::parse_dry_run_service_arg(&sub_matches);
+                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
-                if let Some(listen) = service_mode {
-                    if !public_inputs.is_empty() || !private_inputs.is_empty() {
-                        warn!("All private/public inputs are ignored when dry-run is running in service mode.");
-                    }
+                let context_output = Arc::new(Mutex::new(vec![]));
 
-                    if !context_in.is_empty() || context_out_path.is_some() {
-                        warn!("All context paths are ignored when dry-run is running in service mode.");
-                    }
-                    match host_mode.as_str() {
-                        "default" => exec_dry_run_service::<ExecutionArg, DefaultHostEnvBuilder>(
+                match host_mode.as_str() {
+                    "default" => {
+                        exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
                             zkwasm_k,
                             wasm_binary,
                             phantom_functions,
-                            &listen,
-                        ),
-                        _ => exec_dry_run_service::<StandardArg, StandardEnvBuilder>(
+                            ExecutionArg {
+                                public_inputs,
+                                private_inputs,
+                                context_inputs: context_in,
+                                context_outputs: context_output.clone(),
+                            },
+                            ()
+                            )?;
+                    },
+                    _ => {
+                        exec_dry_run::<StandardArg, StandardEnvBuilder>(
                             zkwasm_k,
                             wasm_binary,
                             phantom_functions,
-                            &listen,
-                        ),
+                            StandardArg {
+                                public_inputs,
+                                private_inputs,
+                                context_inputs: context_in,
+                                context_outputs: context_output.clone(),
+                                tree_db: None,
+                            },
+                            HostEnvConfig::default()
+                            )?;
                     }
-                } else {
-                    assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+                };
 
-                    let context_output = Arc::new(Mutex::new(vec![]));
-
-                    match host_mode.as_str() {
-                        "default" => {
-                            exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
-                                zkwasm_k,
-                                wasm_binary,
-                                phantom_functions,
-                                ExecutionArg {
-                                    public_inputs,
-                                    private_inputs,
-                                    context_inputs: context_in,
-                                    context_outputs: Arc::new(Mutex::new(vec![])),
-                                },
-                            )?;
-                        }
-                        _ => {
-                            exec_dry_run::<StandardArg, StandardEnvBuilder>(
-                                zkwasm_k,
-                                wasm_binary,
-                                phantom_functions,
-                                StandardArg {
-                                    public_inputs,
-                                    private_inputs,
-                                    context_inputs: context_in,
-                                    context_outputs: Arc::new(Mutex::new(vec![])),
-                                    tree_db: None,
-                                },
-                            )?;
-                        }
-                    };
-
-                    write_context_output(&context_output.lock().unwrap(), context_out_path)?;
-
-                    Ok(())
-                }
+                write_context_output(&context_output.lock().unwrap(), context_out_path)?;
+                Ok(())
             }
 
             Some(("single-prove", sub_matches)) => {
@@ -239,6 +218,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_inputs: context_in,
                                 context_outputs: context_out.clone(),
                             },
+                            ()
                         )?;
                     }
                     _ => {
@@ -256,6 +236,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_outputs: context_out.clone(),
                                 tree_db: None,
                             },
+                            HostEnvConfig::default()
                         )?;
                     }
                 };

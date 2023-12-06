@@ -216,6 +216,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         || "Assign etable",
                         echip.assign(
                             &mut ctx,
+                            &self.tables.compilation_tables.itable,
                             &etable,
                             &self.tables.compilation_tables.configure_table,
                             self.tables.compilation_tables.fid_of_entry,

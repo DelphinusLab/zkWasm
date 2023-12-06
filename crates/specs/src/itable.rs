@@ -18,7 +18,8 @@ use crate::types::ValueType;
 use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashSet;
+use std::fmt::Debug;
+use std::rc::Rc;
 use strum_macros::EnumIter;
 
 #[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -297,12 +298,12 @@ pub enum Opcode {
 
 impl Opcode {
     pub fn mops(&self) -> u64 {
-        let opcode_class: OpcodeClass = self.clone().into();
+        let opcode_class: OpcodeClass = self.into();
         opcode_class.mops()
     }
 
     pub fn jops(&self) -> u64 {
-        let opcode_class: OpcodeClass = self.clone().into();
+        let opcode_class: OpcodeClass = self.into();
         opcode_class.jops()
     }
 
@@ -322,95 +323,95 @@ pub const OPCODE_ARG0_SHIFT: u32 = OPCODE_ARG1_SHIFT + COMMON_RANGE_OFFSET;
 pub const OPCODE_ARG1_SHIFT: u32 = 64;
 pub const OPCODE_CELL: usize = 4;
 
-impl Into<BigUint> for Opcode {
+impl Into<BigUint> for &Opcode {
     fn into(self) -> BigUint {
         let bn = match self {
             Opcode::LocalGet { vtype, offset } => {
                 (BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
             Opcode::LocalSet { vtype, offset } => {
                 (BigUint::from(OpcodeClass::LocalSet as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
             Opcode::LocalTee { vtype, offset } => {
                 (BigUint::from(OpcodeClass::LocalTee as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG0_SHIFT)
                     + offset
             }
-            Opcode::GlobalGet { idx } => encode_global_get(BigUint::from(idx)),
-            Opcode::GlobalSet { idx } => encode_global_set(BigUint::from(idx)),
+            Opcode::GlobalGet { idx } => encode_global_get(BigUint::from(*idx)),
+            Opcode::GlobalSet { idx } => encode_global_set(BigUint::from(*idx)),
             Opcode::Const { vtype, value } => {
                 (BigUint::from(OpcodeClass::Const as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG0_SHIFT)
                     + value
             }
             Opcode::Drop => BigUint::from(OpcodeClass::Drop as u64) << OPCODE_CLASS_SHIFT,
             Opcode::Select => BigUint::from(OpcodeClass::Select as u64) << OPCODE_CLASS_SHIFT,
             Opcode::Return { drop, keep } => {
                 (BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*drop as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
                     + keep.first().map_or(0u64, |x| VarType::from(*x) as u64)
             }
             Opcode::Bin { class, vtype } => {
                 (BigUint::from(OpcodeClass::Bin as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG1_SHIFT)
             }
             Opcode::BinShift { class, vtype } => {
                 (BigUint::from(OpcodeClass::BinShift as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG1_SHIFT)
             }
             Opcode::BinBit { class, vtype } => {
                 (BigUint::from(OpcodeClass::BinBit as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG1_SHIFT)
             }
             Opcode::Unary { class, vtype } => {
                 (BigUint::from(OpcodeClass::Unary as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG1_SHIFT)
             }
             Opcode::Test { class, vtype } => {
                 (BigUint::from(OpcodeClass::Test as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG1_SHIFT)
             }
             Opcode::Rel { class, vtype } => {
                 (BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(class as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*class as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG1_SHIFT)
             }
             Opcode::Br { drop, keep, dst_pc } => {
                 // TODO: should encode type of keep values?
                 (BigUint::from(OpcodeClass::Br as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*drop as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
                     + dst_pc
             }
             Opcode::BrIf { drop, keep, dst_pc } => {
                 // TODO: should encode type of keep values?
                 (BigUint::from(OpcodeClass::BrIf as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(drop as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*drop as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
                     + dst_pc
             }
             Opcode::BrIfEqz { drop, keep, dst_pc } => encode_br_if_eqz(
-                BigUint::from(drop as u64),
+                BigUint::from(*drop as u64),
                 BigUint::from(keep.len() as u64),
-                BigUint::from(dst_pc),
+                BigUint::from(*dst_pc),
             ),
             Opcode::BrTable { targets } => encode_br_table(BigUint::from(targets.len())),
             Opcode::Unreachable => {
                 BigUint::from(OpcodeClass::Unreachable as u64) << OPCODE_CLASS_SHIFT
             }
-            Opcode::Call { index } => encode_call(BigUint::from(index as u64)),
+            Opcode::Call { index } => encode_call(BigUint::from(*index as u64)),
             Opcode::CallIndirect { type_idx } => {
-                encode_call_indirect(BigUint::from(type_idx as u64))
+                encode_call_indirect(BigUint::from(*type_idx as u64))
             }
             Opcode::InternalHostCall {
                 op_index_in_plugin, ..
@@ -418,11 +419,12 @@ impl Into<BigUint> for Opcode {
                 let opcode_class_plain: OpcodeClassPlain = self.into();
 
                 (BigUint::from(opcode_class_plain.0) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(op_index_in_plugin as u64))
+                    + (BigUint::from(*op_index_in_plugin as u64))
             }
-            Opcode::ExternalHostCall { op, sig } => {
-                encode_call_host(BigUint::from(op as u64), BigUint::from(sig.is_ret() as u64))
-            }
+            Opcode::ExternalHostCall { op, sig } => encode_call_host(
+                BigUint::from(*op as u64),
+                BigUint::from(sig.is_ret() as u64),
+            ),
 
             Opcode::Load {
                 offset,
@@ -430,8 +432,8 @@ impl Into<BigUint> for Opcode {
                 size,
             } => {
                 (BigUint::from(OpcodeClass::Load as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(size as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*size as u64) << OPCODE_ARG1_SHIFT)
                     + offset
             }
             Opcode::Store {
@@ -440,8 +442,8 @@ impl Into<BigUint> for Opcode {
                 size,
             } => {
                 (BigUint::from(OpcodeClass::Store as u64) << OPCODE_CLASS_SHIFT)
-                    + (BigUint::from(vtype as u64) << OPCODE_ARG0_SHIFT)
-                    + (BigUint::from(size as u64) << OPCODE_ARG1_SHIFT)
+                    + (BigUint::from(*vtype as u64) << OPCODE_ARG0_SHIFT)
+                    + (BigUint::from(*size as u64) << OPCODE_ARG1_SHIFT)
                     + offset
             }
             Opcode::MemorySize => {
@@ -538,7 +540,7 @@ impl Into<BigUint> for Opcode {
     }
 }
 
-impl Into<OpcodeClass> for Opcode {
+impl Into<OpcodeClass> for &Opcode {
     fn into(self) -> OpcodeClass {
         match self {
             Opcode::LocalGet { .. } => OpcodeClass::LocalGet,
@@ -574,12 +576,12 @@ impl Into<OpcodeClass> for Opcode {
     }
 }
 
-impl Into<OpcodeClassPlain> for Opcode {
+impl Into<OpcodeClassPlain> for &Opcode {
     fn into(self) -> OpcodeClassPlain {
-        let class: OpcodeClass = self.clone().into();
+        let class: OpcodeClass = self.into();
 
         if let Opcode::InternalHostCall { plugin, .. } = self {
-            OpcodeClassPlain(class as usize + plugin as usize)
+            OpcodeClassPlain(class as usize + *plugin as usize)
         } else {
             OpcodeClassPlain(class as usize)
         }
@@ -589,38 +591,73 @@ impl Into<OpcodeClassPlain> for Opcode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InstructionTableEntry {
     pub fid: u32,
+    pub function_name: String,
     pub iid: u32,
     pub opcode: Opcode,
+    pub encode: BigUint,
 }
 
 impl InstructionTableEntry {
+    pub fn new(fid: u32, function_name: String, iid: u32, opcode: Opcode) -> Self {
+        let encode = InstructionTableEntry::encode(fid, iid, &opcode);
+
+        Self {
+            fid,
+            function_name,
+            iid,
+            opcode,
+            encode,
+        }
+    }
+
     pub fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
     }
+}
 
-    pub fn encode_instruction_address(&self) -> BigUint {
-        let mut bn = BigUint::from(0u64);
-        bn += self.fid;
-        bn = bn << 16;
-        bn += self.iid;
-        bn
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct InstructionTableInternal(Vec<Vec<Option<InstructionTableEntry>>>);
+
+impl InstructionTableInternal {
+    pub fn push(&mut self, fid: u32, function_name: String, iid: u32, opcode: Opcode) {
+        let fid = fid as usize;
+        let iid = iid as usize;
+
+        if self.0.len() <= fid {
+            self.0.resize(fid + 1, vec![]);
+        }
+        if self.0[fid].len() <= iid {
+            self.0[fid].resize(iid + 1, None);
+        }
+
+        self.0[fid][iid] = Some(InstructionTableEntry::new(
+            fid as u32,
+            function_name,
+            iid as u32,
+            opcode,
+        ));
     }
 }
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
-pub struct InstructionTable(Vec<InstructionTableEntry>);
+
+// Use Option because iid may be discontinuous
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+pub struct InstructionTable(Rc<Vec<Vec<Option<InstructionTableEntry>>>>);
 
 impl InstructionTable {
-    pub fn new(entries: Vec<InstructionTableEntry>) -> Self {
-        InstructionTable(entries)
+    pub fn new(entries: InstructionTableInternal) -> Self {
+        Self(Rc::new(entries.0))
     }
 
-    pub fn entries(&self) -> &Vec<InstructionTableEntry> {
-        &self.0
+    pub fn get(&self, fid: u32, iid: u32) -> &Option<InstructionTableEntry> {
+        &self.0[fid as usize][iid as usize]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &InstructionTableEntry> {
+        self.0.iter().flatten().filter_map(|e| e.as_ref())
     }
 
     pub fn create_brtable(&self) -> BrTable {
         let entries: Vec<Vec<BrTableEntry>> = self
-            .entries()
             .iter()
             .map(|entry| match &entry.opcode {
                 Opcode::BrTable { targets } => targets
@@ -641,18 +678,10 @@ impl InstructionTable {
 
         BrTable::new(entries.concat())
     }
+}
 
-    pub fn opcode_class(&self) -> HashSet<OpcodeClassPlain> {
-        let mut opcodeclass: HashSet<OpcodeClassPlain> = HashSet::new();
-
-        self.entries().iter().for_each(|entry| {
-            opcodeclass.insert(entry.opcode.clone().into());
-        });
-
-        opcodeclass
-    }
-
-    pub fn push(&mut self, fid: u32, iid: u32, opcode: Opcode) {
-        self.0.push(InstructionTableEntry { fid, iid, opcode })
+impl Into<InstructionTable> for InstructionTableInternal {
+    fn into(self) -> InstructionTable {
+        InstructionTable::new(self)
     }
 }

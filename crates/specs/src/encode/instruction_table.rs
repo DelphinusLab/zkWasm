@@ -3,6 +3,7 @@ use num_bigint::ToBigUint;
 
 use crate::encode::COMMON_RANGE_OFFSET;
 use crate::itable::InstructionTableEntry;
+use crate::itable::Opcode;
 use crate::itable::OPCODE_SHIFT;
 
 use super::FromBn;
@@ -21,11 +22,7 @@ pub fn encode_instruction_table_entry<T: FromBn>(fid: T, iid: T, opcode: T) -> T
 }
 
 impl InstructionTableEntry {
-    pub fn encode(&self) -> BigUint {
-        encode_instruction_table_entry(
-            BigUint::from(self.fid),
-            BigUint::from(self.iid),
-            self.opcode.clone().into(),
-        )
+    pub(crate) fn encode(fid: u32, iid: u32, opcode: &Opcode) -> BigUint {
+        encode_instruction_table_entry(BigUint::from(fid), BigUint::from(iid), opcode.into())
     }
 }
