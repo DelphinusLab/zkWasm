@@ -38,6 +38,7 @@ use crate::circuits::ZkWasmCircuitBuilder;
 use crate::continuation::loader::WitnessDumper;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
+#[cfg(not(feature = "continuation"))]
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;

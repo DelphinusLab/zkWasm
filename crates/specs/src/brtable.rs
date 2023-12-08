@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, Deserialize)]
 pub struct BrTableEntry {
     pub fid: u32,
     pub iid: u32,
@@ -13,7 +13,7 @@ pub struct BrTableEntry {
     pub dst_pc: u32,
 }
 
-#[derive(Default, Serialize, Debug, Clone)]
+#[derive(Default, Serialize, Debug, Clone, Deserialize)]
 pub struct BrTable(Vec<BrTableEntry>);
 
 impl BrTable {

@@ -154,7 +154,7 @@ fn generate_wasm_result(
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![]).unwrap();
 
     let execution_result = loader.run(ExecutionArg {
         public_inputs,
@@ -164,13 +164,6 @@ fn generate_wasm_result(
         output_dir: Some(std::env::current_dir().unwrap()),
         dump_table,
     })?;
-
-    let instances = execution_result
-        .public_inputs_and_outputs
-        .iter()
-        .map(|v| (*v).into())
-        .collect();
-    Ok((loader, instances, execution_result))
 }
 
 fn test_slices() -> Result<()> {

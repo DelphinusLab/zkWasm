@@ -181,6 +181,7 @@ impl Tables {
     pub fn load(dir: PathBuf, is_last_slice: bool, file_type: FileType) -> Tables {
         fn load_file(folder: &PathBuf, filename: &str) -> Vec<u8> {
             let mut folder = folder.clone();
+            std::fs::create_dir_all(folder.as_path()).unwrap();
             folder.push(filename);
             let mut file = File::open(folder.as_path()).unwrap();
             let mut buf = vec![];
