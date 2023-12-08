@@ -1,7 +1,8 @@
+use serde::Deserialize;
 use serde::Serialize;
 use strum_macros::EnumIter;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash, Deserialize)]
 pub enum LocationType {
     Stack = 1,
     Heap = 2,
@@ -21,7 +22,9 @@ impl AccessType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, Serialize, Hash, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, EnumIter, Serialize, Hash, PartialOrd, Ord, Deserialize,
+)]
 pub enum VarType {
     I64 = 0,
     I32 = 1,
@@ -36,7 +39,9 @@ impl VarType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord, Deserialize,
+)]
 pub enum MemoryReadSize {
     U8 = 1,
     S8,
@@ -47,7 +52,9 @@ pub enum MemoryReadSize {
     I64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, EnumIter, Serialize, Hash, Eq, PartialOrd, Ord, Deserialize,
+)]
 pub enum MemoryStoreSize {
     Byte8 = 1,
     Byte16,

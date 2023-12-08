@@ -2,9 +2,10 @@ use std::collections::BTreeMap;
 
 use crate::mtable::LocationType;
 use crate::mtable::VarType;
+use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, Deserialize)]
 pub struct InitMemoryTableEntry {
     pub ltype: LocationType,
     pub is_mutable: bool,
@@ -15,8 +16,36 @@ pub struct InitMemoryTableEntry {
     pub eid: u32,
 }
 
-#[derive(Serialize, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct InitMemoryTable(pub BTreeMap<(LocationType, u32), InitMemoryTableEntry>);
+
+#[derive(Serialize, Debug, Deserialize)]
+struct Entry {
+    key: (LocationType, u32),
+    val: InitMemoryTableEntry,
+}
+
+impl Serialize for InitMemoryTable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_seq(self.0.iter().map(|(key, val)| Entry {
+            key: key.clone(),
+            val: val.clone(),
+        }))
+    }
+}
+
+impl<'de> Deserialize<'de> for InitMemoryTable {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Vec::<Entry>::deserialize(deserializer)
+            .map(|mut v| InitMemoryTable(v.drain(..).map(|kv| (kv.key, kv.val)).collect()))
+    }
+}
 
 impl InitMemoryTable {
     pub fn new(entries: Vec<InitMemoryTableEntry>) -> Self {

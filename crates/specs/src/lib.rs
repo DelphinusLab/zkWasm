@@ -4,6 +4,8 @@
 
 use std::collections::HashSet;
 use std::env;
+use std::fs::File;
+use std::io::BufReader;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,6 +23,7 @@ use mtable::MTable;
 use mtable::MemoryTableEntry;
 use rayon::prelude::IntoParallelRefIterator;
 use rayon::prelude::ParallelIterator;
+use serde::Deserialize;
 use serde::Serialize;
 use state::InitializationState;
 
@@ -41,7 +44,7 @@ pub mod state;
 pub mod step;
 pub mod types;
 
-#[derive(Default, Serialize, Debug, Clone)]
+#[derive(Default, Serialize, Debug, Clone, Deserialize)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: InitMemoryTable,
@@ -51,7 +54,7 @@ pub struct CompilationTable {
     pub initialization_state: InitializationState<u32>,
 }
 
-#[derive(Default, Serialize, Clone)]
+#[derive(Default, Serialize, Clone, Deserialize)]
 pub struct ExecutionTable {
     pub etable: EventTable,
     pub jtable: Arc<JumpTable>,
@@ -128,6 +131,7 @@ impl Tables {
     pub fn write_json(&self, dir: Option<PathBuf>) {
         fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
             let mut folder = folder.clone();
+            std::fs::create_dir_all(folder.as_path()).unwrap();
             folder.push(filename);
             let mut fd = std::fs::File::create(folder.as_path()).unwrap();
             folder.pop();
@@ -135,23 +139,37 @@ impl Tables {
             fd.write(buf.as_bytes()).unwrap();
         }
 
-        let itable = serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap();
-        // let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
-        let etable = serde_json::to_string_pretty(&self.execution_tables.etable).unwrap();
-        let external_host_call_table = serde_json::to_string_pretty(
-            &self
-                .execution_tables
-                .etable
-                .filter_external_host_call_table(),
-        )
-        .unwrap();
-        let jtable = serde_json::to_string_pretty(&self.execution_tables.jtable).unwrap();
+        let compilation_table = serde_json::to_string_pretty(&self.compilation_tables).unwrap();
+        let execution_table = serde_json::to_string_pretty(&self.execution_tables).unwrap();
+        let post_image_table = serde_json::to_string_pretty(&self.post_image_table).unwrap();
 
+        println!("dir path: {:?}", dir);
         let dir = dir.unwrap_or(env::current_dir().unwrap());
-        write_file(&dir, "itable.json", &itable);
-        // write_file(&dir, "imtable.json", &imtable);
-        write_file(&dir, "etable.json", &etable);
-        write_file(&dir, "jtable.json", &jtable);
-        write_file(&dir, "external_host_table.json", &external_host_call_table);
+        println!("dir path unrap: {:?}", dir);
+        write_file(&dir, "compilation.json", &compilation_table);
+        write_file(&dir, "execution.json", &execution_table);
+        write_file(&dir, "image.json", &post_image_table);
+    }
+
+    pub fn load_json(dir: PathBuf, is_last_slice: bool) -> Tables {
+        fn load_file(folder: &PathBuf, filename: &str) -> BufReader<File> {
+            let mut folder = folder.clone();
+            folder.push(filename);
+            let file = File::open(folder.as_path()).unwrap();
+            BufReader::new(file)
+        }
+
+        let compilation_tables: CompilationTable =
+            serde_json::from_reader(load_file(&dir, "compilation.json")).unwrap();
+        let execution_tables: ExecutionTable =
+            serde_json::from_reader(load_file(&dir, "execution.json")).unwrap();
+        let post_image_table: CompilationTable =
+            serde_json::from_reader(load_file(&dir, "image.json")).unwrap();
+        Tables {
+            compilation_tables,
+            execution_tables,
+            post_image_table,
+            is_last_slice,
+        }
     }
 }
