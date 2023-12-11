@@ -23,26 +23,36 @@ use crate::circuits::utils::Context;
  * Etable Layouter with Continuation
  *
  * Not last slice
- * | ---- | ------ | ---------- | --------- |
- * | sel  | enable | rest_mops  | states ... |
- * | ---- + ------ | ---------- + --------- |
- * |  1   |   1    |            |  ...      |
- * |  1   |   1    |            |  ...      |
- * |  1   |   1    |            |  ...      |
- * |  0   |   0    | constant 0 |  ...      | permutation row(status should keep consistent with previous row)
+ *   - `self.capability` entries with `enable = 1`.
+ *   - one entry(only including status) with enable = 0, the status of this entry should constrain equality
+ *     with the first entry in the next slice.
+ *
+ * | -------- | ---- | ------ | ---------- | ---- | ------ |
+ * |          | sel  | enable | rest_mops  | jops | states |
+ * | -------- | ---- + ------ | ---------- + ---- | ------ |
+ * | event    |  1   |   1    |            |      |        | permutation with pre image table
+ * | table    |  1   |   1    |            |      |        |
+ * | entries  |  1   |   1    |            |      |        |
+ * |          |  1   |   1    |            |      |        |
+ * | -------- | ---- | ------ | ---------- | ---- | ------ |
+ * |          |  0   |   0    | constant 0 |      |        | permutation with post image table
  *
  *
- * Not last slice
- * | ---- | ------ | ---------- | ------ |
- * | sel  | enable | rest_mops  | states |
- * | ---- + ------ | ---------- + -------|
- * |  1   |   1    |            |  ...   |
- * |  1   |   1    |            |  ...   |
- * |  1   |   0    |            |  ...   |
- * |  1   |   0    |            |  ...   |
- * |  1   |   0    |            |  ...   |
- * |  1   |   0    |            |  ...   |
- * |  0   |   0    | constant 0 |  ...   | permutation row
+ * Last slice
+ * ``
+ * | -------- | ---- | ------ | ---------- | ---- | ------ |
+ * |          | sel  | enable | rest_mops  | jops | states |
+ * | -------- | ---- + ------ | ---------- + ---- | -------|
+ * | event    |  1   |   1    |            |      |        | permutation with pre image table
+ * | table    |  1   |   1    |            |      |        |
+ * | entires  |  1   |   1    |            |      |        |
+ * | -------- | ---- | ------ | ---------- | ---- | ------ |
+ * | padding  |  1   |   0    |            |      |        | padding rows are used to copy termination status
+ * |          |  1   |   0    |            |      |        | to permutation row
+ * |          |  1   |   0    |            |      |        |
+ * |          |  1   |   0    |            |      |        |
+ * | -------- | ---- | ------ | ---------- | ---- | ------ |
+ * |          |  0   |   0    | constant 0 |      |        | permutation with post image table/jops constrain with jtable
  */
 
 pub(in crate::circuits) struct EventTablePermutationCells<F: FieldExt> {
