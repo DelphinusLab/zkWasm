@@ -67,18 +67,18 @@ impl UpdateCompilationTable for CompilationTable {
             match &entry.step_info {
                 // TODO: fix hard code
                 StepInfo::CallHost {
+                    plugin,
                     function_name,
                     args,
-                    op_index_in_plugin,
                     ..
                 } => {
-                    if *op_index_in_plugin == HostPlugin::HostInput as usize {
-                        if function_name == "wasm_input" && args[0] != 0
+                    if *plugin == HostPlugin::HostInput {
+                        if (function_name == "wasm_input" && args[0] != 0)
                             || function_name == "wasm_output"
                         {
                             host_public_inputs += 1;
                         }
-                    } else if *op_index_in_plugin == HostPlugin::Context as usize {
+                    } else if *plugin == HostPlugin::Context {
                         if function_name == "wasm_read_context" {
                             context_in_index += 1;
                         } else if function_name == "wasm_write_context" {

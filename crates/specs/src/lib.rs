@@ -17,6 +17,7 @@ use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use mtable::AccessType;
+use mtable::LocationType;
 use mtable::MTable;
 use mtable::MemoryTableEntry;
 use rayon::prelude::IntoParallelRefIterator;
@@ -66,17 +67,6 @@ pub struct Tables {
 }
 
 impl Tables {
-    pub fn default(last_slice_circuit: bool) -> Self {
-        Self {
-            compilation_tables: CompilationTable::default(),
-            execution_tables: ExecutionTable::default(),
-            post_image_table: CompilationTable::default(),
-            is_last_slice: last_slice_circuit,
-        }
-    }
-}
-
-impl Tables {
     pub fn create_memory_table(
         &self,
         memory_event_of_step: fn(&EventTableEntry) -> Vec<MemoryTableEntry>,
@@ -90,33 +80,37 @@ impl Tables {
             .collect::<Vec<Vec<_>>>()
             .concat();
 
-        let init_value = memory_entries
-            .par_iter()
-            .map(|entry| {
-                self.compilation_tables
-                    .imtable
-                    .try_find(entry.ltype, entry.offset)
-            })
-            .collect::<Vec<_>>();
-
         let mut set = HashSet::<MemoryTableEntry>::default();
 
-        memory_entries
-            .iter()
-            .zip(init_value.into_iter())
-            .for_each(|(entry, init_memory_entry)| {
-                if let Some(init_memory_entry) = init_memory_entry {
-                    set.insert(MemoryTableEntry {
-                        eid: init_memory_entry.eid,
-                        offset: entry.offset,
-                        ltype: entry.ltype,
-                        atype: AccessType::Init,
-                        vtype: entry.vtype,
-                        is_mutable: entry.is_mutable,
-                        value: init_memory_entry.value,
-                    });
-                }
-            });
+        memory_entries.iter().for_each(|entry| {
+            let init_memory_entry = self
+                .compilation_tables
+                .imtable
+                .try_find(entry.ltype, entry.offset);
+
+            if let Some(init_memory_entry) = init_memory_entry {
+                set.insert(MemoryTableEntry {
+                    eid: init_memory_entry.eid,
+                    offset: entry.offset,
+                    ltype: entry.ltype,
+                    atype: AccessType::Init,
+                    vtype: entry.vtype,
+                    is_mutable: entry.is_mutable,
+                    value: init_memory_entry.value,
+                });
+            } else if entry.ltype == LocationType::Heap {
+                // Heap value without init memory entry should equal 0
+                set.insert(MemoryTableEntry {
+                    eid: 0,
+                    offset: entry.offset,
+                    ltype: entry.ltype,
+                    atype: AccessType::Init,
+                    vtype: entry.vtype,
+                    is_mutable: entry.is_mutable,
+                    value: 0,
+                });
+            }
+        });
 
         memory_entries.append(&mut set.into_iter().collect());
 

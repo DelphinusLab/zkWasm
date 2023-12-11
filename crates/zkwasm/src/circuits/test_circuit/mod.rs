@@ -12,6 +12,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use log::debug;
 use log::info;
+use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
@@ -90,7 +91,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
     fn without_witnesses(&self) -> Self {
         TestCircuit::new(
-            Tables::default(self.tables.is_last_slice),
+            Tables {
+                compilation_tables: self.tables.compilation_tables.clone(),
+                execution_tables: ExecutionTable::default(),
+                post_image_table: self.tables.post_image_table.clone(),
+                is_last_slice: self.tables.is_last_slice,
+            },
             self.slice_capability,
         )
     }
