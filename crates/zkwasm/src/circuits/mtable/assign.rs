@@ -297,7 +297,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         etable_rest_mops_cell: &Option<AssignedCell<F, F>>,
         mtable: &MemoryWritingTable,
         imtable: &InitMemoryTable,
-    ) -> Result<Option<AssignedCell<F, F>>, Error> {
+    ) -> Result<(Option<AssignedCell<F, F>>, F), Error> {
         debug!("size of memory writing table: {}", mtable.0.len());
         assert!(mtable.0.len() * (MEMORY_TABLE_ENTRY_ROWS as usize) < self.maximal_available_rows);
 
@@ -309,11 +309,11 @@ impl<F: FieldExt> MemoryTableChip<F> {
         self.assign_fixed(ctx)?;
         ctx.reset();
 
-        let _rest_memory_updating_ops = self.compute_rest_memory_updating_ops(mtable);
+        let rest_memory_updating_ops = self.compute_rest_memory_updating_ops(mtable);
 
         #[cfg(feature = "continuation")]
-        let rest_memory_updating_ops =
-            self.constrain_rest_memory_updating_ops(ctx, _rest_memory_updating_ops)?;
+        let rest_memory_updating_ops_cell =
+            self.constrain_rest_memory_updating_ops(ctx, rest_memory_updating_ops)?;
 
         let rest_mops_cell =
             self.constrain_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
@@ -322,21 +322,15 @@ impl<F: FieldExt> MemoryTableChip<F> {
          * Skip subsequent advice assignment in the first pass to enhance performance.
          */
         if rest_mops_cell.value().is_some() {
-            self.assign_entries(
-                ctx,
-                mtable,
-                rest_mops,
-                imtable,
-                self.compute_rest_memory_updating_ops(mtable),
-            )?;
+            self.assign_entries(ctx, mtable, rest_mops, imtable, rest_memory_updating_ops)?;
             ctx.reset();
         }
 
         cfg_if::cfg_if! {
             if #[cfg(feature="continuation")] {
-                Ok(Some(rest_memory_updating_ops))
+                Ok((Some(rest_memory_updating_ops_cell), F::from(rest_memory_updating_ops as u64)))
             } else {
-                Ok(None)
+                Ok((None, F::from(rest_memory_updating_ops as u64)))
             }
         }
     }

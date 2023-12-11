@@ -229,77 +229,77 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        let (etable_permutation_cells, rest_memory_writing_ops, static_frame_entries) = layouter
-            .assign_region(
-                || "jtable mtable etable",
-                |region| {
-                    let mut ctx = Context::new(region);
+        let (
+            etable_permutation_cells,
+            (rest_memory_writing_ops_cell, rest_memory_writing_ops),
+            static_frame_entries,
+        ) = layouter.assign_region(
+            || "jtable mtable etable",
+            |region| {
+                let mut ctx = Context::new(region);
 
-                    let memory_writing_table: MemoryWritingTable =
-                        self.tables.create_memory_table(memory_event_of_step).into();
+                let memory_writing_table: MemoryWritingTable =
+                    self.tables.create_memory_table(memory_event_of_step).into();
 
-                    let etable = exec_with_profile!(
-                        || "Prepare memory info for etable",
-                        EventTableWithMemoryInfo::new(
-                            &self.tables.execution_tables.etable,
-                            &memory_writing_table,
-                        )
-                    );
+                let etable = exec_with_profile!(
+                    || "Prepare memory info for etable",
+                    EventTableWithMemoryInfo::new(
+                        &self.tables.execution_tables.etable,
+                        &memory_writing_table,
+                    )
+                );
 
-                    let etable_permutation_cells = exec_with_profile!(
-                        || "Assign etable",
-                        echip.assign(
+                let etable_permutation_cells = exec_with_profile!(
+                    || "Assign etable",
+                    echip.assign(
+                        &mut ctx,
+                        &etable,
+                        &self.tables.compilation_tables.configure_table,
+                        &self.tables.compilation_tables.initialization_state,
+                        &self.tables.post_image_table.initialization_state,
+                        self.tables.is_last_slice,
+                    )?
+                );
+
+                let rest_memory_writing_ops = {
+                    ctx.reset();
+
+                    exec_with_profile!(
+                        || "Assign mtable",
+                        mchip.assign(
                             &mut ctx,
-                            &etable,
-                            &self.tables.compilation_tables.configure_table,
-                            &self.tables.compilation_tables.initialization_state,
-                            &self.tables.post_image_table.initialization_state,
-                            self.tables.is_last_slice,
+                            &etable_permutation_cells.rest_mops,
+                            &memory_writing_table,
+                            &self.tables.compilation_tables.imtable
                         )?
-                    );
+                    )
+                };
 
-                    let rest_memory_writing_ops = {
-                        ctx.reset();
+                let jtable_info = {
+                    ctx.reset();
+                    exec_with_profile!(
+                        || "Assign frame table",
+                        jchip.assign(
+                            &mut ctx,
+                            &self.tables.execution_tables.jtable,
+                            &etable_permutation_cells.rest_jops,
+                            &self.tables.compilation_tables.static_jtable,
+                        )?
+                    )
+                };
 
-                        exec_with_profile!(
-                            || "Assign mtable",
-                            mchip.assign(
-                                &mut ctx,
-                                &etable_permutation_cells.rest_mops,
-                                &memory_writing_table,
-                                &self.tables.compilation_tables.imtable
-                            )?
-                        )
-                    };
+                {
+                    ctx.reset();
+                    exec_with_profile!(|| "Assign bit table", bit_chip.assign(&mut ctx, &etable)?);
+                }
 
-                    let jtable_info = {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign frame table",
-                            jchip.assign(
-                                &mut ctx,
-                                &self.tables.execution_tables.jtable,
-                                &etable_permutation_cells.rest_jops,
-                                &self.tables.compilation_tables.static_jtable,
-                            )?
-                        )
-                    };
-
-                    {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign bit table",
-                            bit_chip.assign(&mut ctx, &etable)?
-                        );
-                    }
-
-                    Ok((
-                        etable_permutation_cells,
-                        rest_memory_writing_ops,
-                        jtable_info,
-                    ))
-                },
-            )?;
+                Ok((
+                    etable_permutation_cells,
+                    rest_memory_writing_ops,
+                    jtable_info,
+                ))
+            },
+        )?;
 
         exec_with_profile!(
             || "Assign context cont chip",
@@ -367,8 +367,9 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     br_table: pre_image_table_cells.br_table,
                     padding: pre_image_table_cells.padding,
                     init_memory_entries: pre_image_table_cells.init_memory_entries,
-                    rest_memory_writing_ops,
-                }
+                    rest_memory_writing_ops: rest_memory_writing_ops_cell,
+                },
+                rest_memory_writing_ops
             )?
         );
 
