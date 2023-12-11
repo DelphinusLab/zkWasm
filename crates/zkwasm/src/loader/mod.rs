@@ -16,6 +16,7 @@ use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::SliceDumper;
 use wasmi::tracer::Tracer;
@@ -123,8 +124,22 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     }
 
     fn circuit_without_witness(&self, last_slice_circuit: bool) -> Result<TestCircuit<E::Scalar>> {
+        let (env, _) = HostEnv::new_with_full_foreign_plugins(
+            vec![],
+            vec![],
+            vec![],
+            Arc::new(Mutex::new(vec![])),
+        );
+
+        let compiled_module = self.compile(&env)?;
+
         let builder = ZkWasmCircuitBuilder {
-            tables: Tables::default(last_slice_circuit),
+            tables: Tables {
+                compilation_tables: compiled_module.tables.clone(),
+                execution_tables: ExecutionTable::default(),
+                post_image_table: compiled_module.tables, // FIXME: odd
+                is_last_slice: last_slice_circuit,
+            },
         };
 
         Ok(builder.build_circuit::<E::Scalar>(None))

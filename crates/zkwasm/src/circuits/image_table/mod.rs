@@ -9,9 +9,11 @@ use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::encode::image_table::ImageTableEncoder;
 use specs::imtable::InitMemoryTable;
+use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
 use specs::jtable::StaticFrameEntry;
 use specs::mtable::LocationType;
+use specs::mtable::VarType;
 use specs::state::InitializationState;
 use specs::CompilationTable;
 use std::marker::PhantomData;
@@ -165,6 +167,19 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
 
             layouter.for_each(|(ltype, offset)| {
                 if let Some(entry) = init_memory_table.try_find(ltype, offset) {
+                    cells.push(bn_to_field::<F>(
+                        &ImageTableEncoder::InitMemory.encode(entry.encode()),
+                    ));
+                } else if ltype == LocationType::Heap {
+                    let entry = InitMemoryTableEntry {
+                        ltype,
+                        is_mutable: true,
+                        offset,
+                        vtype: VarType::I64,
+                        value: 0,
+                        eid: 0,
+                    };
+
                     cells.push(bn_to_field::<F>(
                         &ImageTableEncoder::InitMemory.encode(entry.encode()),
                     ));
