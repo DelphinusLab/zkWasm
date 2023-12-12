@@ -10,6 +10,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use brtable::BrTable;
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
@@ -49,6 +50,7 @@ pub mod types;
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: InitMemoryTable,
+    pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
     pub static_jtable: Arc<Vec<StaticFrameEntry>>,

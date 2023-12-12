@@ -84,18 +84,19 @@ impl Execution<RuntimeValue>
                 .tables
                 .update_init_memory_table(&execution_tables.etable.entries());
 
-            let post_image_table = {
-                CompilationTable {
-                    itable: self.tables.itable.clone(),
-                    imtable: updated_init_memory_table,
-                    elem_table: self.tables.elem_table.clone(),
-                    configure_table: self.tables.configure_table.clone(),
-                    static_jtable: self.tables.static_jtable.clone(),
-                    initialization_state: self
-                        .tables
-                        .update_initialization_state(&execution_tables.etable.entries(), true),
-                }
-            };
+        let post_image_table = {
+            CompilationTable {
+                itable: self.tables.itable.clone(),
+                imtable: updated_init_memory_table,
+                br_table: self.tables.br_table.clone(),
+                elem_table: self.tables.elem_table.clone(),
+                configure_table: self.tables.configure_table.clone(),
+                static_jtable: self.tables.static_jtable.clone(),
+                initialization_state: self
+                    .tables
+                    .update_initialization_state(&execution_tables.etable.entries(), true),
+            }
+        };
 
             tables = Some(Tables {
                 compilation_tables: self.tables,
@@ -138,6 +139,7 @@ impl WasmiRuntime {
         let fid_of_entry = tracer.clone().borrow().get_fid_of_entry();
         let itable = Arc::new(tracer.borrow().itable.clone());
         let imtable = tracer.borrow().imtable.finalized();
+        let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(tracer.borrow().elem_table.clone());
         let configure_table = Arc::new(tracer.borrow().configure_table.clone());
         let static_jtable = Arc::new(tracer.borrow().static_jtable_entries.clone());
@@ -165,6 +167,7 @@ impl WasmiRuntime {
             tables: CompilationTable {
                 itable,
                 imtable,
+                br_table,
                 elem_table,
                 configure_table,
                 static_jtable,

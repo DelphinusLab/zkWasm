@@ -3,7 +3,7 @@ use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::poly::commitment::Params;
 use specs::CompilationTable;
 
-use crate::circuits::image_table::EncodeCompilationTableValues;
+use crate::circuits::utils::image_table::EncodeCompilationTableValues;
 
 pub trait ImageCheckSum<Output> {
     fn checksum(&self) -> Output;

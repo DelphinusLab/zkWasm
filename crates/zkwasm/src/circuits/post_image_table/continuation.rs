@@ -16,11 +16,10 @@ use specs::mtable::LocationType;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::image_table::ImageTableConfig;
-use crate::circuits::image_table::ImageTableLayouter;
-use crate::circuits::image_table::INIT_MEMORY_ENTRIES_OFFSET;
 use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::image_table::ImageTableAssigner;
+use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::Context;
 use crate::constant_from;
 use crate::curr;
@@ -106,11 +105,7 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
     fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        image_table_assigner: &mut ImageTableAssigner<
-            INIT_MEMORY_ENTRIES_OFFSET,
-            DEFAULT_VALUE_STACK_LIMIT,
-            DEFAULT_VALUE_STACK_LIMIT,
-        >,
+        image_table_assigner: &mut ImageTableAssigner,
         pre_image_table: ImageTableLayouter<F>,
         post_image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
@@ -185,8 +180,6 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
 
                     permutation_cells
                         .instructions
-                        .as_ref()
-                        .unwrap()
                         .iter()
                         .map(|entry| {
                             let offset = ctx.borrow().offset;
@@ -211,9 +204,7 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
                     ctx.borrow_mut().offset = base_offset;
 
                     permutation_cells
-                        .br_table
-                        .as_ref()
-                        .unwrap()
+                        .br_table_entires
                         .iter()
                         .map(|entry| {
                             let offset = ctx.borrow().offset;
@@ -238,9 +229,7 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
                     ctx.borrow_mut().offset = start_offset;
 
                     permutation_cells
-                        .padding
-                        .as_ref()
-                        .unwrap()
+                        .padding_entires
                         .iter()
                         .map(|entry| {
                             let offset = ctx.borrow().offset;
@@ -335,16 +324,8 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
 
                         pre_image_table
                             .init_memory_entries
-                            .as_ref()
-                            .unwrap()
                             .iter()
-                            .zip(
-                                post_image_table
-                                    .init_memory_entries
-                                    .as_ref()
-                                    .unwrap()
-                                    .iter(),
-                            )
+                            .zip(post_image_table.init_memory_entries.iter())
                             .map(|(pre, post)| {
                                 let entry = ctx.borrow_mut().region.assign_advice(
                                     || "post image table: init memory",
