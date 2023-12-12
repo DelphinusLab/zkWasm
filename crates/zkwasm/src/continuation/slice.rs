@@ -9,12 +9,18 @@ use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::runtime::state::UpdateCompilationTable;
 
+use std::path::PathBuf;
+
 pub struct Slice {
     table: Tables,
     capability: usize,
 }
 
 impl Slice {
+    pub fn new(table: Tables, capability: usize) -> Slice {
+        Slice {table, capability}
+    }
+    
     pub fn build_circuit<F: FieldExt>(self) -> TestCircuit<F> {
         println!(
             "etable entries: {}",
@@ -24,6 +30,10 @@ impl Slice {
         let builder = ZkWasmCircuitBuilder { tables: self.table };
 
         builder.build_circuit(Some(self.capability))
+    }
+
+    pub fn write_json(&self, dir: Option<PathBuf>) {
+        self.table.write_json(dir);
     }
 }
 
@@ -45,6 +55,10 @@ impl Slices {
             capability,
             origin_table: tables,
         }
+    }
+
+    pub fn capability(&self) -> usize {
+        self.capability
     }
 
     fn pop_etable_entries(&mut self) -> Vec<EventTableEntry> {

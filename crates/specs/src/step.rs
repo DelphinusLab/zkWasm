@@ -10,9 +10,10 @@ use crate::mtable::MemoryReadSize;
 use crate::mtable::MemoryStoreSize;
 use crate::mtable::VarType;
 use crate::types::ValueType;
+use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StepInfo {
     Br {
         dst_pc: u32,

@@ -3,11 +3,15 @@ use std::sync::Mutex;
 
 use crate::loader::ExecutionArg;
 use crate::loader::ZkWasmLoader;
+use crate::runtime::ExecutionResult;
+use crate::continuation::slice::Slice;
+use specs::Tables;
+use wasmi::RuntimeValue;
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
 
-fn test_slices() -> Result<()> {
+fn generate_wasm_result() -> (ZkWasmLoader<Bn256>, ExecutionResult<RuntimeValue>) {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -147,15 +151,21 @@ fn test_slices() -> Result<()> {
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![]).unwrap();
 
-    let execution_result = loader.run(ExecutionArg {
-        public_inputs,
-        private_inputs,
-        context_inputs: vec![],
-        context_outputs: Arc::new(Mutex::new(vec![])),
-    })?;
+    let execution_result = loader
+        .run(ExecutionArg {
+            public_inputs,
+            private_inputs,
+            context_inputs: vec![],
+            context_outputs: Arc::new(Mutex::new(vec![])),
+        })
+        .unwrap();
+    (loader, execution_result)
+}
 
+fn test_slices() -> Result<()> {
+    let (loader, execution_result) = generate_wasm_result();
     let instances = execution_result
         .public_inputs_and_outputs
         .iter()
@@ -179,11 +189,51 @@ fn test_slices() -> Result<()> {
     Ok(())
 }
 
+fn test_rpl_slice_from_file() -> Result<()> {
+    let (loader, execution_result) = generate_wasm_result();
+
+    let instances = execution_result
+        .public_inputs_and_outputs
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+
+    let mut slices = loader.slice(execution_result).into_iter();
+    let mut index = 0;
+    while let Some(slice) = slices.next() {
+        let mut dir = std::env::current_dir().unwrap();
+        dir.push(index.to_string());
+        slice.write_json(Some(dir));
+        index += 1;
+    }
+
+    let last_slice_index = index - 1;
+    while index > 0 {
+        index -= 1;
+        let mut dir = std::env::current_dir().unwrap();
+        dir.push(index.to_string());
+
+        let table = Tables::load_json(dir.clone(), index == last_slice_index);
+        let slice = Slice::new(table, slices.capability());
+        let circuit = slice.build_circuit();
+        loader.mock_test(&circuit, &instances)?;
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    Ok(())
+}
+
 mod tests {
     use super::*;
 
     #[test]
     fn test_rlp_slice_mock() {
         test_slices().unwrap();
+    }
+
+    #[test]
+    fn test_rpl_slice_from_file_mock() {
+        test_rpl_slice_from_file().unwrap();
     }
 }

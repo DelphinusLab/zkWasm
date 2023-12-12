@@ -1,10 +1,11 @@
+use serde::Deserialize;
 use serde::Serialize;
 
 use super::itable::InstructionTableEntry;
 use crate::host_function::HostPlugin;
 use crate::step::StepInfo;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventTableEntry {
     pub eid: u32,
     pub sp: u32,
@@ -38,7 +39,7 @@ impl Iterator for RestJops {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct EventTable(Vec<EventTableEntry>);
 
 impl EventTable {
