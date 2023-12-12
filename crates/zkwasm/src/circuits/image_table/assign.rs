@@ -5,22 +5,26 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
-use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::ImageTableChip;
 use super::ImageTableLayouter;
-use crate::circuits::image_table::INIT_MEMORY_ENTRIES_OFFSET;
 use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::Context;
 
-impl<F: FieldExt> ImageTableChip<F> {
+impl<
+        const INIT_MEMORY_ENTRIES_OFFSET: usize,
+        const STACK_LIMIT: usize,
+        const GLOBAL_LIMIT: usize,
+        F: FieldExt,
+    > ImageTableChip<INIT_MEMORY_ENTRIES_OFFSET, STACK_LIMIT, GLOBAL_LIMIT, F>
+{
     pub(crate) fn assign(
         self,
         layouter: &mut impl Layouter<F>,
         image_table_assigner: &mut ImageTableAssigner<
             INIT_MEMORY_ENTRIES_OFFSET,
-            DEFAULT_VALUE_STACK_LIMIT,
-            DEFAULT_VALUE_STACK_LIMIT,
+            STACK_LIMIT,
+            GLOBAL_LIMIT,
         >,
         image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
@@ -199,7 +203,6 @@ impl<F: FieldExt> ImageTableChip<F> {
                     br_table: Some(result.br_table_entires),
                     padding: Some(result.padding_entires),
                     init_memory_entries: None,
-                    rest_memory_writing_ops: None,
                 })
             },
         )

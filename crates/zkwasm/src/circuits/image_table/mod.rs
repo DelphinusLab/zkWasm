@@ -79,7 +79,6 @@ pub struct ImageTableLayouter<T: Clone> {
     pub br_table: Option<Vec<T>>,
     pub padding: Option<Vec<T>>,
     pub init_memory_entries: Option<Vec<T>>,
-    pub rest_memory_writing_ops: Option<T>,
 }
 
 impl<F: FieldExt> ImageTableLayouter<F> {
@@ -239,7 +238,6 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             br_table,
             padding: None,
             init_memory_entries,
-            rest_memory_writing_ops: None,
         }
     }
 }
@@ -258,11 +256,22 @@ impl<F: FieldExt> ImageTableConfig<F> {
 }
 
 #[derive(Clone)]
-pub struct ImageTableChip<F: FieldExt> {
+pub struct ImageTableChip<
+    const INIT_MEMORY_ENTRIES_OFFSET: usize,
+    const STACK_LIMIT: usize,
+    const GLOBAL_LIMIT: usize,
+    F: FieldExt,
+> {
     config: ImageTableConfig<F>,
 }
 
-impl<F: FieldExt> ImageTableChip<F> {
+impl<
+        const INIT_MEMORY_ENTRIES_OFFSET: usize,
+        const STACK_LIMIT: usize,
+        const GLOBAL_LIMIT: usize,
+        F: FieldExt,
+    > ImageTableChip<INIT_MEMORY_ENTRIES_OFFSET, STACK_LIMIT, GLOBAL_LIMIT, F>
+{
     pub fn new(config: ImageTableConfig<F>) -> Self {
         ImageTableChip { config }
     }

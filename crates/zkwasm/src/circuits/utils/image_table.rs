@@ -1,6 +1,7 @@
 use specs::state::InitializationState;
 
 use crate::circuits::image_table::PAGE_ENTRIES;
+use crate::circuits::jtable::STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY;
 
 /*
  * --------------------
@@ -21,14 +22,15 @@ use crate::circuits::image_table::PAGE_ENTRIES;
  * Heap
  * --------------------
  */
+#[allow(dead_code)]
 pub(crate) struct Layouter<T> {
     pub(crate) initialization_state: InitializationState<T>,
     pub(crate) static_frame_entries: Vec<(T, T)>,
     pub(crate) instructions: Vec<T>,
     pub(crate) br_table_entires: Vec<T>,
-    // NOTE: padding entries also need constain_equal for other image
+    // NOTE: unused instructions and br_table entries.
     pub(crate) padding_entires: Vec<T>,
-    pub(crate) _init_memory_entires: Vec<T>,
+    pub(crate) init_memory_entires: Vec<T>,
 }
 
 pub(crate) struct ImageTableAssigner<
@@ -37,6 +39,7 @@ pub(crate) struct ImageTableAssigner<
     const GLOBAL_CAPABILITY: usize,
 > {
     pub(crate) heap_capability: u32,
+
     initialization_state_offset: usize,
     static_frame_entries_offset: usize,
     instruction_offset: usize,
@@ -55,8 +58,7 @@ impl<
         let initialization_state_offset = 0;
         let static_frame_entries_offset =
             initialization_state_offset + InitializationState::<u32>::field_count();
-        // FIXME: magic number
-        let instruction_offset = static_frame_entries_offset + 4;
+        let instruction_offset = static_frame_entries_offset + STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY;
         let br_table_offset = instruction_offset + instruction_number;
         let padding_offset = br_table_offset + br_table_number;
         let init_memory_offset = INIT_MEMORY_OFFSET;
@@ -65,6 +67,7 @@ impl<
 
         Self {
             heap_capability: pages_capability * PAGE_ENTRIES,
+
             initialization_state_offset,
             static_frame_entries_offset,
             instruction_offset,
@@ -130,7 +133,7 @@ impl<
         let instructions = self.exec_instruction(instruction_handler)?;
         let br_table_entires = self.exec_br_table_entires(br_table_handler)?;
         let padding_entires = self.exec_padding_entires(padding_handler)?;
-        let _init_memory_entires = self.exec_init_memory_entires(init_memory_entries_handler)?;
+        let init_memory_entires = self.exec_init_memory_entires(init_memory_entries_handler)?;
 
         Ok(Layouter {
             initialization_state,
@@ -138,7 +141,7 @@ impl<
             instructions,
             br_table_entires,
             padding_entires,
-            _init_memory_entires,
+            init_memory_entires,
         })
     }
 }

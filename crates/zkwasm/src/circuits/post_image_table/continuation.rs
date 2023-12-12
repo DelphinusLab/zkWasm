@@ -114,6 +114,7 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
         pre_image_table: ImageTableLayouter<F>,
         post_image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
+        rest_memory_writing_ops_cell: Option<AssignedCell<F, F>>,
         rest_memory_writing_ops: F,
     ) -> Result<(), Error> {
         layouter.assign_region(
@@ -319,16 +320,12 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
                         // First line is placeholder for default lookup
                         let offset = base_offset + 1;
 
-                        permutation_cells
-                            .rest_memory_writing_ops
-                            .as_ref()
-                            .unwrap()
-                            .copy_advice(
-                                || "post image table: init memory",
-                                &mut ctx.borrow_mut().region,
-                                self.config.rest_memory_finalized_count,
-                                offset,
-                            )?;
+                        rest_memory_writing_ops_cell.as_ref().unwrap().copy_advice(
+                            || "post image table: init memory",
+                            &mut ctx.borrow_mut().region,
+                            self.config.rest_memory_finalized_count,
+                            offset,
+                        )?;
                     }
 
                     let entries = {

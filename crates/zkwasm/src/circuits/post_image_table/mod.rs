@@ -42,6 +42,7 @@ pub(in crate::circuits) trait PostImageTableChipTrait<
         pre_image_table: ImageTableLayouter<F>,
         post_image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
+        rest_memory_writing_ops_cell: Option<AssignedCell<F, F>>,
         rest_memory_writing_ops: F,
     ) -> Result<(), Error>;
 }

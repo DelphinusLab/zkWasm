@@ -350,7 +350,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     br_table: None,
                     padding: None,
                     init_memory_entries: None,
-                    rest_memory_writing_ops: None,
                 }
             )?
         );
@@ -373,8 +372,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     br_table: pre_image_table_cells.br_table,
                     padding: pre_image_table_cells.padding,
                     init_memory_entries: pre_image_table_cells.init_memory_entries,
-                    rest_memory_writing_ops: rest_memory_writing_ops_cell,
                 },
+                rest_memory_writing_ops_cell,
                 rest_memory_writing_ops
             )?
         );
