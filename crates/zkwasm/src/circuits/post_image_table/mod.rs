@@ -5,13 +5,11 @@ use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
-use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::image_table::ImageTableConfig;
-use super::image_table::ImageTableLayouter;
-use super::image_table::INIT_MEMORY_ENTRIES_OFFSET;
 use super::mtable::MemoryTableConfig;
 use super::utils::image_table::ImageTableAssigner;
+use super::utils::image_table::ImageTableLayouter;
 
 pub(self) mod continuation;
 pub(self) mod trivial;
@@ -34,11 +32,7 @@ pub(in crate::circuits) trait PostImageTableChipTrait<
     fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        image_table_assigner: &mut ImageTableAssigner<
-            INIT_MEMORY_ENTRIES_OFFSET,
-            DEFAULT_VALUE_STACK_LIMIT,
-            DEFAULT_VALUE_STACK_LIMIT,
-        >,
+        image_table_assigner: &mut ImageTableAssigner,
         pre_image_table: ImageTableLayouter<F>,
         post_image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,

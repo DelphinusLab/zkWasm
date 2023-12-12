@@ -7,25 +7,15 @@ use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
 
 use super::ImageTableChip;
-use super::ImageTableLayouter;
 use crate::circuits::utils::image_table::ImageTableAssigner;
+use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::Context;
 
-impl<
-        const INIT_MEMORY_ENTRIES_OFFSET: usize,
-        const STACK_LIMIT: usize,
-        const GLOBAL_LIMIT: usize,
-        F: FieldExt,
-    > ImageTableChip<INIT_MEMORY_ENTRIES_OFFSET, STACK_LIMIT, GLOBAL_LIMIT, F>
-{
+impl<F: FieldExt> ImageTableChip<F> {
     pub(crate) fn assign(
         self,
         layouter: &mut impl Layouter<F>,
-        image_table_assigner: &mut ImageTableAssigner<
-            INIT_MEMORY_ENTRIES_OFFSET,
-            STACK_LIMIT,
-            GLOBAL_LIMIT,
-        >,
+        image_table_assigner: &mut ImageTableAssigner,
         image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
     ) -> Result<ImageTableLayouter<AssignedCell<F, F>>, Error> {
@@ -97,8 +87,6 @@ impl<
 
                     image_table
                         .instructions
-                        .as_ref()
-                        .unwrap()
                         .iter()
                         .map(|entry| {
                             let offset = ctx.borrow().offset;
@@ -123,9 +111,7 @@ impl<
                     ctx.borrow_mut().offset = base_offset;
 
                     image_table
-                        .br_table
-                        .as_ref()
-                        .unwrap()
+                        .br_table_entires
                         .iter()
                         .map(|entry| {
                             let offset = ctx.borrow().offset;
@@ -166,8 +152,6 @@ impl<
 
                     image_table
                         .init_memory_entries
-                        .as_ref()
-                        .unwrap()
                         .iter()
                         .map(|entry| {
                             let offset = ctx.borrow().offset;
@@ -199,10 +183,10 @@ impl<
                 Ok(ImageTableLayouter {
                     initialization_state: result.initialization_state,
                     static_frame_entries: result.static_frame_entries,
-                    instructions: Some(result.instructions),
-                    br_table: Some(result.br_table_entires),
-                    padding: Some(result.padding_entires),
-                    init_memory_entries: None,
+                    instructions: result.instructions,
+                    br_table_entires: result.br_table_entires,
+                    padding_entires: result.padding_entires,
+                    init_memory_entries: result.init_memory_entries,
                 })
             },
         )

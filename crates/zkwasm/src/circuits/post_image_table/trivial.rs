@@ -7,13 +7,11 @@ use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
-use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::image_table::ImageTableConfig;
-use crate::circuits::image_table::ImageTableLayouter;
-use crate::circuits::image_table::INIT_MEMORY_ENTRIES_OFFSET;
 use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::utils::image_table::ImageTableAssigner;
+use crate::circuits::utils::image_table::ImageTableLayouter;
 
 use super::PostImageTableChipTrait;
 use super::PostImageTableConfigTrait;
@@ -48,11 +46,7 @@ impl<F: FieldExt> PostImageTableChipTrait<F, TrivialPostImageTableConfig<F>>
     fn assign(
         self,
         _layouter: &mut impl Layouter<F>,
-        _image_table_assigner: &mut ImageTableAssigner<
-            INIT_MEMORY_ENTRIES_OFFSET,
-            DEFAULT_VALUE_STACK_LIMIT,
-            DEFAULT_VALUE_STACK_LIMIT,
-        >,
+        _image_table_assigner: &mut ImageTableAssigner,
         _pre_image_table: ImageTableLayouter<F>,
         _post_image_table: ImageTableLayouter<F>,
         _permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,

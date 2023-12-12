@@ -103,6 +103,7 @@ impl Iterator for Slices {
         let post_image_table = CompilationTable {
             itable: self.origin_table.compilation_tables.itable.clone(),
             imtable: updated_init_memory_table,
+            br_table: self.origin_table.compilation_tables.br_table.clone(),
             elem_table: self.origin_table.compilation_tables.elem_table.clone(),
             configure_table: self.origin_table.compilation_tables.configure_table.clone(),
             static_jtable: self.origin_table.compilation_tables.static_jtable.clone(),

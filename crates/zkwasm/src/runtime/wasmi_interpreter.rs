@@ -85,6 +85,7 @@ impl Execution<RuntimeValue>
             CompilationTable {
                 itable: self.tables.itable.clone(),
                 imtable: updated_init_memory_table,
+                br_table: self.tables.br_table.clone(),
                 elem_table: self.tables.elem_table.clone(),
                 configure_table: self.tables.configure_table.clone(),
                 static_jtable: self.tables.static_jtable.clone(),
@@ -144,20 +145,29 @@ impl WasmiRuntime {
                     iid: 0,
                 });
 
-            if instance.has_start() {
-                tracer
-                    .clone()
-                    .borrow_mut()
-                    .static_jtable_entries
-                    .push(StaticFrameEntry {
+            tracer
+                .clone()
+                .borrow_mut()
+                .static_jtable_entries
+                .push(if instance.has_start() {
+                    StaticFrameEntry {
                         enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
                         callee_fid: 0, // the fid of start function is always 0
                         fid: idx_of_entry,
                         iid: 0,
-                    });
-            }
+                    }
+                } else {
+                    StaticFrameEntry {
+                        enable: false,
+                        frame_id: 0,
+                        next_frame_id: 0,
+                        callee_fid: 0,
+                        fid: 0,
+                        iid: 0,
+                    }
+                });
 
             if instance.has_start() {
                 0
@@ -168,6 +178,7 @@ impl WasmiRuntime {
 
         let itable = Arc::new(tracer.borrow().itable.clone());
         let imtable = tracer.borrow().imtable.finalized();
+        let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(tracer.borrow().elem_table.clone());
         let configure_table = Arc::new(tracer.borrow().configure_table.clone());
         let static_jtable = Arc::new(tracer.borrow().static_jtable_entries.clone());
@@ -195,6 +206,7 @@ impl WasmiRuntime {
             tables: CompilationTable {
                 itable,
                 imtable,
+                br_table,
                 elem_table,
                 configure_table,
                 static_jtable,

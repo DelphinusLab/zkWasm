@@ -14,7 +14,6 @@ use log::debug;
 use log::info;
 use specs::ExecutionTable;
 use specs::Tables;
-use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
@@ -23,10 +22,7 @@ use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
 use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
 use crate::circuits::image_table::compute_maximal_pages;
-use crate::circuits::image_table::EncodeCompilationTableValues;
 use crate::circuits::image_table::ImageTableChip;
-use crate::circuits::image_table::ImageTableLayouter;
-use crate::circuits::image_table::INIT_MEMORY_ENTRIES_OFFSET;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
@@ -36,7 +32,9 @@ use crate::circuits::post_image_table::PostImageTableChipTrait;
 use crate::circuits::post_image_table::PostImageTableConfigTrait;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
+use crate::circuits::utils::image_table::EncodeCompilationTableValues;
 use crate::circuits::utils::image_table::ImageTableAssigner;
+use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
@@ -316,11 +314,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        let mut image_table_assigner = ImageTableAssigner::<
-            INIT_MEMORY_ENTRIES_OFFSET,
-            DEFAULT_VALUE_STACK_LIMIT,
-            DEFAULT_VALUE_STACK_LIMIT,
-        >::new(
+        let mut image_table_assigner = ImageTableAssigner::new(
             // Add one for default lookup value
             self.tables.compilation_tables.itable.entries().len() + 1,
             // FIXME: avoid compute
@@ -346,10 +340,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 ImageTableLayouter {
                     initialization_state: etable_permutation_cells.pre_initialization_state,
                     static_frame_entries,
-                    instructions: None,
-                    br_table: None,
-                    padding: None,
-                    init_memory_entries: None,
+                    instructions: vec![],
+                    br_table_entires: vec![],
+                    padding_entires: vec![],
+                    init_memory_entries: vec![],
                 }
             )?
         );
@@ -369,8 +363,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     initialization_state: etable_permutation_cells.post_initialization_state,
                     static_frame_entries: pre_image_table_cells.static_frame_entries,
                     instructions: pre_image_table_cells.instructions,
-                    br_table: pre_image_table_cells.br_table,
-                    padding: pre_image_table_cells.padding,
+                    br_table_entires: pre_image_table_cells.br_table_entires,
+                    padding_entires: pre_image_table_cells.padding_entires,
                     init_memory_entries: pre_image_table_cells.init_memory_entries,
                 },
                 rest_memory_writing_ops_cell,
