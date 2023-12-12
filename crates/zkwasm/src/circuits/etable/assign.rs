@@ -3,7 +3,6 @@ use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::plonk::Error;
 use log::debug;
 use specs::configure_table::ConfigureTable;
-use specs::itable::Opcode;
 use specs::itable::OpcodeClassPlain;
 use specs::state::InitializationState;
 use std::collections::BTreeMap;
@@ -326,6 +325,7 @@ impl<F: FieldExt> EventTableChip<F> {
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         initialization_state: &InitializationState<u32>,
+        post_initialization_state: &InitializationState<u32>,
         mut rest_mops: u32,
         mut jops: u32,
     ) -> Result<(), Error> {
@@ -394,19 +394,12 @@ impl<F: FieldExt> EventTableChip<F> {
                 .collect::<Vec<_>>();
 
             let terminate_status = Status {
-                eid: status.last().unwrap().eid + 1,
-                fid: 0,
-                iid: 0,
-                sp: status.last().unwrap().sp
-                    + if let Opcode::Return { drop, .. } =
-                        &event_table.0.last().unwrap().eentry.inst.opcode
-                    {
-                        *drop
-                    } else {
-                        0
-                    },
-                last_jump_eid: 0,
-                allocated_memory_pages: status.last().unwrap().allocated_memory_pages,
+                eid: post_initialization_state.eid,
+                fid: post_initialization_state.fid,
+                iid: post_initialization_state.iid,
+                sp: post_initialization_state.sp,
+                last_jump_eid: post_initialization_state.frame_id,
+                allocated_memory_pages: post_initialization_state.initial_memory_pages,
             };
 
             status.push(terminate_status);
@@ -419,7 +412,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 current: &status[index],
                 next: &status[index + 1],
                 current_external_host_call_index: external_host_call_call_index,
-                configure_table: *configure_table,
+                configure_table,
                 host_public_inputs,
                 context_in_index,
                 context_out_index,
@@ -521,6 +514,7 @@ impl<F: FieldExt> EventTableChip<F> {
             event_table,
             configure_table,
             &initialization_state,
+            post_initialization_state,
             rest_mops,
             jops,
         )?;
