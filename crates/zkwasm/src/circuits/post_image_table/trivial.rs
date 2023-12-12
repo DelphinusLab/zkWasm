@@ -56,6 +56,7 @@ impl<F: FieldExt> PostImageTableChipTrait<F, TrivialPostImageTableConfig<F>>
         _pre_image_table: ImageTableLayouter<F>,
         _post_image_table: ImageTableLayouter<F>,
         _permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
+        _rest_memory_writing_ops_cell: Option<AssignedCell<F, F>>,
         _rest_memory_writing_ops: F,
     ) -> Result<(), Error> {
         Ok(())

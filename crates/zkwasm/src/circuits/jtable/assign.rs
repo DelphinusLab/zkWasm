@@ -6,6 +6,7 @@ use specs::jtable::StaticFrameEntry;
 
 use super::JtableOffset;
 use super::JumpTableChip;
+use super::STATIC_FRAME_ENTRY_NUMBER;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 
@@ -72,7 +73,7 @@ impl<F: FieldExt> JumpTableChip<F> {
         let mut cells = vec![];
 
         static_entries.resize(
-            2,
+            STATIC_FRAME_ENTRY_NUMBER,
             StaticFrameEntry {
                 enable: false,
                 frame_id: 0,
