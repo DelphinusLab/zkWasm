@@ -390,10 +390,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                     .into_iter()
                     .reduce(|acc, x| acc + x)
                     .unwrap()
-                    - constant_from!(1),
+                    - enabled_cell.curr_expr(meta),
             ]
             .into_iter()
-            .map(|expr| expr * enabled_cell.curr_expr(meta) * fixed_curr!(meta, step_sel))
+            .map(|expr| expr * fixed_curr!(meta, step_sel))
             .collect::<Vec<_>>()
         });
 
@@ -466,7 +466,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.input_index_increase(meta, &common_config)
                 },
-                // Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -479,7 +478,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.external_host_call_index_increase(meta, &common_config)
                 },
-                //Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -489,7 +487,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 sp_cell.curr_expr(meta) - sp_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
-                //Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -501,7 +498,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.allocated_memory_pages_diff(meta)
                 },
-                // Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -513,7 +509,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.context_input_index_increase(meta, &common_config)
                 },
-                //Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -526,7 +521,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
                     config.context_output_index_increase(meta, &common_config)
                 },
-                //       Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -549,7 +543,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .next_fid(meta, &common_config)
                         .map(|x| x - fid_cell.curr_expr(meta))
                 },
-                // Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -563,7 +556,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .next_iid(meta, &common_config)
                         .map(|x| iid_cell.curr_expr(meta) + enabled_cell.curr_expr(meta) - x)
                 },
-                // Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -577,7 +569,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .next_frame_id(meta, &common_config)
                         .map(|x| x - frame_id_cell.curr_expr(meta))
                 },
-                // Some(&|meta| enabled_cell.curr_expr(meta)),
                 None,
             )]
         });
@@ -634,7 +625,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![
                 (maximal_memory_pages_cell.next_expr(meta)
                     - maximal_memory_pages_cell.curr_expr(meta))
-//                    * enabled_cell.expr(meta)
                     * fixed_curr!(meta, step_sel),
             ]
         });
