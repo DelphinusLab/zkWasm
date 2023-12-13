@@ -24,6 +24,23 @@ impl<F: FieldExt> ImageTableChip<F> {
             |region| {
                 let ctx = Rc::new(RefCell::new(Context::new(region)));
 
+                macro_rules! assign {
+                    ($v:expr) => {{
+                        let offset = ctx.borrow().offset;
+
+                        let cell = ctx.borrow_mut().region.assign_advice(
+                            || "pre image table",
+                            self.config.col,
+                            offset,
+                            || Ok($v),
+                        );
+
+                        ctx.borrow_mut().next();
+
+                        cell
+                    }};
+                }
+
                 let initialization_state_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
@@ -73,10 +90,8 @@ impl<F: FieldExt> ImageTableChip<F> {
                             )?;
                             ctx.borrow_mut().next();
 
-                            Ok::<_, Error>((enable.clone(), entry.clone()))
+                            Ok((enable.clone(), entry.clone()))
                         })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -86,22 +101,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .instructions
                         .iter()
-                        .map(|entry| {
-                            let offset = ctx.borrow().offset;
-
-                            let cell = ctx.borrow_mut().region.assign_advice(
-                                || "image table",
-                                self.config.col,
-                                offset,
-                                || Ok(*entry),
-                            );
-
-                            ctx.borrow_mut().next();
-
-                            cell
-                        })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
+                        .map(|entry| assign!(*entry))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -111,37 +111,15 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .br_table_entires
                         .iter()
-                        .map(|entry| {
-                            let offset = ctx.borrow().offset;
-
-                            let cell = ctx.borrow_mut().region.assign_advice(
-                                || "image table",
-                                self.config.col,
-                                offset,
-                                || Ok(*entry),
-                            );
-
-                            ctx.borrow_mut().next();
-
-                            cell
-                        })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
+                        .map(|entry| assign!(*entry))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
                 let padding_handler = |start_offset, end_offset| {
+                    ctx.borrow_mut().offset = start_offset;
+
                     (start_offset..end_offset)
-                        .map(|offset| {
-                            ctx.borrow_mut().region.assign_advice(
-                                || "image table: padding",
-                                self.config.col,
-                                offset,
-                                || Ok(F::zero()),
-                            )
-                        })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
+                        .map(|_| assign!(F::zero()))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -152,20 +130,10 @@ impl<F: FieldExt> ImageTableChip<F> {
                         .init_memory_entries
                         .iter()
                         .map(|entry| {
-                            let offset = ctx.borrow().offset;
-                            let cell = ctx.borrow_mut().region.assign_advice(
-                                || "image table",
-                                self.config.col,
-                                offset,
-                                || Ok(*entry),
-                            );
 
-                            ctx.borrow_mut().next();
+                            assign!(*entry)
 
-                            cell
                         })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
