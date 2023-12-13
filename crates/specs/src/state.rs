@@ -102,3 +102,24 @@ impl<T: Clone> InitializationState<T> {
         }
     }
 }
+
+impl<T, E> InitializationState<Result<T, E>> {
+    pub fn transpose(self) -> Result<InitializationState<T>, E> {
+        Ok(InitializationState {
+            eid: self.eid?,
+            fid: self.fid?,
+            iid: self.iid?,
+            frame_id: self.frame_id?,
+            sp: self.sp?,
+            host_public_inputs: self.host_public_inputs?,
+            context_in_index: self.context_in_index?,
+            context_out_index: self.context_out_index?,
+            external_host_call_call_index: self.external_host_call_call_index?,
+            initial_memory_pages: self.initial_memory_pages?,
+            maximal_memory_pages: self.maximal_memory_pages?,
+
+            #[cfg(feature = "continuation")]
+            jops: self.jops?,
+        })
+    }
+}

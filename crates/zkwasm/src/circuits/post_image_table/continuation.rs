@@ -125,21 +125,19 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
                         permutation_cells.initialization_state.map(|field| {
                             let offset = ctx.borrow().offset;
 
-                            field
-                                .copy_advice(
-                                    || "image table: initialization state",
-                                    &mut ctx.borrow_mut().region,
-                                    self.config.post_image_table,
-                                    offset,
-                                )
-                                .unwrap();
+                            field.copy_advice(
+                                || "image table: initialization state",
+                                &mut ctx.borrow_mut().region,
+                                self.config.post_image_table,
+                                offset,
+                            )?;
 
                             ctx.borrow_mut().next();
 
-                            field.clone()
+                            Ok(field.clone())
                         });
 
-                    Ok::<_, Error>(initialization_state)
+                    initialization_state.transpose()
                 };
 
                 let static_frame_entries_handler = |base_offset| {
