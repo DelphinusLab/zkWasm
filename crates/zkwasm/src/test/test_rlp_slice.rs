@@ -154,7 +154,7 @@ fn generate_wasm_result(
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![]).unwrap();
+    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
 
     let execution_result = loader.run(ExecutionArg {
         public_inputs,
@@ -173,6 +173,7 @@ fn test_slices() -> Result<()> {
     let mut index = 0;
 
     while let Some(slice) = slices.next() {
+
         println!("slice {}", index);
 
         let circuit = slice.build_circuit();

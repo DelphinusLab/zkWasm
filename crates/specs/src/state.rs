@@ -6,9 +6,9 @@ use crate::host_function::HostPlugin;
 use crate::imtable::memory_event_of_step;
 use crate::imtable::InitMemoryTable;
 use crate::imtable::InitMemoryTableEntry;
-use crate::itable::Opcode;
 use crate::mtable::AccessType;
 use crate::step::StepInfo;
+use crate::itable::Opcode;
 use crate::CompilationTable;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

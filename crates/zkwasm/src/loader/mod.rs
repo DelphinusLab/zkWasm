@@ -20,6 +20,7 @@ use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::SliceDumper;
+use wasmi::ENTRY;
 use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
@@ -32,13 +33,13 @@ use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
 use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::image_table::compute_maximal_pages;
+use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::continuation::loader::WitnessDumper;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
-#[cfg(not(feature = "continuation"))]
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
@@ -78,7 +79,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     pub fn compute_slice_capability(&self) -> usize {
         ((1 << self.k) - 200) / EVENT_TABLE_ENTRY_ROWS as usize
     }
-
     fn precheck(&self) -> Result<()> {
         fn check_zkmain_exists(module: &wasmi::Module) -> Result<()> {
             use parity_wasm::elements::Internal;

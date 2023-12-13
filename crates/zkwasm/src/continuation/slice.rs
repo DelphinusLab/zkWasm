@@ -72,9 +72,8 @@ impl Slices {
     }
 
     pub fn num_slices(&self) -> usize {
-        (self.origin_table.execution_tables.etable.entries().len() as f64 / self.capability as f64)
-            .ceil() as usize
-    }
+        (self.origin_table.execution_tables.etable.entries().len() as f64 / self.capability as f64).ceil() as usize
+    } 
 }
 
 impl Iterator for Slices {
