@@ -129,11 +129,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .init_memory_entries
                         .iter()
-                        .map(|entry| {
-
-                            assign!(*entry)
-
-                        })
+                        .map(|entry| assign!(*entry))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
