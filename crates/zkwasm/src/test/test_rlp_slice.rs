@@ -3,15 +3,15 @@ use std::sync::Mutex;
 
 use crate::loader::ExecutionArg;
 use crate::loader::ZkWasmLoader;
-use crate::runtime::ExecutionResult;
 use crate::continuation::slice::Slice;
+use crate::runtime::ExecutionResult;
 use specs::Tables;
-use wasmi::RuntimeValue;
 
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::Bn256;
+use halo2_proofs::pairing::bn256::{Bn256, Fr};
+use wasmi::RuntimeValue;
 
-fn generate_wasm_result() -> (ZkWasmLoader<Bn256>, ExecutionResult<RuntimeValue>) {
+fn generate_wasm_result(dump_table: bool) -> Result<(ZkWasmLoader<Bn256>, Vec<Fr>, ExecutionResult<RuntimeValue>)> {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -151,7 +151,7 @@ fn generate_wasm_result() -> (ZkWasmLoader<Bn256>, ExecutionResult<RuntimeValue>
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![]).unwrap();
+    let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
 
     let execution_result = loader
         .run(ExecutionArg {
@@ -159,24 +159,26 @@ fn generate_wasm_result() -> (ZkWasmLoader<Bn256>, ExecutionResult<RuntimeValue>
             private_inputs,
             context_inputs: vec![],
             context_outputs: Arc::new(Mutex::new(vec![])),
-        })
-        .unwrap();
-    (loader, execution_result)
-}
+            output_dir: Some(std::env::current_dir().unwrap()),
+            dump_table
+        })?;
 
-fn test_slices() -> Result<()> {
-    let (loader, execution_result) = generate_wasm_result();
     let instances = execution_result
         .public_inputs_and_outputs
         .iter()
         .map(|v| (*v).into())
         .collect();
+    Ok((loader, instances, execution_result))
+}
 
+fn test_slices() -> Result<()> {
+    let (loader, instances, execution_result) = generate_wasm_result(false)?;
     let mut slices = loader.slice(execution_result).into_iter();
 
     let mut index = 0;
 
     while let Some(slice) = slices.next() {
+
         println!("slice {}", index);
 
         let circuit = slice.build_circuit();
@@ -190,18 +192,14 @@ fn test_slices() -> Result<()> {
 }
 
 fn test_rpl_slice_from_file() -> Result<()> {
-    let (loader, execution_result) = generate_wasm_result();
-
-    let instances = execution_result
-        .public_inputs_and_outputs
-        .iter()
-        .map(|v| (*v).into())
-        .collect();
-
+    let (loader, instances, execution_result) = generate_wasm_result(false)?;
     let mut slices = loader.slice(execution_result).into_iter();
+
     let mut index = 0;
     while let Some(slice) = slices.next() {
         let mut dir = std::env::current_dir().unwrap();
+        // push a namespace to avoid conflict with test_rpl_slice_dump when testing concurrently
+        dir.push("full_run_dump");
         dir.push(index.to_string());
         slice.write_json(Some(dir));
         index += 1;
@@ -211,6 +209,7 @@ fn test_rpl_slice_from_file() -> Result<()> {
     while index > 0 {
         index -= 1;
         let mut dir = std::env::current_dir().unwrap();
+        dir.push("full_run_dump");
         dir.push(index.to_string());
 
         let table = Tables::load_json(dir.clone(), index == last_slice_index);
@@ -219,6 +218,36 @@ fn test_rpl_slice_from_file() -> Result<()> {
         loader.mock_test(&circuit, &instances)?;
 
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    Ok(())
+}
+
+
+fn test_rpl_slice_dump() -> Result<()> {
+    // dump slice while running
+    let (_, _instances, _) = generate_wasm_result(true)?;
+    // dump slice after a run
+    let (loader, _, execution_result) = generate_wasm_result(false)?;
+    let mut slices = loader.slice(execution_result).into_iter();
+
+    let last_slice_index = slices.num_slices() - 1;
+    let mut index = 0;
+    while let Some(slice) = slices.next() {
+        // load slice from running dump
+        let mut dir = std::env::current_dir().unwrap();
+        dir.push(index.to_string());
+        let table = Tables::load_json(dir.clone(), index == last_slice_index);
+        let loaded_slice = Slice::new(table, slices.capability());
+
+        // make sure slices generated from memory and during running is the same
+        assert_eq!(slice, loaded_slice);
+
+        let circuit = loaded_slice.build_circuit();
+        loader.mock_test(&circuit, &_instances)?;
+
+        std::fs::remove_dir_all(dir).unwrap();
+        index += 1;
     }
 
     Ok(())
@@ -235,5 +264,10 @@ mod tests {
     #[test]
     fn test_rpl_slice_from_file_mock() {
         test_rpl_slice_from_file().unwrap();
+    }
+
+    #[test]
+    fn test_rpl_slice_dump_mock() {
+        test_rpl_slice_dump().unwrap();
     }
 }

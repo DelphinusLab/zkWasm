@@ -32,7 +32,7 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
     let execution_result = test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;
 
     let builder = ZkWasmCircuitBuilder {
-        tables: execution_result.tables,
+        tables: execution_result.tables.unwrap(),
     };
 
     let circuit: TestCircuit<Fr> = builder.build_circuit(None);
@@ -133,7 +133,7 @@ mod tests {
         let instances = vec![];
 
         let builder = ZkWasmCircuitBuilder {
-            tables: execution_result.tables,
+            tables: execution_result.tables.unwrap(),
         };
 
         let proof = {

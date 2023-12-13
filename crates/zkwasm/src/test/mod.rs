@@ -1,5 +1,6 @@
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::TestCircuit;
+use crate::loader::CallbackType;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
@@ -43,11 +44,11 @@ fn test_circuit_mock<F: FieldExt>(
         v
     };
 
-    execution_result.tables.write_json(None);
+    execution_result.tables.as_ref().unwrap().write_json(None);
 
-    execution_result.tables.profile_tables();
+    execution_result.tables.as_ref().unwrap().profile_tables();
 
-    let circuit = TestCircuit::new(execution_result.tables, None);
+    let circuit = TestCircuit::new(execution_result.tables.unwrap(), None);
     let prover = MockProver::run(zkwasm_k(), &circuit, vec![instance])?;
     assert_eq!(prover.verify(), Ok(()));
 
@@ -71,6 +72,8 @@ fn compile_then_execute_wasm(
         &env.function_description_table(),
         function_name,
         &vec![],
+        None::<CallbackType>,
+        0
     )
     .unwrap();
 

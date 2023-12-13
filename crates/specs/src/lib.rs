@@ -44,7 +44,9 @@ pub mod state;
 pub mod step;
 pub mod types;
 
-#[derive(Default, Serialize, Debug, Clone, Deserialize)]
+
+
+#[derive(Default, Serialize, Debug, Clone, Deserialize, PartialEq)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: InitMemoryTable,
@@ -54,13 +56,13 @@ pub struct CompilationTable {
     pub initialization_state: InitializationState<u32>,
 }
 
-#[derive(Default, Serialize, Clone, Deserialize)]
+#[derive(Debug, Default, Serialize, Clone, Deserialize, PartialEq)]
 pub struct ExecutionTable {
     pub etable: EventTable,
     pub jtable: Arc<JumpTable>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
@@ -143,9 +145,7 @@ impl Tables {
         let execution_table = serde_json::to_string_pretty(&self.execution_tables).unwrap();
         let post_image_table = serde_json::to_string_pretty(&self.post_image_table).unwrap();
 
-        println!("dir path: {:?}", dir);
         let dir = dir.unwrap_or(env::current_dir().unwrap());
-        println!("dir path unrap: {:?}", dir);
         write_file(&dir, "compilation.json", &compilation_table);
         write_file(&dir, "execution.json", &execution_table);
         write_file(&dir, "image.json", &post_image_table);

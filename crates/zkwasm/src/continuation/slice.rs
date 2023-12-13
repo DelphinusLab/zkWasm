@@ -1,16 +1,20 @@
 use halo2_proofs::arithmetic::FieldExt;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
+use specs::jtable::JumpTable;
+use specs::jtable::JumpTableEntry;
+use specs::state::UpdateCompilationTable;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
-use crate::runtime::state::UpdateCompilationTable;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
+#[derive(Debug, PartialEq)]
 pub struct Slice {
     table: Tables,
     capability: usize,
@@ -18,9 +22,9 @@ pub struct Slice {
 
 impl Slice {
     pub fn new(table: Tables, capability: usize) -> Slice {
-        Slice {table, capability}
+        Slice { table, capability }
     }
-    
+
     pub fn build_circuit<F: FieldExt>(self) -> TestCircuit<F> {
         println!(
             "etable entries: {}",
@@ -66,6 +70,10 @@ impl Slices {
             .drain(0..self.capability.min(self.remaining_etable_entries.len()))
             .collect::<Vec<_>>()
     }
+
+    pub fn num_slices(&self) -> usize {
+        (self.origin_table.execution_tables.etable.entries().len() as f64 / self.capability as f64).ceil() as usize
+    } 
 }
 
 impl Iterator for Slices {
@@ -109,9 +117,22 @@ impl Iterator for Slices {
             (updated_init_memory_table, updated_post_initialization_state)
         };
 
+        let latest_eid = etable_entries.last().unwrap().eid;
+
+        // only etable related jtable are needed
+        let jtable_entries: Vec<JumpTableEntry> = self
+            .origin_table
+            .execution_tables
+            .jtable
+            .entries()
+            .iter()
+            .filter(|e| e.eid <= latest_eid)
+            .map(|e| e.clone())
+            .collect();
+
         let execution_tables = ExecutionTable {
             etable: EventTable::new(etable_entries),
-            jtable: self.origin_table.execution_tables.jtable.clone(),
+            jtable: Arc::new(JumpTable::new(jtable_entries)),
         };
 
         let post_image_table = CompilationTable {

@@ -13,7 +13,7 @@ use crate::types::ValueType;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StepInfo {
     Br {
         dst_pc: u32,

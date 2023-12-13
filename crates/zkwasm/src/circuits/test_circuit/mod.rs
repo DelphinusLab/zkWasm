@@ -49,7 +49,7 @@ use crate::foreign::foreign_table_enable_lines;
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
-use crate::runtime::memory_event_of_step;
+use specs::imtable::memory_event_of_step;
 
 use super::config::zkwasm_k;
 use super::image_table::ImageTableConfig;

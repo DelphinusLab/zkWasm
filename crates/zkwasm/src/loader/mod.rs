@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -16,6 +17,7 @@ use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use specs::Tables;
+use wasmi::ENTRY;
 use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
@@ -25,12 +27,14 @@ use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
+use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
+#[cfg(feature="continuation")]
+use crate::continuation::slice::Slice;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
-#[cfg(not(feature = "continuation"))]
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
@@ -41,7 +45,7 @@ use anyhow::anyhow;
 
 mod err;
 
-const ENTRY: &str = "zkmain";
+pub type CallbackType = Box<dyn FnMut(Tables, usize)>;
 
 pub struct ExecutionArg {
     /// Public inputs for `wasm_input(1)`
@@ -52,6 +56,9 @@ pub struct ExecutionArg {
     pub context_inputs: Vec<u64>,
     /// Context outputs for `wasm_write_context()`
     pub context_outputs: Arc<Mutex<Vec<u64>>>,
+    pub output_dir: Option<PathBuf>,
+    /// enable dump table for continuation
+    pub dump_table: bool
 }
 
 pub struct ExecutionReturn {
@@ -66,6 +73,10 @@ pub struct ZkWasmLoader<E: MultiMillerLoop> {
 }
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
+    pub fn compute_slice_capability(&self) -> usize {
+        ((1 << self.k) - 200) / EVENT_TABLE_ENTRY_ROWS as usize
+    }
+    
     fn precheck(&self) -> Result<()> {
         fn check_zkmain_exists(module: &wasmi::Module) -> Result<()> {
             use parity_wasm::elements::Internal;
@@ -96,7 +107,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(())
     }
 
-    fn compile(&self, env: &HostEnv) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
+    fn compile(&self, env: &HostEnv, callback: Option<impl FnMut(Tables, usize) + 'static>) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
         WasmInterpreter::compile(
@@ -105,6 +116,8 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             &env.function_description_table(),
             ENTRY,
             &self.phantom_functions,
+            callback,
+            self.compute_slice_capability()
         )
     }
 
@@ -151,7 +164,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             Arc::new(Mutex::new(vec![])),
         );
-        let compiled = self.compile(&env)?;
+        let compiled = self.compile(&env, None::<CallbackType>)?;
 
         let table_with_params = CompilationTableWithParams {
             table: &compiled.tables,
@@ -170,9 +183,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             arg.context_inputs,
             arg.context_outputs,
         );
-
-        let compiled_module = self.compile(&env)?;
-
+        let compiled_module = self.compile(&env, None::<CallbackType>)?;
         compiled_module.dry_run(&mut env)
     }
 
@@ -184,17 +195,33 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             arg.context_outputs,
         );
 
-        let compiled_module = self.compile(&env)?;
-
-        let result = compiled_module.run(&mut env, wasm_runtime_io)?;
-        cfg_if::cfg_if! {
-            if #[cfg(not(feature = "continuation"))] {
-                result.tables.profile_tables();
-                result.tables.write_json(None);
+        let output_dir = arg.output_dir.unwrap_or_else(|| std::env::current_dir().unwrap());
+        if arg.dump_table {
+            let mut _index = 0;
+            let callback = move |_table, _capability | {       
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "continuation")] {
+                        let slice = Slice::new(_table, _capability);
+                        let mut dir = output_dir.clone();
+                        dir.push(_index.to_string());
+                        slice.write_json(Some(dir));
+                        _index += 1;
+                    }
+                }
+            };
+            let compiled_module = self.compile(&env, Some(callback))?;
+            let result = compiled_module.run(&mut env, wasm_runtime_io)?;
+            Ok(result)
+        } else {
+            let compiled_module = self.compile(&env, None::<CallbackType>)?;
+            let result = compiled_module.run(&mut env, wasm_runtime_io)?;
+            if let Some(tables) = &result.tables {
+                tables.profile_tables();
+                tables.write_json(Some(output_dir));
             }
+            Ok(result)
         }
 
-        Ok(result)
     }
 
     pub fn circuit_with_witness(
@@ -211,7 +238,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             .collect();
 
         let builder = ZkWasmCircuitBuilder {
-            tables: execution_result.tables,
+            tables: execution_result.tables.unwrap(),
         };
 
         println!("output:");

@@ -1,6 +1,7 @@
 use specs::host_function::HostPlugin;
 use specs::host_function::Signature;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 use wasmi::FuncInstance;
@@ -11,6 +12,7 @@ use wasmi::RuntimeValue;
 use super::ForeignContext;
 use super::ForeignPlugin;
 
+#[derive(Clone)]
 pub(super) struct ForeignOp {
     pub index: Option<usize>,
     pub index_within_plugin: usize,
@@ -21,7 +23,8 @@ pub(super) struct ForeignOp {
 
 pub struct InternalCircuitEnv {
     pub(super) plugins: HashMap<HostPlugin, ForeignPlugin>,
-    pub(super) functions: HashMap<String, ForeignOp>,
+    // here we use BTreeMap to make sure op.index deterministic 
+    pub(super) functions: BTreeMap<String, ForeignOp>,
     finalized: Rc<RefCell<bool>>,
 }
 
@@ -29,7 +32,7 @@ impl InternalCircuitEnv {
     pub(super) fn new(finalized: Rc<RefCell<bool>>) -> Self {
         Self {
             plugins: HashMap::new(),
-            functions: HashMap::new(),
+            functions: BTreeMap::new(),
             finalized,
         }
     }

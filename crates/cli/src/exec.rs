@@ -185,6 +185,8 @@ pub fn exec_dry_run_service(
                                     private_inputs,
                                     context_inputs,
                                     context_outputs: context_outputs.clone(),
+                                    output_dir: None,
+                                    dump_table: false
                                 })
                                 .unwrap();
                             println!("return value: {:?}", r);
@@ -239,6 +241,32 @@ pub fn exec_dry_run(
         private_inputs,
         context_inputs,
         context_outputs,
+        output_dir: None,
+        dump_table: false
+    })?;
+
+    Ok(())
+}
+
+pub fn exec_witness_dump(
+    zkwasm_k: u32,
+    wasm_binary: Vec<u8>,
+    phantom_functions: Vec<String>,
+    output_dir: &PathBuf,
+    public_inputs: Vec<u64>,
+    private_inputs: Vec<u64>,
+    context_inputs: Vec<u64>,
+    context_outputs: Arc<Mutex<Vec<u64>>>,
+) -> Result<()> {
+    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+
+    loader.run(ExecutionArg {
+        public_inputs,
+        private_inputs,
+        context_inputs,
+        context_outputs,
+        output_dir: Some(output_dir.clone()),
+        dump_table: true
     })?;
 
     Ok(())
@@ -272,6 +300,8 @@ pub fn exec_create_proof(
         private_inputs,
         context_inputs,
         context_outputs,
+        output_dir: None,
+        dump_table: false
     })?;
 
     {
@@ -370,6 +400,8 @@ pub fn exec_aggregate_create_proof(
                         private_inputs,
                         context_inputs,
                         context_outputs,
+                        output_dir: None,
+                        dump_table: false
                     })?;
 
                     circuits.push(circuit);

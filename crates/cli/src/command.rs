@@ -27,6 +27,18 @@ pub trait CommandBuilder: ArgBuilder {
         app.subcommand(command)
     }
 
+    #[cfg(feature="continuation")]
+    fn append_witness_dump_subcommand(app: App) -> App {
+        let command = Command::new("witness-dump")
+            .arg(Self::single_public_arg())
+            .arg(Self::single_private_arg())
+            .arg(Self::dry_run_service_arg())
+            .arg(Self::context_in_arg())
+            .arg(Self::context_out_path_arg());
+
+        app.subcommand(command)
+    }
+
     fn append_create_single_proof_subcommand(app: App) -> App {
         let command = Command::new("single-prove")
             .arg(Self::single_public_arg())

@@ -11,6 +11,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::exec::exec_dry_run;
+#[cfg(feature="continuation")]
+use crate::exec::exec_witness_dump;
 
 use super::command::CommandBuilder;
 use super::exec::exec_aggregate_create_proof;
@@ -77,6 +79,8 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_verify_aggregate_verify_subcommand(app);
         let app = Self::append_generate_solidity_verifier(app);
         let app = Self::append_image_checksum_subcommand(app);
+        #[cfg(feature="continuation")]
+        let app = Self::append_witness_dump_subcommand(app);
 
         app
     }
@@ -129,13 +133,11 @@ pub trait AppBuilder: CommandBuilder {
                     if !context_in.is_empty() || context_out_path.is_some() {
                         warn!("All context paths are ignored when dry-run is running in service mode.");
                     }
-
                     exec_dry_run_service(zkwasm_k, wasm_binary, phantom_functions, &listen)
                 } else {
                     assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
                     let context_output = Arc::new(Mutex::new(vec![]));
-
                     exec_dry_run(
                         zkwasm_k,
                         wasm_binary,
@@ -151,6 +153,36 @@ pub trait AppBuilder: CommandBuilder {
                     Ok(())
                 }
             }
+
+            #[cfg(feature="continuation")]
+            Some(("witness-dump", sub_matches)) => {
+                let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
+                let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
+                let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
+                let context_out_path: Option<PathBuf> =
+                    Self::parse_context_out_path_arg(&sub_matches);
+                let context_output = Arc::new(Mutex::new(vec![]));
+
+                let context_out = Arc::new(Mutex::new(vec![]));
+
+                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
+
+                exec_witness_dump(
+                    zkwasm_k,
+                    wasm_binary,
+                    phantom_functions,
+                    &output_dir,
+                    public_inputs,
+                    private_inputs,
+                    context_in,
+                    context_output.clone(),
+                )?;
+
+                write_context_output(&context_out.lock().unwrap(), context_out_path)?;
+
+                Ok(())
+            }
+
             Some(("single-prove", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);

@@ -5,7 +5,7 @@ use super::itable::InstructionTableEntry;
 use crate::host_function::HostPlugin;
 use crate::step::StepInfo;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct EventTableEntry {
     pub eid: u32,
     pub sp: u32,
@@ -39,7 +39,7 @@ impl Iterator for RestJops {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EventTable(Vec<EventTableEntry>);
 
 impl EventTable {

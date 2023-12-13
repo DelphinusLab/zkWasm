@@ -586,7 +586,7 @@ impl Into<OpcodeClassPlain> for &Opcode {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct InstructionTableEntry {
     pub fid: u32,
     pub iid: u32,
@@ -606,7 +606,7 @@ impl InstructionTableEntry {
         bn
     }
 }
-#[derive(Default, Serialize, Debug, Clone, Deserialize)]
+#[derive(Default, Serialize, Debug, Clone, Deserialize, PartialEq)]
 pub struct InstructionTable(Vec<InstructionTableEntry>);
 
 impl InstructionTable {

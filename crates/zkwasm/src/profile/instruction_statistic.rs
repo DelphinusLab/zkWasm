@@ -6,7 +6,7 @@ use specs::mtable::MemoryTableEntry;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use crate::runtime::memory_event_of_step;
+use specs::imtable::memory_event_of_step;
 
 pub trait InstructionStatistic {
     fn profile_instruction(&self);

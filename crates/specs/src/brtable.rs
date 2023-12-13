@@ -26,7 +26,7 @@ impl BrTable {
     }
 }
 
-#[derive(Serialize, Debug, Clone, Deserialize)]
+#[derive(Serialize, Debug, Clone, Deserialize, PartialEq)]
 pub struct ElemEntry {
     pub table_idx: u32,
     pub type_idx: u32,
@@ -34,7 +34,7 @@ pub struct ElemEntry {
     pub func_idx: u32,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct ElemTable(BTreeMap<(u32, u32), ElemEntry>);
 
 #[derive(Serialize, Debug, Deserialize)]
