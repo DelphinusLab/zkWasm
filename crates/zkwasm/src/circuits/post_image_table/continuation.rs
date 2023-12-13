@@ -167,10 +167,8 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
                             )?;
                             ctx.borrow_mut().next();
 
-                            Ok::<_, Error>((enable.clone(), entry.clone()))
+                            Ok((enable.clone(), entry.clone()))
                         })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -194,8 +192,6 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
 
                             Ok(entry)
                         })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -219,8 +215,6 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
 
                             Ok(entry)
                         })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -244,8 +238,6 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
 
                             Ok(entry)
                         })
-                        .collect::<Vec<Result<_, Error>>>()
-                        .into_iter()
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -355,8 +347,6 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
 
                                 Ok(entry)
                             })
-                            .collect::<Vec<Result<_, Error>>>()
-                            .into_iter()
                             .collect::<Result<Vec<_>, Error>>()
                     }?;
 
