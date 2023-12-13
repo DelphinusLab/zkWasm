@@ -13,13 +13,14 @@ use halo2_proofs::plonk::Fixed;
 use num_bigint::BigUint;
 use specs::encode::init_memory_table::encode_init_memory_table_address;
 use specs::mtable::LocationType;
-use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::image_table::ImageTableConfig;
 use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::image_table::ImageTableLayouter;
+use crate::circuits::utils::image_table::GLOBAL_CAPABILITY;
+use crate::circuits::utils::image_table::STACK_CAPABILITY;
 use crate::circuits::utils::Context;
 use crate::constant_from;
 use crate::curr;
@@ -285,11 +286,11 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
                             }};
                         }
 
-                        for i in 0..DEFAULT_VALUE_STACK_LIMIT {
+                        for i in 0..STACK_CAPABILITY {
                             assign_address!(LocationType::Stack, i)?;
                         }
 
-                        for i in 0..DEFAULT_VALUE_STACK_LIMIT {
+                        for i in 0..GLOBAL_CAPABILITY {
                             assign_address!(LocationType::Global, i)?;
                         }
 
