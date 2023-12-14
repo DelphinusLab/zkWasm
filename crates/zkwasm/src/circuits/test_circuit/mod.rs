@@ -317,13 +317,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         let mut image_table_assigner = ImageTableAssigner::new(
             // Add one for default lookup value
             self.tables.compilation_tables.itable.entries().len() + 1,
-            // FIXME: avoid compute
-            self.tables
-                .compilation_tables
-                .itable
-                .create_brtable()
-                .entries()
-                .len()
+            self.tables.compilation_tables.br_table.entries().len()
                 + self.tables.compilation_tables.elem_table.entries().len()
                 + 1,
             config.circuit_maximal_pages,

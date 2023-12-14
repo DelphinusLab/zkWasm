@@ -5,6 +5,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 
 use super::ImageTableChip;
 use crate::circuits::utils::image_table::ImageTableAssigner;
@@ -66,33 +67,36 @@ impl<F: FieldExt> ImageTableChip<F> {
                 let static_frame_entries_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
-                    permutation_cells
-                        .static_frame_entries
-                        .iter()
-                        .map(|(enable, entry)| {
-                            let offset = ctx.borrow().offset;
+                    let mut cells = vec![];
 
-                            enable.copy_advice(
-                                || "image table: static frame entry",
-                                &mut ctx.borrow_mut().region,
-                                self.config.col,
-                                offset,
-                            )?;
-                            ctx.borrow_mut().next();
+                    for (enable, entry) in &permutation_cells.static_frame_entries {
+                        let offset = ctx.borrow().offset;
 
-                            let offset = ctx.borrow().offset;
+                        enable.copy_advice(
+                            || "image table: static frame entry",
+                            &mut ctx.borrow_mut().region,
+                            self.config.col,
+                            offset,
+                        )?;
+                        ctx.borrow_mut().next();
 
-                            entry.copy_advice(
-                                || "image table: static frame entry",
-                                &mut ctx.borrow_mut().region,
-                                self.config.col,
-                                offset,
-                            )?;
-                            ctx.borrow_mut().next();
+                        let offset = ctx.borrow().offset;
 
-                            Ok((enable.clone(), entry.clone()))
-                        })
-                        .collect::<Result<Vec<_>, Error>>()
+                        entry.copy_advice(
+                            || "image table: static frame entry",
+                            &mut ctx.borrow_mut().region,
+                            self.config.col,
+                            offset,
+                        )?;
+                        ctx.borrow_mut().next();
+
+                        cells.push((enable.clone(), entry.clone()));
+                    }
+
+                    Ok(cells.try_into().expect(&format!(
+                        "The number of static frame entries should be {}",
+                        STATIC_FRAME_ENTRY_NUMBER
+                    )))
                 };
 
                 let instruction_handler = |base_offset| {

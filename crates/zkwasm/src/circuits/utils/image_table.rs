@@ -3,6 +3,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use num_bigint::BigUint;
 use specs::encode::image_table::ImageTableEncoder;
 use specs::imtable::InitMemoryTableEntry;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::state::InitializationState;
@@ -13,7 +14,6 @@ use crate::circuits::config::zkwasm_k;
 use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::image_table::PAGE_ENTRIES;
 use crate::circuits::jtable::STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY;
-use crate::circuits::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use crate::circuits::utils::bn_to_field;
 
 pub const STACK_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
@@ -62,7 +62,7 @@ impl InitMemoryLayouter {
 #[allow(dead_code)]
 pub(crate) struct ImageTableLayouter<T> {
     pub(crate) initialization_state: InitializationState<T>,
-    pub(crate) static_frame_entries: Vec<(T, T)>,
+    pub(crate) static_frame_entries: [(T, T); STATIC_FRAME_ENTRY_NUMBER],
     pub(crate) instructions: Vec<T>,
     pub(crate) br_table_entires: Vec<T>,
     // NOTE: unused instructions and br_table entries.
@@ -114,8 +114,13 @@ impl ImageTableAssigner {
 
     pub fn exec_static_frame_entries<T, Error>(
         &mut self,
-        mut static_frame_entries_handler: impl FnMut(usize) -> Result<Vec<(T, T)>, Error>,
-    ) -> Result<Vec<(T, T)>, Error> {
+        mut static_frame_entries_handler: impl FnMut(
+            usize,
+        ) -> Result<
+            [(T, T); STATIC_FRAME_ENTRY_NUMBER],
+            Error,
+        >,
+    ) -> Result<[(T, T); STATIC_FRAME_ENTRY_NUMBER], Error> {
         static_frame_entries_handler(self.static_frame_entries_offset)
     }
 
@@ -150,7 +155,10 @@ impl ImageTableAssigner {
     pub fn exec<T, Error>(
         &mut self,
         initialization_state_handler: impl FnMut(usize) -> Result<InitializationState<T>, Error>,
-        static_frame_entries_handler: impl FnMut(usize) -> Result<Vec<(T, T)>, Error>,
+        static_frame_entries_handler: impl FnMut(
+            usize,
+        )
+            -> Result<[(T, T); STATIC_FRAME_ENTRY_NUMBER], Error>,
         instruction_handler: impl FnMut(usize) -> Result<Vec<T>, Error>,
         br_table_handler: impl FnMut(usize) -> Result<Vec<T>, Error>,
         padding_handler: impl FnMut(usize, usize) -> Result<Vec<T>, Error>,
@@ -190,11 +198,16 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             // Encode disabled static frame entry in image table
             assert_eq!(self.static_jtable.len(), STATIC_FRAME_ENTRY_NUMBER);
 
-            Ok(self
-                .static_jtable
-                .iter()
-                .map(|entry| (F::from(entry.enable as u64), bn_to_field(&entry.encode())))
-                .collect())
+            let mut cells = vec![];
+
+            for entry in self.static_jtable.as_ref() {
+                cells.push((F::from(entry.enable as u64), bn_to_field(&entry.encode())));
+            }
+
+            Ok(cells.try_into().expect(&format!(
+                "The number of static frame entries should be {}",
+                STATIC_FRAME_ENTRY_NUMBER
+            )))
         };
 
         let instruction_handler = |_| {
