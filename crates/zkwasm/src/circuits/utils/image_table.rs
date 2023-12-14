@@ -10,8 +10,6 @@ use specs::state::InitializationState;
 use specs::CompilationTable;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
-use crate::circuits::config::zkwasm_k;
-use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::image_table::PAGE_ENTRIES;
 use crate::circuits::jtable::STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY;
 use crate::circuits::utils::bn_to_field;
@@ -183,14 +181,11 @@ impl ImageTableAssigner {
 }
 
 pub(crate) trait EncodeCompilationTableValues<F: Clone> {
-    fn encode_compilation_table_values(&self) -> ImageTableLayouter<F>;
+    fn encode_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F>;
 }
 
 impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
-    fn encode_compilation_table_values(&self) -> ImageTableLayouter<F> {
-        // FIXME: ugly
-        let pages_capability = compute_maximal_pages(zkwasm_k());
-
+    fn encode_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F> {
         let initialization_state_handler =
             |_| Ok(self.initialization_state.map(|v| F::from((*v) as u64)));
 
@@ -254,7 +249,7 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             ));
 
             let layouter = InitMemoryLayouter {
-                pages: pages_capability,
+                pages: page_capability,
             };
 
             layouter.for_each(|(ltype, offset)| {
@@ -288,7 +283,7 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
         let mut assigner = ImageTableAssigner::new(
             self.itable.entries().len(),
             self.br_table.entries().len() + self.elem_table.entries().len(),
-            pages_capability,
+            page_capability,
         );
 
         let layouter = assigner
@@ -314,10 +309,8 @@ impl<F: FieldExt> ImageTableLayouter<F> {
         buf.append(
             &mut self
                 .static_frame_entries
-                .clone()
-                .to_vec()
-                .into_iter()
                 .map(|(enable, fid)| vec![enable, fid])
+                .into_iter()
                 .collect::<Vec<Vec<_>>>()
                 .concat(),
         );

@@ -6,7 +6,7 @@ use specs::CompilationTable;
 use crate::circuits::utils::image_table::EncodeCompilationTableValues;
 
 pub trait ImageCheckSum<Output> {
-    fn checksum(&self) -> Output;
+    fn checksum(&self, page_capability: u32) -> Output;
 }
 
 pub(crate) struct CompilationTableWithParams<'a, 'b, C: CurveAffine> {
@@ -15,8 +15,11 @@ pub(crate) struct CompilationTableWithParams<'a, 'b, C: CurveAffine> {
 }
 
 impl<'a, 'b, C: CurveAffine> ImageCheckSum<Vec<C>> for CompilationTableWithParams<'a, 'b, C> {
-    fn checksum(&self) -> Vec<C> {
-        let cells = self.table.encode_compilation_table_values().plain();
+    fn checksum(&self, page_capability: u32) -> Vec<C> {
+        let cells = self
+            .table
+            .encode_compilation_table_values(page_capability)
+            .plain();
 
         let c = best_multiexp_gpu_cond(&cells[..], &self.params.get_g_lagrange()[0..cells.len()]);
         vec![c.into()]
