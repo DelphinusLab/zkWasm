@@ -11,7 +11,7 @@ mod assign;
 mod configure;
 pub(crate) mod expression;
 
-// enable and data should encode in image table
+// enable and data should be encoded in image table
 pub(crate) const STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY: usize = STATIC_FRAME_ENTRY_NUMBER * 2;
 
 pub enum JtableOffset {
