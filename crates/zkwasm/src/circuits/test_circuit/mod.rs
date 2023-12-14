@@ -274,7 +274,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                             &mut ctx,
                             &etable_permutation_cells.rest_mops,
                             &memory_writing_table,
-                            &self.tables.compilation_tables.imtable
                         )?
                     )
                 };
@@ -330,7 +329,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 &mut image_table_assigner,
                 self.tables
                     .compilation_tables
-                    .encode_compilation_table_values(),
+                    .encode_compilation_table_values(config.circuit_maximal_pages),
                 ImageTableLayouter {
                     initialization_state: etable_permutation_cells.pre_initialization_state,
                     static_frame_entries,
@@ -349,10 +348,10 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 &mut image_table_assigner,
                 self.tables
                     .compilation_tables
-                    .encode_compilation_table_values(),
+                    .encode_compilation_table_values(config.circuit_maximal_pages),
                 self.tables
                     .post_image_table
-                    .encode_compilation_table_values(),
+                    .encode_compilation_table_values(config.circuit_maximal_pages),
                 ImageTableLayouter {
                     initialization_state: etable_permutation_cells.post_initialization_state,
                     static_frame_entries: pre_image_table_cells.static_frame_entries,

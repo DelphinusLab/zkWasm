@@ -30,6 +30,7 @@ use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
 use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
+use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
@@ -187,7 +188,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             params,
         };
 
-        Ok(table_with_params.checksum())
+        Ok(table_with_params.checksum(compute_maximal_pages(self.k)))
     }
 }
 

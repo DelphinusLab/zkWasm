@@ -89,7 +89,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let eid_diff_cell = allocator.alloc_u32_state_cell();
         let rest_mops_cell = allocator.alloc_common_range_cell();
 
-        // TODO: cut allocated u32 cell
         let offset_cell = allocator.alloc_u32_cell();
 
         let offset_diff_cell = allocator.alloc_u32_cell();
@@ -193,32 +192,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
-        // meta.create_gate("mc7a. init", |meta| {
-        //     vec![
-        //         // offset_left_align <= offset && offset <= offset_right_align
-        //         is_init_cell.curr_expr(meta)
-        //             * (offset_align_left.curr_expr(meta)
-        //                 + offset_align_left_diff_cell.curr_expr(meta)
-        //                 - offset_cell.curr_expr(meta)),
-        //         is_init_cell.curr_expr(meta)
-        //             * (offset_cell.curr_expr(meta) + offset_align_right_diff_cell.curr_expr(meta)
-        //                 - offset_align_right.curr_expr(meta)),
-        //     ]
-        //     .into_iter()
-        //     .map(|x| x * fixed_curr!(meta, entry_sel))
-        //     .collect::<Vec<_>>()
-        // });
-
-        #[cfg(not(feature = "continuation"))]
-        meta.create_gate("mc7a. init start_eid equals 0", |meta| {
-            vec![is_init_cell.curr_expr(meta) * start_eid_cell.curr_expr(meta)]
-                .into_iter()
-                .map(|x| x * fixed_curr!(meta, entry_sel))
-                .collect::<Vec<_>>()
-        });
-
         meta.create_gate(
-            "mc7b. global must has init (because of mutability check).",
+            "mc7a. global must has init (because of mutability check).",
             |meta| {
                 vec![
                     (is_next_same_offset_cell.expr(meta) - constant_from!(1))
@@ -231,7 +206,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             },
         );
 
-        meta.create_gate("mc7c. init encode.", |meta| {
+        meta.create_gate("mc7b. init encode.", |meta| {
             vec![
                 encode_init_memory_table_entry(
                     is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
@@ -374,10 +349,6 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             offset_diff_cell,
             offset_diff_inv_cell,
             offset_diff_inv_helper_cell,
-            // offset_align_left,
-            // offset_align_right,
-            // offset_align_left_diff_cell,
-            // offset_align_right_diff_cell,
             value,
             init_encode_cell,
             encode_cell,

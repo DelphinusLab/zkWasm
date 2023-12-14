@@ -6,7 +6,6 @@ use halo2_proofs::plonk::Error;
 use log::debug;
 use specs::encode::init_memory_table::encode_init_memory_table_entry;
 use specs::encode::memory_table::encode_memory_table_entry;
-use specs::imtable::InitMemoryTable;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
@@ -60,7 +59,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         rest_memory_finalize_ops: u32,
     ) -> Result<AssignedCell<F, F>, Error> {
-        // Overwrite in assign_entries
         let cell = self
             .config
             .rest_memory_finalize_ops
@@ -93,7 +91,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         mtable: &MemoryWritingTable,
         init_rest_mops: u64,
-        _imtable: &InitMemoryTable,
         mut _rest_memory_finalize_ops: u32,
     ) -> Result<(), Error> {
         macro_rules! assign_advice {
@@ -154,26 +151,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
 
-            if ctx.offset == 207328 {
-                println!("is init: {}", entry.entry.atype.is_init());
-            }
-
-            //if entry.entry.atype.is_init() {
-            // let init_memory_entry = imtable
-            //     .try_find(entry.entry.ltype, entry.entry.offset)
-            //     .unwrap();
-
-            // assign_advice!(offset_align_left, left_offset);
-            // assign_advice!(offset_align_right, right_offset);
-            // assign_advice!(
-            //     offset_align_left_diff_cell,
-            //     entry.entry.offset - left_offset
-            // );
-            // assign_advice!(
-            //     offset_align_right_diff_cell,
-            //     right_offset - entry.entry.offset
-            // );
-
             assign_advice!(
                 init_encode_cell,
                 bn_to_field(&encode_init_memory_table_entry(
@@ -184,7 +161,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
                     entry.entry.value.into()
                 ))
             );
-            //}
 
             assign_u32_state!(start_eid_cell, entry.entry.eid);
             assign_u32_state!(end_eid_cell, entry.end_eid);
@@ -264,8 +240,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
 
-        println!("mtable end: {}", ctx.offset);
-
         Ok(())
     }
 
@@ -296,7 +270,6 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         etable_rest_mops_cell: &Option<AssignedCell<F, F>>,
         mtable: &MemoryWritingTable,
-        imtable: &InitMemoryTable,
     ) -> Result<(Option<AssignedCell<F, F>>, F), Error> {
         debug!("size of memory writing table: {}", mtable.0.len());
         assert!(mtable.0.len() * (MEMORY_TABLE_ENTRY_ROWS as usize) < self.maximal_available_rows);
@@ -322,7 +295,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
          * Skip subsequent advice assignment in the first pass to enhance performance.
          */
         if rest_mops_cell.value().is_some() {
-            self.assign_entries(ctx, mtable, rest_mops, imtable, rest_memory_finalize_ops)?;
+            self.assign_entries(ctx, mtable, rest_mops, rest_memory_finalize_ops)?;
             ctx.reset();
         }
 
