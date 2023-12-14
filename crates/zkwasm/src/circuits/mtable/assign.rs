@@ -41,9 +41,9 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
                 #[cfg(feature = "continuation")]
                 ctx.region.assign_advice_from_constant(
-                    || "rest_memory_updating_ops terminate",
-                    self.config.rest_memory_updating_ops.0.col,
-                    ctx.offset + self.config.rest_memory_updating_ops.0.rot as usize,
+                    || "rest_memory_finalize_ops terminate",
+                    self.config.rest_memory_finalize_ops.0.col,
+                    ctx.offset + self.config.rest_memory_finalize_ops.0.rot as usize,
                     F::zero(),
                 )?;
             }
@@ -55,16 +55,16 @@ impl<F: FieldExt> MemoryTableChip<F> {
     }
 
     #[cfg(feature = "continuation")]
-    fn constrain_rest_memory_updating_ops(
+    fn constrain_rest_memory_finalize_ops(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_memory_updating_ops: u32,
+        rest_memory_finalize_ops: u32,
     ) -> Result<AssignedCell<F, F>, Error> {
         // Overwrite in assign_entries
         let cell = self
             .config
-            .rest_memory_updating_ops
-            .assign(ctx, F::from(rest_memory_updating_ops as u64))?;
+            .rest_memory_finalize_ops
+            .assign(ctx, F::from(rest_memory_finalize_ops as u64))?;
 
         Ok(cell)
     }
@@ -94,7 +94,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         mtable: &MemoryWritingTable,
         init_rest_mops: u64,
         _imtable: &InitMemoryTable,
-        mut _rest_memory_updating_ops: u32,
+        mut _rest_memory_finalize_ops: u32,
     ) -> Result<(), Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
@@ -195,8 +195,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             #[cfg(feature = "continuation")]
             assign_advice!(
-                rest_memory_updating_ops,
-                F::from(_rest_memory_updating_ops as u64)
+                rest_memory_finalize_ops,
+                F::from(_rest_memory_finalize_ops as u64)
             );
 
             assign_advice!(
@@ -220,13 +220,13 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 if entry.entry.atype == AccessType::Write
                     && !entry.entry.is_same_location(&next_entry.entry)
                 {
-                    _rest_memory_updating_ops -= 1;
+                    _rest_memory_finalize_ops -= 1;
                 }
             } else {
                 // It's last entry
 
                 if entry.entry.atype == AccessType::Write {
-                    _rest_memory_updating_ops -= 1;
+                    _rest_memory_finalize_ops -= 1;
                 }
             }
 
@@ -269,7 +269,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         Ok(())
     }
 
-    fn compute_rest_memory_updating_ops(&self, mtable: &MemoryWritingTable) -> u32 {
+    fn compute_rest_memory_finalize_ops(&self, mtable: &MemoryWritingTable) -> u32 {
         let mut ops = 0u32;
 
         let mut iter = mtable.0.iter().peekable();
@@ -309,11 +309,11 @@ impl<F: FieldExt> MemoryTableChip<F> {
         self.assign_fixed(ctx)?;
         ctx.reset();
 
-        let rest_memory_updating_ops = self.compute_rest_memory_updating_ops(mtable);
+        let rest_memory_finalize_ops = self.compute_rest_memory_finalize_ops(mtable);
 
         #[cfg(feature = "continuation")]
-        let rest_memory_updating_ops_cell =
-            self.constrain_rest_memory_updating_ops(ctx, rest_memory_updating_ops)?;
+        let rest_memory_finalize_ops_cell =
+            self.constrain_rest_memory_finalize_ops(ctx, rest_memory_finalize_ops)?;
 
         let rest_mops_cell =
             self.constrain_rest_mops_permutation(ctx, etable_rest_mops_cell, rest_mops)?;
@@ -322,15 +322,15 @@ impl<F: FieldExt> MemoryTableChip<F> {
          * Skip subsequent advice assignment in the first pass to enhance performance.
          */
         if rest_mops_cell.value().is_some() {
-            self.assign_entries(ctx, mtable, rest_mops, imtable, rest_memory_updating_ops)?;
+            self.assign_entries(ctx, mtable, rest_mops, imtable, rest_memory_finalize_ops)?;
             ctx.reset();
         }
 
         cfg_if::cfg_if! {
             if #[cfg(feature="continuation")] {
-                Ok((Some(rest_memory_updating_ops_cell), F::from(rest_memory_updating_ops as u64)))
+                Ok((Some(rest_memory_finalize_ops_cell), F::from(rest_memory_finalize_ops as u64)))
             } else {
-                Ok((None, F::from(rest_memory_updating_ops as u64)))
+                Ok((None, F::from(rest_memory_finalize_ops as u64)))
             }
         }
     }

@@ -46,10 +46,6 @@ pub struct MemoryTableConfig<F: FieldExt> {
     end_eid_cell: AllocatedU32StateCell<F>,
     eid_diff_cell: AllocatedU32StateCell<F>,
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    // offset_align_left: AllocatedU32Cell<F>,
-    // offset_align_right: AllocatedU32Cell<F>,
-    // offset_align_left_diff_cell: AllocatedU32Cell<F>,
-    // offset_align_right_diff_cell: AllocatedU32Cell<F>,
     offset_cell: AllocatedU32Cell<F>,
     offset_diff_cell: AllocatedU32Cell<F>,
 
@@ -59,7 +55,7 @@ pub struct MemoryTableConfig<F: FieldExt> {
     init_encode_cell: AllocatedUnlimitedCell<F>,
 
     #[cfg(feature = "continuation")]
-    rest_memory_updating_ops: AllocatedUnlimitedCell<F>,
+    rest_memory_finalize_ops: AllocatedUnlimitedCell<F>,
 
     value: AllocatedU64Cell<F>,
 }
@@ -103,7 +99,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let init_encode_cell = allocator.alloc_unlimited_cell();
 
         #[cfg(feature = "continuation")]
-        let rest_memory_updating_ops = {
+        let rest_memory_finalize_ops = {
             let cell = allocator.alloc_unlimited_cell();
             // FIXME: try to avoid this?
             meta.enable_equality(cell.0.col);
@@ -347,8 +343,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         {
             meta.create_gate("mc13. rest memory updating ops", |meta| {
                 vec![
-                    rest_memory_updating_ops.curr_expr(meta)
-                        - rest_memory_updating_ops.next_expr(meta)
+                    rest_memory_finalize_ops.curr_expr(meta)
+                        - rest_memory_finalize_ops.next_expr(meta)
                         - (constant_from!(1) - is_next_same_offset_cell.curr_expr(meta))
                             * (constant_from!(1) - is_init_cell.curr_expr(meta)),
                 ]
@@ -387,7 +383,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             encode_cell,
 
             #[cfg(feature = "continuation")]
-            rest_memory_updating_ops,
+            rest_memory_finalize_ops,
         }
     }
 }
