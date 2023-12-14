@@ -11,46 +11,6 @@ use crate::mtable::AccessType;
 use crate::step::StepInfo;
 use crate::itable::Opcode;
 
-// cfg_if::cfg_if! {
-//     if #[cfg(feature = "continuation")] {
-//         #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-//         pub struct InitializationState<T> {
-//             pub eid: T,
-//             pub fid: T,
-//             pub iid: T,
-//             pub frame_id: T,
-//             pub sp: T,
-
-//             pub host_public_inputs: T,
-//             pub context_in_index: T,
-//             pub context_out_index: T,
-//             pub external_host_call_call_index: T,
-
-//             pub initial_memory_pages: T,
-//             pub maximal_memory_pages: T,
-
-//             pub jops: T,
-//         }
-//     } else {
-//         #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-//         pub struct InitializationState<T> {
-//             pub eid: T,
-//             pub fid: T,
-//             pub iid: T,
-//             pub frame_id: T,
-//             pub sp: T,
-
-//             pub host_public_inputs: T,
-//             pub context_in_index: T,
-//             pub context_out_index: T,
-//             pub external_host_call_call_index: T,
-
-//             pub initial_memory_pages: T,
-//             pub maximal_memory_pages: T,
-//         }
-//     }
-// }
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct InitializationState<T> {
     pub eid: T,

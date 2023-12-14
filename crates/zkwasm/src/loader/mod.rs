@@ -160,7 +160,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
         let (env, _) = HostEnv::new_with_full_foreign_plugins(
             vec![],
-            vec![],
+            vec![].into(),
             vec![],
             Arc::new(Mutex::new(vec![])),
         );
