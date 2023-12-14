@@ -140,7 +140,7 @@ impl ImageTableAssigner {
         &mut self,
         mut padding_handler: impl FnMut(usize, usize) -> Result<Vec<T>, Error>,
     ) -> Result<Vec<T>, Error> {
-        padding_handler(self.padding_offset, self.padding_offset)
+        padding_handler(self.padding_offset, self.init_memory_offset)
     }
 
     pub fn exec_init_memory_entries<T, Error>(
@@ -281,8 +281,8 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
         };
 
         let mut assigner = ImageTableAssigner::new(
-            self.itable.entries().len(),
-            self.br_table.entries().len() + self.elem_table.entries().len(),
+            self.itable.entries().len() + 1,
+            self.br_table.entries().len() + self.elem_table.entries().len() + 1,
             page_capability,
         );
 
