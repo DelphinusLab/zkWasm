@@ -31,6 +31,8 @@ use crate::next;
 use super::PostImageTableChipTrait;
 use super::PostImageTableConfigTrait;
 
+pub const POST_IMAGE_TABLE: &str = "post_img_col";
+
 #[derive(Clone)]
 pub(in crate::circuits) struct ContinuationPostImageTableConfig<F: FieldExt> {
     memory_addr_sel: Column<Fixed>,
@@ -49,7 +51,7 @@ impl<F: FieldExt> PostImageTableConfigTrait<F> for ContinuationPostImageTableCon
     ) -> Self {
         let update = meta.advice_column();
         let rest_memory_finalized_count = meta.advice_column();
-        let post_image_table = meta.advice_column();
+        let post_image_table = meta.named_advice_column(POST_IMAGE_TABLE.to_owned());
 
         meta.enable_equality(rest_memory_finalized_count);
         meta.enable_equality(post_image_table);
