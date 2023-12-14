@@ -35,7 +35,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 ctx.region.assign_advice_from_constant(
                     || "rest_mops terminate",
                     self.config.rest_mops_cell.0.col,
-                    ctx.offset,
+                    ctx.offset + self.config.rest_mops_cell.0.rot as usize,
                     F::zero(),
                 )?;
             }
