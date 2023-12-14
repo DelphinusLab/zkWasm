@@ -3,10 +3,10 @@ use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::plonk::Error;
 use specs::jtable::JumpTable;
 use specs::jtable::StaticFrameEntry;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 
 use super::JtableOffset;
 use super::JumpTableChip;
-use super::STATIC_FRAME_ENTRY_NUMBER;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 
@@ -66,23 +66,9 @@ impl<F: FieldExt> JumpTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         rest_jops: &mut u64,
-        static_entries: &Vec<StaticFrameEntry>,
-    ) -> Result<Vec<(AssignedCell<F, F>, AssignedCell<F, F>)>, Error> {
-        let mut static_entries = static_entries.clone();
-
+        static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
+    ) -> Result<[(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER], Error> {
         let mut cells = vec![];
-
-        static_entries.resize(
-            STATIC_FRAME_ENTRY_NUMBER,
-            StaticFrameEntry {
-                enable: false,
-                frame_id: 0,
-                next_frame_id: 0,
-                callee_fid: 0,
-                fid: 0,
-                iid: 0,
-            },
-        );
 
         for entry in static_entries {
             ctx.region.assign_fixed(
@@ -123,7 +109,10 @@ impl<F: FieldExt> JumpTableChip<F> {
             }
         }
 
-        Ok(cells)
+        Ok(cells.try_into().expect(&format!(
+            "The number of static frame entries should be {}",
+            STATIC_FRAME_ENTRY_NUMBER
+        )))
     }
 
     fn assign_jtable_entries(
@@ -197,8 +186,8 @@ impl<F: FieldExt> JumpTableChip<F> {
         ctx: &mut Context<'_, F>,
         jtable: &JumpTable,
         etable_jops_cell: &Option<AssignedCell<F, F>>,
-        static_entries: &Vec<StaticFrameEntry>,
-    ) -> Result<Vec<(AssignedCell<F, F>, AssignedCell<F, F>)>, Error> {
+        static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
+    ) -> Result<[(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER], Error> {
         if etable_jops_cell.is_some() {
             self.constraint_to_etable_jops(ctx, etable_jops_cell.as_ref().unwrap())?;
         }

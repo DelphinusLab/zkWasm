@@ -4,15 +4,12 @@ use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Fixed;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use std::marker::PhantomData;
 
 mod assign;
 mod configure;
 pub(crate) mod expression;
-
-// 1. jumps to zkmain
-// 2. jumps to start(if exists)
-pub(crate) const STATIC_FRAME_ENTRY_NUMBER: usize = 2;
 
 // enable and data should encode in image table
 pub(crate) const STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY: usize = STATIC_FRAME_ENTRY_NUMBER * 2;

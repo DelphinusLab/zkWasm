@@ -6,6 +6,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
 use specs::jtable::StaticFrameEntry;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::state::InitializationState;
 use specs::CompilationTable;
 use specs::ExecutionTable;
@@ -181,7 +182,17 @@ impl WasmiRuntime {
         let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(tracer.borrow().elem_table.clone());
         let configure_table = Arc::new(tracer.borrow().configure_table.clone());
-        let static_jtable = Arc::new(tracer.borrow().static_jtable_entries.clone());
+        let static_jtable = Arc::new(
+            tracer
+                .borrow()
+                .static_jtable_entries
+                .clone()
+                .try_into()
+                .expect(&format!(
+                    "The number of static frame entries should be {}",
+                    STATIC_FRAME_ENTRY_NUMBER
+                )),
+        );
         let initialization_state = InitializationState {
             eid: 1,
             fid: fid_of_entry,

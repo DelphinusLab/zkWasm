@@ -17,6 +17,7 @@ use imtable::InitMemoryTable;
 use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
+use jtable::STATIC_FRAME_ENTRY_NUMBER;
 use mtable::AccessType;
 use mtable::LocationType;
 use mtable::MTable;
@@ -50,7 +51,7 @@ pub struct CompilationTable {
     pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
-    pub static_jtable: Arc<Vec<StaticFrameEntry>>,
+    pub static_jtable: Arc<[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER]>,
     pub initialization_state: InitializationState<u32>,
 }
 
