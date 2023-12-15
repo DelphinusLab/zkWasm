@@ -2,7 +2,6 @@ use anyhow::Result;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
-use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
