@@ -148,13 +148,12 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             },
         };
 
-        Ok(
-            builder.build_circuit::<E::Scalar>(if cfg!(feature = "continuation") {
-                Some(self.compute_slice_capability())
-            } else {
-                None
-            }),
-        )
+        #[cfg(feature = "continuation")]
+        let slice_capabitlity = Some(self.compute_slice_capability());
+        #[cfg(not(feature = "continuation"))]
+        let slice_capabitlity = None;
+
+        Ok(builder.build_circuit::<E::Scalar>(slice_capabitlity))
     }
 
     pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
