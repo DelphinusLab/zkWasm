@@ -8,7 +8,7 @@ use crate::runtime::ExecutionResult;
 use super::slice::Slices;
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
-    fn compute_slice_capability(&self) -> usize {
+    pub(crate) fn compute_slice_capability(&self) -> usize {
         ((1 << self.k) - 200) / EVENT_TABLE_ENTRY_ROWS as usize
     }
 

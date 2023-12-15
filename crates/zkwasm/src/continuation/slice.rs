@@ -63,14 +63,6 @@ impl Iterator for Slices {
         }
 
         let mut etable_entries = self.pop_etable_entries();
-        // let etable = EventTable::new(etable_entries);
-
-        // let is_last_slice = self.remaining_etable_entries.is_empty();
-
-        // if !is_last_slice {
-        //     self.remaining_etable_entries
-        //         .insert(0, etable.entries().last().unwrap().clone());
-        // }
 
         let (updated_init_memory_table, updated_post_initialization_state) = {
             let updated_init_memory_table = self

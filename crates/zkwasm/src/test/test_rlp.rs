@@ -179,7 +179,7 @@ mod tests {
         fn test_rlp_bench() {
             let (loader, circuit, instances) = build_circuit().unwrap();
 
-            loader.bench_test(circuit, instances)
+            loader.bench_test(circuit, &instances)
         }
     }
 }

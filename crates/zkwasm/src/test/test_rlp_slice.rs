@@ -169,9 +169,12 @@ fn test_slices() -> Result<()> {
     while let Some(slice) = slices.next() {
         println!("slice {}", index);
 
-        let circuit = slice.build_circuit();
+        if index != 0 {
+            let circuit = slice.build_circuit();
 
-        loader.mock_test(&circuit, &instances)?;
+            loader.mock_test(&circuit, &instances)?;
+            loader.bench_test(circuit, &instances);
+        }
 
         index += 1;
     }
