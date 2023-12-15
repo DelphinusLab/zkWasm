@@ -64,6 +64,12 @@ pub struct ZkWasmCircuitBuilder {
 
 impl ZkWasmCircuitBuilder {
     pub fn build_circuit<F: FieldExt>(self, slice_capability: Option<usize>) -> TestCircuit<F> {
+        #[cfg(feature = "continuation")]
+        assert!(slice_capability.is_some());
+
+        #[cfg(not(feature = "continuation"))]
+        assert!(slice_capability.is_none());
+
         TestCircuit::new(self.tables, slice_capability)
     }
 }

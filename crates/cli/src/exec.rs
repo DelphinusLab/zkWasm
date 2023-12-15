@@ -2,6 +2,7 @@ use anyhow::Result;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
+use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use halo2_proofs::arithmetic::BaseExt;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
@@ -96,12 +97,18 @@ pub fn exec_image_checksum(
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
+    let image = if cfg!(feature = "continuation") {
+        todo!("read slice image from file?");
+    } else {
+        loader.compile_without_env()?.tables
+    };
+
     let params = load_or_build_unsafe_params::<Bn256>(
         zkwasm_k,
         Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
     );
 
-    let checksum = loader.checksum(&params)?;
+    let checksum = loader.checksum(&image, &params)?;
     assert_eq!(checksum.len(), 1);
     let checksum = checksum[0];
 
@@ -363,7 +370,13 @@ pub fn exec_verify_proof(
 
     let proof = load_proof(proof_path);
 
-    loader.verify_proof(&params, vkey, instances, proof)?;
+    let image = if cfg!(feature = "continuation") {
+        todo!("read slice image from file?")
+    } else {
+        loader.compile_without_env()?.tables
+    };
+
+    loader.verify_proof(&image, &params, vkey, &instances, proof)?;
 
     info!("Verifing proof passed");
 

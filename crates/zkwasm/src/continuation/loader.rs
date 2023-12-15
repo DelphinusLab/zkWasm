@@ -12,6 +12,13 @@ use super::slice::Slice;
 use super::slice::Slices;
 
 impl<E: MultiMillerLoop> ZkWasmLoader<E> {
+<<<<<<< HEAD
+=======
+    pub(crate) fn compute_slice_capability(&self) -> usize {
+        ((1 << self.k) - 200) / EVENT_TABLE_ENTRY_ROWS as usize
+    }
+
+>>>>>>> 1fd2066 (fix circuit_without_witness)
     pub fn slice(&self, execution_result: ExecutionResult<RuntimeValue>) -> Slices {
         Slices::new(
             execution_result.tables.unwrap(),

@@ -16,6 +16,7 @@ use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::SliceDumper;
@@ -124,7 +125,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         )
     }
 
-    fn circuit_without_witness(&self, last_slice_circuit: bool) -> Result<TestCircuit<E::Scalar>> {
+    pub fn compile_without_env(&self) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let (env, _) = HostEnv::new_with_full_foreign_plugins(
             vec![],
             vec![],
@@ -132,7 +133,11 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             Arc::new(Mutex::new(vec![])),
         );
 
-        let compiled_module = self.compile(&env)?;
+        self.compile(&env)
+    }
+
+    fn circuit_without_witness(&self, last_slice_circuit: bool) -> Result<TestCircuit<E::Scalar>> {
+        let compiled_module = self.compile_without_env()?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
@@ -143,7 +148,13 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             },
         };
 
-        Ok(builder.build_circuit::<E::Scalar>(None))
+        Ok(
+            builder.build_circuit::<E::Scalar>(if cfg!(feature = "continuation") {
+                Some(self.compute_slice_capability())
+            } else {
+                None
+            }),
+        )
     }
 
     pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
@@ -174,17 +185,13 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
 
-    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![].into(),
-            vec![],
-            Arc::new(Mutex::new(vec![])),
-        );
-        let compiled = self.compile(&env, Box::new(WitnessDumper::default()))?;
-
+    pub fn checksum<'a, 'b>(
+        &self,
+        image: &'b CompilationTable,
+        params: &'a Params<E::G1Affine>,
+    ) -> Result<Vec<E::G1Affine>> {
         let table_with_params = CompilationTableWithParams {
-            table: &compiled.tables,
+            table: &image,
             params,
         };
 
@@ -287,9 +294,10 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
     pub fn verify_proof(
         &self,
+        image: &CompilationTable,
         params: &Params<E::G1Affine>,
         vkey: VerifyingKey<E::G1Affine>,
-        instances: Vec<E::Scalar>,
+        instances: &Vec<E::Scalar>,
         proof: Vec<u8>,
     ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
@@ -318,7 +326,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
                     &mut PoseidonRead::init(&proof[..]),
                 )
                 .unwrap();
-            let checksum = self.checksum(params)?;
+            let checksum = self.checksum(image, params)?;
 
             assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
         }
@@ -345,7 +353,7 @@ mod tests {
     use super::ZkWasmLoader;
 
     impl ZkWasmLoader<Bn256> {
-        pub(crate) fn bench_test(&self, circuit: TestCircuit<Fr>, instances: Vec<Fr>) {
+        pub(crate) fn bench_test(&self, circuit: TestCircuit<Fr>, instances: &Vec<Fr>) {
             fn prepare_param(k: u32) -> Params<G1Affine> {
                 let path = PathBuf::from(format!("test_param.{}.data", k));
 
@@ -369,12 +377,21 @@ mod tests {
             }
 
             let params = prepare_param(self.k);
-            let vkey = self.create_vkey(&params, true).unwrap();
+            let vkey = self
+                .create_vkey(&params, circuit.tables.is_last_slice)
+                .unwrap();
 
             let proof = self
-                .create_proof(&params, vkey.clone(), circuit, &instances)
+                .create_proof(&params, vkey.clone(), circuit.clone(), &instances)
                 .unwrap();
-            self.verify_proof(&params, vkey, instances, proof).unwrap();
+            self.verify_proof(
+                &circuit.tables.compilation_tables,
+                &params,
+                vkey,
+                instances,
+                proof,
+            )
+            .unwrap();
         }
     }
 }
