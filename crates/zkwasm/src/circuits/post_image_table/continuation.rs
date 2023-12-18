@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -18,6 +19,7 @@ use specs::mtable::LocationType;
 use crate::circuits::image_table::ImageTableConfig;
 use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::image_table::image_table_offset_to_memory_location;
 use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::image_table::GLOBAL_CAPABILITY;
@@ -28,13 +30,10 @@ use crate::curr;
 use crate::fixed_curr;
 use crate::next;
 
-use super::PostImageTableChipTrait;
-use super::PostImageTableConfigTrait;
-
 pub const POST_IMAGE_TABLE: &str = "post_img_col";
 
 #[derive(Clone)]
-pub(in crate::circuits) struct ContinuationPostImageTableConfig<F: FieldExt> {
+pub(in crate::circuits) struct PostImageTableConfig<F: FieldExt> {
     memory_addr_sel: Column<Fixed>,
     post_image_table: Column<Advice>,
     update: Column<Advice>,
@@ -42,13 +41,14 @@ pub(in crate::circuits) struct ContinuationPostImageTableConfig<F: FieldExt> {
     _mark: PhantomData<F>,
 }
 
-impl<F: FieldExt> PostImageTableConfigTrait<F> for ContinuationPostImageTableConfig<F> {
-    fn configure(
+impl<F: FieldExt> PostImageTableConfig<F> {
+    pub(in crate::circuits) fn configure(
         meta: &mut ConstraintSystem<F>,
-        memory_addr_sel: Column<Fixed>,
+        memory_addr_sel: Option<Column<Fixed>>,
         memory_table: &MemoryTableConfig<F>,
         pre_image_table: &ImageTableConfig<F>,
     ) -> Self {
+        let memory_addr_sel = memory_addr_sel.unwrap();
         let update = meta.advice_column();
         let rest_memory_finalized_count = meta.advice_column();
         let post_image_table = meta.named_advice_column(POST_IMAGE_TABLE.to_owned());
@@ -95,26 +95,24 @@ impl<F: FieldExt> PostImageTableConfigTrait<F> for ContinuationPostImageTableCon
     }
 }
 
-pub(in crate::circuits) struct ContinuationPostImageTableChip<F: FieldExt> {
-    config: ContinuationPostImageTableConfig<F>,
+pub(in crate::circuits) struct PostImageTableChip<F: FieldExt> {
+    config: PostImageTableConfig<F>,
 }
 
-impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>>
-    for ContinuationPostImageTableChip<F>
-{
-    fn new(config: ContinuationPostImageTableConfig<F>) -> Self {
+impl<F: FieldExt> PostImageTableChip<F> {
+    pub(in crate::circuits) fn new(config: PostImageTableConfig<F>) -> Self {
         Self { config }
     }
 
-    fn assign(
+    pub(in crate::circuits) fn assign(
         self,
         layouter: &mut impl Layouter<F>,
         image_table_assigner: &mut ImageTableAssigner,
-        pre_image_table: ImageTableLayouter<F>,
         post_image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
         rest_memory_writing_ops_cell: Option<AssignedCell<F, F>>,
         rest_memory_writing_ops: F,
+        memory_finalized_set: HashSet<(LocationType, u32)>,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "post image table",
@@ -319,11 +317,10 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
 
                         let mut rest_memory_writing_ops = rest_memory_writing_ops;
 
-                        pre_image_table
+                        post_image_table
                             .init_memory_entries
                             .iter()
-                            .zip(post_image_table.init_memory_entries.iter())
-                            .map(|(pre, post)| {
+                            .map(|post| {
                                 let entry = ctx.borrow_mut().region.assign_advice(
                                     || "post image table: init memory",
                                     self.config.post_image_table,
@@ -338,7 +335,9 @@ impl<F: FieldExt> PostImageTableChipTrait<F, ContinuationPostImageTableConfig<F>
                                     || Ok(rest_memory_writing_ops),
                                 )?;
 
-                                if pre != post {
+                                let position = image_table_offset_to_memory_location(offset);
+
+                                if memory_finalized_set.contains(&position) {
                                     ctx.borrow_mut().region.assign_advice(
                                         || "post image table: init memory",
                                         self.config.update,

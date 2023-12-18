@@ -38,6 +38,24 @@ impl InitMemoryLayouter {
     }
 }
 
+pub fn image_table_offset_to_memory_location(offset: usize) -> (LocationType, u32) {
+    // Minus one for default lookup entry.
+    let mut offset = offset - INIT_MEMORY_ENTRIES_OFFSET - 1;
+
+    if offset < STACK_CAPABILITY {
+        return (LocationType::Stack, offset as u32);
+    }
+
+    offset -= STACK_CAPABILITY;
+
+    if offset < GLOBAL_CAPABILITY {
+        return (LocationType::Global, offset as u32);
+    }
+
+    offset -= GLOBAL_CAPABILITY;
+    return (LocationType::Heap, offset as u32);
+}
+
 /*
  * --------------------
  * Initialization State
@@ -49,7 +67,7 @@ impl InitMemoryLayouter {
  * Br Table
  * --------------------
  * Padding
- * -------------------- Init Memory Offset(Constant)
+ * -------------------- Init Memory Offset(Constant INIT_MEMORY_ENTRIES_OFFSET)
  * Stack
  * --------------------
  * Global
@@ -57,8 +75,7 @@ impl InitMemoryLayouter {
  * Heap
  * --------------------
  */
-#[allow(dead_code)]
-pub(crate) struct ImageTableLayouter<T> {
+pub struct ImageTableLayouter<T> {
     pub(crate) initialization_state: InitializationState<T>,
     pub(crate) static_frame_entries: [(T, T); STATIC_FRAME_ENTRY_NUMBER],
     pub(crate) instructions: Vec<T>,
@@ -68,8 +85,8 @@ pub(crate) struct ImageTableLayouter<T> {
     pub(crate) init_memory_entries: Vec<T>,
 }
 
-pub(crate) struct ImageTableAssigner {
-    pub(crate) heap_capability: u32,
+pub struct ImageTableAssigner {
+    pub heap_capability: u32,
 
     initialization_state_offset: usize,
     static_frame_entries_offset: usize,
@@ -80,6 +97,8 @@ pub(crate) struct ImageTableAssigner {
 }
 
 impl ImageTableAssigner {
+    /// `instruction_number` and `br_table_number` came from wasm image. Instructions, br table entries and paddings
+    /// are compacted within a fixed range. `page_capability` is computed based on K.
     pub fn new(instruction_number: usize, br_table_number: usize, pages_capability: u32) -> Self {
         let initialization_state_offset = 0;
         let static_frame_entries_offset =

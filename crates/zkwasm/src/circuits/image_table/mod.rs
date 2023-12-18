@@ -40,9 +40,10 @@ pub fn compute_maximal_pages(k: u32) -> u32 {
     bytes / PAGE_SIZE
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct ImageTableConfig<F: FieldExt> {
-    _memory_addr_sel: Column<Fixed>,
+    memory_addr_sel: Option<Column<Fixed>>,
     col: Column<Advice>,
     _mark: PhantomData<F>,
 }

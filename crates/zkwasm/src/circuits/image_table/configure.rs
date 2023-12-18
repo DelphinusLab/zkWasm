@@ -15,12 +15,12 @@ use crate::curr;
 impl<F: FieldExt> ImageTableConfig<F> {
     pub(in crate::circuits) fn configure(
         meta: &mut ConstraintSystem<F>,
-        _memory_addr_sel: Column<Fixed>,
+        memory_addr_sel: Option<Column<Fixed>>,
     ) -> Self {
         let col = meta.named_advice_column(IMAGE_COL_NAME.to_owned());
         meta.enable_equality(col);
         Self {
-            _memory_addr_sel,
+            memory_addr_sel,
             col,
             _mark: PhantomData,
         }
@@ -53,7 +53,7 @@ impl<F: FieldExt> ImageTableConfig<F> {
             let (addr, encode) = expr(meta);
 
             vec![
-                (addr, fixed_curr!(meta, self._memory_addr_sel)),
+                (addr, fixed_curr!(meta, self.memory_addr_sel.unwrap())),
                 (
                     ImageTableEncoder::InitMemory.encode(encode),
                     curr!(meta, self.col),
