@@ -44,8 +44,6 @@ pub mod state;
 pub mod step;
 pub mod types;
 
-
-
 #[derive(Default, Serialize, Debug, Clone, Deserialize, PartialEq)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
@@ -93,7 +91,7 @@ fn write_file(folder: &PathBuf, filename: &str, buf: &[u8]) {
 
 pub enum FileType {
     JSON,
-    FLEXBUFFERS
+    FLEXBUFFERS,
 }
 
 impl Tables {
@@ -149,14 +147,16 @@ impl Tables {
         let dir = dir.unwrap_or(env::current_dir().unwrap());
         match file_type {
             FileType::JSON => {
-                let compilation_table = serde_json::to_string_pretty(&self.compilation_tables).unwrap();
+                let compilation_table =
+                    serde_json::to_string_pretty(&self.compilation_tables).unwrap();
                 let execution_table = serde_json::to_string_pretty(&self.execution_tables).unwrap();
-                let post_image_table = serde_json::to_string_pretty(&self.post_image_table).unwrap();
-        
+                let post_image_table =
+                    serde_json::to_string_pretty(&self.post_image_table).unwrap();
+
                 write_file(&dir, "compilation.json", compilation_table.as_bytes());
                 write_file(&dir, "execution.json", &execution_table.as_bytes());
                 write_file(&dir, "post_image.json", &post_image_table.as_bytes());
-            },
+            }
 
             FileType::FLEXBUFFERS => {
                 let compilation_tables = flexbuffers::to_vec(&self.compilation_tables).unwrap();
@@ -168,7 +168,6 @@ impl Tables {
                 write_file(&dir, "post_image.buf", &post_image_table);
             }
         }
-
     }
 
     pub fn load(dir: PathBuf, is_last_slice: bool, file_type: FileType) -> Tables {
@@ -181,20 +180,16 @@ impl Tables {
             buf
         }
         let (compilation_tables, execution_tables, post_image_table) = match file_type {
-            FileType::JSON => {
-                (
-                    serde_json::from_slice(load_file(&dir, "compilation.json").as_slice()).unwrap(),
-                    serde_json::from_slice(load_file(&dir, "execution.json").as_slice()).unwrap(),
-                    serde_json::from_slice(load_file(&dir, "post_image.json").as_slice()).unwrap()
-                )
-            },
-            FileType::FLEXBUFFERS => {
-                (
-                    flexbuffers::from_buffer(&load_file(&dir, "compilation.buf").as_slice()).unwrap(),
-                    flexbuffers::from_buffer(&load_file(&dir, "execution.buf").as_slice()).unwrap(),
-                    flexbuffers::from_buffer(&load_file(&dir, "post_image.buf").as_slice()).unwrap(),
-                )
-            }   
+            FileType::JSON => (
+                serde_json::from_slice(load_file(&dir, "compilation.json").as_slice()).unwrap(),
+                serde_json::from_slice(load_file(&dir, "execution.json").as_slice()).unwrap(),
+                serde_json::from_slice(load_file(&dir, "post_image.json").as_slice()).unwrap(),
+            ),
+            FileType::FLEXBUFFERS => (
+                flexbuffers::from_buffer(&load_file(&dir, "compilation.buf").as_slice()).unwrap(),
+                flexbuffers::from_buffer(&load_file(&dir, "execution.buf").as_slice()).unwrap(),
+                flexbuffers::from_buffer(&load_file(&dir, "post_image.buf").as_slice()).unwrap(),
+            ),
         };
 
         Tables {
@@ -204,5 +199,4 @@ impl Tables {
             is_last_slice,
         }
     }
-
 }

@@ -17,11 +17,12 @@ use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use specs::Tables;
-use wasmi::ENTRY;
+use wasmi::tracer::SliceDumper;
 use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
 use wasmi::RuntimeValue;
+use wasmi::ENTRY;
 
 use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
@@ -31,8 +32,7 @@ use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
-#[cfg(feature="continuation")]
-use crate::continuation::slice::Slice;
+use crate::continuation::loader::WitnessDumper;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
 use crate::profile::Profiler;
@@ -45,8 +45,6 @@ use anyhow::anyhow;
 
 mod err;
 
-pub type CallbackType = Box<dyn FnMut(Tables, usize)>;
-
 pub struct ExecutionArg {
     /// Public inputs for `wasm_input(1)`
     pub public_inputs: Vec<u64>,
@@ -58,7 +56,7 @@ pub struct ExecutionArg {
     pub context_outputs: Arc<Mutex<Vec<u64>>>,
     pub output_dir: Option<PathBuf>,
     /// enable dump table for continuation
-    pub dump_table: bool
+    pub dump_table: bool,
 }
 
 pub struct ExecutionReturn {
@@ -76,7 +74,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     pub fn compute_slice_capability(&self) -> usize {
         ((1 << self.k) - 200) / EVENT_TABLE_ENTRY_ROWS as usize
     }
-    
+
     fn precheck(&self) -> Result<()> {
         fn check_zkmain_exists(module: &wasmi::Module) -> Result<()> {
             use parity_wasm::elements::Internal;
@@ -107,7 +105,11 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(())
     }
 
-    fn compile(&self, env: &HostEnv, callback: Option<impl FnMut(Tables, usize) + 'static>) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
+    fn compile(
+        &self,
+        env: &HostEnv,
+        slice_dumper: Box<dyn SliceDumper>,
+    ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
         WasmInterpreter::compile(
@@ -116,8 +118,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             &env.function_description_table(),
             ENTRY,
             &self.phantom_functions,
-            callback,
-            self.compute_slice_capability()
+            slice_dumper,
         )
     }
 
@@ -164,7 +165,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             Arc::new(Mutex::new(vec![])),
         );
-        let compiled = self.compile(&env, None::<CallbackType>)?;
+        let compiled = self.compile(&env, Box::new(WitnessDumper::default()))?;
 
         let table_with_params = CompilationTableWithParams {
             table: &compiled.tables,
@@ -183,7 +184,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             arg.context_inputs,
             arg.context_outputs,
         );
-        let compiled_module = self.compile(&env, None::<CallbackType>)?;
+        let compiled_module = self.compile(&env, Box::new(WitnessDumper::default()))?;
         compiled_module.dry_run(&mut env)
     }
 
@@ -195,46 +196,19 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             arg.context_outputs,
         );
 
-        let output_dir = arg.output_dir.unwrap_or_else(|| std::env::current_dir().unwrap());
-        if arg.dump_table {
-            // defaults the number of threads to the number of CPUs.
-            let pool = threadpool::Builder::new().build();
-            let pool_cb = pool.clone();
-            let mut _index = 0;
-            let callback = move |_table, _capability | {       
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "continuation")] {
-                        let slice = Slice::new(_table, _capability);
-                        let mut dir = output_dir.clone();
-                        dir.push(_index.to_string());
-                        println!("dumping------------------>");
-                        pool_cb.execute(move || {
-                            slice.write_flexbuffers(Some(dir));
-                            println!("Slice: {} tables has dumped!", _index);
-                        });
-                        _index += 1;
+        let slice_dumper = WitnessDumper::new(
+            arg.dump_table,
+            self.compute_slice_capability(),
+            arg.output_dir.clone(),
+        );
+        let compiled_module = self.compile(&env, Box::new(slice_dumper))?;
+        let result = compiled_module.run(&mut env, wasm_runtime_io)?;
 
-                        while pool_cb.queued_count() > 0 {
-                            std::thread::sleep(std::time::Duration::from_millis(10));
-                        }
-                    }
-                }
-            };
-
-            let compiled_module = self.compile(&env, Some(callback))?;
-            let result = compiled_module.run(&mut env, wasm_runtime_io)?;
-            pool.join();
-            Ok(result)
-        } else {
-            let compiled_module = self.compile(&env, None::<CallbackType>)?;
-            let result = compiled_module.run(&mut env, wasm_runtime_io)?;
-            if let Some(tables) = &result.tables {
-                tables.profile_tables();
-                tables.write(Some(output_dir), specs::FileType::FLEXBUFFERS);
-            }
-            Ok(result)
+        if let Some(tables) = &result.tables {
+            tables.profile_tables();
+            tables.write(arg.output_dir, specs::FileType::FLEXBUFFERS);
         }
-
+        Ok(result)
     }
 
     pub fn circuit_with_witness(

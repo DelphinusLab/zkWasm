@@ -1,17 +1,20 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::continuation::slice::Slice;
 use crate::loader::ExecutionArg;
 use crate::loader::ZkWasmLoader;
-use crate::continuation::slice::Slice;
 use crate::runtime::ExecutionResult;
 use specs::Tables;
 
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::{Bn256, Fr};
+use halo2_proofs::pairing::bn256::Bn256;
+use halo2_proofs::pairing::bn256::Fr;
 use wasmi::RuntimeValue;
 
-fn generate_wasm_result(dump_table: bool) -> Result<(ZkWasmLoader<Bn256>, Vec<Fr>, ExecutionResult<RuntimeValue>)> {
+fn generate_wasm_result(
+    dump_table: bool,
+) -> Result<(ZkWasmLoader<Bn256>, Vec<Fr>, ExecutionResult<RuntimeValue>)> {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -153,15 +156,14 @@ fn generate_wasm_result(dump_table: bool) -> Result<(ZkWasmLoader<Bn256>, Vec<Fr
 
     let loader = ZkWasmLoader::<Bn256>::new(18, wasm, vec![])?;
 
-    let execution_result = loader
-        .run(ExecutionArg {
-            public_inputs,
-            private_inputs,
-            context_inputs: vec![],
-            context_outputs: Arc::new(Mutex::new(vec![])),
-            output_dir: Some(std::env::current_dir().unwrap()),
-            dump_table
-        })?;
+    let execution_result = loader.run(ExecutionArg {
+        public_inputs,
+        private_inputs,
+        context_inputs: vec![],
+        context_outputs: Arc::new(Mutex::new(vec![])),
+        output_dir: Some(std::env::current_dir().unwrap()),
+        dump_table,
+    })?;
 
     let instances = execution_result
         .public_inputs_and_outputs
@@ -178,7 +180,6 @@ fn test_slices() -> Result<()> {
     let mut index = 0;
 
     while let Some(slice) = slices.next() {
-
         println!("slice {}", index);
 
         let circuit = slice.build_circuit();
@@ -212,7 +213,11 @@ fn test_rpl_slice_from_file() -> Result<()> {
         dir.push("full_run_dump");
         dir.push(index.to_string());
 
-        let table = Tables::load(dir.clone(), index == last_slice_index, specs::FileType::FLEXBUFFERS);
+        let table = Tables::load(
+            dir.clone(),
+            index == last_slice_index,
+            specs::FileType::FLEXBUFFERS,
+        );
         let slice = Slice::new(table, slices.capability());
         let circuit = slice.build_circuit();
         loader.mock_test(&circuit, &instances)?;
@@ -222,7 +227,6 @@ fn test_rpl_slice_from_file() -> Result<()> {
 
     Ok(())
 }
-
 
 fn test_rpl_slice_dump() -> Result<()> {
     // dump slice while running
@@ -237,7 +241,11 @@ fn test_rpl_slice_dump() -> Result<()> {
         // load slice from running dump
         let mut dir = std::env::current_dir().unwrap();
         dir.push(index.to_string());
-        let table = Tables::load(dir.clone(), index == last_slice_index, specs::FileType::FLEXBUFFERS);
+        let table = Tables::load(
+            dir.clone(),
+            index == last_slice_index,
+            specs::FileType::FLEXBUFFERS,
+        );
         let loaded_slice = Slice::new(table, slices.capability());
 
         // make sure slices generated from memory and during running is the same

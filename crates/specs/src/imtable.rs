@@ -11,7 +11,6 @@ use crate::mtable::AccessType;
 use crate::mtable::MemoryTableEntry;
 use crate::step::StepInfo;
 
-
 #[derive(Serialize, Debug, Clone, Deserialize, PartialEq)]
 pub struct InitMemoryTableEntry {
     pub ltype: LocationType,
@@ -77,7 +76,6 @@ impl InitMemoryTable {
         self.0.get(&(ltype, offset))
     }
 }
-
 
 pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
     let eid = event.eid;

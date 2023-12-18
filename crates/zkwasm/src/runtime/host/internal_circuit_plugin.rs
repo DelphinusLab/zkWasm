@@ -23,7 +23,7 @@ pub(super) struct ForeignOp {
 
 pub struct InternalCircuitEnv {
     pub(super) plugins: HashMap<HostPlugin, ForeignPlugin>,
-    // here we use BTreeMap to make sure op.index deterministic 
+    // here we use BTreeMap to make sure op.index deterministic
     pub(super) functions: BTreeMap<String, ForeignOp>,
     finalized: Rc<RefCell<bool>>,
 }

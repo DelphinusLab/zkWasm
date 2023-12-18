@@ -27,7 +27,7 @@ pub trait CommandBuilder: ArgBuilder {
         app.subcommand(command)
     }
 
-    #[cfg(feature="continuation")]
+    #[cfg(feature = "continuation")]
     fn append_witness_dump_subcommand(app: App) -> App {
         let command = Command::new("witness-dump")
             .arg(Self::single_public_arg())

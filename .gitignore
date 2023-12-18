@@ -1,5 +1,6 @@
 /target
 *.json
+*.buf
 output/
 crates/playground/wasm
 crates/playground/target

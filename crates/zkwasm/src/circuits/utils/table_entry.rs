@@ -1,11 +1,11 @@
 use serde::Serialize;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
+use specs::imtable::memory_event_of_step;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
-use specs::imtable::memory_event_of_step;
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -14,7 +14,6 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use crate::circuits::config::zkwasm_k;
-
 
 #[derive(Clone, Debug, Serialize)]
 pub(in crate::circuits) struct MemoryWritingEntry {

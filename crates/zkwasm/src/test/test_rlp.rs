@@ -157,7 +157,7 @@ fn build_circuit() -> Result<(ZkWasmLoader<Bn256>, TestCircuit<Fr>, Vec<Fr>)> {
         context_inputs: vec![],
         context_outputs: Arc::new(Mutex::new(vec![])),
         output_dir: None,
-        dump_table: false
+        dump_table: false,
     })?;
 
     Ok((loader, circuit, instances))

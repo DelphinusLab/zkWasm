@@ -31,7 +31,7 @@ impl JumpTableEntry {
 pub struct JumpTable(Vec<JumpTableEntry>);
 
 impl JumpTable {
-    pub fn new(entries: Vec<JumpTableEntry>) -> Self{
+    pub fn new(entries: Vec<JumpTableEntry>) -> Self {
         JumpTable(entries)
     }
 

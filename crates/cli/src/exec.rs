@@ -186,7 +186,7 @@ pub fn exec_dry_run_service(
                                     context_inputs,
                                     context_outputs: context_outputs.clone(),
                                     output_dir: None,
-                                    dump_table: false
+                                    dump_table: false,
                                 })
                                 .unwrap();
                             println!("return value: {:?}", r);
@@ -242,7 +242,7 @@ pub fn exec_dry_run(
         context_inputs,
         context_outputs,
         output_dir: None,
-        dump_table: false
+        dump_table: false,
     })?;
 
     Ok(())
@@ -266,7 +266,7 @@ pub fn exec_witness_dump(
         context_inputs,
         context_outputs,
         output_dir: Some(output_dir.clone()),
-        dump_table: true
+        dump_table: true,
     })?;
 
     Ok(())
@@ -301,7 +301,7 @@ pub fn exec_create_proof(
         context_inputs,
         context_outputs,
         output_dir: None,
-        dump_table: false
+        dump_table: false,
     })?;
 
     {
@@ -401,7 +401,7 @@ pub fn exec_aggregate_create_proof(
                         context_inputs,
                         context_outputs,
                         output_dir: None,
-                        dump_table: false
+                        dump_table: false,
                     })?;
 
                     circuits.push(circuit);

@@ -5,17 +5,18 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
-use specs::state::{InitializationState, UpdateCompilationTable};
+use specs::state::InitializationState;
+use specs::state::UpdateCompilationTable;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 
+use wasmi::tracer::SliceDumper;
 use wasmi::Externals;
 use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
-
 
 use super::CompiledImage;
 use super::ExecutionResult;
@@ -66,23 +67,23 @@ impl Execution<RuntimeValue>
 
         let result =
             instance.invoke_export_trace(&self.entry, &[], externals, self.tracer.clone())?;
-        
+
         let mut tables: Option<Tables> = None;
         let tracer = self.tracer.borrow();
-        if !tracer.has_dumped() {
+        if !tracer.dump_enabled() {
             let execution_tables = {
                 let tracer = self.tracer.borrow();
-    
+
                 ExecutionTable {
                     etable: tracer.etable.clone(),
                     jtable: Arc::new(tracer.jtable.clone()),
                 }
             };
-    
+
             let updated_init_memory_table = self
                 .tables
                 .update_init_memory_table(&execution_tables.etable.entries());
-    
+
             let post_image_table = {
                 CompilationTable {
                     itable: self.tables.itable.clone(),
@@ -102,7 +103,7 @@ impl Execution<RuntimeValue>
                 post_image_table,
                 is_last_slice: true,
             });
-        } 
+        }
 
         Ok(ExecutionResult {
             tables,
@@ -126,10 +127,10 @@ impl WasmiRuntime {
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
         entry: &str,
         phantom_functions: &Vec<String>,
-        callback: Option<impl FnMut(Tables, usize) +'static>,
-        capability: usize
+        slice_dumper: Box<dyn SliceDumper>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer = wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, callback, capability);
+        let tracer =
+            wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, slice_dumper);
         let tracer = Rc::new(RefCell::new(tracer));
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
             .expect("failed to instantiate wasm module");

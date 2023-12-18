@@ -1,6 +1,6 @@
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::TestCircuit;
-use crate::loader::CallbackType;
+use crate::continuation::loader::WitnessDumper;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
@@ -44,7 +44,11 @@ fn test_circuit_mock<F: FieldExt>(
         v
     };
 
-    execution_result.tables.as_ref().unwrap().write(None, specs::FileType::JSON);
+    execution_result
+        .tables
+        .as_ref()
+        .unwrap()
+        .write(None, specs::FileType::JSON);
 
     execution_result.tables.as_ref().unwrap().profile_tables();
 
@@ -72,8 +76,7 @@ fn compile_then_execute_wasm(
         &env.function_description_table(),
         function_name,
         &vec![],
-        None::<CallbackType>,
-        0
+        Box::new(WitnessDumper::default()),
     )
     .unwrap();
 

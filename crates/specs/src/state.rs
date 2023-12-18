@@ -1,15 +1,15 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::CompilationTable;
 use crate::etable::EventTableEntry;
 use crate::host_function::HostPlugin;
+use crate::imtable::memory_event_of_step;
 use crate::imtable::InitMemoryTable;
 use crate::imtable::InitMemoryTableEntry;
-use crate::imtable::memory_event_of_step;
+use crate::itable::Opcode;
 use crate::mtable::AccessType;
 use crate::step::StepInfo;
-use crate::itable::Opcode;
+use crate::CompilationTable;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct InitializationState<T> {
@@ -112,7 +112,6 @@ impl<T: Clone> InitializationState<T> {
         }
     }
 }
-
 
 pub trait UpdateCompilationTable {
     fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable;

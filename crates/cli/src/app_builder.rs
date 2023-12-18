@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::exec::exec_dry_run;
-#[cfg(feature="continuation")]
+#[cfg(feature = "continuation")]
 use crate::exec::exec_witness_dump;
 
 use super::command::CommandBuilder;
@@ -79,7 +79,7 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_verify_aggregate_verify_subcommand(app);
         let app = Self::append_generate_solidity_verifier(app);
         let app = Self::append_image_checksum_subcommand(app);
-        #[cfg(feature="continuation")]
+        #[cfg(feature = "continuation")]
         let app = Self::append_witness_dump_subcommand(app);
 
         app
@@ -154,7 +154,7 @@ pub trait AppBuilder: CommandBuilder {
                 }
             }
 
-            #[cfg(feature="continuation")]
+            #[cfg(feature = "continuation")]
             Some(("witness-dump", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
