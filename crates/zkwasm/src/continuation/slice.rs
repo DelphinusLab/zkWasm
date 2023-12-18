@@ -36,8 +36,8 @@ impl Slice {
         builder.build_circuit(Some(self.capability))
     }
 
-    pub fn write_json(&self, dir: Option<PathBuf>) {
-        self.table.write_json(dir);
+    pub fn write_flexbuffers(&self, dir: Option<PathBuf>) {
+        self.table.write(dir, specs::FileType::FLEXBUFFERS);
     }
 }
 

@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 use std::env;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -81,6 +81,21 @@ impl Tables {
     }
 }
 
+fn write_file(folder: &PathBuf, filename: &str, buf: &[u8]) {
+    std::fs::create_dir_all(folder).unwrap();
+    let mut folder = folder.clone();
+    folder.push(filename);
+    let mut fd = std::fs::File::create(folder.as_path()).unwrap();
+    folder.pop();
+
+    fd.write(buf).unwrap();
+}
+
+pub enum FileType {
+    JSON,
+    FLEXBUFFERS
+}
+
 impl Tables {
     pub fn create_memory_table(
         &self,
@@ -130,41 +145,58 @@ impl Tables {
         MTable::new(memory_entries)
     }
 
-    pub fn write_json(&self, dir: Option<PathBuf>) {
-        fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
-            let mut folder = folder.clone();
-            std::fs::create_dir_all(folder.as_path()).unwrap();
-            folder.push(filename);
-            let mut fd = std::fs::File::create(folder.as_path()).unwrap();
-            folder.pop();
+    pub fn write(&self, dir: Option<PathBuf>, file_type: FileType) {
+        let dir = dir.unwrap_or(env::current_dir().unwrap());
+        match file_type {
+            FileType::JSON => {
+                let compilation_table = serde_json::to_string_pretty(&self.compilation_tables).unwrap();
+                let execution_table = serde_json::to_string_pretty(&self.execution_tables).unwrap();
+                let post_image_table = serde_json::to_string_pretty(&self.post_image_table).unwrap();
+        
+                write_file(&dir, "compilation.json", compilation_table.as_bytes());
+                write_file(&dir, "execution.json", &execution_table.as_bytes());
+                write_file(&dir, "post_image.json", &post_image_table.as_bytes());
+            },
 
-            fd.write(buf.as_bytes()).unwrap();
+            FileType::FLEXBUFFERS => {
+                let compilation_tables = flexbuffers::to_vec(&self.compilation_tables).unwrap();
+                let execution_tables = flexbuffers::to_vec(&self.execution_tables).unwrap();
+                let post_image_table = flexbuffers::to_vec(&self.post_image_table).unwrap();
+
+                write_file(&dir, "compilation.buf", &compilation_tables);
+                write_file(&dir, "execution.buf", &execution_tables);
+                write_file(&dir, "post_image.buf", &post_image_table);
+            }
         }
 
-        let compilation_table = serde_json::to_string_pretty(&self.compilation_tables).unwrap();
-        let execution_table = serde_json::to_string_pretty(&self.execution_tables).unwrap();
-        let post_image_table = serde_json::to_string_pretty(&self.post_image_table).unwrap();
-
-        let dir = dir.unwrap_or(env::current_dir().unwrap());
-        write_file(&dir, "compilation.json", &compilation_table);
-        write_file(&dir, "execution.json", &execution_table);
-        write_file(&dir, "image.json", &post_image_table);
     }
 
-    pub fn load_json(dir: PathBuf, is_last_slice: bool) -> Tables {
-        fn load_file(folder: &PathBuf, filename: &str) -> BufReader<File> {
+    pub fn load(dir: PathBuf, is_last_slice: bool, file_type: FileType) -> Tables {
+        fn load_file(folder: &PathBuf, filename: &str) -> Vec<u8> {
             let mut folder = folder.clone();
             folder.push(filename);
-            let file = File::open(folder.as_path()).unwrap();
-            BufReader::new(file)
+            let mut file = File::open(folder.as_path()).unwrap();
+            let mut buf = vec![];
+            file.read_to_end(&mut buf).unwrap();
+            buf
         }
+        let (compilation_tables, execution_tables, post_image_table) = match file_type {
+            FileType::JSON => {
+                (
+                    serde_json::from_slice(load_file(&dir, "compilation.json").as_slice()).unwrap(),
+                    serde_json::from_slice(load_file(&dir, "execution.json").as_slice()).unwrap(),
+                    serde_json::from_slice(load_file(&dir, "post_image.json").as_slice()).unwrap()
+                )
+            },
+            FileType::FLEXBUFFERS => {
+                (
+                    flexbuffers::from_buffer(&load_file(&dir, "compilation.buf").as_slice()).unwrap(),
+                    flexbuffers::from_buffer(&load_file(&dir, "execution.buf").as_slice()).unwrap(),
+                    flexbuffers::from_buffer(&load_file(&dir, "post_image.buf").as_slice()).unwrap(),
+                )
+            }   
+        };
 
-        let compilation_tables: CompilationTable =
-            serde_json::from_reader(load_file(&dir, "compilation.json")).unwrap();
-        let execution_tables: ExecutionTable =
-            serde_json::from_reader(load_file(&dir, "execution.json")).unwrap();
-        let post_image_table: CompilationTable =
-            serde_json::from_reader(load_file(&dir, "image.json")).unwrap();
         Tables {
             compilation_tables,
             execution_tables,
@@ -172,4 +204,5 @@ impl Tables {
             is_last_slice,
         }
     }
+
 }

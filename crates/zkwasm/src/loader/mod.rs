@@ -197,6 +197,9 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
         let output_dir = arg.output_dir.unwrap_or_else(|| std::env::current_dir().unwrap());
         if arg.dump_table {
+            // defaults the number of threads to the number of CPUs.
+            let pool = threadpool::Builder::new().build();
+            let pool_cb = pool.clone();
             let mut _index = 0;
             let callback = move |_table, _capability | {       
                 cfg_if::cfg_if! {
@@ -204,20 +207,30 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
                         let slice = Slice::new(_table, _capability);
                         let mut dir = output_dir.clone();
                         dir.push(_index.to_string());
-                        slice.write_json(Some(dir));
+                        println!("dumping------------------>");
+                        pool_cb.execute(move || {
+                            slice.write_flexbuffers(Some(dir));
+                            println!("Slice: {} tables has dumped!", _index);
+                        });
                         _index += 1;
+
+                        while pool_cb.queued_count() > 0 {
+                            std::thread::sleep(std::time::Duration::from_millis(10));
+                        }
                     }
                 }
             };
+
             let compiled_module = self.compile(&env, Some(callback))?;
             let result = compiled_module.run(&mut env, wasm_runtime_io)?;
+            pool.join();
             Ok(result)
         } else {
             let compiled_module = self.compile(&env, None::<CallbackType>)?;
             let result = compiled_module.run(&mut env, wasm_runtime_io)?;
             if let Some(tables) = &result.tables {
                 tables.profile_tables();
-                tables.write_json(Some(output_dir));
+                tables.write(Some(output_dir), specs::FileType::FLEXBUFFERS);
             }
             Ok(result)
         }

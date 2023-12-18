@@ -44,7 +44,7 @@ fn test_circuit_mock<F: FieldExt>(
         v
     };
 
-    execution_result.tables.as_ref().unwrap().write_json(None);
+    execution_result.tables.as_ref().unwrap().write(None, specs::FileType::JSON);
 
     execution_result.tables.as_ref().unwrap().profile_tables();
 

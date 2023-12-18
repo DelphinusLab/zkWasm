@@ -16,6 +16,7 @@ cfg-if.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
 rayon.workspace = true
+flexbuffers = "2.0.0"
 
 [features]
 default = []

@@ -201,7 +201,7 @@ fn test_rpl_slice_from_file() -> Result<()> {
         // push a namespace to avoid conflict with test_rpl_slice_dump when testing concurrently
         dir.push("full_run_dump");
         dir.push(index.to_string());
-        slice.write_json(Some(dir));
+        slice.write_flexbuffers(Some(dir));
         index += 1;
     }
 
@@ -212,7 +212,7 @@ fn test_rpl_slice_from_file() -> Result<()> {
         dir.push("full_run_dump");
         dir.push(index.to_string());
 
-        let table = Tables::load_json(dir.clone(), index == last_slice_index);
+        let table = Tables::load(dir.clone(), index == last_slice_index, specs::FileType::FLEXBUFFERS);
         let slice = Slice::new(table, slices.capability());
         let circuit = slice.build_circuit();
         loader.mock_test(&circuit, &instances)?;
@@ -237,7 +237,7 @@ fn test_rpl_slice_dump() -> Result<()> {
         // load slice from running dump
         let mut dir = std::env::current_dir().unwrap();
         dir.push(index.to_string());
-        let table = Tables::load_json(dir.clone(), index == last_slice_index);
+        let table = Tables::load(dir.clone(), index == last_slice_index, specs::FileType::FLEXBUFFERS);
         let loaded_slice = Slice::new(table, slices.capability());
 
         // make sure slices generated from memory and during running is the same
