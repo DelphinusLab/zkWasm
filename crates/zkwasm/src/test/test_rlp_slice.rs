@@ -173,7 +173,6 @@ fn test_slices() -> Result<()> {
     let mut index = 0;
 
     while let Some(slice) = slices.next() {
-
         println!("slice {}", index);
 
         let circuit = slice.build_circuit();

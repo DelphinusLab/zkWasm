@@ -185,6 +185,15 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
 
+    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
+        let (env, _) = HostEnv::new_with_full_foreign_plugins(
+            vec![],
+            vec![].into(),
+            vec![],
+            Arc::new(Mutex::new(vec![])),
+        );
+        let compiled = self.compile(&env, Box::new(WitnessDumper::default()))?;
+
     pub fn checksum<'a, 'b>(
         &self,
         image: &'b CompilationTable,

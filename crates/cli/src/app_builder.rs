@@ -154,7 +154,7 @@ pub trait AppBuilder: CommandBuilder {
                 }
             }
 
-            #[cfg(feature="continuation")]
+            #[cfg(feature = "continuation")]
             Some(("witness-dump", sub_matches)) => {
                 let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
                 let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
