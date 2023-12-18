@@ -49,7 +49,7 @@ impl InitMemoryLayouter {
  * Br Table
  * --------------------
  * Padding
- * -------------------- Init Memory Offset
+ * -------------------- Init Memory Offset(Constant)
  * Stack
  * --------------------
  * Global

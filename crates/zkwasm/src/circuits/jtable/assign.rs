@@ -195,14 +195,9 @@ impl<F: FieldExt> JumpTableChip<F> {
         self.init(ctx)?;
         ctx.reset();
 
-        // non-static entry includes `call`` and `return`` op
-        let mut rest_jops = jtable.entries().len() as u64 * 2;
-        // static entry only includes `return` op
-        for entry in static_entries {
-            if entry.enable {
-                rest_jops += 1;
-            }
-        }
+        // non-static entry includes `call`` and `return`` op, static entry only includes `return` op
+        let mut rest_jops = jtable.entries().len() as u64 * 2
+            + static_entries.iter().filter(|entry| entry.enable).count() as u64;
 
         let frame_table_start_jump_cells =
             self.assign_static_entries(ctx, &mut rest_jops, static_entries)?;

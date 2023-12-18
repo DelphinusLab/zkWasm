@@ -41,8 +41,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 #[cfg(feature = "continuation")]
                 ctx.region.assign_advice_from_constant(
                     || "rest_memory_finalize_ops terminate",
-                    self.config.rest_memory_finalize_ops.0.col,
-                    ctx.offset + self.config.rest_memory_finalize_ops.0.rot as usize,
+                    self.config.rest_memory_finalize_ops_cell.0.col,
+                    ctx.offset + self.config.rest_memory_finalize_ops_cell.0.rot as usize,
                     F::zero(),
                 )?;
             }
@@ -61,7 +61,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
     ) -> Result<AssignedCell<F, F>, Error> {
         let cell = self
             .config
-            .rest_memory_finalize_ops
+            .rest_memory_finalize_ops_cell
             .assign(ctx, F::from(rest_memory_finalize_ops as u64))?;
 
         Ok(cell)
@@ -171,7 +171,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             #[cfg(feature = "continuation")]
             assign_advice!(
-                rest_memory_finalize_ops,
+                rest_memory_finalize_ops_cell,
                 F::from(_rest_memory_finalize_ops as u64)
             );
 
@@ -192,18 +192,12 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 rest_mops -= 1;
             }
 
-            if let Some(next_entry) = iter.peek() {
-                if entry.entry.atype == AccessType::Write
-                    && !entry.entry.is_same_location(&next_entry.entry)
-                {
-                    _rest_memory_finalize_ops -= 1;
-                }
-            } else {
-                // It's last entry
-
-                if entry.entry.atype == AccessType::Write {
-                    _rest_memory_finalize_ops -= 1;
-                }
+            if entry.entry.atype == AccessType::Write
+                && iter.peek().map_or(true, |next_entry| {
+                    !next_entry.entry.is_same_location(&entry.entry)
+                })
+            {
+                _rest_memory_finalize_ops -= 1;
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
@@ -243,26 +237,22 @@ impl<F: FieldExt> MemoryTableChip<F> {
         Ok(())
     }
 
-    fn compute_rest_memory_finalize_ops(&self, mtable: &MemoryWritingTable) -> u32 {
-        let mut ops = 0u32;
+    fn count_rest_memory_finalize_ops(&self, mtable: &MemoryWritingTable) -> u32 {
+        let mut count = 0u32;
 
         let mut iter = mtable.0.iter().peekable();
 
         while let Some(entry) = iter.next() {
-            if let Some(next_entry) = iter.peek() {
-                if entry.entry.atype == AccessType::Write
-                    && !entry.entry.is_same_location(&next_entry.entry)
-                {
-                    ops += 1;
-                }
-            } else {
-                if entry.entry.atype == AccessType::Write {
-                    ops += 1;
-                }
+            if entry.entry.atype == AccessType::Write
+                && iter.peek().map_or(true, |next_entry| {
+                    !next_entry.entry.is_same_location(&entry.entry)
+                })
+            {
+                count += 1;
             }
         }
 
-        ops
+        count
     }
 
     pub(crate) fn assign(
@@ -282,7 +272,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         self.assign_fixed(ctx)?;
         ctx.reset();
 
-        let rest_memory_finalize_ops = self.compute_rest_memory_finalize_ops(mtable);
+        let rest_memory_finalize_ops = self.count_rest_memory_finalize_ops(mtable);
 
         #[cfg(feature = "continuation")]
         let rest_memory_finalize_ops_cell =
@@ -303,7 +293,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
             if #[cfg(feature="continuation")] {
                 Ok((Some(rest_memory_finalize_ops_cell), F::from(rest_memory_finalize_ops as u64)))
             } else {
-                Ok((None, F::from(rest_memory_finalize_ops as u64)))
+                // Useless rest_memory_finalize_ops if continuation is disabled
+                Ok((None, F::zero()))
             }
         }
     }

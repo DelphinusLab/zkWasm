@@ -128,7 +128,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             tables: Tables {
                 compilation_tables: compiled_module.tables.clone(),
                 execution_tables: ExecutionTable::default(),
-                post_image_table: compiled_module.tables, // FIXME: odd
+                post_image_table: compiled_module.tables,
                 is_last_slice: last_slice_circuit,
             },
         };
