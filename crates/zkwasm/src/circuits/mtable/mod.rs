@@ -13,8 +13,6 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
-use specs::encode::image_table::ImageTableEncoder;
-use specs::encode::init_memory_table::encode_init_memory_table_address;
 use specs::encode::init_memory_table::encode_init_memory_table_entry;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::mtable::LocationType;
@@ -227,6 +225,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         image_table.init_memory_lookup(meta, "mc7c. imtable init", |meta| {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "continuation")] {
+                    use specs::encode::init_memory_table::encode_init_memory_table_address;
+
                     (
                         encode_init_memory_table_address(
                             is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
@@ -317,14 +317,21 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         #[cfg(feature = "continuation")]
         {
             meta.create_gate("mc13. rest memory updating ops", |meta| {
+                let is_write = constant_from!(1) - is_init_cell.curr_expr(meta);
+                let next_entry_at_different_position =
+                    constant_from!(1) - is_next_same_offset_cell.curr_expr(meta);
+
+                let is_memory_finalized_position_bit = is_write * next_entry_at_different_position;
+
                 vec![
+                    // `* enabled_cell`: If disabled, rest_memory_finalize_ops_cell should keep the same,
+                    // The termination rest_memory_finalize_ops_cell is constant 0 at the last selected(sel=1) step.
                     rest_memory_finalize_ops_cell.curr_expr(meta)
                         - rest_memory_finalize_ops_cell.next_expr(meta)
-                        - (constant_from!(1) - is_next_same_offset_cell.curr_expr(meta))
-                            * (constant_from!(1) - is_init_cell.curr_expr(meta)),
+                        - is_memory_finalized_position_bit * enabled_cell.curr_expr(meta),
                 ]
                 .into_iter()
-                .map(|x| x * enabled_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel))
+                .map(|x| x * fixed_curr!(meta, entry_sel))
                 .collect::<Vec<_>>()
             });
         }
@@ -391,6 +398,7 @@ impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
     }
 }
 
+#[cfg(feature = "continuation")]
 impl<F: FieldExt> MemoryTableConfig<F> {
     pub(in crate::circuits) fn configure_in_post_init_memory_table(
         &self,
@@ -398,6 +406,9 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         name: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>),
     ) {
+        use specs::encode::image_table::ImageTableEncoder;
+        use specs::encode::init_memory_table::encode_init_memory_table_address;
+
         meta.lookup_any(name, |meta| {
             let (address, encode) = expr(meta);
             vec![

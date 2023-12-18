@@ -16,10 +16,17 @@ mod external_host_call_table;
 mod mtable;
 mod traits;
 
+#[cfg(feature = "continuation")]
+#[path = "./post_image_table/continuation.rs"]
+pub mod post_image_table;
+
+#[cfg(not(feature = "continuation"))]
+#[path = "./post_image_table/trivial.rs"]
+pub mod post_image_table;
+
 pub mod config;
 pub mod image_table;
 pub mod jtable;
-pub mod post_image_table;
 pub mod rtable;
 pub mod test_circuit;
 pub mod utils;

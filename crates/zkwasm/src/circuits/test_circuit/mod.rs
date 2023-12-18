@@ -28,8 +28,6 @@ use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
 use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::post_image_table::PostImageTableChip;
-use crate::circuits::post_image_table::PostImageTableChipTrait;
-use crate::circuits::post_image_table::PostImageTableConfigTrait;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::image_table::EncodeCompilationTableValues;
@@ -108,7 +106,12 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             meta.enable_constant(constants);
             meta.enable_equality(constants);
         }
-        let memory_addr_sel = meta.fixed_column();
+
+        let memory_addr_sel = if cfg!(feature = "continuation") {
+            Some(meta.fixed_column())
+        } else {
+            None
+        };
 
         let foreign_table_from_zero_index = meta.fixed_column();
 
@@ -235,7 +238,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let (
             etable_permutation_cells,
-            (rest_memory_writing_ops_cell, rest_memory_writing_ops),
+            (rest_memory_writing_ops_cell, rest_memory_writing_ops, memory_finalized_set),
             static_frame_entries,
         ) = layouter.assign_region(
             || "jtable mtable etable",
@@ -347,9 +350,6 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 &mut layouter,
                 &mut image_table_assigner,
                 self.tables
-                    .compilation_tables
-                    .encode_compilation_table_values(config.circuit_maximal_pages),
-                self.tables
                     .post_image_table
                     .encode_compilation_table_values(config.circuit_maximal_pages),
                 ImageTableLayouter {
@@ -361,7 +361,8 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     init_memory_entries: pre_image_table_cells.init_memory_entries,
                 },
                 rest_memory_writing_ops_cell,
-                rest_memory_writing_ops
+                rest_memory_writing_ops,
+                memory_finalized_set
             )?
         );
 

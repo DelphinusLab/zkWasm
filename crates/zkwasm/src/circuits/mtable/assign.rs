@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
@@ -92,7 +93,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         mtable: &MemoryWritingTable,
         init_rest_mops: u64,
         mut _rest_memory_finalize_ops: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<HashSet<(LocationType, u32)>, Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.$cell.assign(ctx, $value)?
@@ -129,6 +130,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
             };
         }
 
+        let mut memory_finalized_table = HashSet::new();
         let mut rest_mops = init_rest_mops;
 
         let mut iter = mtable.0.iter().peekable();
@@ -198,6 +200,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 })
             {
                 _rest_memory_finalize_ops -= 1;
+
+                memory_finalized_table.insert((entry.entry.ltype, entry.entry.offset));
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
@@ -234,7 +238,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
         }
 
-        Ok(())
+        Ok(memory_finalized_table)
     }
 
     fn count_rest_memory_finalize_ops(&self, mtable: &MemoryWritingTable) -> u32 {
@@ -260,7 +264,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         ctx: &mut Context<'_, F>,
         etable_rest_mops_cell: &Option<AssignedCell<F, F>>,
         mtable: &MemoryWritingTable,
-    ) -> Result<(Option<AssignedCell<F, F>>, F), Error> {
+    ) -> Result<(Option<AssignedCell<F, F>>, F, HashSet<(LocationType, u32)>), Error> {
         debug!("size of memory writing table: {}", mtable.0.len());
         assert!(mtable.0.len() * (MEMORY_TABLE_ENTRY_ROWS as usize) < self.maximal_available_rows);
 
@@ -284,17 +288,21 @@ impl<F: FieldExt> MemoryTableChip<F> {
         /*
          * Skip subsequent advice assignment in the first pass to enhance performance.
          */
-        if rest_mops_cell.value().is_some() {
-            self.assign_entries(ctx, mtable, rest_mops, rest_memory_finalize_ops)?;
+        let _memory_finalized_set = if rest_mops_cell.value().is_some() {
+            let set = self.assign_entries(ctx, mtable, rest_mops, rest_memory_finalize_ops)?;
             ctx.reset();
-        }
+
+            set
+        } else {
+            HashSet::new()
+        };
 
         cfg_if::cfg_if! {
             if #[cfg(feature="continuation")] {
-                Ok((Some(rest_memory_finalize_ops_cell), F::from(rest_memory_finalize_ops as u64)))
+                Ok((Some(rest_memory_finalize_ops_cell), F::from(rest_memory_finalize_ops as u64), _memory_finalized_set))
             } else {
                 // Useless rest_memory_finalize_ops if continuation is disabled
-                Ok((None, F::zero()))
+                Ok((None, F::zero(), HashSet::new()))
             }
         }
     }
