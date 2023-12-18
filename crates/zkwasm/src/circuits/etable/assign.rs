@@ -219,7 +219,7 @@ impl<F: FieldExt> EventTableChip<F> {
         })
     }
 
-    fn assign_post_initialization_state(
+    fn assign_padding_and_post_initialization_state(
         &self,
         ctx: &mut Context<'_, F>,
         initialization_state: &InitializationState<u32>,
@@ -520,7 +520,7 @@ impl<F: FieldExt> EventTableChip<F> {
         )?;
 
         let post_initialization_state_cells =
-            self.assign_post_initialization_state(ctx, &post_initialization_state)?;
+            self.assign_padding_and_post_initialization_state(ctx, &post_initialization_state)?;
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "continuation")] {
