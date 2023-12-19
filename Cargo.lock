@@ -3316,9 +3316,10 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#8bcc89f6610e26c65af38987188705ec5af5b2b5"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=merkle-hash#bb943756b530d1ac13cb06295eaaaf127da4ef58"
 dependencies = [
  "ark-std",
+ "cfg-if 1.0.0",
  "circuits-batcher",
  "clap",
  "ff",
