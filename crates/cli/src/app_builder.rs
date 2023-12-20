@@ -2,11 +2,11 @@ use anyhow::Result;
 use clap::App;
 use clap::AppSettings;
 use delphinus_host::ExecutionArg as StandardArg;
+use delphinus_host::HostEnvConfig;
 use delphinus_host::StandardHostEnvBuilder as StandardEnvBuilder;
 use delphinus_zkwasm::circuits::config::MIN_K;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
-use delphinus_host::HostEnvConfig;
 
 use log::info;
 use std::fs;
@@ -169,9 +169,9 @@ pub trait AppBuilder: CommandBuilder {
                                 context_inputs: context_in,
                                 context_outputs: context_output.clone(),
                             },
-                            ()
-                            )?;
-                    },
+                            (),
+                        )?;
+                    }
                     _ => {
                         exec_dry_run::<StandardArg, StandardEnvBuilder>(
                             zkwasm_k,
@@ -184,8 +184,8 @@ pub trait AppBuilder: CommandBuilder {
                                 context_outputs: context_output.clone(),
                                 tree_db: None,
                             },
-                            HostEnvConfig::default()
-                            )?;
+                            HostEnvConfig::default(),
+                        )?;
                     }
                 };
 
@@ -218,7 +218,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_inputs: context_in,
                                 context_outputs: context_out.clone(),
                             },
-                            ()
+                            (),
                         )?;
                     }
                     _ => {
@@ -236,7 +236,7 @@ pub trait AppBuilder: CommandBuilder {
                                 context_outputs: context_out.clone(),
                                 tree_db: None,
                             },
-                            HostEnvConfig::default()
+                            HostEnvConfig::default(),
                         )?;
                     }
                 };

@@ -82,9 +82,11 @@ impl MerkleContext {
         values[cursor]
     }
 
+    /// reset the address of merkle op together with the data and data_cursor
     pub fn merkle_address(&mut self, v: u64) {
         self.data = [0; 4];
         self.fetch = false;
+        self.data_cursor = 0;
         self.address.reduce(v);
     }
 
@@ -117,7 +119,9 @@ impl MerkleContext {
         if self.data_cursor == 0 {
             self.data = values;
         }
-        values[self.data_cursor]
+        let v = values[self.data_cursor];
+        self.data_cursor += 1;
+        return v;
     }
 }
 

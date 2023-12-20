@@ -6,9 +6,9 @@ use std::rc::Rc;
 use zkwasm_host_circuits::host::datahash as datahelper;
 use zkwasm_host_circuits::host::datahash::DataHashRecord;
 use zkwasm_host_circuits::host::db::TreeDB;
-use zkwasm_host_circuits::host::ForeignInst::CacheSetMode;
-use zkwasm_host_circuits::host::ForeignInst::CacheSetHash;
 use zkwasm_host_circuits::host::ForeignInst::CacheFetchData;
+use zkwasm_host_circuits::host::ForeignInst::CacheSetHash;
+use zkwasm_host_circuits::host::ForeignInst::CacheSetMode;
 use zkwasm_host_circuits::host::ForeignInst::CacheStoreData;
 use zkwasm_host_circuits::host::Reduce;
 use zkwasm_host_circuits::host::ReduceRule;
@@ -41,16 +41,20 @@ impl CacheContext {
         }
     }
 
-
     pub fn set_mode(&mut self, v: u64) {
         self.mode = v;
+        self.data = vec![];
     }
 
     pub fn set_data_hash(&mut self, v: u64) {
         self.hash.reduce(v);
         if self.hash.cursor == 0 {
-            let hash = self.hash.rules[0].bytes_value().unwrap().try_into().unwrap();
-            if v == FETCH_MODE {
+            let hash: [u8; 32] = self.hash.rules[0]
+                .bytes_value()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            if self.mode == FETCH_MODE {
                 let datahashrecord = self.mongo_datahash.get_record(&hash).unwrap();
                 self.data = datahashrecord.map_or(vec![], |r| {
                     r.data
@@ -61,13 +65,13 @@ impl CacheContext {
                         .collect::<Vec<u64>>()
                 });
                 self.fetch = false;
-            } else if v == STORE_MODE {
+            } else if self.mode == STORE_MODE {
                 // put data and hash into mongo_datahash
                 if !self.data.is_empty() {
                     self.mongo_datahash
                         .update_record({
                             DataHashRecord {
-                                hash: hash.try_into().unwrap(),
+                                hash,
                                 data: self
                                     .data
                                     .iter()
@@ -102,7 +106,7 @@ impl CacheContext {}
 impl ForeignContext for CacheContext {}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
-pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
+pub fn register_datacache_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
     let foreign_merkle_plugin = env
         .external_env
         .register_plugin("foreign_cache", Box::new(CacheContext::new(tree_db)));
