@@ -1482,6 +1482,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "rand",
+ "serde",
 ]
 
 [[package]]
@@ -3092,9 +3093,10 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=xgao/keccak#93feff9ef341db13d787271cac7fdc9d7ac6b198"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#61c52e13667291b360783139e85aa499458eb06d"
 dependencies = [
  "ark-std",
+ "cfg-if 1.0.0",
  "circuits-batcher",
  "clap",
  "ff",

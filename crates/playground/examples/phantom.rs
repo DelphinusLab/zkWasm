@@ -21,6 +21,6 @@ fn main() -> Result<()> {
         private_inputs: vec![],
         context_inputs: vec![],
         context_outputs: Arc::new(Mutex::new(vec![])),
-    }, 0)?;
+    }, ())?;
     loader.mock_test(&circuit, &instances)
 }
