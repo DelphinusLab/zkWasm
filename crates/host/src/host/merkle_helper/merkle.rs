@@ -4,15 +4,12 @@ use halo2_proofs::pairing::bn256::Fr;
 use std::cell::RefCell;
 use std::rc::Rc;
 use zkwasm_host_circuits::host::datahash as datahelper;
-use zkwasm_host_circuits::host::datahash::DataHashRecord;
 use zkwasm_host_circuits::host::db::TreeDB;
 use zkwasm_host_circuits::host::merkle::MerkleTree;
 use zkwasm_host_circuits::host::mongomerkle as merklehelper;
 use zkwasm_host_circuits::host::ForeignInst::MerkleAddress;
-use zkwasm_host_circuits::host::ForeignInst::MerkleFetchData;
 use zkwasm_host_circuits::host::ForeignInst::MerkleGet;
 use zkwasm_host_circuits::host::ForeignInst::MerkleGetRoot;
-use zkwasm_host_circuits::host::ForeignInst::MerklePutData;
 use zkwasm_host_circuits::host::ForeignInst::MerkleSet;
 use zkwasm_host_circuits::host::ForeignInst::MerkleSetRoot;
 use zkwasm_host_circuits::host::Reduce;
@@ -25,8 +22,7 @@ pub struct MerkleContext {
     pub get_root: Reduce<Fr>,
     pub address: Reduce<Fr>,
     pub set: Reduce<Fr>,
-    pub get: Reduce<Fr>,
-    pub data: Vec<u64>,
+    pub data: [u64; 4],
     pub data_cursor: usize,
     pub fetch: bool,
     pub mongo_merkle: Option<merklehelper::MongoMerkle<MERKLE_TREE_HEIGHT>>,
@@ -45,14 +41,8 @@ impl MerkleContext {
             get_root: new_reduce(vec![ReduceRule::Bytes(vec![], 4)]),
             address: new_reduce(vec![ReduceRule::U64(0)]),
             set: new_reduce(vec![ReduceRule::Bytes(vec![], 4)]),
-            get: new_reduce(vec![
-                ReduceRule::U64(0),
-                ReduceRule::U64(0),
-                ReduceRule::U64(0),
-                ReduceRule::U64(0),
-            ]),
             fetch: false,
-            data: vec![],
+            data: [0; 4],
             data_cursor: 0,
             mongo_merkle: None,
             mongo_datahash: datahelper::MongoDataHash::construct([0; 32], tree_db.clone()),
@@ -92,9 +82,11 @@ impl MerkleContext {
         values[cursor]
     }
 
+    /// reset the address of merkle op together with the data and data_cursor
     pub fn merkle_address(&mut self, v: u64) {
-        self.data = vec![];
+        self.data = [0; 4];
         self.fetch = false;
+        self.data_cursor = 0;
         self.address.reduce(v);
     }
 
@@ -110,22 +102,6 @@ impl MerkleContext {
             let hash = self.set.rules[0].bytes_value().unwrap();
             mt.update_leaf_data_with_proof(index, &hash)
                 .expect("Unexpected failure: update leaf with proof fail");
-            // put data and hash into mongo_datahash if the data is binded to the merkle tree leaf
-            if !self.data.is_empty() {
-                self.mongo_datahash
-                    .update_record({
-                        DataHashRecord {
-                            hash: hash.try_into().unwrap(),
-                            data: self
-                                .data
-                                .iter()
-                                .map(|x| x.to_le_bytes())
-                                .flatten()
-                                .collect::<Vec<u8>>(),
-                        }
-                    })
-                    .unwrap();
-            }
         }
     }
 
@@ -139,63 +115,13 @@ impl MerkleContext {
         let (leaf, _) = mt
             .get_leaf_with_proof(index)
             .expect("Unexpected failure: get leaf fail");
-        let cursor = self.get.cursor;
         let values = leaf.data_as_u64();
-        self.get.reduce(values[self.get.cursor]);
-        // fetch data if we get the target hash
-        if self.get.cursor == 0 {
-            let hash: [u8; 32] = vec![
-                self.get.rules[0]
-                    .u64_value()
-                    .unwrap()
-                    .to_le_bytes()
-                    .to_vec(),
-                self.get.rules[1]
-                    .u64_value()
-                    .unwrap()
-                    .to_le_bytes()
-                    .to_vec(),
-                self.get.rules[2]
-                    .u64_value()
-                    .unwrap()
-                    .to_le_bytes()
-                    .to_vec(),
-                self.get.rules[3]
-                    .u64_value()
-                    .unwrap()
-                    .to_le_bytes()
-                    .to_vec(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<u8>>()
-            .try_into()
-            .unwrap();
-            let datahashrecord = self.mongo_datahash.get_record(&hash).unwrap();
-            self.data = datahashrecord.map_or(vec![], |r| {
-                r.data
-                    .chunks_exact(8)
-                    .into_iter()
-                    .into_iter()
-                    .map(|x| u64::from_le_bytes(x.try_into().unwrap()))
-                    .collect::<Vec<u64>>()
-            });
+        if self.data_cursor == 0 {
+            self.data = values;
         }
-        values[cursor]
-    }
-
-    pub fn merkle_fetch_data(&mut self) -> u64 {
-        if self.fetch == false {
-            self.fetch = true;
-            self.data.reverse();
-            self.data.len() as u64
-        } else {
-            self.data.pop().unwrap()
-        }
-    }
-
-    pub fn merkle_put_data(&mut self, v: u64) {
-        self.data.push(v);
+        let v = values[self.data_cursor];
+        self.data_cursor += 1;
+        return v;
     }
 }
 
@@ -237,19 +163,6 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
     );
 
     env.external_env.register_function(
-        "merkle_fetch_data",
-        MerkleFetchData as usize,
-        ExternalHostCallSignature::Return,
-        foreign_merkle_plugin.clone(),
-        Rc::new(
-            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
-                let context = context.downcast_mut::<MerkleContext>().unwrap();
-                Some(wasmi::RuntimeValue::I64(context.merkle_fetch_data() as i64))
-            },
-        ),
-    );
-
-    env.external_env.register_function(
         "merkle_address",
         MerkleAddress as usize,
         ExternalHostCallSignature::Argument,
@@ -258,20 +171,6 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
             |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
                 context.merkle_address(args.nth(0));
-                None
-            },
-        ),
-    );
-
-    env.external_env.register_function(
-        "merkle_put_data",
-        MerklePutData as usize,
-        ExternalHostCallSignature::Argument,
-        foreign_merkle_plugin.clone(),
-        Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
-                let context = context.downcast_mut::<MerkleContext>().unwrap();
-                context.merkle_put_data(args.nth(0));
                 None
             },
         ),

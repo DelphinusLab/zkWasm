@@ -101,7 +101,10 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         )
     }
 
-    fn circuit_without_witness(&self, envconfig: EnvBuilder::HostConfig) -> Result<TestCircuit<E::Scalar>> {
+    fn circuit_without_witness(
+        &self,
+        envconfig: EnvBuilder::HostConfig,
+    ) -> Result<TestCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
 
         let compiled_module = self.compile(&env, true)?;
@@ -145,13 +148,21 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(loader)
     }
 
-    pub fn create_vkey(&self, params: &Params<E::G1Affine>, envconfig: EnvBuilder::HostConfig) -> Result<VerifyingKey<E::G1Affine>> {
+    pub fn create_vkey(
+        &self,
+        params: &Params<E::G1Affine>,
+        envconfig: EnvBuilder::HostConfig,
+    ) -> Result<VerifyingKey<E::G1Affine>> {
         let circuit = self.circuit_without_witness(envconfig)?;
 
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
 
-    pub fn checksum(&self, params: &Params<E::G1Affine>, envconfig: EnvBuilder::HostConfig) -> Result<Vec<E::G1Affine>> {
+    pub fn checksum(
+        &self,
+        params: &Params<E::G1Affine>,
+        envconfig: EnvBuilder::HostConfig,
+    ) -> Result<Vec<E::G1Affine>> {
         let (env, _) = EnvBuilder::create_env_without_value(envconfig);
         let compiled = self.compile(&env, true)?;
 
@@ -191,7 +202,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn circuit_with_witness(
         &self,
         arg: T,
-        config: EnvBuilder::HostConfig
+        config: EnvBuilder::HostConfig,
     ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
         let execution_result = self.run(arg, config, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
@@ -253,8 +264,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         vkey: VerifyingKey<E::G1Affine>,
         instances: Vec<E::Scalar>,
         proof: Vec<u8>,
-        #[cfg(feature = "uniform-circuit")]
-        config: EnvBuilder::HostConfig,
+        #[cfg(feature = "uniform-circuit")] config: EnvBuilder::HostConfig,
     ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);

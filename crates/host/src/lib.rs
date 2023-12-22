@@ -82,7 +82,10 @@ impl HostEnvConfig {
             OpType::BN256PAIR => host::ecc_helper::bn254::pair::register_bn254pair_foreign(env),
             OpType::BN256SUM => host::ecc_helper::bn254::sum::register_bn254sum_foreign(env),
             OpType::POSEIDONHASH => host::hash_helper::poseidon::register_poseidon_foreign(env),
-            OpType::MERKLE => host::merkle_helper::merkle::register_merkle_foreign(env, None),
+            OpType::MERKLE => {
+                host::merkle_helper::merkle::register_merkle_foreign(env, None);
+                host::merkle_helper::datacache::register_datacache_foreign(env, None);
+            }
             OpType::JUBJUBSUM => host::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign(env),
             OpType::KECCAKHASH => host::hash_helper::keccak256::register_keccak_foreign(env),
         }

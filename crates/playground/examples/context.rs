@@ -21,7 +21,7 @@ fn main() -> Result<()> {
         context_outputs: context_outputs.clone(),
     };
 
-    let (circuit, instances, _) = loader.circuit_with_witness(arg)?;
+    let (circuit, instances, _) = loader.circuit_with_witness(arg, ())?;
     loader.mock_test(&circuit, &instances)?;
 
     let arg = ExecutionArg {
