@@ -13,6 +13,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use num_bigint::BigUint;
 use specs::encode::init_memory_table::encode_init_memory_table_address;
+use specs::encode::init_memory_table::MEMORY_ADDRESS_OFFSET;
 use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::mtable::LocationType;
 
@@ -38,6 +39,7 @@ pub(in crate::circuits) struct PostImageTableConfig<F: FieldExt> {
     post_image_table: Column<Advice>,
     update: Column<Advice>,
     rest_memory_finalized_count: Column<Advice>,
+    memory_finalized_lookup_encode: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -52,6 +54,7 @@ impl<F: FieldExt> PostImageTableConfig<F> {
         let update = meta.advice_column();
         let rest_memory_finalized_count = meta.advice_column();
         let post_image_table = meta.named_advice_column(POST_IMAGE_TABLE.to_owned());
+        let memory_finalized_lookup_encode = meta.advice_column();
 
         meta.enable_equality(rest_memory_finalized_count);
         meta.enable_equality(post_image_table);
@@ -74,15 +77,20 @@ impl<F: FieldExt> PostImageTableConfig<F> {
             ]
         });
 
+        meta.create_gate("post image table: memory_finalized_lookup_encode", |meta| {
+            vec![
+                fixed_curr!(meta, memory_addr_sel)
+                    * curr!(meta, update)
+                    * (fixed_curr!(meta, memory_addr_sel) * constant_from!(MEMORY_ADDRESS_OFFSET)
+                        + curr!(meta, post_image_table)
+                        - curr!(meta, memory_finalized_lookup_encode)),
+            ]
+        });
+
         memory_table.configure_in_post_init_memory_table(
             meta,
             "post image table: lookup updating value",
-            |meta| {
-                (
-                    fixed_curr!(meta, memory_addr_sel) * curr!(meta, update),
-                    curr!(meta, post_image_table) * curr!(meta, update),
-                )
-            },
+            |meta| curr!(meta, memory_finalized_lookup_encode),
         );
 
         Self {
@@ -90,6 +98,7 @@ impl<F: FieldExt> PostImageTableConfig<F> {
             post_image_table,
             update,
             rest_memory_finalized_count,
+            memory_finalized_lookup_encode,
             _mark: PhantomData,
         }
     }
@@ -343,6 +352,19 @@ impl<F: FieldExt> PostImageTableChip<F> {
                                         self.config.update,
                                         offset,
                                         || Ok(F::one()),
+                                    )?;
+
+                                    let address: BigUint =
+                                        encode_init_memory_table_address::<BigUint>(
+                                            (position.0 as u64).into(),
+                                            position.1.into(),
+                                        ) * MEMORY_ADDRESS_OFFSET;
+
+                                    ctx.borrow_mut().region.assign_advice(
+                                        || "post image table: init memory lookup",
+                                        self.config.memory_finalized_lookup_encode,
+                                        offset,
+                                        || Ok(bn_to_field::<F>(&address) + *post),
                                     )?;
 
                                     rest_memory_writing_ops = rest_memory_writing_ops - F::one();

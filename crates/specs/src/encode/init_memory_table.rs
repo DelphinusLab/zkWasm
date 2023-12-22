@@ -5,6 +5,7 @@ use super::FromBn;
 use crate::imtable::InitMemoryTableEntry;
 
 pub(crate) const INIT_MEMORY_ENCODE_BOUNDARY: u32 = 224;
+pub const MEMORY_ADDRESS_OFFSET: u32 = 97;
 
 pub fn encode_init_memory_table_address<T: FromBn>(location_type: T, offset: T) -> T {
     location_type * T::from_bn(&(1u64.to_biguint().unwrap() << 32)) + offset
@@ -23,6 +24,7 @@ pub fn encode_init_memory_table_entry<T: FromBn>(
     const EID_OFFSET_SHIFT: u32 = VALUE_SHIFT + u64::BITS;
     const VALUE_SHIFT: u32 = 0;
 
+    assert_eq!(OFFSET_SHIFT, MEMORY_ADDRESS_OFFSET);
     assert!(LTYPE_SHIFT + 8 <= INIT_MEMORY_ENCODE_BOUNDARY);
 
     let encode = is_mutable * T::from_bn(&(1u64.to_biguint().unwrap() << IS_MUTABLE_SHIFT))
