@@ -44,10 +44,6 @@ pub struct MemoryTableConfig<F: FieldExt> {
     end_eid_cell: AllocatedU32StateCell<F>,
     eid_diff_cell: AllocatedU32StateCell<F>,
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    offset_align_left: AllocatedU32Cell<F>,
-    offset_align_right: AllocatedU32Cell<F>,
-    offset_align_left_diff_cell: AllocatedU32Cell<F>,
-    offset_align_right_diff_cell: AllocatedU32Cell<F>,
     offset_cell: AllocatedU32Cell<F>,
     offset_diff_cell: AllocatedU32Cell<F>,
 
@@ -55,6 +51,13 @@ pub struct MemoryTableConfig<F: FieldExt> {
     offset_diff_inv_helper_cell: AllocatedUnlimitedCell<F>,
     encode_cell: AllocatedUnlimitedCell<F>,
     init_encode_cell: AllocatedUnlimitedCell<F>,
+
+    #[cfg(feature = "continuation")]
+    address_encode_cell: AllocatedUnlimitedCell<F>,
+    #[cfg(feature = "continuation")]
+    post_init_encode_cell: AllocatedUnlimitedCell<F>,
+    #[cfg(feature = "continuation")]
+    rest_memory_finalize_ops_cell: AllocatedUnlimitedCell<F>,
 
     value: AllocatedU64Cell<F>,
 }
@@ -88,11 +91,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let eid_diff_cell = allocator.alloc_u32_state_cell();
         let rest_mops_cell = allocator.alloc_common_range_cell();
 
-        let offset_align_left = allocator.alloc_u32_cell();
-        let offset_align_right = allocator.alloc_u32_cell();
         let offset_cell = allocator.alloc_u32_cell();
-        let offset_align_left_diff_cell = allocator.alloc_u32_cell();
-        let offset_align_right_diff_cell = allocator.alloc_u32_cell();
 
         let offset_diff_cell = allocator.alloc_u32_cell();
         let offset_diff_inv_cell = allocator.alloc_unlimited_cell();
@@ -100,8 +99,28 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         let encode_cell = allocator.alloc_unlimited_cell();
         let init_encode_cell = allocator.alloc_unlimited_cell();
 
+        #[cfg(feature = "continuation")]
+        let post_init_encode_cell = allocator.alloc_unlimited_cell();
+        #[cfg(feature = "continuation")]
+        let address_encode_cell = allocator.alloc_unlimited_cell();
+
+        #[cfg(feature = "continuation")]
+        let rest_memory_finalize_ops_cell = {
+            let cell = allocator.alloc_unlimited_cell();
+            // FIXME: try to avoid this?
+            meta.enable_equality(cell.0.col);
+            cell
+        };
+
         let value = allocator.alloc_u64_cell();
 
+        macro_rules! location {
+            ($meta:expr) => {
+                is_stack_cell.curr_expr($meta) * constant_from!(LocationType::Stack as u64)
+                    + is_global_cell.curr_expr($meta) * constant_from!(LocationType::Global as u64)
+                    + is_heap_cell.curr_expr($meta) * constant_from!(LocationType::Heap)
+            };
+        }
         meta.create_gate("mc1. enable seq", |meta| {
             vec![
                 (enabled_cell.curr_expr(meta) - constant_from!(1))
@@ -187,26 +206,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .collect::<Vec<_>>()
         });
 
-        meta.create_gate("mc7a. init", |meta| {
-            vec![
-                // TODO: This may not be true if continuation is enabled.
-                is_init_cell.curr_expr(meta) * start_eid_cell.curr_expr(meta),
-                // offset_left_align <= offset && offset <= offset_right_align
-                is_init_cell.curr_expr(meta)
-                    * (offset_align_left.curr_expr(meta)
-                        + offset_align_left_diff_cell.curr_expr(meta)
-                        - offset_cell.curr_expr(meta)),
-                is_init_cell.curr_expr(meta)
-                    * (offset_cell.curr_expr(meta) + offset_align_right_diff_cell.curr_expr(meta)
-                        - offset_align_right.curr_expr(meta)),
-            ]
-            .into_iter()
-            .map(|x| x * fixed_curr!(meta, entry_sel))
-            .collect::<Vec<_>>()
-        });
-
         meta.create_gate(
-            "mc7b. global must has init (because of mutability check).",
+            "mc7a. global must has init (because of mutability check).",
             |meta| {
                 vec![
                     (is_next_same_offset_cell.expr(meta) - constant_from!(1))
@@ -219,22 +220,16 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             },
         );
 
-        meta.create_gate("mc7c. init encode.", |meta| {
+        meta.create_gate("mc7b. init encode.", |meta| {
             vec![
-                is_init_cell.curr_expr(meta)
-                    * encode_init_memory_table_entry(
-                        is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
-                            + is_heap_cell.curr_expr(meta)
-                                * constant_from!(LocationType::Heap as u64)
-                            + is_global_cell.curr_expr(meta)
-                                * constant_from!(LocationType::Global as u64),
-                        is_mutable.curr_expr(meta),
-                        offset_align_left.curr_expr(meta),
-                        offset_align_right.curr_expr(meta),
-                        start_eid_cell.curr_expr(meta),
-                        value.u64_cell.curr_expr(meta),
-                    )
-                    - init_encode_cell.curr_expr(meta),
+                (encode_init_memory_table_entry(
+                    location!(meta),
+                    offset_cell.curr_expr(meta),
+                    is_mutable.curr_expr(meta),
+                    start_eid_cell.curr_expr(meta),
+                    value.u64_cell.curr_expr(meta),
+                ) - init_encode_cell.curr_expr(meta))
+                    * is_init_cell.curr_expr(meta),
             ]
             .into_iter()
             .map(|x| x * fixed_curr!(meta, entry_sel))
@@ -242,7 +237,16 @@ impl<F: FieldExt> MemoryTableConfig<F> {
         });
 
         image_table.init_memory_lookup(meta, "mc7c. imtable init", |meta| {
-            init_encode_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel)
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "continuation")] {
+                    (
+                        address_encode_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel),
+                        init_encode_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel),
+                    )
+                } else {
+                    init_encode_cell.curr_expr(meta) * fixed_curr!(meta, entry_sel)
+                }
+            }
         });
 
         meta.create_gate("mc8. vtype", |meta| {
@@ -303,10 +307,7 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                 (constant_from!(1) - enabled_cell.curr_expr(meta)) * encode_cell.curr_expr(meta),
                 encode_memory_table_entry(
                     offset_cell.curr_expr(meta),
-                    is_stack_cell.curr_expr(meta) * constant_from!(LocationType::Stack as u64)
-                        + is_global_cell.curr_expr(meta)
-                            * constant_from!(LocationType::Global as u64)
-                        + is_heap_cell.curr_expr(meta) * constant_from!(LocationType::Heap),
+                    location!(meta),
                     is_i32_cell.curr_expr(meta),
                 ) - encode_cell.curr_expr(meta),
             ]
@@ -314,6 +315,53 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             .map(|x| x * fixed_curr!(meta, entry_sel))
             .collect::<Vec<_>>()
         });
+
+        #[cfg(feature = "continuation")]
+        {
+            use specs::encode::init_memory_table::encode_init_memory_table_address;
+            use specs::encode::init_memory_table::MEMORY_ADDRESS_OFFSET;
+
+            meta.create_gate("mc13. post init memory entry", |meta| {
+                let is_writing = constant_from!(1) - is_init_cell.curr_expr(meta);
+                let next_entry_at_different_position =
+                    constant_from!(1) - is_next_same_offset_cell.curr_expr(meta);
+
+                let is_memory_finalized_position_bit =
+                    is_writing * next_entry_at_different_position;
+
+                vec![
+                    // rest_memory_finalize_ops_cell decreases.
+                    // `* enabled_cell`: If disabled, rest_memory_finalize_ops_cell should keep the same,
+                    // The termination rest_memory_finalize_ops_cell is constant 0 at the last selected(sel=1) step.
+                    rest_memory_finalize_ops_cell.curr_expr(meta)
+                        - rest_memory_finalize_ops_cell.next_expr(meta)
+                        - is_memory_finalized_position_bit.clone() * enabled_cell.curr_expr(meta),
+                    // encode address_encode_cell.
+                    (encode_init_memory_table_address(
+                        location!(meta),
+                        offset_cell.curr_expr(meta),
+                    ) - address_encode_cell.curr_expr(meta)),
+                    // post_init_encode_cell assigned iff at memory finalized position.
+                    post_init_encode_cell.curr_expr(meta)
+                        * (constant_from!(1) - is_memory_finalized_position_bit.clone()),
+                    // encode post_init_encode_cell.
+                    (post_init_encode_cell.curr_expr(meta)
+                        - address_encode_cell.curr_expr(meta)
+                            * constant_from!(MEMORY_ADDRESS_OFFSET)
+                        - encode_init_memory_table_entry(
+                            location!(meta),
+                            offset_cell.curr_expr(meta),
+                            is_mutable.curr_expr(meta),
+                            start_eid_cell.curr_expr(meta),
+                            value.u64_cell.curr_expr(meta),
+                        ))
+                        * is_memory_finalized_position_bit,
+                ]
+                .into_iter()
+                .map(|x| x * fixed_curr!(meta, entry_sel))
+                .collect::<Vec<_>>()
+            });
+        }
 
         Self {
             entry_sel,
@@ -335,13 +383,16 @@ impl<F: FieldExt> MemoryTableConfig<F> {
             offset_diff_cell,
             offset_diff_inv_cell,
             offset_diff_inv_helper_cell,
-            offset_align_left,
-            offset_align_right,
-            offset_align_left_diff_cell,
-            offset_align_right_diff_cell,
             value,
             init_encode_cell,
             encode_cell,
+
+            #[cfg(feature = "continuation")]
+            post_init_encode_cell,
+            #[cfg(feature = "continuation")]
+            address_encode_cell,
+            #[cfg(feature = "continuation")]
+            rest_memory_finalize_ops_cell,
         }
     }
 }
@@ -374,6 +425,27 @@ impl<F: FieldExt> ConfigureLookupTable<F> for MemoryTableConfig<F> {
                     self.value.expr(meta) * fixed_curr!(meta, self.entry_sel),
                 ),
             ]
+        });
+    }
+}
+
+#[cfg(feature = "continuation")]
+impl<F: FieldExt> MemoryTableConfig<F> {
+    pub(in crate::circuits) fn configure_in_post_init_memory_table(
+        &self,
+        meta: &mut ConstraintSystem<F>,
+        name: &'static str,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+    ) {
+        use specs::encode::image_table::ImageTableEncoder;
+
+        meta.lookup_any(name, |meta| {
+            let encode = expr(meta);
+            vec![(
+                encode,
+                ImageTableEncoder::InitMemory.encode(self.post_init_encode_cell.expr(meta))
+                    * fixed_curr!(meta, self.entry_sel),
+            )]
         });
     }
 }

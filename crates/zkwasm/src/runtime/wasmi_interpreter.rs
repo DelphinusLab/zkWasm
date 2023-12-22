@@ -6,6 +6,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
 use specs::jtable::StaticFrameEntry;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::state::InitializationState;
 use specs::CompilationTable;
 use specs::ExecutionTable;
@@ -79,18 +80,19 @@ impl Execution<RuntimeValue>
 
         let updated_init_memory_table = self
             .tables
-            .update_init_memory_table(&execution_tables.etable);
+            .update_init_memory_table(&execution_tables.etable.entries());
 
         let post_image_table = {
             CompilationTable {
                 itable: self.tables.itable.clone(),
                 imtable: updated_init_memory_table,
+                br_table: self.tables.br_table.clone(),
                 elem_table: self.tables.elem_table.clone(),
                 configure_table: self.tables.configure_table.clone(),
                 static_jtable: self.tables.static_jtable.clone(),
                 initialization_state: self
                     .tables
-                    .update_initialization_state(&execution_tables.etable, true),
+                    .update_initialization_state(&execution_tables.etable.entries(), true),
             }
         };
 
@@ -99,6 +101,7 @@ impl Execution<RuntimeValue>
                 compilation_tables: self.tables,
                 execution_tables,
                 post_image_table,
+                is_last_slice: true,
             },
             result,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
@@ -143,20 +146,29 @@ impl WasmiRuntime {
                     iid: 0,
                 });
 
-            if instance.has_start() {
-                tracer
-                    .clone()
-                    .borrow_mut()
-                    .static_jtable_entries
-                    .push(StaticFrameEntry {
+            tracer
+                .clone()
+                .borrow_mut()
+                .static_jtable_entries
+                .push(if instance.has_start() {
+                    StaticFrameEntry {
                         enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
                         callee_fid: 0, // the fid of start function is always 0
                         fid: idx_of_entry,
                         iid: 0,
-                    });
-            }
+                    }
+                } else {
+                    StaticFrameEntry {
+                        enable: false,
+                        frame_id: 0,
+                        next_frame_id: 0,
+                        callee_fid: 0,
+                        fid: 0,
+                        iid: 0,
+                    }
+                });
 
             if instance.has_start() {
                 0
@@ -167,9 +179,20 @@ impl WasmiRuntime {
 
         let itable = Arc::new(tracer.borrow().itable.clone());
         let imtable = tracer.borrow().imtable.finalized();
+        let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(tracer.borrow().elem_table.clone());
         let configure_table = Arc::new(tracer.borrow().configure_table.clone());
-        let static_jtable = Arc::new(tracer.borrow().static_jtable_entries.clone());
+        let static_jtable = Arc::new(
+            tracer
+                .borrow()
+                .static_jtable_entries
+                .clone()
+                .try_into()
+                .expect(&format!(
+                    "The number of static frame entries should be {}",
+                    STATIC_FRAME_ENTRY_NUMBER
+                )),
+        );
         let initialization_state = InitializationState {
             eid: 1,
             fid: fid_of_entry,
@@ -194,6 +217,7 @@ impl WasmiRuntime {
             tables: CompilationTable {
                 itable,
                 imtable,
+                br_table,
                 elem_table,
                 configure_table,
                 static_jtable,

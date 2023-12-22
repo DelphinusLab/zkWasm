@@ -1,114 +1,159 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::circuit::Cell;
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::plonk::Advice;
-use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Error;
-use specs::state::InitializationState;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 
 use super::ImageTableChip;
-use super::ImageTableLayouter;
+use crate::circuits::utils::image_table::ImageTableAssigner;
+use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::Context;
 
 impl<F: FieldExt> ImageTableChip<F> {
-    pub fn assign(
+    pub(crate) fn assign(
         self,
         layouter: &mut impl Layouter<F>,
+        image_table_assigner: &mut ImageTableAssigner,
         image_table: ImageTableLayouter<F>,
-        permutation_cells: ImageTableLayouter<Cell>,
-    ) -> Result<(), Error> {
-        fn assign_and_perm_initialization_state<F: FieldExt>(
-            ctx: &mut Context<F>,
-            col: Column<Advice>,
-            initialization_state: &InitializationState<F>,
-            permutation_cells: &InitializationState<Cell>,
-        ) -> Result<(), Error> {
-            macro_rules! assign_and_perm {
-                ($field:ident) => {
-                    let cell = ctx
-                        .region
-                        .assign_advice(
-                            || "image table",
-                            col,
-                            ctx.offset,
-                            || Ok(initialization_state.$field),
-                        )?
-                        .cell();
-
-                    ctx.region.constrain_equal(cell, permutation_cells.$field)?;
-
-                    ctx.next();
-                };
-            }
-
-            assign_and_perm!(eid);
-            assign_and_perm!(fid);
-            assign_and_perm!(iid);
-            assign_and_perm!(frame_id);
-            assign_and_perm!(sp);
-
-            assign_and_perm!(host_public_inputs);
-            assign_and_perm!(context_in_index);
-            assign_and_perm!(context_out_index);
-            assign_and_perm!(external_host_call_call_index);
-
-            assign_and_perm!(initial_memory_pages);
-            assign_and_perm!(maximal_memory_pages);
-
-            #[cfg(feature = "continuation")]
-            assign_and_perm!(jops);
-
-            Ok(())
-        }
-
+        permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
+    ) -> Result<ImageTableLayouter<AssignedCell<F, F>>, Error> {
         layouter.assign_region(
-            || "image table",
+            || "pre image table",
             |region| {
-                let mut ctx = Context::new(region);
+                let ctx = Rc::new(RefCell::new(Context::new(region)));
 
-                macro_rules! assign_one_line {
-                    ($v: expr) => {{
-                        let cell = ctx
-                            .region
-                            .assign_advice(
-                                || "image table",
-                                self.config.col,
-                                ctx.offset,
-                                || Ok($v),
-                            )?
-                            .cell();
+                macro_rules! assign {
+                    ($v:expr) => {{
+                        let offset = ctx.borrow().offset;
 
-                        ctx.next();
+                        let cell = ctx.borrow_mut().region.assign_advice(
+                            || "pre image table",
+                            self.config.col,
+                            offset,
+                            || Ok($v),
+                        );
+
+                        ctx.borrow_mut().next();
 
                         cell
                     }};
                 }
 
-                assign_and_perm_initialization_state(
-                    &mut ctx,
-                    self.config.col,
-                    &image_table.initialization_state,
-                    &permutation_cells.initialization_state,
+                let initialization_state_handler = |base_offset| {
+                    ctx.borrow_mut().offset = base_offset;
+
+                    let initialization_state =
+                        permutation_cells.initialization_state.map(|field| {
+                            let offset = ctx.borrow().offset;
+
+                            field.copy_advice(
+                                || "image table: initialization state",
+                                &mut ctx.borrow_mut().region,
+                                self.config.col,
+                                offset,
+                            )?;
+
+                            ctx.borrow_mut().next();
+
+                            Ok(field.clone())
+                        });
+
+                    initialization_state.transpose()
+                };
+
+                let static_frame_entries_handler = |base_offset| {
+                    ctx.borrow_mut().offset = base_offset;
+
+                    let mut cells = vec![];
+
+                    for (enable, entry) in &permutation_cells.static_frame_entries {
+                        let offset = ctx.borrow().offset;
+
+                        enable.copy_advice(
+                            || "image table: static frame entry",
+                            &mut ctx.borrow_mut().region,
+                            self.config.col,
+                            offset,
+                        )?;
+                        ctx.borrow_mut().next();
+
+                        let offset = ctx.borrow().offset;
+
+                        entry.copy_advice(
+                            || "image table: static frame entry",
+                            &mut ctx.borrow_mut().region,
+                            self.config.col,
+                            offset,
+                        )?;
+                        ctx.borrow_mut().next();
+
+                        cells.push((enable.clone(), entry.clone()));
+                    }
+
+                    Ok(cells.try_into().expect(&format!(
+                        "The number of static frame entries should be {}",
+                        STATIC_FRAME_ENTRY_NUMBER
+                    )))
+                };
+
+                let instruction_handler = |base_offset| {
+                    ctx.borrow_mut().offset = base_offset;
+
+                    image_table
+                        .instructions
+                        .iter()
+                        .map(|entry| assign!(*entry))
+                        .collect::<Result<Vec<_>, Error>>()
+                };
+
+                let br_table_handler = |base_offset| {
+                    ctx.borrow_mut().offset = base_offset;
+
+                    image_table
+                        .br_table_entires
+                        .iter()
+                        .map(|entry| assign!(*entry))
+                        .collect::<Result<Vec<_>, Error>>()
+                };
+
+                let padding_handler = |start_offset, end_offset| {
+                    ctx.borrow_mut().offset = start_offset;
+
+                    (start_offset..end_offset)
+                        .map(|_| assign!(F::zero()))
+                        .collect::<Result<Vec<_>, Error>>()
+                };
+
+                let init_memory_handler = |base_offset| {
+                    ctx.borrow_mut().offset = base_offset;
+
+                    image_table
+                        .init_memory_entries
+                        .iter()
+                        .map(|entry| assign!(*entry))
+                        .collect::<Result<Vec<_>, Error>>()
+                };
+
+                let result = image_table_assigner.exec(
+                    initialization_state_handler,
+                    static_frame_entries_handler,
+                    instruction_handler,
+                    br_table_handler,
+                    padding_handler,
+                    init_memory_handler,
                 )?;
 
-                for (static_frame_entry, cell_in_frame_table) in image_table
-                    .static_frame_entries
-                    .iter()
-                    .zip(permutation_cells.static_frame_entries.iter())
-                {
-                    // Enable cell
-                    let cell = assign_one_line!(static_frame_entry.0);
-                    ctx.region.constrain_equal(cell, cell_in_frame_table.0)?;
-
-                    let cell = assign_one_line!(static_frame_entry.1);
-                    ctx.region.constrain_equal(cell, cell_in_frame_table.1)?;
-                }
-
-                for value in image_table.lookup_entries.as_ref().unwrap() {
-                    assign_one_line!(*value);
-                }
-
-                Ok(())
+                Ok(ImageTableLayouter {
+                    initialization_state: result.initialization_state,
+                    static_frame_entries: result.static_frame_entries,
+                    instructions: result.instructions,
+                    br_table_entires: result.br_table_entires,
+                    padding_entires: result.padding_entires,
+                    init_memory_entries: result.init_memory_entries,
+                })
             },
         )
     }

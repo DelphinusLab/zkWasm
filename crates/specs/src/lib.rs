@@ -8,6 +8,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use brtable::BrTable;
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
@@ -16,7 +17,9 @@ use imtable::InitMemoryTable;
 use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
+use jtable::STATIC_FRAME_ENTRY_NUMBER;
 use mtable::AccessType;
+use mtable::LocationType;
 use mtable::MTable;
 use mtable::MemoryTableEntry;
 use rayon::prelude::IntoParallelRefIterator;
@@ -41,13 +44,14 @@ pub mod state;
 pub mod step;
 pub mod types;
 
-#[derive(Default, Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: InitMemoryTable,
+    pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
-    pub static_jtable: Arc<Vec<StaticFrameEntry>>,
+    pub static_jtable: Arc<[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER]>,
     pub initialization_state: InitializationState<u32>,
 }
 
@@ -57,11 +61,12 @@ pub struct ExecutionTable {
     pub jtable: Arc<JumpTable>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
     pub execution_tables: ExecutionTable,
     pub post_image_table: CompilationTable,
+    pub is_last_slice: bool,
 }
 
 impl Tables {
@@ -78,33 +83,37 @@ impl Tables {
             .collect::<Vec<Vec<_>>>()
             .concat();
 
-        let init_value = memory_entries
-            .par_iter()
-            .map(|entry| {
-                self.compilation_tables
-                    .imtable
-                    .try_find(entry.ltype, entry.offset)
-            })
-            .collect::<Vec<_>>();
-
         let mut set = HashSet::<MemoryTableEntry>::default();
 
-        memory_entries
-            .iter()
-            .zip(init_value.into_iter())
-            .for_each(|(entry, init_memory_entry)| {
-                if let Some((_, _, eid, value)) = init_memory_entry {
-                    set.insert(MemoryTableEntry {
-                        eid,
-                        offset: entry.offset,
-                        ltype: entry.ltype,
-                        atype: AccessType::Init,
-                        vtype: entry.vtype,
-                        is_mutable: entry.is_mutable,
-                        value,
-                    });
-                }
-            });
+        memory_entries.iter().for_each(|entry| {
+            let init_memory_entry = self
+                .compilation_tables
+                .imtable
+                .try_find(entry.ltype, entry.offset);
+
+            if let Some(init_memory_entry) = init_memory_entry {
+                set.insert(MemoryTableEntry {
+                    eid: init_memory_entry.eid,
+                    offset: entry.offset,
+                    ltype: entry.ltype,
+                    atype: AccessType::Init,
+                    vtype: entry.vtype,
+                    is_mutable: entry.is_mutable,
+                    value: init_memory_entry.value,
+                });
+            } else if entry.ltype == LocationType::Heap {
+                // Heap value without init memory entry should equal 0
+                set.insert(MemoryTableEntry {
+                    eid: 0,
+                    offset: entry.offset,
+                    ltype: entry.ltype,
+                    atype: AccessType::Init,
+                    vtype: entry.vtype,
+                    is_mutable: entry.is_mutable,
+                    value: 0,
+                });
+            }
+        });
 
         memory_entries.append(&mut set.into_iter().collect());
 
@@ -124,7 +133,7 @@ impl Tables {
         }
 
         let itable = serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap();
-        let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
+        // let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
         let etable = serde_json::to_string_pretty(&self.execution_tables.etable).unwrap();
         let external_host_call_table = serde_json::to_string_pretty(
             &self
@@ -137,7 +146,7 @@ impl Tables {
 
         let dir = dir.unwrap_or(env::current_dir().unwrap());
         write_file(&dir, "itable.json", &itable);
-        write_file(&dir, "imtable.json", &imtable);
+        // write_file(&dir, "imtable.json", &imtable);
         write_file(&dir, "etable.json", &etable);
         write_file(&dir, "jtable.json", &jtable);
         write_file(&dir, "external_host_table.json", &external_host_call_table);

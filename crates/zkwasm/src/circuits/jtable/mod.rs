@@ -4,11 +4,15 @@ use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Fixed;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use std::marker::PhantomData;
 
 mod assign;
 mod configure;
 pub(crate) mod expression;
+
+// enable and data should be encoded in image table
+pub(crate) const STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY: usize = STATIC_FRAME_ENTRY_NUMBER * 2;
 
 pub enum JtableOffset {
     JtableOffsetEnable = 0,

@@ -20,6 +20,16 @@ pub struct InitializationState<T> {
     pub jops: T,
 }
 
+impl<T> InitializationState<T> {
+    pub fn field_count() -> usize {
+        if cfg!(feature = "continuation") {
+            12
+        } else {
+            11
+        }
+    }
+}
+
 impl Default for InitializationState<u32> {
     fn default() -> Self {
         Self {
@@ -67,7 +77,11 @@ impl<T: Clone> InitializationState<T> {
         v
     }
 
-    pub fn map<U>(&self, f: impl Fn(&T) -> U) -> InitializationState<U> {
+    pub fn for_each<U>(&self, f: impl FnMut(&T) -> U) {
+        self.map(f);
+    }
+
+    pub fn map<U>(&self, mut f: impl FnMut(&T) -> U) -> InitializationState<U> {
         InitializationState {
             eid: f(&self.eid),
             fid: f(&self.fid),
@@ -86,5 +100,26 @@ impl<T: Clone> InitializationState<T> {
             #[cfg(feature = "continuation")]
             jops: f(&self.jops),
         }
+    }
+}
+
+impl<T, E> InitializationState<Result<T, E>> {
+    pub fn transpose(self) -> Result<InitializationState<T>, E> {
+        Ok(InitializationState {
+            eid: self.eid?,
+            fid: self.fid?,
+            iid: self.iid?,
+            frame_id: self.frame_id?,
+            sp: self.sp?,
+            host_public_inputs: self.host_public_inputs?,
+            context_in_index: self.context_in_index?,
+            context_out_index: self.context_out_index?,
+            external_host_call_call_index: self.external_host_call_call_index?,
+            initial_memory_pages: self.initial_memory_pages?,
+            maximal_memory_pages: self.maximal_memory_pages?,
+
+            #[cfg(feature = "continuation")]
+            jops: self.jops?,
+        })
     }
 }

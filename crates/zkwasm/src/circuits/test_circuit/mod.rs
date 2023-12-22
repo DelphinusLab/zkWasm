@@ -11,7 +11,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use log::debug;
-use specs::CompilationTable;
+use log::info;
 use specs::ExecutionTable;
 use specs::Tables;
 
@@ -21,15 +21,18 @@ use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
 use crate::circuits::external_host_call_table::ExternalHostCallTableConfig;
-use crate::circuits::image_table::EncodeCompilationTableValues;
+use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::image_table::ImageTableChip;
-use crate::circuits::image_table::ImageTableLayouter;
 use crate::circuits::jtable::JumpTableChip;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableChip;
 use crate::circuits::mtable::MemoryTableConfig;
+use crate::circuits::post_image_table::PostImageTableChip;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
+use crate::circuits::utils::image_table::EncodeCompilationTableValues;
+use crate::circuits::utils::image_table::ImageTableAssigner;
+use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
@@ -47,17 +50,23 @@ use crate::runtime::memory_event_of_step;
 
 use super::config::zkwasm_k;
 use super::image_table::ImageTableConfig;
+use super::post_image_table::PostImageTableConfig;
 
-pub const VAR_COLUMNS: usize = 56;
+pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
+    60
+} else {
+    51
+};
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
-const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
+pub(crate) const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
 
 #[derive(Clone)]
 pub struct TestCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     image_table: ImageTableConfig<F>,
+    post_image_table: PostImageTableConfig<F>,
     mtable: MemoryTableConfig<F>,
     jtable: JumpTableConfig<F>,
     etable: EventTableConfig<F>,
@@ -68,6 +77,7 @@ pub struct TestCircuitConfig<F: FieldExt> {
     foreign_table_from_zero_index: Column<Fixed>,
 
     max_available_rows: usize,
+    circuit_maximal_pages: u32,
 }
 
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -76,11 +86,15 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit::new(Tables {
-            compilation_tables: CompilationTable::default(),
-            execution_tables: ExecutionTable::default(),
-            post_image_table: CompilationTable::default(),
-        })
+        TestCircuit::new(
+            Tables {
+                compilation_tables: self.tables.compilation_tables.clone(),
+                execution_tables: ExecutionTable::default(),
+                post_image_table: self.tables.post_image_table.clone(),
+                is_last_slice: self.tables.is_last_slice,
+            },
+            self.slice_capability,
+        )
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -92,13 +106,22 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             meta.enable_constant(constants);
             meta.enable_equality(constants);
         }
+
+        let memory_addr_sel = if cfg!(feature = "continuation") {
+            Some(meta.fixed_column())
+        } else {
+            None
+        };
+
         let foreign_table_from_zero_index = meta.fixed_column();
 
         let mut cols = [(); VAR_COLUMNS].map(|_| meta.advice_column()).into_iter();
 
         let rtable = RangeTableConfig::configure(meta);
-        let image_table = ImageTableConfig::configure(meta);
+        let image_table = ImageTableConfig::configure(meta, memory_addr_sel);
         let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
+        let post_image_table =
+            PostImageTableConfig::configure(meta, memory_addr_sel, &mtable, &image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
         let external_host_call_table = ExternalHostCallTableConfig::configure(meta);
         let bit_table = BitTableConfig::configure(meta, &rtable);
@@ -133,12 +156,21 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         assert_eq!(cols.count(), 0);
 
-        let max_available_rows = (1 << zkwasm_k()) - (meta.blinding_factors() + 1 + RESERVE_ROWS);
+        let k = zkwasm_k();
+
+        let max_available_rows = (1 << k) - (meta.blinding_factors() + 1 + RESERVE_ROWS);
         debug!("max_available_rows: {:?}", max_available_rows);
+
+        let circuit_maximal_pages = compute_maximal_pages(k);
+        info!(
+            "Circuit K: {} supports up to {} pages.",
+            k, max_available_rows
+        );
 
         Self::Config {
             rtable,
             image_table,
+            post_image_table,
             mtable,
             jtable,
             etable,
@@ -148,6 +180,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             foreign_table_from_zero_index,
 
             max_available_rows,
+            circuit_maximal_pages,
         }
     }
 
@@ -160,9 +193,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 
         let rchip = RangeTableChip::new(config.rtable);
         let image_chip = ImageTableChip::new(config.image_table);
+        let post_image_chip = PostImageTableChip::new(config.post_image_table);
         let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
-        let echip = EventTableChip::new(config.etable, config.max_available_rows);
+        let echip = EventTableChip::new(
+            config.etable,
+            self.slice_capability,
+            config.max_available_rows,
+        );
         let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
         let external_host_call_chip =
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
@@ -198,7 +236,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        let (etable_permutation_cells, static_frame_entries) = layouter.assign_region(
+        let (
+            etable_permutation_cells,
+            (rest_memory_writing_ops_cell, rest_memory_writing_ops, memory_finalized_set),
+            static_frame_entries,
+        ) = layouter.assign_region(
             || "jtable mtable etable",
             |region| {
                 let mut ctx = Context::new(region);
@@ -221,21 +263,23 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         &etable,
                         &self.tables.compilation_tables.configure_table,
                         &self.tables.compilation_tables.initialization_state,
+                        &self.tables.post_image_table.initialization_state,
+                        self.tables.is_last_slice,
                     )?
                 );
 
-                {
+                let rest_memory_writing_ops = {
                     ctx.reset();
+
                     exec_with_profile!(
                         || "Assign mtable",
                         mchip.assign(
                             &mut ctx,
-                            etable_permutation_cells.rest_mops,
+                            &etable_permutation_cells.rest_mops,
                             &memory_writing_table,
-                            &self.tables.compilation_tables.imtable
                         )?
-                    );
-                }
+                    )
+                };
 
                 let jtable_info = {
                     ctx.reset();
@@ -244,7 +288,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                         jchip.assign(
                             &mut ctx,
                             &self.tables.execution_tables.jtable,
-                            etable_permutation_cells.rest_jops,
+                            &etable_permutation_cells.rest_jops,
                             &self.tables.compilation_tables.static_jtable,
                         )?
                     )
@@ -255,7 +299,11 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                     exec_with_profile!(|| "Assign bit table", bit_chip.assign(&mut ctx, &etable)?);
                 }
 
-                Ok((etable_permutation_cells, jtable_info))
+                Ok((
+                    etable_permutation_cells,
+                    rest_memory_writing_ops,
+                    jtable_info,
+                ))
             },
         )?;
 
@@ -268,18 +316,53 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             )?
         );
 
-        exec_with_profile!(
+        let mut image_table_assigner = ImageTableAssigner::new(
+            // Add one for default lookup value
+            self.tables.compilation_tables.itable.entries().len() + 1,
+            self.tables.compilation_tables.br_table.entries().len()
+                + self.tables.compilation_tables.elem_table.entries().len()
+                + 1,
+            config.circuit_maximal_pages,
+        );
+
+        let pre_image_table_cells = exec_with_profile!(
             || "Assign Pre Image Table",
             image_chip.assign(
                 &mut layouter,
+                &mut image_table_assigner,
                 self.tables
                     .compilation_tables
-                    .encode_compilation_table_values(),
+                    .encode_compilation_table_values(config.circuit_maximal_pages),
                 ImageTableLayouter {
                     initialization_state: etable_permutation_cells.pre_initialization_state,
                     static_frame_entries,
-                    lookup_entries: None
+                    instructions: vec![],
+                    br_table_entires: vec![],
+                    padding_entires: vec![],
+                    init_memory_entries: vec![],
                 }
+            )?
+        );
+
+        exec_with_profile!(
+            || "Assign Post Image Table",
+            post_image_chip.assign(
+                &mut layouter,
+                &mut image_table_assigner,
+                self.tables
+                    .post_image_table
+                    .encode_compilation_table_values(config.circuit_maximal_pages),
+                ImageTableLayouter {
+                    initialization_state: etable_permutation_cells.post_initialization_state,
+                    static_frame_entries: pre_image_table_cells.static_frame_entries,
+                    instructions: pre_image_table_cells.instructions,
+                    br_table_entires: pre_image_table_cells.br_table_entires,
+                    padding_entires: pre_image_table_cells.padding_entires,
+                    init_memory_entries: pre_image_table_cells.init_memory_entries,
+                },
+                rest_memory_writing_ops_cell,
+                rest_memory_writing_ops,
+                memory_finalized_set
             )?
         );
 
