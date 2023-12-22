@@ -53,7 +53,7 @@ use super::image_table::ImageTableConfig;
 use super::post_image_table::PostImageTableConfig;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    59
+    60
 } else {
     51
 };

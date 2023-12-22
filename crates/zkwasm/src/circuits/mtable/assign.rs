@@ -134,6 +134,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         let mut rest_mops = init_rest_mops;
 
         let mut iter = mtable.0.iter().peekable();
+        let mut current_address_init_encode = None;
 
         while let Some(entry) = iter.next() {
             assign_bit!(enabled_cell);
@@ -153,16 +154,25 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
             assign_bit_if!(entry.entry.atype.is_init(), is_init_cell);
 
-            assign_advice!(
-                init_encode_cell,
-                bn_to_field(&encode_init_memory_table_entry(
+            if entry.entry.atype.is_init() {
+                current_address_init_encode = Some(bn_to_field(&encode_init_memory_table_entry(
                     (entry.entry.ltype as u64).into(),
                     entry.entry.offset.into(),
                     (entry.entry.is_mutable as u64).into(),
                     entry.entry.eid.into(),
-                    entry.entry.value.into()
-                ))
+                    entry.entry.value.into(),
+                )));
+            }
+            assign_advice!(
+                init_encode_cell,
+                current_address_init_encode.unwrap_or(F::zero())
             );
+
+            if let Some(next_entry) = iter.peek() {
+                if !next_entry.entry.is_same_location(&entry.entry) {
+                    current_address_init_encode = None;
+                }
+            }
 
             assign_u32_state!(start_eid_cell, entry.entry.eid);
             assign_u32_state!(end_eid_cell, entry.end_eid);
@@ -172,10 +182,22 @@ impl<F: FieldExt> MemoryTableChip<F> {
             assign_advice!(value, entry.entry.value);
 
             #[cfg(feature = "continuation")]
-            assign_advice!(
-                rest_memory_finalize_ops_cell,
-                F::from(_rest_memory_finalize_ops as u64)
-            );
+            {
+                use specs::encode::init_memory_table::encode_init_memory_table_address;
+
+                assign_advice!(
+                    rest_memory_finalize_ops_cell,
+                    F::from(_rest_memory_finalize_ops as u64)
+                );
+
+                assign_advice!(
+                    address_encode_cell,
+                    bn_to_field(&encode_init_memory_table_address(
+                        (entry.entry.ltype as u64).into(),
+                        entry.entry.offset.into()
+                    ))
+                );
+            }
 
             assign_advice!(
                 encode_cell,
@@ -202,6 +224,30 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 _rest_memory_finalize_ops -= 1;
 
                 memory_finalized_table.insert((entry.entry.ltype, entry.entry.offset));
+
+                #[cfg(feature = "continuation")]
+                {
+                    use num_bigint::BigUint;
+                    use specs::encode::init_memory_table::encode_init_memory_table_address;
+                    use specs::encode::init_memory_table::MEMORY_ADDRESS_OFFSET;
+
+                    assign_advice!(
+                        post_init_encode_cell,
+                        bn_to_field(
+                            &((encode_init_memory_table_address::<BigUint>(
+                                (entry.entry.ltype as u64).into(),
+                                entry.entry.offset.into()
+                            )) * MEMORY_ADDRESS_OFFSET
+                                + (encode_init_memory_table_entry::<BigUint>(
+                                    (entry.entry.ltype as u64).into(),
+                                    entry.entry.offset.into(),
+                                    (entry.entry.is_mutable as u64).into(),
+                                    entry.entry.eid.into(),
+                                    entry.entry.value.into()
+                                )))
+                        )
+                    );
+                }
             }
 
             ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
