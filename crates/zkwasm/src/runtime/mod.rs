@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use specs::etable::EventTableEntry;
@@ -11,6 +12,7 @@ use specs::step::StepInfo;
 use specs::CompilationTable;
 use specs::Tables;
 
+use self::host::ForeignStatics;
 use self::wasmi_interpreter::WasmiRuntime;
 
 pub mod host;
@@ -28,6 +30,7 @@ pub struct ExecutionResult<R> {
     pub tables: Tables,
     pub result: Option<R>,
     pub public_inputs_and_outputs: Vec<u64>,
+    pub host_statics: HashMap<String, ForeignStatics>,
     pub outputs: Vec<u64>,
 }
 

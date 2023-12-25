@@ -1,5 +1,6 @@
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use sha2::Digest;
 use std::rc::Rc;
 use zkwasm_host_circuits::host::ForeignInst::SHA256Finalize;
@@ -66,7 +67,12 @@ impl Sha256Context {
     }
 }
 
-impl ForeignContext for Sha256Context {}
+impl ForeignContext for Sha256Context {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        // we did not support full sha256 as host yet
+        None
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_sha256_foreign(env: &mut HostEnv) {

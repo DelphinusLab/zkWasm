@@ -1,5 +1,6 @@
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bn256::Fr;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -103,7 +104,12 @@ impl CacheContext {
 
 impl CacheContext {}
 
-impl ForeignContext for CacheContext {}
+impl ForeignContext for CacheContext {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        // pure witness function
+        None
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_datacache_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {

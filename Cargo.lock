@@ -3316,7 +3316,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#61c52e13667291b360783139e85aa499458eb06d"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=polish-volumn#dda4354e943ac1b4f916b59e5c4931b2c63266d2"
 dependencies = [
  "ark-std",
  "cfg-if 1.0.0",

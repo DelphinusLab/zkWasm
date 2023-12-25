@@ -1,5 +1,7 @@
+use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use ff::PrimeField;
 use halo2_proofs::pairing::bn256::Fr;
 use poseidon::Poseidon;
@@ -9,6 +11,8 @@ pub use zkwasm_host_circuits::host::poseidon::POSEIDON_HASHER;
 use zkwasm_host_circuits::host::Reduce;
 use zkwasm_host_circuits::host::ReduceRule;
 
+use zkwasm_host_circuits::circuits::host::HostOpSelector;
+use zkwasm_host_circuits::circuits::poseidon::PoseidonChip;
 use zkwasm_host_circuits::host::ForeignInst::PoseidonFinalize;
 use zkwasm_host_circuits::host::ForeignInst::PoseidonNew;
 use zkwasm_host_circuits::host::ForeignInst::PoseidonPush;
@@ -58,6 +62,7 @@ pub struct PoseidonContext {
     pub generator: Generator,
     pub buf: Vec<Fr>,
     pub fieldreducer: Reduce<Fr>,
+    pub used_round: usize,
 }
 
 impl PoseidonContext {
@@ -70,6 +75,7 @@ impl PoseidonContext {
                 cursor: 0,
                 values: vec![],
             },
+            used_round: 0,
         }
     }
 
@@ -77,6 +83,7 @@ impl PoseidonContext {
         self.buf = vec![];
         if new != 0 {
             self.hasher = Some(POSEIDON_HASHER.clone());
+            self.used_round = 0;
         }
     }
 
@@ -105,7 +112,14 @@ impl PoseidonContext {
     }
 }
 
-impl ForeignContext for PoseidonContext {}
+impl ForeignContext for PoseidonContext {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        Some(ForeignStatics {
+            used_round: self.used_round,
+            max_round: PoseidonChip::max_rounds(zkwasm_k() as usize),
+        })
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_poseidon_foreign(env: &mut HostEnv) {

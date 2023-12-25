@@ -9,6 +9,7 @@ use wasmi::RuntimeValue;
 
 use super::ForeignContext;
 use super::ForeignPlugin;
+use super::ForeignStatics;
 use super::MatchForeignOpSignature;
 
 pub(super) struct ForeignOp {
@@ -62,6 +63,16 @@ impl ExternalCircuitEnv {
                 cb,
             },
         );
+    }
+
+    pub fn get_statics(&self) -> HashMap<String, ForeignStatics> {
+        let mut m = HashMap::new();
+        for (k, v) in &self.functions {
+            if let Some(stat) = (v.plugin.ctx).as_ref().borrow().get_statics() {
+                m.insert(k.clone(), stat);
+            }
+        }
+        m
     }
 }
 

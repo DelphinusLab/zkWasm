@@ -1,5 +1,7 @@
+use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::pairing::bn256::pairing;
 use halo2_proofs::pairing::bn256::G1Affine;
@@ -13,6 +15,8 @@ use super::fetch_fq;
 use super::fetch_fq2;
 use super::LIMBNB;
 
+use zkwasm_host_circuits::circuits::bn256::Bn256PairChip;
+use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::host::ForeignInst::Bn254PairG1;
 use zkwasm_host_circuits::host::ForeignInst::Bn254PairG2;
 use zkwasm_host_circuits::host::ForeignInst::Bn254PairG3;
@@ -26,6 +30,7 @@ struct BN254PairContext {
     pub result_limbs: Vec<u64>,
     pub result_cursor: usize,
     pub input_cursor: usize,
+    pub used_round: usize,
 }
 
 impl BN254PairContext {
@@ -57,7 +62,14 @@ impl BN254PairContext {
     }
 }
 
-impl ForeignContext for BN254PairContext {}
+impl ForeignContext for BN254PairContext {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        Some(ForeignStatics {
+            used_round: self.used_round,
+            max_round: Bn256PairChip::max_rounds(zkwasm_k() as usize),
+        })
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_bn254pair_foreign(env: &mut HostEnv) {

@@ -1,4 +1,5 @@
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use std::rc::Rc;
 
 use crate::HostEnv;
@@ -20,7 +21,11 @@ impl WitnessContext {
     }
 }
 
-impl ForeignContext for WitnessContext {}
+impl ForeignContext for WitnessContext {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        None
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_witness_foreign(env: &mut HostEnv) {

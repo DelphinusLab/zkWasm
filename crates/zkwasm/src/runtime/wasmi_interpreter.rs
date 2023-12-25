@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::circuits::config::zkwasm_k;
+use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::memory_event_of_step;
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
@@ -36,7 +37,7 @@ impl WasmRuntimeIO {
 pub trait Execution<R> {
     fn run<E: Externals>(
         self,
-        externals: &mut E,
+        externals: &mut HostEnv,
         dryrun: bool,
         wasm_io: WasmRuntimeIO,
     ) -> Result<ExecutionResult<R>>;
@@ -47,7 +48,7 @@ impl Execution<RuntimeValue>
 {
     fn run<E: Externals>(
         self,
-        externals: &mut E,
+        externals: &mut HostEnv,
         dryrun: bool,
         wasm_io: WasmRuntimeIO,
     ) -> Result<ExecutionResult<RuntimeValue>> {
@@ -89,6 +90,7 @@ impl Execution<RuntimeValue>
                 execution_tables,
             },
             result,
+            host_statics: externals.external_env.get_statics(),
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
             outputs: wasm_io.outputs.borrow().clone(),
         })

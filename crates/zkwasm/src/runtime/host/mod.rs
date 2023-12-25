@@ -56,6 +56,12 @@ impl MatchForeignOpSignature for ExternalHostCallSignature {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ForeignStatics {
+    pub used_round: usize,
+    pub max_round: usize,
+}
+
 /// Context of the plugin.
 ///
 /// # Examples
@@ -69,7 +75,9 @@ impl MatchForeignOpSignature for ExternalHostCallSignature {
 /// impl ForeignContext for Context {
 /// }
 /// ```
-pub trait ForeignContext: Downcast {}
+pub trait ForeignContext: Downcast {
+    fn get_statics(&self) -> Option<ForeignStatics>;
+}
 impl_downcast!(ForeignContext);
 
 pub struct ForeignPlugin {

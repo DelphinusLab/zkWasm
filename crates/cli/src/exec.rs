@@ -111,7 +111,8 @@ pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
 ) -> Result<()> {
     let loader =
         ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
-    loader.run(arg, config, true, false)?;
+    let result = loader.run(arg, config, true, false)?;
+    println!("dry run host statics {:?}", result.host_statics);
     Ok(())
 }
 

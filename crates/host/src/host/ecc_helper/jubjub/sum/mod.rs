@@ -1,8 +1,12 @@
+use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use num_bigint::BigUint;
 use std::rc::Rc;
 
+use zkwasm_host_circuits::circuits::babyjub::AltJubChip;
+use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::host::ForeignInst::JubjubSumNew;
 use zkwasm_host_circuits::host::ForeignInst::JubjubSumPush;
 use zkwasm_host_circuits::host::ForeignInst::JubjubSumResult;
@@ -31,6 +35,7 @@ pub struct BabyJubjubSumContext {
     pub result_limbs: Option<Vec<u64>>,
     pub result_cursor: usize,
     pub input_cursor: usize,
+    pub used_round: usize,
 }
 
 impl BabyJubjubSumContext {
@@ -42,6 +47,7 @@ impl BabyJubjubSumContext {
             result_limbs: None,
             result_cursor: 0,
             input_cursor: 0,
+            used_round: 0,
         }
     }
 
@@ -51,6 +57,7 @@ impl BabyJubjubSumContext {
         self.limbs = vec![];
         self.input_cursor = 0;
         self.coeffs = vec![];
+        self.used_round += 1;
         if new != 0 {
             self.acc = jubjub::Point::identity();
         }
@@ -105,7 +112,14 @@ impl BabyJubjubSumContext {
     }
 }
 
-impl ForeignContext for BabyJubjubSumContext {}
+impl ForeignContext for BabyJubjubSumContext {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        Some(ForeignStatics {
+            used_round: self.used_round,
+            max_round: AltJubChip::max_rounds(zkwasm_k() as usize),
+        })
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {

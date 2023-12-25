@@ -1,8 +1,12 @@
+use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bn256::Fr;
 use std::cell::RefCell;
 use std::rc::Rc;
+use zkwasm_host_circuits::circuits::host::HostOpSelector;
+use zkwasm_host_circuits::circuits::merkle::MerkleChip;
 use zkwasm_host_circuits::host::datahash as datahelper;
 use zkwasm_host_circuits::host::db::TreeDB;
 use zkwasm_host_circuits::host::merkle::MerkleTree;
@@ -28,6 +32,7 @@ pub struct MerkleContext {
     pub mongo_merkle: Option<merklehelper::MongoMerkle<MERKLE_TREE_HEIGHT>>,
     pub mongo_datahash: datahelper::MongoDataHash,
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
+    pub used_round: usize,
 }
 
 fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
@@ -47,12 +52,14 @@ impl MerkleContext {
             mongo_merkle: None,
             mongo_datahash: datahelper::MongoDataHash::construct([0; 32], tree_db.clone()),
             tree_db,
+            used_round: 0,
         }
     }
 
     pub fn merkle_setroot(&mut self, v: u64) {
         self.set_root.reduce(v);
         if self.set_root.cursor == 0 {
+            self.used_round += 1;
             log::debug!("set root: {:?}", &self.set_root.rules[0].bytes_value());
             self.mongo_merkle = Some(merklehelper::MongoMerkle::construct(
                 [0; 32],
@@ -84,6 +91,9 @@ impl MerkleContext {
 
     /// reset the address of merkle op together with the data and data_cursor
     pub fn merkle_address(&mut self, v: u64) {
+        if self.address.cursor == 0 {
+            self.used_round += 1;
+        }
         self.data = [0; 4];
         self.fetch = false;
         self.data_cursor = 0;
@@ -127,7 +137,14 @@ impl MerkleContext {
 
 impl MerkleContext {}
 
-impl ForeignContext for MerkleContext {}
+impl ForeignContext for MerkleContext {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        Some(ForeignStatics {
+            used_round: self.used_round,
+            max_round: MerkleChip::<Fr, MERKLE_TREE_HEIGHT>::max_rounds(zkwasm_k() as usize),
+        })
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {

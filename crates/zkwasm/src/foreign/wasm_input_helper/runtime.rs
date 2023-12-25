@@ -6,6 +6,7 @@ use specs::types::ValueType;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
+use crate::runtime::host::ForeignStatics;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use super::Op;
@@ -78,7 +79,11 @@ impl Context {
     }
 }
 
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        None
+    }
+}
 
 pub fn register_wasm_input_foreign(
     env: &mut HostEnv,

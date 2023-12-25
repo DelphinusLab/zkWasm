@@ -1,6 +1,10 @@
+use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use std::rc::Rc;
+use zkwasm_host_circuits::circuits::host::HostOpSelector;
+use zkwasm_host_circuits::circuits::keccak256::KeccakChip;
 use zkwasm_host_circuits::host::keccak256::Keccak;
 use zkwasm_host_circuits::host::ForeignInst::Keccak256Finalize;
 use zkwasm_host_circuits::host::ForeignInst::Keccak256New;
@@ -25,6 +29,7 @@ struct Keccak256Context {
     pub hasher: Option<Keccak>,
     pub generator: Generator,
     pub buf: Vec<u64>,
+    pub used_round: usize,
 }
 
 impl Keccak256Context {
@@ -36,6 +41,7 @@ impl Keccak256Context {
                 values: vec![],
             },
             buf: vec![],
+            used_round: 0,
         }
     }
 
@@ -43,6 +49,7 @@ impl Keccak256Context {
         self.buf = vec![];
         if new != 0 {
             self.hasher = Some(KECCAK_HASHER.clone());
+            self.used_round += 1;
         }
     }
 
@@ -63,7 +70,14 @@ impl Keccak256Context {
     }
 }
 
-impl ForeignContext for Keccak256Context {}
+impl ForeignContext for Keccak256Context {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        Some(ForeignStatics {
+            used_round: self.used_round,
+            max_round: KeccakChip::max_rounds(zkwasm_k() as usize),
+        })
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_keccak_foreign(env: &mut HostEnv) {
