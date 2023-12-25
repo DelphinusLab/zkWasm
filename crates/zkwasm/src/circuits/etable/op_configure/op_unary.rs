@@ -298,6 +298,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                          *    i.e.  00 0000 1000
                          * boundary: operand minus tail
                          *    i.e. 100 0000 0000
+                         * aux2: make sure aux1(tail) is less than boundary
+                         *    bounary - aux1 - 1
                          */
                         let boundary = max.checked_shr(1 + *result as u32).unwrap_or(0) as u64;
                         let tail = *operand ^ boundary;
@@ -305,7 +307,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         self.lookup_pow_modulus
                             .assign(ctx, F::from(boundary as u64))?;
                         self.aux1.assign(ctx, tail)?;
-                        self.aux2.assign(ctx, boundary - tail - 1)?;
+                        // If `operand = 0``, then `boundary == tail == 0`` and therefore `- 1` will panic in debug mode.
+                        // Since `aux2`` is useless when `operand = 0`, we give 0.
+                        let aux2 = (boundary - tail).checked_sub(1).unwrap_or(0);
+                        self.aux2.assign(ctx, aux2)?;
                         if boundary != 0 {
                             self.lookup_pow_modulus.assign(ctx, boundary.into())?;
                             self.lookup_pow_power.assign(
