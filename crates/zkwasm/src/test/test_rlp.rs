@@ -161,7 +161,7 @@ fn build_circuit() -> Result<(
         private_inputs,
         context_inputs: vec![],
         context_outputs: Arc::new(Mutex::new(vec![])),
-    })?;
+    }, ())?;
 
     Ok((loader, circuit, instances))
 }

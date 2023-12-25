@@ -45,7 +45,7 @@ mod tests {
                 private_inputs: vec![],
                 context_inputs: vec![],
                 context_outputs: Arc::new(Mutex::new(vec![])),
-            })
+            }, ())
             .unwrap();
 
         loader.mock_test(&circuit, &instances).unwrap()

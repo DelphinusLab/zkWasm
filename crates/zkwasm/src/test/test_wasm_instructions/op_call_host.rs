@@ -2,7 +2,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 use std::rc::Rc;
 
 use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::host::ForeignContext;
+use crate::runtime::host::{ForeignContext, ForeignStatics};
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::test::test_circuit_with_env;
 
@@ -10,7 +10,11 @@ use crate::test::test_circuit_with_env;
 struct Context {
     acc: u64,
 }
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        None
+    }
+}
 
 #[test]
 fn test_call_host_external() {

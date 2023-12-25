@@ -83,7 +83,7 @@ impl PoseidonContext {
         self.buf = vec![];
         if new != 0 {
             self.hasher = Some(POSEIDON_HASHER.clone());
-            self.used_round = 0;
+            self.used_round += 1;
         }
     }
 
@@ -125,7 +125,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_poseidon_foreign(env: &mut HostEnv) {
     let foreign_poseidon_plugin = env
         .external_env
-        .register_plugin("foreign_sh256", Box::new(PoseidonContext::default()));
+        .register_plugin("foreign_poseidon", Box::new(PoseidonContext::default()));
 
     env.external_env.register_function(
         "poseidon_new",

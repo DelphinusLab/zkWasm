@@ -83,7 +83,7 @@ fn compile_then_execute_wasm(
     )
     .unwrap();
 
-    let execution_result = compiled_module.run(&mut env, false, wasm_runtime_io)?;
+    let execution_result = compiled_module.run::<HostEnv>(&mut env, false, wasm_runtime_io)?;
 
     Ok(execution_result)
 }
