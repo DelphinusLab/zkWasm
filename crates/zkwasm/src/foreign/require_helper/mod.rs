@@ -35,7 +35,7 @@ pub fn register_require_foreign(env: &mut HostEnv) {
     );
 
     env.internal_env
-        .register_plugin(HostPlugin::Require, Box::new(Context));
+        .register_plugin("require plugin", HostPlugin::Require, Box::new(Context));
 
     env.internal_env.register_function(
         "require",

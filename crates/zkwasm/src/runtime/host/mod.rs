@@ -81,6 +81,7 @@ pub trait ForeignContext: Downcast {
 impl_downcast!(ForeignContext);
 
 pub struct ForeignPlugin {
+    pub name: String,
     ctx: Rc<RefCell<Box<dyn ForeignContext>>>,
 }
 

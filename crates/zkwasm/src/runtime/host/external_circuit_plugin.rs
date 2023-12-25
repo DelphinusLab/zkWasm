@@ -35,10 +35,11 @@ impl ExternalCircuitEnv {
     /// Register a plugin without circuit
     pub fn register_plugin(
         &mut self,
-        _name: &str,
+        name: &str,
         ctx: Box<dyn ForeignContext>,
     ) -> Rc<ForeignPlugin> {
         Rc::new(ForeignPlugin {
+            name: name.to_string(),
             ctx: Rc::new(RefCell::new(ctx)),
         })
     }
@@ -67,9 +68,13 @@ impl ExternalCircuitEnv {
 
     pub fn get_statics(&self) -> HashMap<String, ForeignStatics> {
         let mut m = HashMap::new();
-        for (k, v) in &self.functions {
-            if let Some(stat) = (v.plugin.ctx).as_ref().borrow().get_statics() {
-                m.insert(k.clone(), stat);
+        for (_, v) in &self.functions {
+            let plugin_name = &v.plugin.name;
+
+            if !m.contains_key(plugin_name) {
+                if let Some(stat) = (v.plugin.ctx).as_ref().borrow().get_statics() {
+                    m.insert(plugin_name.to_string(), stat);
+                }
             }
         }
         m

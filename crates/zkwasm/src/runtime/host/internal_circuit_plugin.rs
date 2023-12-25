@@ -34,10 +34,16 @@ impl InternalCircuitEnv {
         }
     }
 
-    pub fn register_plugin(&mut self, plugin: HostPlugin, context: Box<dyn ForeignContext>) {
+    pub fn register_plugin(
+        &mut self,
+        name: &str,
+        plugin: HostPlugin,
+        context: Box<dyn ForeignContext>,
+    ) {
         let _ = self.plugins.insert(
             plugin,
             ForeignPlugin {
+                name: name.to_string(),
                 ctx: Rc::new(RefCell::new(context)),
             },
         );

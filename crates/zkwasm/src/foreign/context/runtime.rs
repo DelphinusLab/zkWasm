@@ -53,6 +53,7 @@ pub fn register_context_foreign(
     context_output: Arc<Mutex<Vec<u64>>>,
 ) {
     env.internal_env.register_plugin(
+        "context plugin",
         HostPlugin::Context,
         Box::new(Context::new(context_input, context_output)),
     );

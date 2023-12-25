@@ -116,6 +116,7 @@ pub fn register_wasm_input_foreign(
     );
 
     env.internal_env.register_plugin(
+        "wasm input plugin",
         HostPlugin::HostInput,
         Box::new(Context::new(
             public_inputs,
