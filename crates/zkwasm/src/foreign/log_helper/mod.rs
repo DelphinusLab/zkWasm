@@ -1,8 +1,7 @@
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use specs::external_host_call_table::ExternalHostCallSignature;
-use wasmi::tracer::Tracer;
+use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
@@ -23,9 +22,7 @@ pub fn register_log_foreign(env: &mut HostEnv) {
         .register_plugin("foreign_print", Box::new(Context));
 
     let print = Rc::new(
-        |_context: &mut dyn ForeignContext,
-         args: wasmi::RuntimeArgs,
-         _tracer: Rc<RefCell<Tracer>>| {
+        |_observer: &Observer, _context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let value: u64 = args.nth(0);
             println!("{}", value);
             None
@@ -33,9 +30,7 @@ pub fn register_log_foreign(env: &mut HostEnv) {
     );
 
     let printchar = Rc::new(
-        |_context: &mut dyn ForeignContext,
-         args: wasmi::RuntimeArgs,
-         _tracer: Rc<RefCell<Tracer>>| {
+        |_observer: &Observer, _context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let value: u64 = args.nth(0);
             print!("{}", value as u8 as char);
             None

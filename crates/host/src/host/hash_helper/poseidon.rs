@@ -5,9 +5,8 @@ use delphinus_zkwasm::runtime::host::ForeignStatics;
 use ff::PrimeField;
 use halo2_proofs::pairing::bn256::Fr;
 use poseidon::Poseidon;
-use std::cell::RefCell;
 use std::rc::Rc;
-use wasmi::tracer::Tracer;
+use wasmi::tracer::Observer;
 pub use zkwasm_host_circuits::host::poseidon::POSEIDON_HASHER;
 
 use zkwasm_host_circuits::host::Reduce;
@@ -135,9 +134,7 @@ pub fn register_poseidon_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_poseidon_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext,
-             args: wasmi::RuntimeArgs,
-             _tracer: Rc<RefCell<Tracer>>| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<PoseidonContext>().unwrap();
                 log::debug!("buf len is {}", context.buf.len());
                 context.poseidon_new(args.nth::<u64>(0) as usize);
@@ -152,9 +149,7 @@ pub fn register_poseidon_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_poseidon_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext,
-             args: wasmi::RuntimeArgs,
-             _tracer: Rc<RefCell<Tracer>>| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<PoseidonContext>().unwrap();
                 context.poseidon_push(args.nth::<u64>(0) as u64);
                 None
@@ -168,9 +163,7 @@ pub fn register_poseidon_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_poseidon_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext,
-             _args: wasmi::RuntimeArgs,
-             _tracer: Rc<RefCell<Tracer>>| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<PoseidonContext>().unwrap();
                 Some(wasmi::RuntimeValue::I64(context.poseidon_finalize() as i64))
             },

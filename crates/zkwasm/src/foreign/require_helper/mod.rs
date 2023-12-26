@@ -1,9 +1,8 @@
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use specs::host_function::HostPlugin;
 use specs::types::ValueType;
-use wasmi::tracer::Tracer;
+use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
@@ -21,9 +20,7 @@ impl ForeignContext for Context {
 
 pub fn register_require_foreign(env: &mut HostEnv) {
     let require = Rc::new(
-        |_context: &mut dyn ForeignContext,
-         args: wasmi::RuntimeArgs,
-         _tracer: Rc<RefCell<Tracer>>| {
+        |_observer: &Observer, _context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let cond: u32 = args.nth(0);
 
             if cond == 0 {

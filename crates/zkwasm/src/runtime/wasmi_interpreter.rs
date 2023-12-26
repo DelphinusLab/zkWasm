@@ -95,7 +95,7 @@ impl Execution<RuntimeValue>
             },
             result,
             host_statics: exec_env.host_env.external_env.get_statics(),
-            guest_statics: self.tracer.borrow().get_trace_count(),
+            guest_statics: self.tracer.borrow().observer.counter,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
             outputs: wasm_io.outputs.borrow().clone(),
         })

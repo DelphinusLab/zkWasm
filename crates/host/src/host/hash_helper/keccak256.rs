@@ -2,9 +2,8 @@ use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
-use std::cell::RefCell;
 use std::rc::Rc;
-use wasmi::tracer::Tracer;
+use wasmi::tracer::Observer;
 use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::circuits::keccak256::KeccakChip;
 use zkwasm_host_circuits::host::keccak256::Keccak;
@@ -93,9 +92,7 @@ pub fn register_keccak_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_keccak_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext,
-             args: wasmi::RuntimeArgs,
-             _tracer: Rc<RefCell<Tracer>>| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Keccak256Context>().unwrap();
                 log::debug!("buf len is {}", context.buf.len());
                 context.keccak_new(args.nth::<u64>(0) as usize);
@@ -110,9 +107,7 @@ pub fn register_keccak_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_keccak_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext,
-             args: wasmi::RuntimeArgs,
-             _tracer: Rc<RefCell<Tracer>>| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Keccak256Context>().unwrap();
                 context.keccak_push(args.nth::<u64>(0) as u64);
                 None
@@ -126,9 +121,7 @@ pub fn register_keccak_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_keccak_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext,
-             _args: wasmi::RuntimeArgs,
-             _tracer: Rc<RefCell<Tracer>>| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Keccak256Context>().unwrap();
                 Some(wasmi::RuntimeValue::I64(context.keccak_finalize() as i64))
             },

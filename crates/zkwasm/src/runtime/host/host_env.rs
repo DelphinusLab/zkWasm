@@ -176,7 +176,7 @@ impl Externals for ExecEnv {
                 let ctx = ctx.as_mut();
 
                 let start = Instant::now();
-                let r = cb(ctx, args, self.tracer.clone());
+                let r = cb(&self.tracer.borrow().observer, ctx, args);
                 let duration = start.elapsed();
 
                 self.host_env

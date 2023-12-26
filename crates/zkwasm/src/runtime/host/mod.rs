@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
-use wasmi::tracer::Tracer;
+use wasmi::tracer::Observer;
 use wasmi::RuntimeArgs;
 use wasmi::RuntimeValue;
 use wasmi::Signature;
@@ -89,9 +89,7 @@ pub struct ForeignPlugin {
 #[derive(Clone)]
 struct HostFunctionExecutionEnv {
     ctx: Rc<RefCell<Box<dyn ForeignContext>>>,
-    cb: Rc<
-        dyn Fn(&mut dyn ForeignContext, RuntimeArgs, Rc<RefCell<Tracer>>) -> Option<RuntimeValue>,
-    >,
+    cb: Rc<dyn Fn(&Observer, &mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
 }
 
 #[derive(Clone)]
