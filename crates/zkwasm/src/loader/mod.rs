@@ -183,11 +183,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         dryrun: bool,
         write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
-        let (mut env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
+        let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
         let compiled_module = self.compile(&env, dryrun)?;
-
-        let result = compiled_module.run::<HostEnv>(&mut env, dryrun, wasm_runtime_io)?;
-
+        let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
         if !dryrun {
             result.tables.profile_tables();
 

@@ -3,6 +3,7 @@ use specs::host_function::Signature;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use wasmi::tracer::Tracer;
 use wasmi::FuncInstance;
 use wasmi::ModuleImportResolver;
 use wasmi::RuntimeArgs;
@@ -16,7 +17,9 @@ pub(super) struct ForeignOp {
     pub index_within_plugin: usize,
     pub sig: Signature,
     pub plugin: HostPlugin,
-    pub cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+    pub cb: Rc<
+        dyn Fn(&mut dyn ForeignContext, RuntimeArgs, Rc<RefCell<Tracer>>) -> Option<RuntimeValue>,
+    >,
 }
 
 pub struct InternalCircuitEnv {
@@ -55,7 +58,13 @@ impl InternalCircuitEnv {
         sig: Signature,
         plugin: HostPlugin,
         index_within_plugin: usize,
-        cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+        cb: Rc<
+            dyn Fn(
+                &mut dyn ForeignContext,
+                RuntimeArgs,
+                Rc<RefCell<Tracer>>,
+            ) -> Option<RuntimeValue>,
+        >,
     ) {
         assert!(!*self.finalized.borrow());
 

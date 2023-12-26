@@ -2,7 +2,8 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 use std::rc::Rc;
 
 use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::host::{ForeignContext, ForeignStatics};
+use crate::runtime::host::ForeignContext;
+use crate::runtime::host::ForeignStatics;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::test::test_circuit_with_env;
 

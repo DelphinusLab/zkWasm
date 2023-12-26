@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use specs::host_function::HostPlugin;
 use specs::types::ValueType;
+use wasmi::tracer::Tracer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
@@ -94,7 +95,9 @@ pub fn register_wasm_input_foreign(
     let outputs = Rc::new(RefCell::new(vec![]));
 
     let wasm_input = Rc::new(
-        |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+        |context: &mut dyn ForeignContext,
+         args: wasmi::RuntimeArgs,
+         _tracer: Rc<RefCell<Tracer>>| {
             let context = context.downcast_mut::<Context>().unwrap();
 
             let arg: i32 = args.nth(0);
@@ -105,7 +108,9 @@ pub fn register_wasm_input_foreign(
     );
 
     let wasm_output = Rc::new(
-        |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+        |context: &mut dyn ForeignContext,
+         args: wasmi::RuntimeArgs,
+         _tracer: Rc<RefCell<Tracer>>| {
             let context = context.downcast_mut::<Context>().unwrap();
 
             let value: i64 = args.nth(0);

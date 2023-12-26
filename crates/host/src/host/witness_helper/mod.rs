@@ -1,6 +1,8 @@
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
+use std::cell::RefCell;
 use std::rc::Rc;
+use wasmi::tracer::Tracer;
 
 use crate::HostEnv;
 use zkwasm_host_circuits::host::ForeignInst::WitnessInsert;
@@ -39,7 +41,9 @@ pub fn register_witness_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 context.witness_insert(args.nth::<u64>(0) as u64);
                 None
@@ -53,7 +57,9 @@ pub fn register_witness_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             _args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 Some(wasmi::RuntimeValue::I64(context.witness_pop() as i64))
             },

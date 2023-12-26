@@ -2,6 +2,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use wasmi::tracer::Tracer;
 use wasmi::FuncInstance;
 use wasmi::ModuleImportResolver;
 use wasmi::RuntimeArgs;
@@ -16,7 +17,9 @@ pub(super) struct ForeignOp {
     pub op_index: usize,
     pub sig: ExternalHostCallSignature,
     pub plugin: Rc<ForeignPlugin>,
-    pub cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+    pub cb: Rc<
+        dyn Fn(&mut dyn ForeignContext, RuntimeArgs, Rc<RefCell<Tracer>>) -> Option<RuntimeValue>,
+    >,
 }
 
 pub struct ExternalCircuitEnv {
@@ -51,7 +54,13 @@ impl ExternalCircuitEnv {
         op_index: usize,
         sig: ExternalHostCallSignature,
         plugin: Rc<ForeignPlugin>,
-        cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+        cb: Rc<
+            dyn Fn(
+                &mut dyn ForeignContext,
+                RuntimeArgs,
+                Rc<RefCell<Tracer>>,
+            ) -> Option<RuntimeValue>,
+        >,
     ) {
         assert!(!*self.finalized.borrow());
 

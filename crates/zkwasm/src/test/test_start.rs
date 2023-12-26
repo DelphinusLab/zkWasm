@@ -40,12 +40,15 @@ mod tests {
                 .unwrap();
 
         let (circuit, instances, _) = loader
-            .circuit_with_witness(ExecutionArg {
-                public_inputs: vec![],
-                private_inputs: vec![],
-                context_inputs: vec![],
-                context_outputs: Arc::new(Mutex::new(vec![])),
-            }, ())
+            .circuit_with_witness(
+                ExecutionArg {
+                    public_inputs: vec![],
+                    private_inputs: vec![],
+                    context_inputs: vec![],
+                    context_outputs: Arc::new(Mutex::new(vec![])),
+                },
+                (),
+            )
             .unwrap();
 
         loader.mock_test(&circuit, &instances).unwrap()

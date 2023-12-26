@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::circuits::config::zkwasm_k;
-use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::memory_event_of_step;
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
@@ -12,11 +11,12 @@ use specs::mtable::MTable;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
-use wasmi::Externals;
 use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
 
+use super::host::host_env::ExecEnv;
+use super::host::host_env::HostEnv;
 use super::CompiledImage;
 use super::ExecutionResult;
 
@@ -35,9 +35,9 @@ impl WasmRuntimeIO {
 }
 
 pub trait Execution<R> {
-    fn run<E: Externals>(
+    fn run(
         self,
-        externals: &mut HostEnv,
+        externals: HostEnv,
         dryrun: bool,
         wasm_io: WasmRuntimeIO,
     ) -> Result<ExecutionResult<R>>;
@@ -46,19 +46,23 @@ pub trait Execution<R> {
 impl Execution<RuntimeValue>
     for CompiledImage<wasmi::NotStartedModuleRef<'_>, wasmi::tracer::Tracer>
 {
-    fn run<E: Externals>(
+    fn run(
         self,
-        externals: &mut HostEnv,
+        externals: HostEnv,
         dryrun: bool,
         wasm_io: WasmRuntimeIO,
     ) -> Result<ExecutionResult<RuntimeValue>> {
+        let mut exec_env = ExecEnv {
+            host_env: externals,
+            tracer: self.tracer.clone(),
+        };
         let instance = self
             .instance
-            .run_start_tracer(externals, self.tracer.clone())
+            .run_start_tracer(&mut exec_env, self.tracer.clone())
             .unwrap();
 
         let result =
-            instance.invoke_export_trace(&self.entry, &[], externals, self.tracer.clone())?;
+            instance.invoke_export_trace(&self.entry, &[], &mut exec_env, self.tracer.clone())?;
 
         let execution_tables = if !dryrun {
             let tracer = self.tracer.borrow();
@@ -90,7 +94,8 @@ impl Execution<RuntimeValue>
                 execution_tables,
             },
             result,
-            host_statics: externals.external_env.get_statics(),
+            host_statics: exec_env.host_env.external_env.get_statics(),
+            guest_statics: self.tracer.borrow().get_trace_count(),
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
             outputs: wasm_io.outputs.borrow().clone(),
         })

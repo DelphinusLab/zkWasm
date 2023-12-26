@@ -4,8 +4,10 @@ use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::pairing::group::prime::PrimeCurveAffine;
+use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::Rc;
+use wasmi::tracer::Tracer;
 use zkwasm_host_circuits::circuits::bn256::Bn256SumChip;
 use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::host::ForeignInst::Bn254SumG1;
@@ -101,7 +103,9 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_bn254sum_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<BN254SumContext>().unwrap();
                 context.bn254_sum_new(args.nth::<u64>(0) as usize);
                 None
@@ -115,7 +119,9 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_bn254sum_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<BN254SumContext>().unwrap();
                 context.bn254_sum_push_scalar(args.nth::<u64>(0));
                 None
@@ -129,7 +135,9 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_bn254sum_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<BN254SumContext>().unwrap();
                 context.bn254_sum_push_limb(args.nth::<u64>(0));
                 None
@@ -143,7 +151,9 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_bn254sum_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             _args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<BN254SumContext>().unwrap();
                 log::debug!("calculate finalize");
                 context.result_limbs.clone().map_or_else(

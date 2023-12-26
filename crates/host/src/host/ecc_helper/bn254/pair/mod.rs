@@ -8,7 +8,9 @@ use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::pairing::bn256::G2Affine;
 use halo2_proofs::pairing::bn256::Gt as BN254Gt;
 use halo2_proofs::pairing::group::prime::PrimeCurveAffine;
+use std::cell::RefCell;
 use std::rc::Rc;
+use wasmi::tracer::Tracer;
 
 use super::bn254_fq_to_limbs;
 use super::fetch_fq;
@@ -83,7 +85,9 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<BN254PairContext>().unwrap();
                 if context.input_cursor == LIMBNB * 2 {
                     let t: u64 = args.nth(0);
@@ -103,7 +107,9 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<BN254PairContext>().unwrap();
                 if context.input_cursor == LIMBNB * 4 {
                     let t: u64 = args.nth(0);
@@ -148,7 +154,9 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             _args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<BN254PairContext>().unwrap();
                 if context.result_cursor == 0 {
                     let gt = context.gt.unwrap();

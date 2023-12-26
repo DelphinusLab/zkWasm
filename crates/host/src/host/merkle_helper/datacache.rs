@@ -4,6 +4,7 @@ use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bn256::Fr;
 use std::cell::RefCell;
 use std::rc::Rc;
+use wasmi::tracer::Tracer;
 use zkwasm_host_circuits::host::datahash as datahelper;
 use zkwasm_host_circuits::host::datahash::DataHashRecord;
 use zkwasm_host_circuits::host::db::TreeDB;
@@ -123,7 +124,9 @@ pub fn register_datacache_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<
         ExternalHostCallSignature::Argument,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<CacheContext>().unwrap();
                 context.set_mode(args.nth(0));
                 None
@@ -137,7 +140,9 @@ pub fn register_datacache_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<
         ExternalHostCallSignature::Argument,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<CacheContext>().unwrap();
                 context.set_data_hash(args.nth(0));
                 None
@@ -151,7 +156,9 @@ pub fn register_datacache_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<
         ExternalHostCallSignature::Argument,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<CacheContext>().unwrap();
                 context.store_data(args.nth(0));
                 None
@@ -165,7 +172,9 @@ pub fn register_datacache_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<
         ExternalHostCallSignature::Return,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |context: &mut dyn ForeignContext,
+             _args: wasmi::RuntimeArgs,
+             _tracer: Rc<RefCell<Tracer>>| {
                 let context = context.downcast_mut::<CacheContext>().unwrap();
                 let ret = Some(wasmi::RuntimeValue::I64(context.fetch_data() as i64));
                 ret
