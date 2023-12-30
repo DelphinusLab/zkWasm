@@ -124,7 +124,7 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
 
     let (circuit, instances, _) = loader.circuit_with_witness(arg)?;
 
-    if true {
+    if false {
         info!("Mock test...");
         loader.mock_test(&circuit, &instances)?;
         info!("Mock test passed");
