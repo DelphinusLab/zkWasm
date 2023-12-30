@@ -48,6 +48,7 @@ impl Keccak256Context {
 
     pub fn keccak_new(&mut self, new: usize) {
         self.buf = vec![];
+        self.generator.cursor = 0;
         if new != 0 {
             self.hasher = Some(KECCAK_HASHER.clone());
             self.used_round += 1;
