@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use specs::host_function::HostPlugin;
@@ -12,7 +13,7 @@ use super::Op;
 
 pub struct Context {
     pub public_inputs: Vec<u64>,
-    pub private_inputs: Vec<u64>,
+    pub private_inputs: VecDeque<u64>,
     pub instance: Rc<RefCell<Vec<u64>>>,
     pub output: Rc<RefCell<Vec<u64>>>,
 }
@@ -26,7 +27,7 @@ impl Context {
     ) -> Self {
         Context {
             public_inputs,
-            private_inputs,
+            private_inputs: private_inputs.into(),
             instance,
             output,
         }
@@ -43,7 +44,7 @@ impl Context {
         if self.private_inputs.is_empty() {
             panic!("failed to read private input, please checkout your input");
         }
-        self.private_inputs.remove(0)
+        self.private_inputs.pop_front().unwrap()
     }
 
     fn push_public(&mut self, value: u64) {
