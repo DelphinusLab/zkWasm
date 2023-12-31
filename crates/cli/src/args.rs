@@ -6,6 +6,12 @@ use clap::ArgMatches;
 use specs::args::parse_args;
 use std::path::PathBuf;
 
+#[derive(clap::ArgEnum, Clone, Debug)]
+pub enum HostMode {
+    DEFAULT,
+    STANDARD,
+}
+
 pub trait ArgBuilder {
     fn zkwasm_k_arg<'a>() -> Arg<'a> {
         arg!(
@@ -48,12 +54,14 @@ pub trait ArgBuilder {
         arg!(
             -h --host <HOST_MODE> "Which host env you would like to run your binary."
         )
+        .max_values(1)
+        .value_parser(value_parser!(HostMode))
     }
 
-    fn parse_host_mode(matches: &ArgMatches) -> String {
+    fn parse_host_mode(matches: &ArgMatches) -> HostMode {
         matches
-            .get_one::<String>("host")
-            .map_or("default".to_string(), |v| v.to_string())
+            .get_one::<HostMode>("host")
+            .map_or(HostMode::DEFAULT, |v| v.clone())
     }
 
     fn phantom_functions_arg<'a>() -> Arg<'a> {

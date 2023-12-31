@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::args::HostMode;
 use crate::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
@@ -107,8 +108,8 @@ pub trait AppBuilder: CommandBuilder {
         let host_mode = Self::parse_host_mode(&top_matches);
 
         match top_matches.subcommand() {
-            Some(("setup", _)) => match host_mode.as_str() {
-                "default" => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
+            Some(("setup", _)) => match host_mode {
+                HostMode::DEFAULT => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
                     zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
@@ -118,7 +119,7 @@ pub trait AppBuilder: CommandBuilder {
                     &output_dir,
                     &param_dir,
                 ),
-                _ => exec_setup::<StandardArg, StandardEnvBuilder>(
+                HostMode::STANDARD => exec_setup::<StandardArg, StandardEnvBuilder>(
                     zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
@@ -130,15 +131,15 @@ pub trait AppBuilder: CommandBuilder {
                 ),
             },
 
-            Some(("checksum", _)) => match host_mode.as_str() {
-                "default" => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
+            Some(("checksum", _)) => match host_mode {
+                HostMode::DEFAULT => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
                     (),
                     phantom_functions,
                     &output_dir,
                 ),
-                &_ => exec_image_checksum::<StandardArg, StandardEnvBuilder>(
+                HostMode::STANDARD => exec_image_checksum::<StandardArg, StandardEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
                     HostEnvConfig::default(),
@@ -157,8 +158,8 @@ pub trait AppBuilder: CommandBuilder {
 
                 let context_output = Arc::new(Mutex::new(vec![]));
 
-                match host_mode.as_str() {
-                    "default" => {
+                match host_mode {
+                    HostMode::DEFAULT => {
                         exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
                             zkwasm_k,
                             wasm_binary,
@@ -172,7 +173,7 @@ pub trait AppBuilder: CommandBuilder {
                             (),
                         )?;
                     }
-                    _ => {
+                    HostMode::STANDARD => {
                         exec_dry_run::<StandardArg, StandardEnvBuilder>(
                             zkwasm_k,
                             wasm_binary,
@@ -203,8 +204,8 @@ pub trait AppBuilder: CommandBuilder {
                 let context_out = Arc::new(Mutex::new(vec![]));
 
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
-                match host_mode.as_str() {
-                    "default" => {
+                match host_mode {
+                    HostMode::DEFAULT => {
                         exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
                             Self::NAME,
                             zkwasm_k,
@@ -221,7 +222,7 @@ pub trait AppBuilder: CommandBuilder {
                             (),
                         )?;
                     }
-                    _ => {
+                    HostMode::STANDARD => {
                         exec_create_proof::<StandardArg, StandardEnvBuilder>(
                             Self::NAME,
                             zkwasm_k,
