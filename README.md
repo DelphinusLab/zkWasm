@@ -69,8 +69,8 @@ with OPTIONS:
         The md5 of the wasm binary file is the default path if not supplied.
 
     --private [<PRIVATE_INPUT>...]
-        Private arguments of your wasm program arguments of format value:type where
-        type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
+        Private arguments of your wasm program arguments of format value/filename:type where
+        type=i64|bytes|bytes-packed|file, multiple values should be separated with ' ' (space); file should be encoded with binary BigEndian bytes order
 
     --public [<PUBLIC_INPUT>...]
         Public arguments of your wasm program arguments of format value:type where
