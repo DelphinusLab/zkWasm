@@ -17,7 +17,7 @@ use log::info;
 use std::io::Write;
 use std::path::PathBuf;
 
-pub fn exec_setup<Arg, Builder>(
+pub fn exec_setup<Builder: HostEnvBuilder>(
     zkwasm_k: u32,
     aggregate_k: u32,
     prefix: &str,
@@ -26,10 +26,7 @@ pub fn exec_setup<Arg, Builder>(
     envconfig: Builder::HostConfig,
     _output_dir: &PathBuf,
     param_dir: &PathBuf,
-) -> Result<()>
-where
-    Builder: HostEnvBuilder<Arg = Arg>,
-{
+) -> Result<()> {
     info!("Setup Params and VerifyingKey");
 
     macro_rules! prepare_params {
@@ -57,8 +54,11 @@ where
             info!("Found Verifying at {:?}", vk_path);
         } else {
             info!("Create Verifying to {:?}", vk_path);
-            let loader =
-                ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+            let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+                zkwasm_k,
+                wasm_binary,
+                phantom_functions,
+            )?;
 
             let vkey = loader.create_vkey(&params, envconfig)?;
 
@@ -70,7 +70,7 @@ where
     Ok(())
 }
 
-pub fn exec_image_checksum<Arg, Builder>(
+pub fn exec_image_checksum<Builder>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     hostenv: Builder::HostConfig,
@@ -78,10 +78,13 @@ pub fn exec_image_checksum<Arg, Builder>(
     output_dir: &PathBuf,
 ) -> Result<()>
 where
-    Builder: HostEnvBuilder<Arg = Arg>,
+    Builder: HostEnvBuilder,
 {
-    let loader =
-        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     let params = load_or_build_unsafe_params::<Bn256>(
         zkwasm_k,
@@ -102,33 +105,39 @@ where
     Ok(())
 }
 
-pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
+pub fn exec_dry_run<Builder: HostEnvBuilder>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
-    arg: Arg,
+    arg: Builder::Arg,
     config: Builder::HostConfig,
 ) -> Result<()> {
-    let loader =
-        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
     let result = loader.run(arg, config, true, false)?;
     println!("total guest instructions used {:?}", result.guest_statics);
     println!("total host api used {:?}", result.host_statics);
     Ok(())
 }
 
-pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
+pub fn exec_create_proof<Builder: HostEnvBuilder>(
     prefix: &'static str,
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
     param_dir: &PathBuf,
-    arg: Arg,
+    arg: Builder::Arg,
     config: Builder::HostConfig,
 ) -> Result<()> {
-    let loader =
-        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     let execution_result = loader.run(arg, config, false, true)?;
 

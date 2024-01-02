@@ -109,7 +109,7 @@ pub trait AppBuilder: CommandBuilder {
 
         match top_matches.subcommand() {
             Some(("setup", _)) => match host_mode {
-                HostMode::DEFAULT => exec_setup::<ExecutionArg, DefaultHostEnvBuilder>(
+                HostMode::DEFAULT => exec_setup::<DefaultHostEnvBuilder>(
                     zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
@@ -119,7 +119,7 @@ pub trait AppBuilder: CommandBuilder {
                     &output_dir,
                     &param_dir,
                 ),
-                HostMode::STANDARD => exec_setup::<StandardArg, StandardEnvBuilder>(
+                HostMode::STANDARD => exec_setup::<StandardEnvBuilder>(
                     zkwasm_k,
                     Self::AGGREGATE_K,
                     Self::NAME,
@@ -132,14 +132,14 @@ pub trait AppBuilder: CommandBuilder {
             },
 
             Some(("checksum", _)) => match host_mode {
-                HostMode::DEFAULT => exec_image_checksum::<ExecutionArg, DefaultHostEnvBuilder>(
+                HostMode::DEFAULT => exec_image_checksum::<DefaultHostEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
                     (),
                     phantom_functions,
                     &output_dir,
                 ),
-                HostMode::STANDARD => exec_image_checksum::<StandardArg, StandardEnvBuilder>(
+                HostMode::STANDARD => exec_image_checksum::<StandardEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
                     HostEnvConfig::default(),
@@ -160,7 +160,7 @@ pub trait AppBuilder: CommandBuilder {
 
                 match host_mode {
                     HostMode::DEFAULT => {
-                        exec_dry_run::<ExecutionArg, DefaultHostEnvBuilder>(
+                        exec_dry_run::<DefaultHostEnvBuilder>(
                             zkwasm_k,
                             wasm_binary,
                             phantom_functions,
@@ -174,7 +174,7 @@ pub trait AppBuilder: CommandBuilder {
                         )?;
                     }
                     HostMode::STANDARD => {
-                        exec_dry_run::<StandardArg, StandardEnvBuilder>(
+                        exec_dry_run::<StandardEnvBuilder>(
                             zkwasm_k,
                             wasm_binary,
                             phantom_functions,
@@ -206,7 +206,7 @@ pub trait AppBuilder: CommandBuilder {
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
                 match host_mode {
                     HostMode::DEFAULT => {
-                        exec_create_proof::<ExecutionArg, DefaultHostEnvBuilder>(
+                        exec_create_proof::<DefaultHostEnvBuilder>(
                             Self::NAME,
                             zkwasm_k,
                             wasm_binary,
@@ -223,7 +223,7 @@ pub trait AppBuilder: CommandBuilder {
                         )?;
                     }
                     HostMode::STANDARD => {
-                        exec_create_proof::<StandardArg, StandardEnvBuilder>(
+                        exec_create_proof::<StandardEnvBuilder>(
                             Self::NAME,
                             zkwasm_k,
                             wasm_binary,

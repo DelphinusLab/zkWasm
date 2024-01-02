@@ -51,11 +51,13 @@ pub trait ArgBuilder {
     }
 
     fn host_mode_arg<'a>() -> Arg<'a> {
-        arg!(
-            -h --host <HOST_MODE> "Which host env you would like to run your binary."
-        )
-        .max_values(1)
-        .value_parser(value_parser!(HostMode))
+        Arg::new("host")
+            .long("host")
+            .value_parser(value_parser!(HostMode))
+            .action(ArgAction::Set)
+            .help("Specify host functions set.")
+            .min_values(0)
+            .max_values(1)
     }
 
     fn parse_host_mode(matches: &ArgMatches) -> HostMode {
