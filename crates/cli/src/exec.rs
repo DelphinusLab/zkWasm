@@ -130,7 +130,16 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
     let loader =
         ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-    let (circuit, instances, _) = loader.circuit_with_witness(arg, config)?;
+    let execution_result = loader.run(arg, config, false, true)?;
+
+    println!(
+        "total guest instructions used {:?}",
+        execution_result.guest_statics
+    );
+    println!("total host api used {:?}", execution_result.host_statics);
+    println!("application outout {:?}", execution_result.outputs);
+
+    let (circuit, instances) = loader.circuit_with_witness(execution_result)?;
 
     if true {
         info!("Mock test...");

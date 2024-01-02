@@ -199,10 +199,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
     pub fn circuit_with_witness(
         &self,
-        arg: T,
-        config: EnvBuilder::HostConfig,
-    ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>, Vec<u64>)> {
-        let execution_result = self.run(arg, config, false, true)?;
+        execution_result: ExecutionResult<RuntimeValue>,
+    ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
+        //let execution_result = self.run(arg, config, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()
@@ -212,13 +211,10 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
-            public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
+            public_inputs_and_outputs: execution_result.public_inputs_and_outputs.clone(),
         };
 
-        println!("output:");
-        println!("{:?}", execution_result.outputs);
-
-        Ok((builder.build_circuit(), instance, execution_result.outputs))
+        Ok((builder.build_circuit(), instance))
     }
 
     pub fn mock_test(
