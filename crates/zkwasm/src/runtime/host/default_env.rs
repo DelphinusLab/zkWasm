@@ -6,7 +6,6 @@ use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
-use specs::args::parse_args;
 
 use super::host_env::HostEnv;
 use super::HostEnvBuilder;
@@ -25,21 +24,6 @@ pub struct ExecutionArg {
 impl super::ContextOutput for ExecutionArg {
     fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>> {
         self.context_outputs.clone()
-    }
-}
-
-impl From<super::Sequence> for ExecutionArg {
-    fn from(seq: super::Sequence) -> ExecutionArg {
-        let private_inputs = parse_args(seq.private_inputs.iter().map(|s| s.as_str()).collect());
-        let public_inputs = parse_args(seq.public_inputs.iter().map(|s| s.as_str()).collect());
-        let context_inputs = parse_args(seq.context_input.iter().map(|s| s.as_str()).collect());
-        let context_outputs = Arc::new(Mutex::new(vec![]));
-        ExecutionArg {
-            private_inputs,
-            public_inputs,
-            context_inputs,
-            context_outputs,
-        }
     }
 }
 
