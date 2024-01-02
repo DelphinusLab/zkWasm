@@ -19,11 +19,11 @@ use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_verify_proof;
 
-fn load_or_generate_output_path(wasm_md5: &String, path: Option<&PathBuf>) -> PathBuf {
+fn load_or_generate_output_path(wasm_md5: &String, path: Option<&PathBuf>, path_name : &String) -> PathBuf {
     if let Some(path) = path {
         path.clone()
     } else {
-        info!("Output path is not provided, set to {}", wasm_md5);
+        info!("{} path is not provided, set to {}", path_name, wasm_md5);
 
         PathBuf::from(wasm_md5)
     }
@@ -92,10 +92,13 @@ pub trait AppBuilder: CommandBuilder {
         let md5 = format!("{:X}", md5::compute(&wasm_binary));
         let phantom_functions = Self::parse_phantom_functions(&top_matches);
 
-        let param_dir = load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("param"));
+        let param_dir_name = "param".to_string();
+        let param_dir = load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>(&param_dir_name), &param_dir_name );
 
+        let output_dir_name = "output".to_string();
         let output_dir =
-            load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>("output"));
+            load_or_generate_output_path(&md5, top_matches.get_one::<PathBuf>(&output_dir_name), &output_dir_name );
+
         fs::create_dir_all(&output_dir)?;
         fs::create_dir_all(&param_dir)?;
 
