@@ -154,7 +154,14 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
         zkwasm_k as usize,
         circuits_batcher::args::HashType::Poseidon,
     );
+
+    // save the proof load info for the zkwasm circuit
     circuit.proofloadinfo.save(output_dir);
+
+    // Cli saves zkwasm.0.instance.data as the
+    // first instance file for .loadinfo
+    // Thus we provide arg index = 0 to generate a
+    // proof with the first instance file
     circuit.exec_create_proof(
         output_dir,
         param_dir,
