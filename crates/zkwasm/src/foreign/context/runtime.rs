@@ -10,7 +10,6 @@ use wasmi::RuntimeArgs;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
-use crate::runtime::host::ForeignStatics;
 
 use super::Op;
 
@@ -41,12 +40,7 @@ impl Context {
     }
 }
 
-impl ForeignContext for Context {
-    fn get_statics(&self) -> Option<ForeignStatics> {
-        // we do not expose inner foreign host statics
-        None
-    }
-}
+impl ForeignContext for Context {}
 
 pub fn register_context_foreign(
     env: &mut HostEnv,
