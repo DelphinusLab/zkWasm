@@ -39,7 +39,7 @@ pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
                             u64::from_le_bytes(data)
                         })
                         .collect::<Vec<u64>>()
-                },
+                }
                 "file" => {
                     let bytes = std::fs::read(v).unwrap();
                     let bytes = bytes.chunks(8);
@@ -52,11 +52,10 @@ pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
                             u64::from_be_bytes(data)
                         })
                         .collect()
-                },
+                }
                 _ => {
                     panic!("Unsupported input data type: {}", t)
-                },
-
+                }
             }
         })
         .flatten()
