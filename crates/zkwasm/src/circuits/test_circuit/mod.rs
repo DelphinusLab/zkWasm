@@ -210,7 +210,15 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                             &self.tables.execution_tables.etable,
                             &memory_writing_table,
                         )
-                    );
+                    )
+                    .map_err(|err| match err {
+                        crate::circuits::utils::table_entry::Error::CircuitSizeNotEnough => {
+                            // TODO: maybe put K in self
+                            Error::NotEnoughRowsAvailable {
+                                current_k: zkwasm_k(),
+                            }
+                        }
+                    })?;
 
                     let etable_permutation_cells = exec_with_profile!(
                         || "Assign etable",

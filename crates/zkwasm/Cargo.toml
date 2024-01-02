@@ -31,6 +31,7 @@ cfg-if.workspace = true
 halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
+thiserror.workspace = true
 wasmi.workspace = true
 
 # TODO put the host circuits into features
