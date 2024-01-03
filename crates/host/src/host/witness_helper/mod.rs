@@ -4,8 +4,11 @@ use std::rc::Rc;
 use wasmi::tracer::Observer;
 
 use crate::HostEnv;
+use zkwasm_host_circuits::host::ForeignInst::WitnessSetIndex;
 use zkwasm_host_circuits::host::ForeignInst::WitnessInsert;
+use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedInsert;
 use zkwasm_host_circuits::host::ForeignInst::WitnessPop;
+use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedPop;
 use zkwasm_host_circuits::host::ForeignInst::WitnessTraceSize;
 
 #[derive(Default)]
@@ -67,7 +70,7 @@ pub fn register_witness_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "wasm_witness_set_index",
-        WitnessInsert as usize,
+        WitnessSetIndex as usize,
         ExternalHostCallSignature::Argument,
         foreign_witness_plugin.clone(),
         Rc::new(
@@ -81,7 +84,7 @@ pub fn register_witness_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "wasm_witness_indexed_insert",
-        WitnessInsert as usize,
+        WitnessIndexedInsert as usize,
         ExternalHostCallSignature::Argument,
         foreign_witness_plugin.clone(),
         Rc::new(
@@ -108,7 +111,7 @@ pub fn register_witness_foreign(env: &mut HostEnv) {
 
     env.external_env.register_function(
         "wasm_witness_indexed_pop",
-        WitnessPop as usize,
+        WitnessIndexedPop as usize,
         ExternalHostCallSignature::Return,
         foreign_witness_plugin.clone(),
         Rc::new(
