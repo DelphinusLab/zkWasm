@@ -19,7 +19,7 @@ use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
-use std::rc::Rc;
+use std::sync::Arc;
 use strum_macros::EnumIter;
 
 #[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -641,11 +641,11 @@ impl InstructionTableInternal {
 
 // Use Option because iid may be discontinuous
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct InstructionTable(Rc<Vec<Vec<Option<InstructionTableEntry>>>>);
+pub struct InstructionTable(Arc<Vec<Vec<Option<InstructionTableEntry>>>>);
 
 impl InstructionTable {
     pub fn new(entries: InstructionTableInternal) -> Self {
-        Self(Rc::new(entries.0))
+        Self(Arc::new(entries.0))
     }
 
     pub fn get(&self, fid: u32, iid: u32) -> &Option<InstructionTableEntry> {
