@@ -1,9 +1,9 @@
 use anyhow::Result;
 use circuits_batcher::proof::CircuitInfo;
+use circuits_batcher::proof::ParamsCache;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
-use circuits_batcher::proof::K_PARAMS_CACHE;
-use circuits_batcher::proof::PKEY_CACHE;
+use circuits_batcher::proof::ProvingKeyCache;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
@@ -171,13 +171,10 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
     // first instance file for .loadinfo
     // Thus we provide arg index = 0 to generate a
     // proof with the first instance file
-    circuit.exec_create_proof(
-        output_dir,
-        param_dir,
-        PKEY_CACHE.lock().as_mut().unwrap(),
-        0,
-        K_PARAMS_CACHE.lock().as_mut().unwrap(),
-    );
+    let mut param_cache = ParamsCache::new(5);
+    let mut pkey_cache = ProvingKeyCache::new(5);
+
+    circuit.exec_create_proof(output_dir, param_dir, &mut pkey_cache, 0, &mut param_cache);
 
     info!("Proof has been created.");
 
