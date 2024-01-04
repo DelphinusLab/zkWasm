@@ -9,9 +9,12 @@ use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 
 use log::info;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -197,6 +200,7 @@ pub trait AppBuilder: CommandBuilder {
                                 private_inputs,
                                 context_inputs: context_in,
                                 context_outputs: context_output.clone(),
+                                indexed_witness: Rc::new(RefCell::new(HashMap::new())),
                                 tree_db: None,
                             },
                             HostEnvConfig::default(),
@@ -249,6 +253,7 @@ pub trait AppBuilder: CommandBuilder {
                                 private_inputs,
                                 context_inputs: context_in,
                                 context_outputs: context_out.clone(),
+                                indexed_witness: Rc::new(RefCell::new(HashMap::new())),
                                 tree_db: None,
                             },
                             HostEnvConfig::default(),

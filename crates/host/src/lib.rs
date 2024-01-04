@@ -13,6 +13,7 @@ use delphinus_zkwasm::runtime::host::ContextOutput;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zkwasm_host_circuits::host::db::TreeDB;
@@ -27,6 +28,8 @@ pub struct ExecutionArg {
     pub context_inputs: Vec<u64>,
     /// Context outputs for `wasm_write_context()`
     pub context_outputs: Arc<Mutex<Vec<u64>>>,
+    /// indexed witness context
+    pub indexed_witness: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
     /// db src
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
 }
@@ -93,7 +96,10 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, vec![], Arc::new(Mutex::new(vec![])));
         envconfig.register_ops(&mut env);
-        host::witness_helper::register_witness_foreign(&mut env);
+        host::witness_helper::register_witness_foreign(
+            &mut env,
+            Rc::new(RefCell::new(HashMap::new())),
+        );
         env.finalize();
 
         (env, wasm_runtime_io)
@@ -106,7 +112,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, arg.context_inputs, arg.context_outputs);
-        host::witness_helper::register_witness_foreign(&mut env);
+        host::witness_helper::register_witness_foreign(&mut env, arg.indexed_witness);
         envconfig.register_ops(&mut env);
         env.finalize();
 

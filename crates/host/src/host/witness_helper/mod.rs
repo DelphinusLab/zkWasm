@@ -1,4 +1,5 @@
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use wasmi::tracer::Observer;
@@ -14,8 +15,18 @@ use zkwasm_host_circuits::host::ForeignInst::WitnessTraceSize;
 #[derive(Default)]
 pub struct WitnessContext {
     pub buf: Vec<u64>,
-    pub indexed_buf: HashMap<u64, Vec<u64>>,
+    pub indexed_buf: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
     pub focus: u64,
+}
+
+impl WitnessContext {
+    fn new(indexed_map: Rc<RefCell<HashMap<u64, Vec<u64>>>>) -> Self {
+        WitnessContext {
+            buf: vec![],
+            indexed_buf: indexed_map,
+            focus: 0,
+        }
+    }
 }
 
 impl WitnessContext {
@@ -32,16 +43,18 @@ impl WitnessContext {
     }
 
     pub fn witness_indexed_insert(&mut self, new: u64) {
-        let buf = self.indexed_buf.get_mut(&self.focus);
+        let mut bind = self.indexed_buf.borrow_mut();
+        let buf = bind.get_mut(&self.focus);
         if let Some(vec) = buf {
             vec.insert(0, new);
         } else {
-            self.indexed_buf.insert(self.focus, vec![new]);
+            self.indexed_buf.borrow_mut().insert(self.focus, vec![new]);
         }
     }
 
     pub fn witness_indexed_pop(&mut self) -> u64 {
-        let buf = self.indexed_buf.get_mut(&self.focus).unwrap();
+        let mut bind = self.indexed_buf.borrow_mut();
+        let buf = bind.get_mut(&self.focus).unwrap();
         buf.pop().unwrap()
     }
 }
@@ -49,10 +62,10 @@ impl WitnessContext {
 impl ForeignContext for WitnessContext {}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
-pub fn register_witness_foreign(env: &mut HostEnv) {
+pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap<u64, Vec<u64>>>>) {
     let foreign_witness_plugin = env
         .external_env
-        .register_plugin("foreign_witness", Box::new(WitnessContext::default()));
+        .register_plugin("foreign_witness", Box::new(WitnessContext::new(index_map)));
 
     env.external_env.register_function(
         "wasm_witness_insert",
