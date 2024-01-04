@@ -4,11 +4,11 @@ use std::rc::Rc;
 use wasmi::tracer::Observer;
 
 use crate::HostEnv;
-use zkwasm_host_circuits::host::ForeignInst::WitnessSetIndex;
-use zkwasm_host_circuits::host::ForeignInst::WitnessInsert;
 use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedInsert;
-use zkwasm_host_circuits::host::ForeignInst::WitnessPop;
 use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedPop;
+use zkwasm_host_circuits::host::ForeignInst::WitnessInsert;
+use zkwasm_host_circuits::host::ForeignInst::WitnessPop;
+use zkwasm_host_circuits::host::ForeignInst::WitnessSetIndex;
 use zkwasm_host_circuits::host::ForeignInst::WitnessTraceSize;
 
 #[derive(Default)]
