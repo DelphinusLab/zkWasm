@@ -60,7 +60,6 @@ impl MerkleContext {
     pub fn merkle_setroot(&mut self, v: u64) {
         self.set_root.reduce(v);
         if self.set_root.cursor == 0 {
-            self.used_round += 1;
             log::debug!("set root: {:?}", &self.set_root.rules[0].bytes_value());
             self.mongo_merkle = Some(merklehelper::MongoMerkle::construct(
                 [0; 32],
