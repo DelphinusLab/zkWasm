@@ -7,6 +7,7 @@ use wasmi::tracer::Observer;
 use crate::HostEnv;
 use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedInsert;
 use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedPop;
+use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedPush;
 use zkwasm_host_circuits::host::ForeignInst::WitnessInsert;
 use zkwasm_host_circuits::host::ForeignInst::WitnessPop;
 use zkwasm_host_circuits::host::ForeignInst::WitnessSetIndex;
@@ -47,6 +48,16 @@ impl WitnessContext {
         let buf = bind.get_mut(&self.focus);
         if let Some(vec) = buf {
             vec.insert(0, new);
+        } else {
+            self.indexed_buf.borrow_mut().insert(self.focus, vec![new]);
+        }
+    }
+
+    pub fn witness_indexed_push(&mut self, new: u64) {
+        let mut bind = self.indexed_buf.borrow_mut();
+        let buf = bind.get_mut(&self.focus);
+        if let Some(vec) = buf {
+            vec.push(new);
         } else {
             self.indexed_buf.borrow_mut().insert(self.focus, vec![new]);
         }
@@ -104,6 +115,20 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
             |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 context.witness_indexed_insert(args.nth::<u64>(0) as u64);
+                None
+            },
+        ),
+    );
+
+    env.external_env.register_function(
+        "wasm_witness_indexed_push",
+        WitnessIndexedPush as usize,
+        ExternalHostCallSignature::Argument,
+        foreign_witness_plugin.clone(),
+        Rc::new(
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+                let context = context.downcast_mut::<WitnessContext>().unwrap();
+                context.witness_indexed_push(args.nth::<u64>(0) as u64);
                 None
             },
         ),
