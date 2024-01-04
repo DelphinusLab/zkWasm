@@ -18,6 +18,7 @@ use super::exec::exec_create_proof;
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_verify_proof;
+use super::exec::exec_create_proof_from_trace;
 
 fn load_or_generate_output_path(
     wasm_md5: &String,
@@ -74,6 +75,7 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_setup_subcommand(app);
         let app = Self::append_dry_run_subcommand(app);
         let app = Self::append_create_single_proof_subcommand(app);
+        let app = Self::append_create_proof_from_trace_subcommand(app);
         let app = Self::append_verify_single_proof_subcommand(app);
         let app = Self::append_image_checksum_subcommand(app);
 
@@ -179,6 +181,27 @@ pub trait AppBuilder: CommandBuilder {
                         context_inputs: context_in,
                         context_outputs: context_out.clone(),
                     },
+                )?;
+
+                write_context_output(&context_out.lock().unwrap(), context_out_path)?;
+
+                Ok(())
+            }
+            Some(("proof-from-trace", sub_matches)) => {
+                let tables_dir = sub_matches.get_one::<PathBuf>("tables").unwrap();
+                let proof_dir = sub_matches.get_one::<PathBuf>("proof").unwrap();
+
+                let context_out_path: Option<PathBuf> =
+                    Self::parse_context_out_path_arg(&sub_matches);
+
+                let context_out = Arc::new(Mutex::new(vec![]));
+
+                exec_create_proof_from_trace(
+                    Self::NAME,
+                    zkwasm_k,
+                    tables_dir,
+                    &proof_dir,
+                    &param_dir,
                 )?;
 
                 write_context_output(&context_out.lock().unwrap(), context_out_path)?;

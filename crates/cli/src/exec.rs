@@ -3,6 +3,7 @@ use circuits_batcher::proof::CircuitInfo;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use delphinus_zkwasm::circuits::TestCircuit;
+use delphinus_zkwasm::circuits::ZkWasmCircuitBuilder;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::pairing::bn256::Bn256;
@@ -12,6 +13,7 @@ use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::native_verifier;
 use log::info;
+use specs::Tables;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -139,6 +141,40 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
     );
     circuit.proofloadinfo.save(output_dir);
     circuit.exec_create_proof(output_dir, param_dir, 0);
+
+    info!("Proof has been created.");
+
+    Ok(())
+}
+
+pub fn exec_create_proof_from_trace(
+    prefix: &'static str,
+    zkwasm_k: u32,
+    tables_dir: &PathBuf,
+    proof_dir: &PathBuf,
+    param_dir: &PathBuf,
+) -> Result<()> {
+    let (tables, public_inputs_and_outputs) = Tables::load_table(tables_dir.clone());
+    let builder = ZkWasmCircuitBuilder {
+        tables,
+        public_inputs_and_outputs: public_inputs_and_outputs.clone(),
+    };
+    let circuit = builder.build_circuit();
+
+    let instances = public_inputs_and_outputs
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+
+    let circuit: CircuitInfo<Bn256, TestCircuit<Fr>> = CircuitInfo::new(
+        circuit,
+        prefix.to_string(),
+        vec![instances],
+        zkwasm_k as usize,
+        circuits_batcher::args::HashType::Poseidon,
+    );
+    circuit.proofloadinfo.save(proof_dir);
+    circuit.exec_create_proof(proof_dir, param_dir, 0);
 
     info!("Proof has been created.");
 

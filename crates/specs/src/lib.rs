@@ -3,6 +3,7 @@
 #![deny(dead_code)]
 
 use std::env;
+use std::io::BufReader;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -16,6 +17,7 @@ use jtable::StaticFrameEntry;
 use mtable::MTable;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 #[macro_use]
 extern crate lazy_static;
@@ -51,15 +53,20 @@ pub struct ExecutionTable {
     pub jtable: JumpTable,
 }
 
+pub enum FileType {
+    JSON,
+    FLEXBUFFERS,
+}
+
 #[derive(Default, Clone)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
-    pub execution_tables: ExecutionTable,
+    pub execution_tables: ExecutionTable
 }
 
 impl Tables {
-    pub fn write_json(&self, dir: Option<PathBuf>) {
-        fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
+    pub fn write_json(&self, dir: Option<PathBuf>, public_inputs_and_outputs: &Vec<u64>) {
+        fn write_file(folder: &PathBuf, filename: &str, buf: String) {
             let mut folder = folder.clone();
             folder.push(filename);
             let mut fd = std::fs::File::create(folder.as_path()).unwrap();
@@ -68,25 +75,35 @@ impl Tables {
             fd.write(buf.as_bytes()).unwrap();
         }
 
-        let itable = serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap();
-        let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
-        let etable = serde_json::to_string_pretty(&self.execution_tables.etable).unwrap();
+        let dir = dir.unwrap_or(env::current_dir().unwrap());
+
+        let compilation_table =
+        serde_json::to_string_pretty(&self.compilation_tables).unwrap();
+        let execution_table = serde_json::to_string_pretty(&self.execution_tables).unwrap();
         let external_host_call_table = serde_json::to_string_pretty(
             &self
                 .execution_tables
                 .etable
                 .filter_external_host_call_table(),
-        )
-        .unwrap();
-        let mtable = serde_json::to_string_pretty(&self.execution_tables.mtable).unwrap();
-        let jtable = serde_json::to_string_pretty(&self.execution_tables.jtable).unwrap();
+        ).unwrap();
+        let instances = serde_json::to_string_pretty(&public_inputs_and_outputs).unwrap();
+        write_file(&dir, "compilation.json", compilation_table);
+        write_file(&dir, "execution.json", execution_table);
+        write_file(&dir, "instance.json", instances);
+        write_file(&dir, "external_host_table.json", external_host_call_table);
+    }
 
-        let dir = dir.unwrap_or(env::current_dir().unwrap());
-        write_file(&dir, "itable.json", &itable);
-        write_file(&dir, "imtable.json", &imtable);
-        write_file(&dir, "etable.json", &etable);
-        write_file(&dir, "mtable.json", &mtable);
-        write_file(&dir, "jtable.json", &jtable);
-        write_file(&dir, "external_host_table.json", &external_host_call_table);
+    pub fn load_table(dir: PathBuf) -> (Tables, Vec<u64>) {
+        fn load_file<T:DeserializeOwned>(folder: &PathBuf, filename: &str) -> T {
+            let mut folder = folder.clone();
+            folder.push(filename);
+            let file = std::fs::File::open(folder.as_path()).unwrap();
+            let reader = BufReader::new(file);
+            serde_json::from_reader(reader).unwrap()
+        }
+        let compilation_tables: CompilationTable = load_file(&dir, "compilation.json");
+        let execution_tables: ExecutionTable = load_file(&dir, "execution.json");
+        let public_inputs_and_outputs: Vec<u64> = load_file(&dir, "instance.json");
+        (Tables { compilation_tables, execution_tables}, public_inputs_and_outputs)
     }
 }

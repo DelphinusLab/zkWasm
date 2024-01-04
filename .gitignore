@@ -4,3 +4,5 @@
 /output
 crates/playground/wasm
 crates/playground/target
+params/
+output/
