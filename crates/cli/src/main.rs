@@ -49,7 +49,7 @@ impl ArgBuilder for SampleApp {
             .long("private")
             .value_parser(value_parser!(String))
             .action(ArgAction::Append)
-            .help("Private arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed")
+            .help("Private arguments of your wasm program arguments of format value/filename:type where type=i64|bytes|bytes-packed|file")
             .min_values(0)
     }
     fn parse_single_private_arg(matches: &ArgMatches) -> Vec<u64> {

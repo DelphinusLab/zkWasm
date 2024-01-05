@@ -11,10 +11,9 @@ use delphinus_zkwasm::runtime::wasmi_interpreter::WasmRuntimeIO;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ContextOutput;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
-use delphinus_zkwasm::runtime::host::Sequence;
 use serde::Deserialize;
 use serde::Serialize;
-use specs::args::parse_args;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zkwasm_host_circuits::host::db::TreeDB;
@@ -29,6 +28,8 @@ pub struct ExecutionArg {
     pub context_inputs: Vec<u64>,
     /// Context outputs for `wasm_write_context()`
     pub context_outputs: Arc<Mutex<Vec<u64>>>,
+    /// indexed witness context
+    pub indexed_witness: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
     /// db src
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
 }
@@ -36,22 +37,6 @@ pub struct ExecutionArg {
 impl ContextOutput for ExecutionArg {
     fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>> {
         self.context_outputs.clone()
-    }
-}
-
-impl From<Sequence> for ExecutionArg {
-    fn from(seq: Sequence) -> ExecutionArg {
-        let private_inputs = parse_args(seq.private_inputs.iter().map(|s| s.as_str()).collect());
-        let public_inputs = parse_args(seq.public_inputs.iter().map(|s| s.as_str()).collect());
-        let context_inputs = parse_args(seq.context_input.iter().map(|s| s.as_str()).collect());
-        let context_outputs = Arc::new(Mutex::new(vec![]));
-        ExecutionArg {
-            private_inputs,
-            public_inputs,
-            context_inputs,
-            context_outputs,
-            tree_db: None,
-        }
     }
 }
 
@@ -111,7 +96,10 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, vec![], Arc::new(Mutex::new(vec![])));
         envconfig.register_ops(&mut env);
-        host::witness_helper::register_witness_foreign(&mut env);
+        host::witness_helper::register_witness_foreign(
+            &mut env,
+            Rc::new(RefCell::new(HashMap::new())),
+        );
         env.finalize();
 
         (env, wasm_runtime_io)
@@ -124,7 +112,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, arg.context_inputs, arg.context_outputs);
-        host::witness_helper::register_witness_foreign(&mut env);
+        host::witness_helper::register_witness_foreign(&mut env, arg.indexed_witness);
         envconfig.register_ops(&mut env);
         env.finalize();
 

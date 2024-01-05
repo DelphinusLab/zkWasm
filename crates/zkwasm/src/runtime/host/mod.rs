@@ -2,12 +2,9 @@ use self::host_env::HostEnv;
 use super::wasmi_interpreter::WasmRuntimeIO;
 use downcast_rs::impl_downcast;
 use downcast_rs::Downcast;
-use serde::Deserialize;
-use serde::Serialize;
 use specs::external_host_call_table::ExternalHostCallSignature;
 use specs::host_function::HostFunctionDesc;
 use std::cell::RefCell;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -18,14 +15,6 @@ use wasmi::Signature;
 
 pub trait ContextOutput {
     fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>>;
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Sequence {
-    pub private_inputs: Vec<String>,
-    pub public_inputs: Vec<String>,
-    pub context_input: Vec<String>,
-    pub context_output: Option<PathBuf>,
 }
 
 pub mod default_env;
@@ -77,7 +66,9 @@ pub struct ForeignStatics {
 /// }
 /// ```
 pub trait ForeignContext: Downcast {
-    fn get_statics(&self) -> Option<ForeignStatics>;
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        None
+    }
 }
 impl_downcast!(ForeignContext);
 

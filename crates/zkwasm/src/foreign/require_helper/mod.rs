@@ -6,17 +6,11 @@ use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
-use crate::runtime::host::ForeignStatics;
 
 pub mod etable_op_configure;
 
 struct Context;
-impl ForeignContext for Context {
-    fn get_statics(&self) -> Option<ForeignStatics> {
-        // inner host is counted in the trace
-        None
-    }
-}
+impl ForeignContext for Context {}
 
 pub fn register_require_foreign(env: &mut HostEnv) {
     let require = Rc::new(

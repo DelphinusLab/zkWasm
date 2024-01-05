@@ -44,18 +44,20 @@ simulation of wasm execution of target wasm bytecode with particular inputs are 
 # Command line:
 ## Setup via WASM image:
 ```
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> setup [OPTIONS]
+cargo run --release -- --host default --function <FUNCTION_NAME> --wasm <WASM_BINARY> setup [OPTIONS]
 ```
 
 ## Single prove and verify:
 ```
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-prove [OPTIONS]
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-verify [OPTIONS]
+cargo run --release -- --host default --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-prove [OPTIONS]
+cargo run --release -- --host default --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-verify [OPTIONS]
 ```
 with OPTIONS:
 ```
     -h, --help                         
         Print help information
+        --host <HOST_MODE>... 
+        Which host env you would like to run your binary. [possible values: default, standard]
 
     -k [<K>...]                        
         Circuit Size K
@@ -69,8 +71,8 @@ with OPTIONS:
         The md5 of the wasm binary file is the default path if not supplied.
 
     --private [<PRIVATE_INPUT>...]
-        Private arguments of your wasm program arguments of format value:type where
-        type=i64|bytes|bytes-packed, multiple values should be separated with ' ' (space)
+        Private arguments of your wasm program arguments of format value/filename:type where
+        type=i64|bytes|bytes-packed|file, multiple values should be separated with ' ' (space); file should be encoded with binary BigEndian bytes order
 
     --public [<PUBLIC_INPUT>...]
         Public arguments of your wasm program arguments of format value:type where

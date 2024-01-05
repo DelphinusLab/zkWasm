@@ -5,16 +5,11 @@ use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
-use crate::runtime::host::ForeignStatics;
 use zkwasm_host_circuits::host::ForeignInst::Log;
 use zkwasm_host_circuits::host::ForeignInst::LogChar;
 
 struct Context;
-impl ForeignContext for Context {
-    fn get_statics(&self) -> Option<ForeignStatics> {
-        None
-    }
-}
+impl ForeignContext for Context {}
 
 pub fn register_log_foreign(env: &mut HostEnv) {
     let foreign_log_plugin = env
