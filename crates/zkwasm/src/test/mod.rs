@@ -64,7 +64,7 @@ fn test_circuit_mock<F: FieldExt>(
 
 /// Run function and generate trace.
 fn compile_then_execute_wasm(
-    mut env: HostEnv,
+    env: HostEnv,
     wasm_runtime_io: WasmRuntimeIO,
     wasm: Vec<u8>,
     function_name: &str,
@@ -83,7 +83,7 @@ fn compile_then_execute_wasm(
     )
     .unwrap();
 
-    let execution_result = compiled_module.run(&mut env, false, wasm_runtime_io)?;
+    let execution_result = compiled_module.run(env, false, wasm_runtime_io)?;
 
     Ok(execution_result)
 }

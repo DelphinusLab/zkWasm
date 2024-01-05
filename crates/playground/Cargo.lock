@@ -1229,6 +1229,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1473,6 +1482,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "rand",
+ "serde",
 ]
 
 [[package]]
@@ -3083,21 +3093,24 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#997af6f26acd12be6ec988c7a14be29a5f1039c4"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#61c52e13667291b360783139e85aa499458eb06d"
 dependencies = [
  "ark-std",
+ "cfg-if 1.0.0",
  "circuits-batcher",
  "clap",
  "ff",
  "halo2_proofs",
  "halo2ecc-s",
  "hex",
+ "itertools",
  "lazy_static",
  "lru",
  "mongodb",
  "num-bigint",
  "poseidon",
  "rand",
+ "rand_core",
  "ripemd",
  "serde",
  "serde_json",

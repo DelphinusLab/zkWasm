@@ -3,6 +3,7 @@ use specs::host_function::Signature;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use wasmi::tracer::Observer;
 use wasmi::FuncInstance;
 use wasmi::ModuleImportResolver;
 use wasmi::RuntimeArgs;
@@ -16,7 +17,7 @@ pub(super) struct ForeignOp {
     pub index_within_plugin: usize,
     pub sig: Signature,
     pub plugin: HostPlugin,
-    pub cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+    pub cb: Rc<dyn Fn(&Observer, &mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
 }
 
 pub struct InternalCircuitEnv {
@@ -34,10 +35,16 @@ impl InternalCircuitEnv {
         }
     }
 
-    pub fn register_plugin(&mut self, plugin: HostPlugin, context: Box<dyn ForeignContext>) {
+    pub fn register_plugin(
+        &mut self,
+        name: &str,
+        plugin: HostPlugin,
+        context: Box<dyn ForeignContext>,
+    ) {
         let _ = self.plugins.insert(
             plugin,
             ForeignPlugin {
+                name: name.to_string(),
                 ctx: Rc::new(RefCell::new(context)),
             },
         );
@@ -49,7 +56,7 @@ impl InternalCircuitEnv {
         sig: Signature,
         plugin: HostPlugin,
         index_within_plugin: usize,
-        cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+        cb: Rc<dyn Fn(&Observer, &mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
     ) {
         assert!(!*self.finalized.borrow());
 

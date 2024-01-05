@@ -1,8 +1,10 @@
 use specs::external_host_call_table::ExternalHostCallSignature;
 use std::rc::Rc;
+use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
+use crate::runtime::host::ForeignStatics;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::test::test_circuit_with_env;
 
@@ -10,7 +12,11 @@ use crate::test::test_circuit_with_env;
 struct Context {
     acc: u64,
 }
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        None
+    }
+}
 
 #[test]
 fn test_call_host_external() {
@@ -45,7 +51,7 @@ fn test_call_host_external() {
             ExternalHostCallSignature::Argument,
             foreign_playground_plugin.clone(),
             Rc::new(
-                |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+                |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                     let context = context.downcast_mut::<Context>().unwrap();
 
                     let value: u64 = args.nth(0);
@@ -61,7 +67,7 @@ fn test_call_host_external() {
             ExternalHostCallSignature::Return,
             foreign_playground_plugin,
             Rc::new(
-                |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+                |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                     let context = context.downcast_mut::<Context>().unwrap();
 
                     Some(wasmi::RuntimeValue::I64(context.acc as i64))

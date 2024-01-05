@@ -44,18 +44,20 @@ simulation of wasm execution of target wasm bytecode with particular inputs are 
 # Command line:
 ## Setup via WASM image:
 ```
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> setup [OPTIONS]
+cargo run --release -- --host default --function <FUNCTION_NAME> --wasm <WASM_BINARY> setup [OPTIONS]
 ```
 
 ## Single prove and verify:
 ```
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-prove [OPTIONS]
-cargo run --release -- --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-verify [OPTIONS]
+cargo run --release -- --host default --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-prove [OPTIONS]
+cargo run --release -- --host default --function <FUNCTION_NAME> --wasm <WASM_BINARY> single-verify [OPTIONS]
 ```
 with OPTIONS:
 ```
     -h, --help                         
         Print help information
+        --host <HOST_MODE>... 
+        Which host env you would like to run your binary. [possible values: default, standard]
 
     -k [<K>...]                        
         Circuit Size K

@@ -2,29 +2,19 @@ use self::host_env::HostEnv;
 use super::wasmi_interpreter::WasmRuntimeIO;
 use downcast_rs::impl_downcast;
 use downcast_rs::Downcast;
-use serde::Deserialize;
-use serde::Serialize;
 use specs::external_host_call_table::ExternalHostCallSignature;
 use specs::host_function::HostFunctionDesc;
 use std::cell::RefCell;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
+use wasmi::tracer::Observer;
 use wasmi::RuntimeArgs;
 use wasmi::RuntimeValue;
 use wasmi::Signature;
 
 pub trait ContextOutput {
     fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>>;
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Sequence {
-    private_inputs: Vec<String>,
-    public_inputs: Vec<String>,
-    context_input: Vec<String>,
-    pub context_output: Option<PathBuf>,
 }
 
 pub mod default_env;
@@ -56,6 +46,12 @@ impl MatchForeignOpSignature for ExternalHostCallSignature {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ForeignStatics {
+    pub used_round: usize,
+    pub max_round: usize,
+}
+
 /// Context of the plugin.
 ///
 /// # Examples
@@ -69,17 +65,22 @@ impl MatchForeignOpSignature for ExternalHostCallSignature {
 /// impl ForeignContext for Context {
 /// }
 /// ```
-pub trait ForeignContext: Downcast {}
+pub trait ForeignContext: Downcast {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        None
+    }
+}
 impl_downcast!(ForeignContext);
 
 pub struct ForeignPlugin {
+    pub name: String,
     ctx: Rc<RefCell<Box<dyn ForeignContext>>>,
 }
 
 #[derive(Clone)]
 struct HostFunctionExecutionEnv {
     ctx: Rc<RefCell<Box<dyn ForeignContext>>>,
-    cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+    cb: Rc<dyn Fn(&Observer, &mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
 }
 
 #[derive(Clone)]
@@ -92,8 +93,9 @@ struct HostFunction {
 pub trait HostEnvBuilder {
     /// Argument type
     type Arg;
+    type HostConfig: Default;
     /// Create an empty env without value, this is used by compiling, computing hash
-    fn create_env_without_value() -> (HostEnv, WasmRuntimeIO);
+    fn create_env_without_value(config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
     /// Create an env with execution parameters, this is used by dry-run, run
-    fn create_env(env: Self::Arg) -> (HostEnv, WasmRuntimeIO);
+    fn create_env(env: Self::Arg, config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
 }

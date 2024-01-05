@@ -6,7 +6,6 @@ use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
-use specs::args::parse_args;
 
 use super::host_env::HostEnv;
 use super::HostEnvBuilder;
@@ -28,27 +27,13 @@ impl super::ContextOutput for ExecutionArg {
     }
 }
 
-impl From<super::Sequence> for ExecutionArg {
-    fn from(seq: super::Sequence) -> ExecutionArg {
-        let private_inputs = parse_args(seq.private_inputs.iter().map(|s| s.as_str()).collect());
-        let public_inputs = parse_args(seq.public_inputs.iter().map(|s| s.as_str()).collect());
-        let context_inputs = parse_args(seq.context_input.iter().map(|s| s.as_str()).collect());
-        let context_outputs = Arc::new(Mutex::new(vec![]));
-        ExecutionArg {
-            private_inputs,
-            public_inputs,
-            context_inputs,
-            context_outputs,
-        }
-    }
-}
-
 pub struct DefaultHostEnvBuilder;
 
 impl HostEnvBuilder for DefaultHostEnvBuilder {
     type Arg = ExecutionArg;
+    type HostConfig = ();
 
-    fn create_env_without_value() -> (HostEnv, WasmRuntimeIO) {
+    fn create_env_without_value(_config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
         let mut env = HostEnv::new();
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
@@ -59,7 +44,7 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         (env, wasm_runtime_io)
     }
 
-    fn create_env(arg: Self::Arg) -> (HostEnv, WasmRuntimeIO) {
+    fn create_env(arg: Self::Arg, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
         let mut env = HostEnv::new();
         let wasm_runtime_io =
             register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);

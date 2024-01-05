@@ -2,6 +2,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use wasmi::tracer::Observer;
 use wasmi::FuncInstance;
 use wasmi::ModuleImportResolver;
 use wasmi::RuntimeArgs;
@@ -9,13 +10,14 @@ use wasmi::RuntimeValue;
 
 use super::ForeignContext;
 use super::ForeignPlugin;
+use super::ForeignStatics;
 use super::MatchForeignOpSignature;
 
 pub(super) struct ForeignOp {
     pub op_index: usize,
     pub sig: ExternalHostCallSignature,
     pub plugin: Rc<ForeignPlugin>,
-    pub cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+    pub cb: Rc<dyn Fn(&Observer, &mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
 }
 
 pub struct ExternalCircuitEnv {
@@ -34,10 +36,11 @@ impl ExternalCircuitEnv {
     /// Register a plugin without circuit
     pub fn register_plugin(
         &mut self,
-        _name: &str,
+        name: &str,
         ctx: Box<dyn ForeignContext>,
     ) -> Rc<ForeignPlugin> {
         Rc::new(ForeignPlugin {
+            name: name.to_string(),
             ctx: Rc::new(RefCell::new(ctx)),
         })
     }
@@ -49,7 +52,7 @@ impl ExternalCircuitEnv {
         op_index: usize,
         sig: ExternalHostCallSignature,
         plugin: Rc<ForeignPlugin>,
-        cb: Rc<dyn Fn(&mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
+        cb: Rc<dyn Fn(&Observer, &mut dyn ForeignContext, RuntimeArgs) -> Option<RuntimeValue>>,
     ) {
         assert!(!*self.finalized.borrow());
 
@@ -62,6 +65,20 @@ impl ExternalCircuitEnv {
                 cb,
             },
         );
+    }
+
+    pub fn get_statics(&self) -> HashMap<String, ForeignStatics> {
+        let mut m = HashMap::new();
+        for (_, v) in &self.functions {
+            let plugin_name = &v.plugin.name;
+
+            if !m.contains_key(plugin_name) {
+                if let Some(stat) = (v.plugin.ctx).as_ref().borrow().get_statics() {
+                    m.insert(plugin_name.to_string(), stat);
+                }
+            }
+        }
+        m
     }
 }
 

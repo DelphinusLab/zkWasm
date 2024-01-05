@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use log::debug;
 use specs::host_function::HostFunctionDesc;
+use wasmi::tracer::Tracer;
 use wasmi::Externals;
 use wasmi::ModuleImportResolver;
 use wasmi::RuntimeArgs;
@@ -148,13 +149,25 @@ impl ModuleImportResolver for HostEnv {
     }
 }
 
-impl Externals for HostEnv {
+pub struct ExecEnv {
+    pub host_env: HostEnv,
+    pub tracer: Rc<RefCell<Tracer>>,
+}
+
+impl Externals for ExecEnv {
     fn invoke_index(
         &mut self,
         index: usize,
         args: RuntimeArgs,
     ) -> Result<Option<RuntimeValue>, Trap> {
-        match self.cached_lookup.as_ref().unwrap().get(&index).clone() {
+        match self
+            .host_env
+            .cached_lookup
+            .as_ref()
+            .unwrap()
+            .get(&index)
+            .clone()
+        {
             Some(HostFunction {
                 desc,
                 execution_env: HostFunctionExecutionEnv { ctx, cb },
@@ -163,10 +176,11 @@ impl Externals for HostEnv {
                 let ctx = ctx.as_mut();
 
                 let start = Instant::now();
-                let r = cb(ctx, args);
+                let r = cb(&self.tracer.borrow().observer, ctx, args);
                 let duration = start.elapsed();
 
-                self.time_profile
+                self.host_env
+                    .time_profile
                     .entry(desc.name().to_string())
                     .and_modify(|d| *d += duration.as_millis())
                     .or_insert(duration.as_millis());
