@@ -49,7 +49,7 @@ impl WitnessContext {
         if let Some(vec) = buf {
             vec.insert(0, new);
         } else {
-            self.indexed_buf.borrow_mut().insert(self.focus, vec![new]);
+            bind.insert(self.focus, vec![new]);
         }
     }
 
@@ -59,7 +59,7 @@ impl WitnessContext {
         if let Some(vec) = buf {
             vec.push(new);
         } else {
-            self.indexed_buf.borrow_mut().insert(self.focus, vec![new]);
+            bind.insert(self.focus, vec![new]);
         }
     }
 
