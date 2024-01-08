@@ -4,9 +4,11 @@ use std::rc::Rc;
 
 use specs::host_function::HostPlugin;
 use specs::types::ValueType;
+use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
+use crate::runtime::host::ForeignStatics;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use super::Op;
@@ -79,7 +81,11 @@ impl Context {
     }
 }
 
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        None
+    }
+}
 
 pub fn register_wasm_input_foreign(
     env: &mut HostEnv,
@@ -90,9 +96,8 @@ pub fn register_wasm_input_foreign(
     let outputs = Rc::new(RefCell::new(vec![]));
 
     let wasm_input = Rc::new(
-        |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+        |_observer: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
-
             let arg: i32 = args.nth(0);
             let input = context.wasm_input(arg);
 
@@ -101,7 +106,7 @@ pub fn register_wasm_input_foreign(
     );
 
     let wasm_output = Rc::new(
-        |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+        |_observer: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
 
             let value: i64 = args.nth(0);
@@ -112,6 +117,7 @@ pub fn register_wasm_input_foreign(
     );
 
     env.internal_env.register_plugin(
+        "wasm input plugin",
         HostPlugin::HostInput,
         Box::new(Context::new(
             public_inputs,

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use circuits_batcher::proof::CircuitInfo;
+use circuits_batcher::proof::ParamsCache;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
+use circuits_batcher::proof::ProvingKeyCache;
 use delphinus_zkwasm::circuits::TestCircuit;
 use delphinus_zkwasm::circuits::ZkWasmCircuitBuilder;
 use delphinus_zkwasm::loader::ZkWasmLoader;
@@ -17,18 +19,16 @@ use specs::Tables;
 use std::io::Write;
 use std::path::PathBuf;
 
-pub fn exec_setup<Arg, Builder>(
+pub fn exec_setup<Builder: HostEnvBuilder>(
     zkwasm_k: u32,
     aggregate_k: u32,
     prefix: &str,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
+    envconfig: Builder::HostConfig,
     _output_dir: &PathBuf,
     param_dir: &PathBuf,
-) -> Result<()>
-where
-    Builder: HostEnvBuilder<Arg = Arg>,
-{
+) -> Result<()> {
     info!("Setup Params and VerifyingKey");
 
     macro_rules! prepare_params {
@@ -56,10 +56,13 @@ where
             info!("Found Verifying at {:?}", vk_path);
         } else {
             info!("Create Verifying to {:?}", vk_path);
-            let loader =
-                ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+            let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+                zkwasm_k,
+                wasm_binary,
+                phantom_functions,
+            )?;
 
-            let vkey = loader.create_vkey(&params)?;
+            let vkey = loader.create_vkey(&params, envconfig)?;
 
             let mut fd = std::fs::File::create(&vk_path)?;
             vkey.write(&mut fd)?;
@@ -69,24 +72,28 @@ where
     Ok(())
 }
 
-pub fn exec_image_checksum<Arg, Builder>(
+pub fn exec_image_checksum<Builder>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
+    hostenv: Builder::HostConfig,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
 ) -> Result<()>
 where
-    Builder: HostEnvBuilder<Arg = Arg>,
+    Builder: HostEnvBuilder,
 {
-    let loader =
-        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
     let params = load_or_build_unsafe_params::<Bn256>(
         zkwasm_k,
         Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
     );
 
-    let checksum = loader.checksum(&params)?;
+    let checksum = loader.checksum(&params, hostenv)?;
     assert_eq!(checksum.len(), 1);
     let checksum = checksum[0];
 
@@ -100,31 +107,50 @@ where
     Ok(())
 }
 
-pub fn exec_dry_run<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
+pub fn exec_dry_run<Builder: HostEnvBuilder>(
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
-    arg: Arg,
+    arg: Builder::Arg,
+    config: Builder::HostConfig,
 ) -> Result<()> {
-    let loader =
-        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
-    loader.run(arg, true, false)?;
+    let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
+    let result = loader.run(arg, config, true, false)?;
+    println!("total guest instructions used {:?}", result.guest_statics);
+    println!("total host api used {:?}", result.host_statics);
     Ok(())
 }
 
-pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
+pub fn exec_create_proof<Builder: HostEnvBuilder>(
     prefix: &'static str,
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
     output_dir: &PathBuf,
     param_dir: &PathBuf,
-    arg: Arg,
+    arg: Builder::Arg,
+    config: Builder::HostConfig,
 ) -> Result<()> {
-    let loader =
-        ZkWasmLoader::<Bn256, Arg, Builder>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+    let loader = ZkWasmLoader::<Bn256, Builder::Arg, Builder>::new(
+        zkwasm_k,
+        wasm_binary,
+        phantom_functions,
+    )?;
 
-    let (circuit, instances, _) = loader.circuit_with_witness(arg)?;
+    let execution_result = loader.run(arg, config, false, true)?;
+
+    println!(
+        "total guest instructions used {:?}",
+        execution_result.guest_statics
+    );
+    println!("total host api used {:?}", execution_result.host_statics);
+    println!("application outout {:?}", execution_result.outputs);
+
+    let (circuit, instances) = loader.circuit_with_witness(execution_result)?;
 
     if false {
         info!("Mock test...");
@@ -139,8 +165,18 @@ pub fn exec_create_proof<Arg, Builder: HostEnvBuilder<Arg = Arg>>(
         zkwasm_k as usize,
         circuits_batcher::args::HashType::Poseidon,
     );
+
+    // save the proof load info for the zkwasm circuit
     circuit.proofloadinfo.save(output_dir);
-    circuit.exec_create_proof(output_dir, param_dir, 0);
+
+    // Cli saves zkwasm.0.instance.data as the
+    // first instance file for .loadinfo
+    // Thus we provide arg index = 0 to generate a
+    // proof with the first instance file
+    let mut param_cache = ParamsCache::new(5);
+    let mut pkey_cache = ProvingKeyCache::new(5);
+
+    circuit.exec_create_proof(output_dir, param_dir, &mut pkey_cache, 0, &mut param_cache);
 
     info!("Proof has been created.");
 

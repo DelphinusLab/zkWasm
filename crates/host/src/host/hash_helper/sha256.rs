@@ -1,7 +1,9 @@
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use sha2::Digest;
 use std::rc::Rc;
+use wasmi::tracer::Observer;
 use zkwasm_host_circuits::host::ForeignInst::SHA256Finalize;
 use zkwasm_host_circuits::host::ForeignInst::SHA256New;
 use zkwasm_host_circuits::host::ForeignInst::SHA256Push;
@@ -66,7 +68,12 @@ impl Sha256Context {
     }
 }
 
-impl ForeignContext for Sha256Context {}
+impl ForeignContext for Sha256Context {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        // we did not support full sha256 as host yet
+        None
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_sha256_foreign(env: &mut HostEnv) {
@@ -80,7 +87,7 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_sha256_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
                 let hasher = context
                     .hasher
@@ -101,7 +108,7 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_sha256_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
                 context.hasher.as_mut().map(|s| {
                     let sz = if context.size > 8 {
@@ -127,7 +134,7 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_sha256_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
                 context.hasher.as_ref().map(|s| {
                     let dwords: Vec<u8> = s.clone().finalize()[..].to_vec();

@@ -39,14 +39,16 @@ mod tests {
             ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(18, wasm, vec![])
                 .unwrap();
 
-        let (circuit, instances, _) = loader
-            .circuit_with_witness(ExecutionArg {
-                public_inputs: vec![],
-                private_inputs: vec![],
-                context_inputs: vec![],
-                context_outputs: Arc::new(Mutex::new(vec![])),
-            })
-            .unwrap();
+        let arg = ExecutionArg {
+            public_inputs: vec![],
+            private_inputs: vec![],
+            context_inputs: vec![],
+            context_outputs: Arc::new(Mutex::new(vec![])),
+        };
+
+        let result = loader.run(arg, (), false, true).unwrap();
+
+        let (circuit, instances) = loader.circuit_with_witness(result).unwrap();
 
         loader.mock_test(&circuit, &instances).unwrap()
     }

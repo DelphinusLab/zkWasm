@@ -6,6 +6,12 @@ use clap::ArgMatches;
 use specs::args::parse_args;
 use std::path::PathBuf;
 
+#[derive(clap::ArgEnum, Clone, Debug)]
+pub enum HostMode {
+    DEFAULT,
+    STANDARD,
+}
+
 pub trait ArgBuilder {
     fn zkwasm_k_arg<'a>() -> Arg<'a> {
         arg!(
@@ -23,6 +29,7 @@ pub trait ArgBuilder {
         )
         .value_parser(value_parser!(PathBuf))
     }
+
     fn parse_zkwasm_file_arg(matches: &ArgMatches) -> PathBuf {
         matches
             .get_one::<PathBuf>("wasm")
@@ -35,11 +42,28 @@ pub trait ArgBuilder {
             -f --function <FUNCTION_NAME> "Function you would like to run."
         )
     }
+
     fn parse_function_name(matches: &ArgMatches) -> String {
         matches
             .get_one::<String>("function")
             .expect("function is required")
             .to_string()
+    }
+
+    fn host_mode_arg<'a>() -> Arg<'a> {
+        Arg::new("host")
+            .long("host")
+            .value_parser(value_parser!(HostMode))
+            .action(ArgAction::Set)
+            .help("Specify host functions set.")
+            .min_values(0)
+            .max_values(1)
+    }
+
+    fn parse_host_mode(matches: &ArgMatches) -> HostMode {
+        matches
+            .get_one::<HostMode>("host")
+            .map_or(HostMode::DEFAULT, |v| v.clone())
     }
 
     fn phantom_functions_arg<'a>() -> Arg<'a> {

@@ -155,14 +155,21 @@ fn build_circuit() -> Result<(
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
     let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(20, wasm, vec![])?;
+    let result = loader
+        .run(
+            ExecutionArg {
+                public_inputs,
+                private_inputs,
+                context_inputs: vec![],
+                context_outputs: Arc::new(Mutex::new(vec![])),
+            },
+            (),
+            false,
+            true,
+        )
+        .unwrap();
 
-    let (circuit, instances, _) = loader.circuit_with_witness(ExecutionArg {
-        public_inputs,
-        private_inputs,
-        context_inputs: vec![],
-        context_outputs: Arc::new(Mutex::new(vec![])),
-    })?;
-
+    let (circuit, instances) = loader.circuit_with_witness(result)?;
     Ok((loader, circuit, instances))
 }
 

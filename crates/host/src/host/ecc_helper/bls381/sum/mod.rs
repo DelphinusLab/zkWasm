@@ -1,12 +1,17 @@
+use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
+use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bls12_381::G1Affine;
 use std::ops::Add;
 use std::rc::Rc;
+use wasmi::tracer::Observer;
 
 use super::bls381_fq_to_limbs;
 use super::fetch_g1;
 
+use zkwasm_host_circuits::circuits::bls::Bls381SumChip;
+use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::host::ForeignInst;
 
 #[derive(Default)]
@@ -16,6 +21,7 @@ struct BlsSumContext {
     pub result_limbs: Option<Vec<u64>>,
     pub result_cursor: usize,
     pub input_cursor: usize,
+    pub used_round: usize,
 }
 
 impl BlsSumContext {
@@ -32,7 +38,14 @@ impl BlsSumContext {
     }
 }
 
-impl ForeignContext for BlsSumContext {}
+impl ForeignContext for BlsSumContext {
+    fn get_statics(&self) -> Option<ForeignStatics> {
+        Some(ForeignStatics {
+            used_round: self.used_round,
+            max_round: Bls381SumChip::max_rounds(zkwasm_k() as usize),
+        })
+    }
+}
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_blssum_foreign(env: &mut HostEnv) {
@@ -46,7 +59,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blssum_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsSumContext>().unwrap();
                 if context.input_cursor == 16 {
                     let t: u64 = args.nth(0);
@@ -67,7 +80,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_blssum_plugin.clone(),
         Rc::new(
-            |context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsSumContext>().unwrap();
                 context.result_limbs.clone().map_or_else(
                     || {

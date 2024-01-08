@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use specs::host_function::HostPlugin;
 use specs::host_function::Signature;
 use specs::types::ValueType;
+use wasmi::tracer::Observer;
 use wasmi::RuntimeArgs;
 
 use crate::runtime::host::host_env::HostEnv;
@@ -47,6 +48,7 @@ pub fn register_context_foreign(
     context_output: Arc<Mutex<Vec<u64>>>,
 ) {
     env.internal_env.register_plugin(
+        "context plugin",
         HostPlugin::Context,
         Box::new(Context::new(context_input, context_output)),
     );
@@ -59,11 +61,13 @@ pub fn register_context_foreign(
         },
         HostPlugin::Context,
         Op::ReadContext as usize,
-        Rc::new(|context: &mut dyn ForeignContext, _args: RuntimeArgs| {
-            let context = context.downcast_mut::<Context>().unwrap();
+        Rc::new(
+            |_obs: &Observer, context: &mut dyn ForeignContext, _args: RuntimeArgs| {
+                let context = context.downcast_mut::<Context>().unwrap();
 
-            Some(wasmi::RuntimeValue::I64(context.read_context() as i64))
-        }),
+                Some(wasmi::RuntimeValue::I64(context.read_context() as i64))
+            },
+        ),
     );
 
     env.internal_env.register_function(
@@ -74,13 +78,15 @@ pub fn register_context_foreign(
         },
         HostPlugin::Context,
         Op::WriteContext as usize,
-        Rc::new(|context: &mut dyn ForeignContext, args: RuntimeArgs| {
-            let context = context.downcast_mut::<Context>().unwrap();
+        Rc::new(
+            |_obs: &Observer, context: &mut dyn ForeignContext, args: RuntimeArgs| {
+                let context = context.downcast_mut::<Context>().unwrap();
 
-            let value: i64 = args.nth(0);
-            context.write_context(value as u64);
+                let value: i64 = args.nth(0);
+                context.write_context(value as u64);
 
-            None
-        }),
+                None
+            },
+        ),
     );
 }
