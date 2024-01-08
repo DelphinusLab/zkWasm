@@ -15,9 +15,9 @@ use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use mtable::MTable;
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
-use serde::de::DeserializeOwned;
 
 #[macro_use]
 extern crate lazy_static;
@@ -61,7 +61,7 @@ pub enum FileType {
 #[derive(Default, Clone)]
 pub struct Tables {
     pub compilation_tables: CompilationTable,
-    pub execution_tables: ExecutionTable
+    pub execution_tables: ExecutionTable,
 }
 
 impl Tables {
@@ -77,33 +77,74 @@ impl Tables {
 
         let dir = dir.unwrap_or(env::current_dir().unwrap());
 
-        let compilation_table =
-        serde_json::to_string_pretty(&self.compilation_tables).unwrap();
-        let execution_table = serde_json::to_string_pretty(&self.execution_tables).unwrap();
+        macro_rules! serialize {
+            ($t:ident, $name:ident) => {
+                let table = serde_json::to_string_pretty(&self.$t.$name).unwrap();
+                write_file(&dir, &format!("{}.json", stringify!($name)), table);
+            };
+        }
+
+        serialize!(compilation_tables, itable);
+        serialize!(compilation_tables, imtable);
+        serialize!(compilation_tables, elem_table);
+        serialize!(compilation_tables, configure_table);
+        serialize!(compilation_tables, static_jtable);
+        serialize!(compilation_tables, fid_of_entry);
+
+        serialize!(execution_tables, etable);
+        serialize!(execution_tables, mtable);
+        serialize!(execution_tables, jtable);
+
         let external_host_call_table = serde_json::to_string_pretty(
             &self
                 .execution_tables
                 .etable
                 .filter_external_host_call_table(),
-        ).unwrap();
+        )
+        .unwrap();
         let instances = serde_json::to_string_pretty(&public_inputs_and_outputs).unwrap();
-        write_file(&dir, "compilation.json", compilation_table);
-        write_file(&dir, "execution.json", execution_table);
+
         write_file(&dir, "instance.json", instances);
         write_file(&dir, "external_host_table.json", external_host_call_table);
     }
 
     pub fn load_table(dir: PathBuf) -> (Tables, Vec<u64>) {
-        fn load_file<T:DeserializeOwned>(folder: &PathBuf, filename: &str) -> T {
+        fn load_file<T: DeserializeOwned>(folder: &PathBuf, filename: &str) -> T {
             let mut folder = folder.clone();
             folder.push(filename);
             let file = std::fs::File::open(folder.as_path()).unwrap();
             let reader = BufReader::new(file);
             serde_json::from_reader(reader).unwrap()
         }
-        let compilation_tables: CompilationTable = load_file(&dir, "compilation.json");
-        let execution_tables: ExecutionTable = load_file(&dir, "execution.json");
+        let itable = load_file(&dir, "itable.json");
+        let imtable = load_file(&dir, "imtable.json");
+        let elem_table = load_file(&dir, "elem_table.json");
+        let configure_table = load_file(&dir, "configure_table.json");
+        let static_jtable = load_file(&dir, "static_jtable.json");
+        let fid_of_entry = load_file(&dir, "fid_of_entry.json");
+
+        let etable = load_file(&dir, "etable.json");
+        let mtable = load_file(&dir, "mtable.json");
+        let jtable = load_file(&dir, "jtable.json");
+
         let public_inputs_and_outputs: Vec<u64> = load_file(&dir, "instance.json");
-        (Tables { compilation_tables, execution_tables}, public_inputs_and_outputs)
+        (
+            Tables {
+                compilation_tables: CompilationTable {
+                    itable,
+                    imtable,
+                    elem_table,
+                    configure_table,
+                    static_jtable,
+                    fid_of_entry,
+                },
+                execution_tables: ExecutionTable {
+                    etable,
+                    mtable,
+                    jtable,
+                },
+            },
+            public_inputs_and_outputs,
+        )
     }
 }

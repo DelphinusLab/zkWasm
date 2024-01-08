@@ -15,10 +15,10 @@ use crate::exec::exec_dry_run;
 
 use super::command::CommandBuilder;
 use super::exec::exec_create_proof;
+use super::exec::exec_create_proof_from_trace;
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
 use super::exec::exec_verify_proof;
-use super::exec::exec_create_proof_from_trace;
 
 fn load_or_generate_output_path(
     wasm_md5: &String,
