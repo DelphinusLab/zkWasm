@@ -25,7 +25,6 @@ use wasmi::tracer::Tracer;
 use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
 use wasmi::RuntimeValue;
-use wasmi::ENTRY;
 
 use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
@@ -33,7 +32,6 @@ use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
 use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::image_table::compute_maximal_pages;
-use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::image_table::IMAGE_COL_NAME;
 use crate::circuits::TestCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
@@ -134,7 +132,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             Arc::new(Mutex::new(vec![])),
         );
 
-        self.compile(&env)
+        self.compile(&env, Box::new(WitnessDumper::default()))
     }
 
     fn circuit_without_witness(&self, last_slice_circuit: bool) -> Result<TestCircuit<E::Scalar>> {
@@ -184,15 +182,6 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
 
         Ok(keygen_vk(&params, &circuit).unwrap())
     }
-
-    pub fn checksum(&self, params: &Params<E::G1Affine>) -> Result<Vec<E::G1Affine>> {
-        let (env, _) = HostEnv::new_with_full_foreign_plugins(
-            vec![],
-            vec![].into(),
-            vec![],
-            Arc::new(Mutex::new(vec![])),
-        );
-        let compiled = self.compile(&env, Box::new(WitnessDumper::default()))?;
 
     pub fn checksum<'a, 'b>(
         &self,

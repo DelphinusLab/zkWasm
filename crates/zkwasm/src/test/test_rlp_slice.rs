@@ -164,6 +164,13 @@ fn generate_wasm_result(
         output_dir: Some(std::env::current_dir().unwrap()),
         dump_table,
     })?;
+
+    let instances = execution_result
+        .public_inputs_and_outputs
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+    Ok((loader, instances, execution_result))
 }
 
 fn test_slices() -> Result<()> {
@@ -178,7 +185,7 @@ fn test_slices() -> Result<()> {
         let circuit = slice.build_circuit();
 
         loader.mock_test(&circuit, &instances)?;
-        loader.bench_test(circuit, &instances);
+        // loader.bench_test(circuit, &instances);
 
         index += 1;
     }

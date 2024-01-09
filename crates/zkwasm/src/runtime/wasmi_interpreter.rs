@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::state::InitializationState;
 use specs::state::UpdateCompilationTable;
 use specs::CompilationTable;
