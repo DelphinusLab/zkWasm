@@ -57,7 +57,7 @@ pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
                             let mut data = [0u8; 8];
                             data[..x.len()].copy_from_slice(x);
 
-                            u64::from_be_bytes(data)
+                            u64::from_le_bytes(data)
                         })
                         .collect()
                 }
@@ -141,6 +141,34 @@ pub trait ArgBuilder {
         matches
             .get_one::<PathBuf>("proof")
             .expect("proof is required.")
+            .clone()
+    }
+
+    fn tables_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            -t --tables <TABLES_PATH> "Path of tables."
+        )
+        .value_parser(value_parser!(PathBuf))
+    }
+
+    fn parse_tables_path_arg(matches: &ArgMatches) -> PathBuf {
+        matches
+            .get_one::<PathBuf>("tables")
+            .expect("tables path is required.")
+            .clone()
+    }
+
+    fn params_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            -p --param <PARAMS_PATH> "Path of params."
+        )
+        .value_parser(value_parser!(PathBuf))
+    }
+
+    fn parse_params_path_arg(matches: &ArgMatches) -> PathBuf {
+        matches
+            .get_one::<PathBuf>("param")
+            .expect("params path is required.")
             .clone()
     }
 

@@ -17,6 +17,7 @@ use crate::exec::exec_witness_dump;
 use super::command::CommandBuilder;
 use super::exec::exec_aggregate_create_proof;
 use super::exec::exec_create_proof;
+use super::exec::exec_create_proof_from_trace;
 use super::exec::exec_dry_run_service;
 use super::exec::exec_image_checksum;
 use super::exec::exec_setup;
@@ -74,6 +75,7 @@ pub trait AppBuilder: CommandBuilder {
         let app = Self::append_setup_subcommand(app);
         let app = Self::append_dry_run_subcommand(app);
         let app = Self::append_create_single_proof_subcommand(app);
+        let app = Self::append_create_proof_from_trace_subcommand(app);
         let app = Self::append_verify_single_proof_subcommand(app);
         let app = Self::append_create_aggregate_proof_subcommand(app);
         let app = Self::append_verify_aggregate_verify_subcommand(app);
@@ -168,6 +170,7 @@ pub trait AppBuilder: CommandBuilder {
                 assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
 
                 exec_witness_dump(
+                    Self::NAME,
                     zkwasm_k,
                     wasm_binary,
                     phantom_functions,
@@ -204,6 +207,28 @@ pub trait AppBuilder: CommandBuilder {
                     private_inputs,
                     context_in,
                     context_out.clone(),
+                )?;
+
+                write_context_output(&context_out.lock().unwrap(), context_out_path)?;
+
+                Ok(())
+            }
+            Some(("proof-from-trace", sub_matches)) => {
+                let tables_dir = Self::parse_tables_path_arg(&sub_matches);
+                let param_dir = Self::parse_params_path_arg(&sub_matches);
+                let context_out_path: Option<PathBuf> =
+                    Self::parse_context_out_path_arg(&sub_matches);
+
+                let context_out = Arc::new(Mutex::new(vec![]));
+
+                exec_create_proof_from_trace(
+                    Self::NAME,
+                    zkwasm_k,
+                    wasm_binary,
+                    phantom_functions,
+                    &output_dir,
+                    &tables_dir,
+                    &param_dir,
                 )?;
 
                 write_context_output(&context_out.lock().unwrap(), context_out_path)?;

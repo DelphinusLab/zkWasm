@@ -42,6 +42,10 @@ impl WitnessDumper {
             thread_pool,
         }
     }
+
+    pub(crate) fn join(&self) {
+        self.thread_pool.join();
+    }
 }
 
 impl SliceDumper for WitnessDumper {

@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -110,7 +112,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
     fn compile(
         &self,
         env: &HostEnv,
-        slice_dumper: Box<dyn SliceDumper>,
+        slice_dumper: Rc<RefCell<dyn SliceDumper>>,
     ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
@@ -131,8 +133,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             vec![],
             Arc::new(Mutex::new(vec![])),
         );
-
-        self.compile(&env, Box::new(WitnessDumper::default()))
+        self.compile(&env, Rc::new(RefCell::new(WitnessDumper::default())))
     }
 
     fn circuit_without_witness(&self, last_slice_circuit: bool) -> Result<TestCircuit<E::Scalar>> {
@@ -205,7 +206,7 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             arg.context_inputs,
             arg.context_outputs,
         );
-        let compiled_module = self.compile(&env, Box::new(WitnessDumper::default()))?;
+        let compiled_module = self.compile(&env, Rc::new(RefCell::new(WitnessDumper::default())))?;
         compiled_module.dry_run(&mut env)
     }
 
@@ -222,13 +223,17 @@ impl<E: MultiMillerLoop> ZkWasmLoader<E> {
             self.compute_slice_capability(),
             arg.output_dir.clone(),
         );
-        let compiled_module = self.compile(&env, Box::new(slice_dumper))?;
+        let slice_dumper = Rc::new(RefCell::new(slice_dumper));
+        let compiled_module = self.compile(&env, slice_dumper.clone())?;
         let result = compiled_module.run(&mut env, wasm_runtime_io)?;
+
+        slice_dumper.borrow_mut().join();
 
         if let Some(tables) = &result.tables {
             tables.profile_tables();
-            tables.write(arg.output_dir, specs::FileType::FLEXBUFFERS);
+            tables.write(arg.output_dir.clone(), specs::FileType::FLEXBUFFERS);
         }
+
         Ok(result)
     }
 

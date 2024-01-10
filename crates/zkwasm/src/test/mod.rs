@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::TestCircuit;
 use crate::continuation::loader::WitnessDumper;
@@ -76,7 +79,7 @@ fn compile_then_execute_wasm(
         &env.function_description_table(),
         function_name,
         &vec![],
-        Box::new(WitnessDumper::default()),
+        Rc::new(RefCell::new(WitnessDumper::default())),
     )
     .unwrap();
 

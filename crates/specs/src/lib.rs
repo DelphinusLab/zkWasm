@@ -15,6 +15,7 @@ use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
 use etable::EventTableEntry;
+use halo2_proofs::pairing::bn256::Fr;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
 use jtable::JumpTable;
@@ -29,6 +30,7 @@ use rayon::prelude::ParallelIterator;
 use serde::Deserialize;
 use serde::Serialize;
 use state::InitializationState;
+use halo2_proofs::arithmetic::BaseExt;
 
 #[macro_use]
 extern crate lazy_static;
@@ -207,5 +209,15 @@ impl Tables {
             post_image_table,
             is_last_slice,
         }
+    }
+
+    pub fn load_instances(instance_path: &PathBuf) -> Vec<Fr> {
+        let mut instances = vec![];
+        let mut fd = std::fs::File::open(&instance_path).unwrap();
+        while let Ok(f) = Fr::read(&mut fd) {
+            instances.push(f);
+        }
+
+        instances
     }
 }

@@ -129,7 +129,7 @@ impl WasmiRuntime {
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
         entry: &str,
         phantom_functions: &Vec<String>,
-        slice_dumper: Box<dyn SliceDumper>,
+        slice_dumper: Rc<RefCell<dyn SliceDumper>>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
         let tracer =
             wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, slice_dumper);

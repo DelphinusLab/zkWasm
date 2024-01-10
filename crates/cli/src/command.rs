@@ -49,6 +49,15 @@ pub trait CommandBuilder: ArgBuilder {
         app.subcommand(command)
     }
 
+    fn append_create_proof_from_trace_subcommand(app: App) -> App {
+        let command = Command::new("proof-from-trace")
+            .arg(Self::tables_path_arg())
+            .arg(Self::params_path_arg())
+            .arg(Self::context_out_path_arg());
+
+        app.subcommand(command)
+    }
+
     fn append_verify_single_proof_subcommand(app: App) -> App {
         let command = Command::new("single-verify")
             .arg(Self::proof_path_arg())

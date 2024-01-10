@@ -1,5 +1,6 @@
 use anyhow::Result;
 use delphinus_zkwasm::circuits::TestCircuit;
+use delphinus_zkwasm::continuation::slice::Slice;
 use delphinus_zkwasm::loader::ExecutionArg;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use halo2_proofs::arithmetic::BaseExt;
@@ -28,6 +29,7 @@ use notify::RecursiveMode;
 use notify::Watcher;
 use serde::Deserialize;
 use serde::Serialize;
+use specs::Tables;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -255,6 +257,7 @@ pub fn exec_dry_run(
 }
 
 pub fn exec_witness_dump(
+    prefix: &'static str,
     zkwasm_k: u32,
     wasm_binary: Vec<u8>,
     phantom_functions: Vec<String>,
@@ -266,7 +269,7 @@ pub fn exec_witness_dump(
 ) -> Result<()> {
     let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
 
-    loader.run(ExecutionArg {
+    let result = loader.run(ExecutionArg {
         public_inputs,
         private_inputs,
         context_inputs,
@@ -274,6 +277,18 @@ pub fn exec_witness_dump(
         output_dir: Some(output_dir.clone()),
         dump_table: true,
     })?;
+
+    let instances: Vec<Fr> = result
+        .public_inputs_and_outputs
+        .clone()
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+
+    store_instance(
+        &vec![instances.clone()],
+        &output_dir.join(format!("{}.{}.instance.data", prefix, 0)),
+    );
 
     Ok(())
 }
@@ -337,6 +352,49 @@ pub fn exec_create_proof(
     Ok(())
 }
 
+pub fn exec_create_proof_from_trace(
+    prefix: &'static str,
+    zkwasm_k: u32,
+    wasm_binary: Vec<u8>,
+    phantom_functions: Vec<String>,
+    output_dir: &PathBuf,
+    tables_dir: &PathBuf,
+    param_dir: &PathBuf,
+) -> Result<()> {
+    let loader = ZkWasmLoader::<Bn256>::new(zkwasm_k, wasm_binary, phantom_functions)?;
+
+    let table = Tables::load(tables_dir.clone(), false, specs::FileType::FLEXBUFFERS);
+    let capacity = loader.compute_slice_capability();
+    let slice = Slice::new(table, capacity);
+    let circuit = slice.build_circuit();
+
+    let instances = Tables::load_instances(output_dir);
+
+
+    let params = load_or_build_unsafe_params::<Bn256>(
+        zkwasm_k,
+        Some(&param_dir.join(format!("K{}.params", zkwasm_k))),
+    );
+
+    let vkey = load_vkey::<Bn256, TestCircuit<_>>(
+        &params,
+        &output_dir.join(format!("{}.{}.vkey.data", prefix, 0)),
+    );
+
+    let proof = loader.create_proof(&params, vkey, circuit, &instances)?;
+
+    {
+        let proof_path = tables_dir.join(format!("{}.{}.transcript.data", prefix, 0));
+        println!("write transcript to {:?}", proof_path);
+        let mut fd = std::fs::File::create(&proof_path)?;
+        fd.write_all(&proof)?;
+    }
+
+    info!("Proof has been created.");
+
+    Ok(())
+}
+
 pub fn exec_verify_proof(
     prefix: &'static str,
     zkwasm_k: u32,
@@ -367,10 +425,12 @@ pub fn exec_verify_proof(
         &output_dir.join(format!("{}.{}.vkey.data", prefix, 0)),
     );
 
-    let proof = load_proof(proof_path);
+    let proof = load_proof(&proof_path.join(format!("{}.{}.transcript.data", prefix, 0)));
 
     let image = if cfg!(feature = "continuation") {
-        todo!("read slice image from file?")
+        let table = Tables::load(proof_path.clone(), false, specs::FileType::FLEXBUFFERS);
+        table.compilation_tables
+        // todo!("read slice image from file?")
     } else {
         loader.compile_without_env()?.tables
     };
