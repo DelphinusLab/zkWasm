@@ -104,7 +104,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BN254PairContext>().unwrap();
                 if context.input_cursor == LIMBNB * 4 {
                     let t: u64 = args.nth(0);
@@ -133,6 +133,9 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
                     context.limbs = vec![];
                     let ab = pairing(&g1, &g2);
                     context.gt = Some(context.gt.map_or_else(|| ab, |x| x + ab));
+                    if !obs.is_in_phantom {
+                        context.used_round += 1;
+                    }
                     //log::debug!("\n\ngt is {:?}", context.gt);
                 } else {
                     context.limbs.push(args.nth(0));

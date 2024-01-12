@@ -97,7 +97,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsPairContext>().unwrap();
                 if context.input_cursor == 32 {
                     let t: u64 = args.nth(0);
@@ -120,7 +120,9 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
                     let ab = pairing(&g1, &g2);
                     log::debug!("gt {:?}", ab);
                     context.bls381_gt_to_limbs(ab);
-                    context.used_round += 1;
+                    if !obs.is_in_phantom {
+                        context.used_round += 1;
+                    }
                 } else {
                     context.limbs.push(args.nth(0));
                     context.input_cursor += 1;

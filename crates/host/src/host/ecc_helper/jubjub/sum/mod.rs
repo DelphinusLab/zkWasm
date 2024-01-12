@@ -52,13 +52,15 @@ impl BabyJubjubSumContext {
         }
     }
 
-    pub fn babyjubjub_sum_new(&mut self, new: usize) {
+    pub fn babyjubjub_sum_new(&mut self, new: usize, obs: &Observer) {
         self.result_limbs = None;
         self.result_cursor = 0;
         self.limbs = vec![];
         self.input_cursor = 0;
         self.coeffs = vec![];
-        self.used_round += 1;
+        if !obs.is_in_phantom {
+            self.used_round += 1;
+        }
         if new != 0 {
             self.acc = jubjub::Point::identity();
         }
@@ -135,9 +137,9 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_babyjubjubsum_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BabyJubjubSumContext>().unwrap();
-                context.babyjubjub_sum_new(args.nth::<u64>(0) as usize);
+                context.babyjubjub_sum_new(args.nth::<u64>(0) as usize, obs);
                 None
             },
         ),

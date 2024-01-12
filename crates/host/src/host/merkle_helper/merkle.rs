@@ -90,9 +90,11 @@ impl MerkleContext {
     }
 
     /// reset the address of merkle op together with the data and data_cursor
-    pub fn merkle_address(&mut self, v: u64) {
+    pub fn merkle_address(&mut self, v: u64, obs: &Observer) {
         if self.address.cursor == 0 {
-            self.used_round += 1;
+            if !obs.is_in_phantom {
+                self.used_round += 1;
+            }
         }
         self.data = [0; 4];
         self.fetch = false;
@@ -185,9 +187,9 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
         ExternalHostCallSignature::Argument,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
-                context.merkle_address(args.nth(0));
+                context.merkle_address(args.nth(0), obs);
                 None
             },
         ),
