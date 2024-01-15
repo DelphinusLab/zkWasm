@@ -1,92 +1,157 @@
+#![deny(warnings)]
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+use std::rc::Rc;
+
 use anyhow::Result;
-use app_builder::AppBuilder;
-use args::ArgBuilder;
-use clap::value_parser;
-use clap::Arg;
-use clap::ArgAction;
-use clap::ArgMatches;
-use command::CommandBuilder;
+use app_builder::app;
+use command::Subcommands;
+use delphinus_host::StandardHostEnvBuilder;
+use delphinus_zkwasm::foreign::context::ContextOutput;
+use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
+
+use args::HostMode;
 use specs::args::parse_args;
 
-pub mod app_builder;
-pub mod args;
-pub mod command;
-pub mod exec;
+use crate::config::Config;
+use crate::names::name_of_config;
 
-struct SampleApp;
+mod app_builder;
+mod args;
+mod command;
+mod config;
+mod names;
 
-impl ArgBuilder for SampleApp {
-    fn single_public_arg<'a>() -> Arg<'a> {
-        Arg::new("public")
-            .long("public")
-            .value_parser(value_parser!(String))
-            .action(ArgAction::Append)
-            .help("Public arguments of your wasm program arguments of format value:type where type=i64|bytes|bytes-packed")
-            .min_values(0)
-    }
-    fn parse_single_public_arg(matches: &ArgMatches) -> Vec<u64> {
-        let inputs: Vec<&str> = matches
-            .get_many("public")
-            .unwrap_or_default()
-            .map(|v: &String| v.as_str())
-            .collect();
+const TRIVIAL_WASM: &'static str = r#"
+(module
+    (func (export "zkmain"))
+)
+"#;
 
-        parse_args(inputs.into())
-    }
-
-    fn aggregate_public_args<'a>() -> Arg<'a> {
-        // We only aggregate one proof in the sample program.
-        Self::single_public_arg()
-    }
-    fn parse_aggregate_public_args(matches: &ArgMatches) -> Vec<Vec<u64>> {
-        let inputs = Self::parse_single_public_arg(matches);
-
-        vec![inputs]
-    }
-
-    fn single_private_arg<'a>() -> Arg<'a> {
-        Arg::new("private")
-            .long("private")
-            .value_parser(value_parser!(String))
-            .action(ArgAction::Append)
-            .help("Private arguments of your wasm program arguments of format value/filename:type where type=i64|bytes|bytes-packed|file")
-            .min_values(0)
-    }
-    fn parse_single_private_arg(matches: &ArgMatches) -> Vec<u64> {
-        let inputs: Vec<&str> = matches
-            .get_many("private")
-            .unwrap_or_default()
-            .map(|v: &String| v.as_str())
-            .collect();
-
-        parse_args(inputs.into())
-    }
-
-    fn aggregate_private_args<'a>() -> Arg<'a> {
-        // We only aggregate one proof in the sample program.
-        Self::single_private_arg()
-    }
-    fn parse_aggregate_private_args(matches: &ArgMatches) -> Vec<Vec<u64>> {
-        let inputs = Self::parse_single_private_arg(matches);
-
-        vec![inputs]
-    }
-}
-impl CommandBuilder for SampleApp {}
-impl AppBuilder for SampleApp {
-    const NAME: &'static str = "zkwasm";
-    const VERSION: &'static str = "v1.0-beta";
-
-    const AGGREGATE_K: u32 = 22;
-
-    const MAX_PUBLIC_INPUT_SIZE: usize = 64;
-
-    const N_PROOFS: usize = 1;
+#[derive(Debug)]
+struct ZkWasmCli {
+    name: String,
+    params_dir: PathBuf,
+    subcommand: Subcommands,
 }
 
 /// Simple program to greet a person
 fn main() -> Result<()> {
-    let app = SampleApp::app_builder();
+    {
+        env_logger::init();
+    }
 
-    SampleApp::exec(app)
+    let app = app();
+
+    let cli: ZkWasmCli = app.get_matches().into();
+
+    println!("{:?}", cli);
+
+    match cli.subcommand {
+        Subcommands::Setup(arg) => match arg.host_mode {
+            HostMode::DEFAULT => {
+                arg.setup::<DefaultHostEnvBuilder>(&cli.name, &cli.params_dir)?;
+            }
+            HostMode::STANDARD => {
+                arg.setup::<StandardHostEnvBuilder>(&cli.name, &cli.params_dir)?;
+            }
+        },
+        Subcommands::DryRun(arg) => {
+            let config = Config::read(&mut fs::File::open(
+                cli.params_dir.join(&name_of_config(&cli.name)),
+            )?)?;
+
+            let public_inputs = parse_args(&arg.running_arg.public_inputs);
+            let private_inputs = parse_args(&arg.running_arg.private_inputs);
+            let context_inputs = parse_args(&arg.running_arg.context_inputs);
+
+            match config.host_mode {
+                HostMode::DEFAULT => {
+                    config.dry_run::<DefaultHostEnvBuilder>(
+                        &arg.wasm_image,
+                        &arg.running_arg.output_dir,
+                        ExecutionArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs,
+                            context_outputs: ContextOutput::default(),
+                        },
+                        arg.running_arg.context_output,
+                    )?;
+                }
+                HostMode::STANDARD => {
+                    config.dry_run::<StandardHostEnvBuilder>(
+                        &arg.wasm_image,
+                        &arg.running_arg.output_dir,
+                        delphinus_host::ExecutionArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs,
+                            context_outputs: ContextOutput::default(),
+                            indexed_witness: Rc::new(RefCell::new(HashMap::new())),
+                            tree_db: None,
+                        },
+                        arg.running_arg.context_output,
+                    )?;
+                }
+            }
+        }
+        Subcommands::Prove(arg) => {
+            let config = Config::read(&mut fs::File::open(
+                cli.params_dir.join(&name_of_config(&cli.name)),
+            )?)?;
+
+            let public_inputs = parse_args(&arg.running_arg.public_inputs);
+            let private_inputs = parse_args(&arg.running_arg.private_inputs);
+            let context_inputs = parse_args(&arg.running_arg.context_inputs);
+
+            match config.host_mode {
+                HostMode::DEFAULT => {
+                    config.prove::<DefaultHostEnvBuilder>(
+                        &arg.wasm_image,
+                        &cli.params_dir,
+                        &arg.output_dir,
+                        ExecutionArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs,
+                            context_outputs: ContextOutput::default(),
+                        },
+                        arg.running_arg.context_output,
+                        arg.mock_test,
+                    )?;
+                }
+                HostMode::STANDARD => {
+                    config.prove::<StandardHostEnvBuilder>(
+                        &arg.wasm_image,
+                        &cli.params_dir,
+                        &arg.output_dir,
+                        delphinus_host::ExecutionArg {
+                            public_inputs,
+                            private_inputs,
+                            context_inputs,
+                            context_outputs: ContextOutput::default(),
+                            indexed_witness: Rc::new(RefCell::new(HashMap::new())),
+                            tree_db: None,
+                        },
+                        arg.running_arg.context_output,
+                        arg.mock_test,
+                    )?;
+                }
+            }
+        }
+        Subcommands::Verify(arg) => {
+            let config = Config::read(&mut fs::File::open(
+                cli.params_dir.join(&name_of_config(&cli.name)),
+            )?)?;
+
+            config.verify(&cli.params_dir, &arg.output_dir)?;
+        }
+    }
+
+    Ok(())
 }

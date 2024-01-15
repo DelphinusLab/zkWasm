@@ -32,7 +32,11 @@ pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl From<MTable> for MemoryWritingTable {
     fn from(value: MTable) -> Self {
-        let maximal_eid = (1u32 << (zkwasm_k() - 1)) - 1;
+        let maximal_eid = if cfg!(feature = "continuation") {
+            u32::MAX
+        } else {
+            (1u32 << (zkwasm_k() - 1)) - 1
+        };
         let mut index = 0;
 
         let mut entries: Vec<MemoryWritingEntry> = value
@@ -63,6 +67,12 @@ impl From<MTable> for MemoryWritingTable {
                 curr.end_eid = next.entry.eid;
             }
         });
+
+        // FIXME: create_memory_table pushed a lot of meaningless Stack init. Fix it elegantly.
+        let entries = entries
+            .into_iter()
+            .filter(|entry| entry.entry.eid != entry.end_eid)
+            .collect();
 
         MemoryWritingTable(entries)
     }
@@ -151,6 +161,7 @@ impl EventTableWithMemoryInfo {
                         }
                     })
                     .unwrap();
+
                 records[idx]
             }
         };
@@ -161,7 +172,7 @@ impl EventTableWithMemoryInfo {
                 .iter()
                 .map(|eentry| EventTableEntryWithMemoryInfo {
                     eentry: eentry.clone(),
-                    memory_rw_entires: memory_event_of_step(eentry, &mut 1)
+                    memory_rw_entires: memory_event_of_step(eentry)
                         .iter()
                         .map(|mentry| {
                             let (start_eid, end_eid) = lookup_mtable_eid((

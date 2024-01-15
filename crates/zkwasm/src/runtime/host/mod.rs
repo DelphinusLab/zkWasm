@@ -1,3 +1,5 @@
+use crate::foreign::context::ContextOutput;
+
 use self::host_env::HostEnv;
 use super::wasmi_interpreter::WasmRuntimeIO;
 use downcast_rs::impl_downcast;
@@ -6,16 +8,10 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 use specs::host_function::HostFunctionDesc;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::Mutex;
 use wasmi::tracer::Observer;
 use wasmi::RuntimeArgs;
 use wasmi::RuntimeValue;
 use wasmi::Signature;
-
-pub trait ContextOutput {
-    fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>>;
-}
 
 pub mod default_env;
 pub mod external_circuit_plugin;
@@ -89,10 +85,14 @@ struct HostFunction {
     execution_env: HostFunctionExecutionEnv,
 }
 
+pub trait HostEnvArg {
+    fn get_context_output(&self) -> ContextOutput;
+}
+
 /// Implement `HostEnvBuilder` to support customized foreign plugins.
 pub trait HostEnvBuilder {
     /// Argument type
-    type Arg;
+    type Arg: HostEnvArg;
     type HostConfig: Default;
     /// Create an empty env without value, this is used by compiling, computing hash
     fn create_env_without_value(config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);

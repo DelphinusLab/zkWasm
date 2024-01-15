@@ -1,5 +1,4 @@
 use crate::circuits::config::zkwasm_k;
-use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::ZkWasmCircuit;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
@@ -17,11 +16,12 @@ use wabt::Features;
 use wasmi::ImportsBuilder;
 use wasmi::RuntimeValue;
 
-#[cfg(test)]
 mod test_wasm_instructions;
 
 mod spec;
 mod test_rlp;
+#[cfg(feature = "continuation")]
+mod test_rlp_slice;
 mod test_start;
 #[cfg(feature = "uniform-circuit")]
 mod test_uniform_verifier;
@@ -44,18 +44,9 @@ fn test_circuit_mock<F: FieldExt>(
         v
     };
 
-    execution_result.tables.write_json(None);
-    let memory_writing_table: MemoryWritingTable = execution_result
-        .tables
-        .execution_tables
-        .mtable
-        .clone()
-        .into();
-    memory_writing_table.write_json(None);
-
     execution_result.tables.profile_tables();
 
-    let circuit = ZkWasmCircuit::new(execution_result.tables);
+    let circuit = ZkWasmCircuit::new(execution_result.tables, None);
     let prover = MockProver::run(zkwasm_k(), &circuit, vec![instance])?;
     assert_eq!(prover.verify(), Ok(()));
 

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-std = { version = "0.3.0", features = ["print-trace"] }
+ark-std = { version = "0.4.0" }
 bitvec = "1.0.1"
 downcast-rs = "1.2.0"
 hex = "0.4.3"
@@ -42,5 +42,7 @@ rusty-fork = "0.3.0"
 
 [features]
 default = []
+profile = ["ark-std/print-trace", "halo2_proofs/profile", "halo2aggregator-s/profile"]
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
 uniform-circuit = []
+continuation = ["uniform-circuit", "specs/continuation"]

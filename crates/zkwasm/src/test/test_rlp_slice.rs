@@ -1,18 +1,11 @@
-use crate::circuits::ZkWasmCircuit;
 use crate::foreign::context::ContextOutput;
 use crate::loader::ZkWasmLoader;
-use crate::runtime::host::default_env::DefaultHostEnvBuilder;
 use crate::runtime::host::default_env::ExecutionArg;
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
-use halo2_proofs::pairing::bn256::Fr;
 
-fn build_circuit() -> Result<(
-    ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder>,
-    ZkWasmCircuit<Fr>,
-    Vec<Fr>,
-)> {
+fn test_slices() -> Result<()> {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -152,43 +145,48 @@ fn build_circuit() -> Result<(
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(20, wasm, vec![])?;
-    let result = loader
-        .run(
-            ExecutionArg {
-                public_inputs,
-                private_inputs,
-                context_inputs: vec![],
-                context_outputs: ContextOutput::default(),
-            },
-            (),
-            false,
-        )
-        .unwrap();
+    let loader = ZkWasmLoader::<Bn256, _, _>::new(18, wasm, vec![])?;
 
-    let (circuit, instances) = loader.circuit_with_witness(result)?;
-    Ok((loader, circuit, instances))
+    let execution_result = loader.run(
+        ExecutionArg {
+            public_inputs,
+            private_inputs,
+            context_inputs: vec![],
+            context_outputs: ContextOutput::default(),
+        },
+        (),
+        false,
+    )?;
+
+    let instances = execution_result
+        .public_inputs_and_outputs
+        .iter()
+        .map(|v| (*v).into())
+        .collect();
+
+    let mut slices = loader.slice(execution_result).into_iter();
+
+    let mut index = 0;
+
+    while let Some(slice) = slices.next() {
+        println!("slice {}", index);
+
+        let circuit = slice.build_circuit();
+
+        loader.mock_test(&circuit, &instances)?;
+        loader.bench_test(circuit, &instances);
+
+        index += 1;
+    }
+
+    Ok(())
 }
 
 mod tests {
     use super::*;
-    use rusty_fork::rusty_fork_test;
 
-    rusty_fork_test! {
-        #[test]
-        fn test_rlp_mock() {
-            let (loader, circuit, instances) = build_circuit().unwrap();
-
-            loader.mock_test(&circuit, &instances).unwrap()
-        }
-    }
-
-    rusty_fork_test! {
-        #[test]
-        fn test_rlp_bench() {
-            let (loader, circuit, instances) = build_circuit().unwrap();
-
-            loader.bench_test(circuit, &instances)
-        }
+    #[test]
+    fn test_rlp_slice_mock() {
+        test_slices().unwrap();
     }
 }

@@ -581,7 +581,7 @@ impl Into<OpcodeClassPlain> for &Opcode {
         let class: OpcodeClass = self.into();
 
         if let Opcode::InternalHostCall { plugin, .. } = self {
-            OpcodeClassPlain(class as usize + *plugin as usize)
+            OpcodeClassPlain(class as usize + (*plugin) as usize)
         } else {
             OpcodeClassPlain(class as usize)
         }
@@ -640,7 +640,7 @@ impl InstructionTableInternal {
 }
 
 // Use Option because iid may be discontinuous
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InstructionTable(Arc<Vec<Vec<Option<InstructionTableEntry>>>>);
 
 impl InstructionTable {
@@ -677,6 +677,10 @@ impl InstructionTable {
             .collect();
 
         BrTable::new(entries.concat())
+    }
+
+    pub fn len(&self) -> usize {
+        self.iter().count()
     }
 }
 

@@ -81,6 +81,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-std"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
+dependencies = [
+ "num-traits",
+ "rand",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -304,7 +314,7 @@ version = "0.1.0"
 source = "git+https://github.com/DelphinusLab/continuation-batcher.git#7b486f9eef386c6262fe0d812cb62cc031c0c753"
 dependencies = [
  "anyhow",
- "ark-std",
+ "ark-std 0.3.0",
  "bitvec",
  "clap",
  "downcast-rs",
@@ -551,7 +561,7 @@ name = "delphinus-zkwasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std",
+ "ark-std 0.4.0",
  "bitvec",
  "cfg-if 1.0.0",
  "downcast-rs",
@@ -661,7 +671,7 @@ name = "ec-gpu-gen"
 version = "0.4.0"
 source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#784eda53754a5344f75e4b3c533361d628ad1402"
 dependencies = [
- "ark-std",
+ "ark-std 0.3.0",
  "bitvec",
  "crossbeam-channel",
  "ec-gpu",
@@ -983,7 +993,7 @@ name = "halo2_proofs"
 version = "0.1.0-beta.1"
 source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#64ccffddc97faff24a00d248270fe84f6693c130"
 dependencies = [
- "ark-std",
+ "ark-std 0.3.0",
  "blake2b_simd",
  "bumpalo",
  "cfg-if 0.1.10",
@@ -1011,7 +1021,7 @@ name = "halo2aggregator-s"
 version = "0.1.0"
 source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#953bbbd50ee05211e2395e69c9760095b80f6408"
 dependencies = [
- "ark-std",
+ "ark-std 0.3.0",
  "blake2b_simd",
  "halo2_proofs",
  "halo2ecc-s",
@@ -1860,9 +1870,9 @@ dependencies = [
 
 [[package]]
 name = "rayon"
-version = "1.7.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d2df5196e37bcc87abebc0053e20787d73847bb33134a69841207dd0a47f03b"
+checksum = "fa7237101a77a10773db45d62004a272517633fbcc3df19d96455ede1122e051"
 dependencies = [
  "either",
  "rayon-core",
@@ -1870,14 +1880,12 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.11.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b8f95bd6966f5c87776639160a66bd8ab9895d9d4ab01ddba9fc60661aebe8d"
+checksum = "1465873a3dfdaa8ae7cb14b4383657caab0b3e8a0aa9ae8e04b044854c8dfce2"
 dependencies = [
- "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-utils",
- "num_cpus",
 ]
 
 [[package]]
@@ -2290,11 +2298,13 @@ dependencies = [
 name = "specs"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 1.0.0",
  "halo2_proofs",
  "hex",
  "lazy_static",
  "num-bigint",
  "parity-wasm",
+ "rayon",
  "serde",
  "serde_json",
  "strum",
@@ -3095,7 +3105,7 @@ name = "zkwasm-host-circuits"
 version = "0.1.0"
 source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#61c52e13667291b360783139e85aa499458eb06d"
 dependencies = [
- "ark-std",
+ "ark-std 0.3.0",
  "cfg-if 1.0.0",
  "circuits-batcher",
  "clap",

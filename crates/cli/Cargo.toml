@@ -6,26 +6,31 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-std = { version = "0.3.0", features = ["print-trace"] }
+bincode = "1.3.3"
 env_logger = "0.9.3"
 log = "0.4.17"
 md5 = "0.7.0"
-notify = "6.0.1"
 sha2 = "0.10.6"
 specs = { path = "../specs" }
 clap = { version = "3.2.22", features = ["derive","cargo"] }
 hex = "0.4.3"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
+wabt = "0.10.0"
 delphinus-zkwasm = { path = "../zkwasm" }
 delphinus-host = { path = "../host" }
 anyhow.workspace = true
 halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 wasmi.workspace = true
-circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git" }
+circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git", branch = "polish-structure" }
+indicatif = "0.17.7"
+console = "0.15.8"
+cfg-if.workspace = true
 
 [features]
 default = []
+profile = ["delphinus-zkwasm/profile", "circuits-batcher/profile"]
 cuda = ["delphinus-zkwasm/cuda"]
 uniform-circuit = ["delphinus-zkwasm/uniform-circuit"]
+continuation = ["uniform-circuit", "delphinus-zkwasm/continuation", "specs/continuation"]

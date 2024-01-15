@@ -21,7 +21,7 @@ impl InstructionStatistic for Tables {
 
         let mut map = BTreeMap::<OpcodeClass, Counter>::new();
         for entry in self.execution_tables.etable.entries() {
-            let mut mentries = memory_event_of_step(entry, &mut 1);
+            let mut mentries = memory_event_of_step(entry);
 
             let opcode = &entry
                 .get_instruction(&self.compilation_tables.itable)
@@ -105,6 +105,6 @@ impl InstructionStatistic for Tables {
             })
             .collect::<BTreeMap<_, _>>();
 
-        println!("{:?}", summary);
+        debug!("{:?}", summary);
     }
 }

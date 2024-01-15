@@ -1,10 +1,6 @@
-use std::collections::HashSet;
-
 use serde::Deserialize;
 use serde::Serialize;
 use strum_macros::EnumIter;
-
-use crate::imtable::InitMemoryTable;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 pub enum LocationType {
@@ -123,13 +119,6 @@ impl MemoryReadSize {
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
 pub struct MemoryTableEntry {
     pub eid: u32,
-    /*
-       Emid is sub memory op id of eid.
-       E.g. an opcode gets a value from stack top and changes it.
-       This event has two memory ops on the same memory address,
-       So we need emid to seq the r/w op, which is an incremental value starting from 1.
-    */
-    pub emid: u32,
     pub offset: u32,
     pub ltype: LocationType,
     pub atype: AccessType,
@@ -156,46 +145,11 @@ impl MTable {
         serde_json::to_string(self).unwrap()
     }
 
-    pub fn new(entries: Vec<MemoryTableEntry>, imtable: &InitMemoryTable) -> Self {
-        let mut mtable = MTable(entries);
-
-        mtable.push_accessed_memory_initialization(imtable);
-        mtable.sort();
-
-        mtable
-    }
-
-    fn push_accessed_memory_initialization(&mut self, imtable: &InitMemoryTable) {
-        let mut set = HashSet::<MemoryTableEntry>::default();
-
-        self.0.iter().for_each(|entry| {
-            if entry.ltype == LocationType::Heap || entry.ltype == LocationType::Global {
-                let (_, _, value) = imtable.try_find(entry.ltype, entry.offset).unwrap();
-
-                set.insert(MemoryTableEntry {
-                    eid: 0,
-                    emid: 0,
-                    offset: entry.offset,
-                    ltype: entry.ltype,
-                    atype: AccessType::Init,
-                    vtype: entry.vtype,
-                    is_mutable: entry.is_mutable,
-                    value,
-                });
-            }
-        });
-
-        let mut entries = set.into_iter().collect();
-
-        self.0.append(&mut entries);
-    }
-
-    fn sort(&mut self) {
-        self.0
-            .sort_by_key(|item| (item.ltype, item.offset, item.eid, item.emid))
-    }
-
     pub fn entries(&self) -> &Vec<MemoryTableEntry> {
         &self.0
+    }
+
+    pub(crate) fn new(entries: Vec<MemoryTableEntry>) -> MTable {
+        MTable(entries)
     }
 }

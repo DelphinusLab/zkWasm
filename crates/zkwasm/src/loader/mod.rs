@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
 use halo2aggregator_s::transcript::poseidon::PoseidonRead;
-
+use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::tracer::Tracer;
@@ -25,6 +25,7 @@ use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
+use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::loader::err::Error;
@@ -47,7 +48,7 @@ pub struct ExecutionReturn {
 }
 
 pub struct ZkWasmLoader<E: MultiMillerLoop, Arg, EnvBuilder: HostEnvBuilder<Arg = Arg>> {
-    k: u32,
+    pub k: u32,
     module: wasmi::Module,
     phantom_functions: Vec<String>,
     _mark: PhantomData<(Arg, EnvBuilder, E)>,
@@ -101,23 +102,30 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         )
     }
 
-    fn circuit_without_witness(
+    pub fn circuit_without_witness(
         &self,
         envconfig: EnvBuilder::HostConfig,
+        is_last_slice: bool,
     ) -> Result<ZkWasmCircuit<E::Scalar>> {
-        let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
+        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
 
         let compiled_module = self.compile(&env, true)?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
-                compilation_tables: compiled_module.tables,
+                compilation_tables: compiled_module.tables.clone(),
                 execution_tables: ExecutionTable::default(),
+                post_image_table: compiled_module.tables,
+                is_last_slice,
             },
-            public_inputs_and_outputs: wasm_runtime_io.public_inputs_and_outputs.borrow().clone(),
         };
 
-        Ok(builder.build_circuit::<E::Scalar>())
+        #[cfg(feature = "continuation")]
+        let slice_capabitlity = Some(self.compute_slice_capability());
+        #[cfg(not(feature = "continuation"))]
+        let slice_capabitlity = None;
+
+        Ok(builder.build_circuit::<E::Scalar>(slice_capabitlity))
     }
 
     /// Create a ZkWasm Loader
@@ -151,27 +159,26 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn create_vkey(
         &self,
         params: &Params<E::G1Affine>,
-        envconfig: EnvBuilder::HostConfig,
+        circuit: &ZkWasmCircuit<E::Scalar>,
     ) -> Result<VerifyingKey<E::G1Affine>> {
-        let circuit = self.circuit_without_witness(envconfig)?;
-
-        Ok(keygen_vk(&params, &circuit).unwrap())
+        Ok(keygen_vk(&params, circuit).unwrap())
     }
 
-    pub fn checksum(
+    pub fn checksum<'a>(
         &self,
-        params: &Params<E::G1Affine>,
+        params: &'a Params<E::G1Affine>,
         envconfig: EnvBuilder::HostConfig,
     ) -> Result<Vec<E::G1Affine>> {
-        let (env, _) = EnvBuilder::create_env_without_value(envconfig);
-        let compiled = self.compile(&env, true)?;
+        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
+
+        let compiled_module = self.compile(&env, true)?;
 
         let table_with_params = CompilationTableWithParams {
-            table: &compiled.tables,
+            table: &compiled_module.tables,
             params,
         };
 
-        Ok(table_with_params.checksum())
+        Ok(table_with_params.checksum(compute_maximal_pages(self.k)))
     }
 }
 
@@ -181,17 +188,12 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         arg: T,
         config: EnvBuilder::HostConfig,
         dryrun: bool,
-        write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
         let compiled_module = self.compile(&env, dryrun)?;
         let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
         if !dryrun {
             result.tables.profile_tables();
-
-            if write_to_file {
-                result.tables.write_json(None);
-            }
         }
 
         Ok(result)
@@ -211,10 +213,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
-            public_inputs_and_outputs: execution_result.public_inputs_and_outputs.clone(),
         };
 
-        Ok((builder.build_circuit(), instance))
+        Ok((builder.build_circuit(None), instance))
     }
 
     pub fn mock_test(
@@ -254,11 +255,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
     pub fn verify_proof(
         &self,
+        _image: &CompilationTable,
         params: &Params<E::G1Affine>,
         vkey: VerifyingKey<E::G1Affine>,
-        instances: Vec<E::Scalar>,
+        instances: &Vec<E::Scalar>,
         proof: Vec<u8>,
-        #[cfg(feature = "uniform-circuit")] config: EnvBuilder::HostConfig,
     ) -> Result<()> {
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
@@ -277,22 +278,24 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             use crate::circuits::image_table::IMAGE_COL_NAME;
             use halo2_proofs::plonk::get_advice_commitments_from_transcript;
 
-            let img_col_idx = vkey
+            let _img_col_idx = vkey
                 .cs
                 .named_advices
                 .iter()
                 .find(|(k, _)| k == IMAGE_COL_NAME)
                 .unwrap()
                 .1;
-            let img_col_commitment: Vec<E::G1Affine> =
+            let _img_col_commitment: Vec<E::G1Affine> =
                 get_advice_commitments_from_transcript::<E, _, _>(
                     &vkey,
                     &mut PoseidonRead::init(&proof[..]),
                 )
                 .unwrap();
-            let checksum = self.checksum(params, config)?;
+            // let checksum = self.checksum(image, params)?;
+            // todo!("compute checksum");
 
-            assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
+            // assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
+            // todo!("assert");
         }
 
         Ok(())
@@ -319,7 +322,7 @@ mod tests {
     use super::ZkWasmLoader;
 
     impl ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder> {
-        pub(crate) fn bench_test(&self, circuit: ZkWasmCircuit<Fr>, instances: Vec<Fr>) {
+        pub(crate) fn bench_test(&self, circuit: ZkWasmCircuit<Fr>, instances: &Vec<Fr>) {
             fn prepare_param(k: u32) -> Params<G1Affine> {
                 let path = PathBuf::from(format!("test_param.{}.data", k));
 
@@ -343,12 +346,19 @@ mod tests {
             }
 
             let params = prepare_param(self.k);
-            let vkey = self.create_vkey(&params, ()).unwrap();
+            let vkey = self.create_vkey(&params, &circuit).unwrap();
 
             let proof = self
-                .create_proof(&params, vkey.clone(), circuit, &instances)
+                .create_proof(&params, vkey.clone(), circuit.clone(), &instances)
                 .unwrap();
-            self.verify_proof(&params, vkey, instances, proof).unwrap();
+            self.verify_proof(
+                &circuit.tables.compilation_tables,
+                &params,
+                vkey,
+                instances,
+                proof,
+            )
+            .unwrap();
         }
     }
 }

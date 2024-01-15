@@ -1,273 +1,280 @@
-use anyhow::Result;
-use clap::App;
-use clap::AppSettings;
-use delphinus_host::ExecutionArg as StandardArg;
-use delphinus_host::HostEnvConfig;
-use delphinus_host::StandardHostEnvBuilder as StandardEnvBuilder;
-use delphinus_zkwasm::circuits::config::MIN_K;
-use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
-use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
-
-use log::info;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::Mutex;
+
+use clap::arg;
+use clap::command;
+use clap::value_parser;
+use clap::App;
+use clap::Arg;
+use clap::ArgAction;
+use clap::ArgMatches;
+use clap::Command;
+use clap::ValueHint;
 
 use crate::args::HostMode;
-use crate::exec::exec_dry_run;
+use crate::command::DryRunArg;
+use crate::command::ProveArg;
+use crate::command::RunningArg;
+use crate::command::SetupArg;
+use crate::command::Subcommands;
+use crate::command::VerifyArg;
+use crate::ZkWasmCli;
 
-use super::command::CommandBuilder;
-use super::exec::exec_create_proof;
-use super::exec::exec_image_checksum;
-use super::exec::exec_setup;
-use super::exec::exec_verify_proof;
+trait ArgBuilder<T> {
+    fn builder() -> Arg<'static>;
+    fn parse(matches: &ArgMatches) -> T;
+}
 
-fn load_or_generate_output_path(
-    wasm_md5: &String,
-    path: Option<&PathBuf>,
-    path_name: &String,
-) -> PathBuf {
-    if let Some(path) = path {
-        path.clone()
+struct WasmImageArg;
+impl ArgBuilder<Option<PathBuf>> for WasmImageArg {
+    fn builder() -> Arg<'static> {
+        arg!(
+            --wasm <WASM> "Path to the Wasm image"
+        )
+        .value_parser(value_parser!(PathBuf))
+        .value_hint(ValueHint::FilePath)
+    }
+
+    fn parse(matches: &ArgMatches) -> Option<PathBuf> {
+        matches.get_one::<PathBuf>("wasm").cloned()
+    }
+}
+
+struct OutputDirArg;
+impl ArgBuilder<PathBuf> for OutputDirArg {
+    fn builder() -> Arg<'static> {
+        arg!(-o --output <OUTPUT> "Path to output directory")
+            .value_parser(value_parser!(PathBuf))
+            .value_hint(ValueHint::DirPath)
+    }
+
+    fn parse(matches: &ArgMatches) -> PathBuf {
+        matches.get_one::<PathBuf>("output").cloned().unwrap()
+    }
+}
+
+struct PublicInputsArg;
+impl ArgBuilder<Vec<String>> for PublicInputsArg {
+    fn builder() -> Arg<'static> {
+        arg!(--public <PUBLIC_INPUT> ... "Public inputs with format value:type where type=i64|bytes|bytes-packed, values can be seperated by `,` or multiple occurrence of `--public`")
+     .takes_value(true).value_delimiter(',').required(false)
+    }
+
+    fn parse(matches: &ArgMatches) -> Vec<String> {
+        matches
+            .get_many::<String>("public")
+            .unwrap_or_default()
+            .map(|s| s.to_string())
+            .collect()
+    }
+}
+
+struct PrivateInputsArg;
+impl ArgBuilder<Vec<String>> for PrivateInputsArg {
+    fn builder() -> Arg<'static> {
+        arg!(--private <PRIVATE_INPUT> ... "Private inputs with format value:type where type=i64|bytes|bytes-packed, values can be seperated by `,` or multiple occurrence of `--private`")
+       .takes_value(true).value_delimiter(',').required(false)
+    }
+
+    fn parse(matches: &ArgMatches) -> Vec<String> {
+        matches
+            .get_many::<String>("private")
+            .unwrap_or_default()
+            .map(|s| s.to_string())
+            .collect()
+    }
+}
+
+struct ContextInputsArg;
+impl ArgBuilder<Vec<String>> for ContextInputsArg {
+    fn builder() -> Arg<'static> {
+        arg!(--ctxin <CONTEXT_INPUT> ... "Context inputs with format value:type where type=i64|bytes|bytes-packed, values can be seperated by `,` or multiple occurrence of `--ctxin`")
+       .takes_value(true).value_delimiter(',').required(false)
+    }
+
+    fn parse(matches: &ArgMatches) -> Vec<String> {
+        matches
+            .get_many::<String>("ctxin")
+            .unwrap_or_default()
+            .map(|s| s.to_string())
+            .collect()
+    }
+}
+
+struct ContextOutputArg;
+impl ArgBuilder<Option<String>> for ContextOutputArg {
+    fn builder() -> Arg<'static> {
+        arg!(--ctxout [CONTEXT_OUTPUT] "Path to context output")
+    }
+
+    fn parse(matches: &ArgMatches) -> Option<String> {
+        matches.get_one("ctxout").cloned()
+    }
+}
+
+struct MockTestArg;
+impl ArgBuilder<bool> for MockTestArg {
+    fn builder() -> Arg<'static> {
+        arg!(-m --mock "Enable mock test before proving").action(ArgAction::SetTrue)
+    }
+
+    fn parse(matches: &ArgMatches) -> bool {
+        matches.get_flag("mock")
+    }
+}
+
+fn setup_command() -> Command<'static> {
+    let command = Command::new("setup")
+        .about("Setup a new zkWasm circuit for provided Wasm image")
+        .arg(
+            arg!(-k <K> "Size of the circuit.")
+                .default_value(if cfg!(feature = "continuation") {
+                    "22"
+                } else {
+                    "18"
+                })
+                .value_parser(value_parser!(u32).range(18..))
+                .required(false),
+        )
+        .arg(
+            arg!(
+                --host <HOST_MODE> "Specify execution host envionment for the runtime"
+            )
+            .default_value("default")
+            .value_parser(value_parser!(HostMode))
+            .required(false),
+        )
+        .arg(
+            arg!(
+                --phantom <PHANTOM_FUNCTIONS> "Specify phantom functions whose body will be ignored in the circuit"
+            ).takes_value(true)
+            .value_delimiter(',')
+            .required(false)
+        );
+
+    let command = if cfg!(not(feature = "uniform-circuit")) {
+        command.arg(WasmImageArg::builder())
     } else {
-        info!("{} path is not provided, set to {}", path_name, wasm_md5);
+        command
+    };
 
-        PathBuf::from(wasm_md5)
-    }
+    command
 }
 
-pub fn write_context_output(
-    context_output: &Vec<u64>,
-    context_out_path: Option<PathBuf>,
-) -> Result<()> {
-    if let Some(path) = context_out_path {
-        let mut fd = fs::File::create(path.as_path())?;
-        fd.write_all("0x".as_bytes())?;
+fn dry_run_command() -> Command<'static> {
+    Command::new("dry-run")
+        .about("Execute the Wasm image without generating a proof")
+        .arg(WasmImageArg::builder())
+        .arg(PublicInputsArg::builder())
+        .arg(PrivateInputsArg::builder())
+        .arg(ContextInputsArg::builder())
+        .arg(ContextOutputArg::builder())
+        .arg(OutputDirArg::builder())
+}
 
-        for value in context_output {
-            let bytes = value.to_le_bytes();
-            let s = hex::encode(bytes);
-            fd.write_all(&s.as_bytes())?;
+fn prove_command() -> Command<'static> {
+    Command::new("prove")
+        .about("Execute the Wasm image and generate a proof")
+        .arg(WasmImageArg::builder())
+        .arg(PublicInputsArg::builder())
+        .arg(PrivateInputsArg::builder())
+        .arg(ContextInputsArg::builder())
+        .arg(ContextOutputArg::builder())
+        .arg(OutputDirArg::builder())
+        .arg(MockTestArg::builder())
+}
+
+fn verify_command() -> Command<'static> {
+    Command::new("verify")
+        .about("Verify the proof")
+        .arg(OutputDirArg::builder())
+}
+
+pub(crate) fn app() -> App<'static> {
+    command!()
+        .author("delphinus-lab")
+        .arg(arg!(<NAME> "Name of the configuration."))
+        .arg(
+            arg!(
+                --params <PARAMS> "Directory to setup params and configuration."
+            )
+            .value_parser(value_parser!(PathBuf)),
+        )
+        .subcommand(setup_command())
+        .subcommand(dry_run_command())
+        .subcommand(prove_command())
+        .subcommand(verify_command())
+        .subcommand_required(true)
+}
+
+impl Into<SetupArg> for &ArgMatches {
+    fn into(self) -> SetupArg {
+        SetupArg {
+            k: *self.get_one::<u32>("K").unwrap(),
+            host_mode: *self.get_one::<HostMode>("host").unwrap(),
+            phantom_functions: self
+                .get_many::<String>("phantom")
+                .unwrap_or_default()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>(),
+            wasm_image: WasmImageArg::parse(self),
         }
-
-        fd.write_all(":bytes-packed".as_bytes())?;
     }
-
-    Ok(())
 }
 
-pub trait AppBuilder: CommandBuilder {
-    const NAME: &'static str;
-    const VERSION: &'static str;
-    const AGGREGATE_K: u32;
-    const N_PROOFS: usize;
-    const MAX_PUBLIC_INPUT_SIZE: usize;
-
-    fn app_builder<'a>() -> App<'a> {
-        let app = App::new(Self::NAME)
-            .version(Self::VERSION)
-            .setting(AppSettings::SubcommandRequired)
-            .arg(Self::zkwasm_k_arg())
-            .arg(Self::output_path_arg())
-            .arg(Self::param_path_arg())
-            .arg(Self::function_name_arg())
-            .arg(Self::phantom_functions_arg())
-            .arg(Self::zkwasm_file_arg())
-            .arg(Self::host_mode_arg());
-
-        let app = Self::append_setup_subcommand(app);
-        let app = Self::append_dry_run_subcommand(app);
-        let app = Self::append_create_single_proof_subcommand(app);
-        let app = Self::append_verify_single_proof_subcommand(app);
-        let app = Self::append_image_checksum_subcommand(app);
-
-        app
+impl Into<RunningArg> for &ArgMatches {
+    fn into(self) -> RunningArg {
+        RunningArg {
+            output_dir: OutputDirArg::parse(self),
+            public_inputs: PublicInputsArg::parse(self),
+            private_inputs: PrivateInputsArg::parse(self),
+            context_inputs: ContextInputsArg::parse(self),
+            context_output: ContextOutputArg::parse(self),
+        }
     }
+}
 
-    fn exec(command: App) -> Result<()> {
-        env_logger::init();
+impl Into<DryRunArg> for &ArgMatches {
+    fn into(self) -> DryRunArg {
+        DryRunArg {
+            wasm_image: WasmImageArg::parse(self).unwrap(),
+            running_arg: self.into(),
+        }
+    }
+}
 
-        let top_matches = command.get_matches();
+impl Into<ProveArg> for &ArgMatches {
+    fn into(self) -> ProveArg {
+        ProveArg {
+            wasm_image: WasmImageArg::parse(self).unwrap(),
+            output_dir: OutputDirArg::parse(self),
+            running_arg: self.into(),
+            mock_test: MockTestArg::parse(self),
+        }
+    }
+}
 
-        let zkwasm_k = Self::parse_zkwasm_k_arg(&top_matches).unwrap_or(MIN_K);
+impl Into<VerifyArg> for &ArgMatches {
+    fn into(self) -> VerifyArg {
+        VerifyArg {
+            output_dir: OutputDirArg::parse(self),
+        }
+    }
+}
 
-        let wasm_file_path = Self::parse_zkwasm_file_arg(&top_matches);
-        let wasm_binary = fs::read(&wasm_file_path).unwrap();
+impl Into<ZkWasmCli> for ArgMatches {
+    fn into(self) -> ZkWasmCli {
+        let subcommand = match self.subcommand() {
+            Some(("setup", sub_matches)) => Subcommands::Setup(sub_matches.into()),
+            Some(("dry-run", sub_matches)) => Subcommands::DryRun(sub_matches.into()),
+            Some(("prove", sub_matches)) => Subcommands::Prove(sub_matches.into()),
+            Some(("verify", sub_matches)) => Subcommands::Verify(sub_matches.into()),
+            _ => unreachable!("unknown subcommand"),
+        };
 
-        let function_name = Self::parse_function_name(&top_matches);
-        assert_eq!(function_name, "zkmain");
-
-        let md5 = format!("{:X}", md5::compute(&wasm_binary));
-        let phantom_functions = Self::parse_phantom_functions(&top_matches);
-
-        let param_dir_name = "param".to_string();
-        let param_dir = load_or_generate_output_path(
-            &md5,
-            top_matches.get_one::<PathBuf>(&param_dir_name),
-            &param_dir_name,
-        );
-
-        let output_dir_name = "output".to_string();
-        let output_dir = load_or_generate_output_path(
-            &md5,
-            top_matches.get_one::<PathBuf>(&output_dir_name),
-            &output_dir_name,
-        );
-
-        fs::create_dir_all(&output_dir)?;
-        fs::create_dir_all(&param_dir)?;
-
-        let host_mode = Self::parse_host_mode(&top_matches);
-
-        match top_matches.subcommand() {
-            Some(("setup", _)) => match host_mode {
-                HostMode::DEFAULT => exec_setup::<DefaultHostEnvBuilder>(
-                    zkwasm_k,
-                    Self::AGGREGATE_K,
-                    Self::NAME,
-                    wasm_binary,
-                    phantom_functions,
-                    (),
-                    &output_dir,
-                    &param_dir,
-                ),
-                HostMode::STANDARD => exec_setup::<StandardEnvBuilder>(
-                    zkwasm_k,
-                    Self::AGGREGATE_K,
-                    Self::NAME,
-                    wasm_binary,
-                    phantom_functions,
-                    HostEnvConfig::default(),
-                    &output_dir,
-                    &param_dir,
-                ),
-            },
-
-            Some(("checksum", _)) => match host_mode {
-                HostMode::DEFAULT => exec_image_checksum::<DefaultHostEnvBuilder>(
-                    zkwasm_k,
-                    wasm_binary,
-                    (),
-                    phantom_functions,
-                    &output_dir,
-                ),
-                HostMode::STANDARD => exec_image_checksum::<StandardEnvBuilder>(
-                    zkwasm_k,
-                    wasm_binary,
-                    HostEnvConfig::default(),
-                    phantom_functions,
-                    &output_dir,
-                ),
-            },
-
-            Some(("dry-run", sub_matches)) => {
-                let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
-                let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
-                let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
-                let context_out_path: Option<PathBuf> =
-                    Self::parse_context_out_path_arg(&sub_matches);
-                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
-
-                let context_output = Arc::new(Mutex::new(vec![]));
-
-                match host_mode {
-                    HostMode::DEFAULT => {
-                        exec_dry_run::<DefaultHostEnvBuilder>(
-                            zkwasm_k,
-                            wasm_binary,
-                            phantom_functions,
-                            ExecutionArg {
-                                public_inputs,
-                                private_inputs,
-                                context_inputs: context_in,
-                                context_outputs: context_output.clone(),
-                            },
-                            (),
-                        )?;
-                    }
-                    HostMode::STANDARD => {
-                        exec_dry_run::<StandardEnvBuilder>(
-                            zkwasm_k,
-                            wasm_binary,
-                            phantom_functions,
-                            StandardArg {
-                                public_inputs,
-                                private_inputs,
-                                context_inputs: context_in,
-                                context_outputs: context_output.clone(),
-                                indexed_witness: Rc::new(RefCell::new(HashMap::new())),
-                                tree_db: None,
-                            },
-                            HostEnvConfig::default(),
-                        )?;
-                    }
-                };
-
-                write_context_output(&context_output.lock().unwrap(), context_out_path)?;
-                Ok(())
-            }
-
-            Some(("single-prove", sub_matches)) => {
-                let public_inputs: Vec<u64> = Self::parse_single_public_arg(&sub_matches);
-                let private_inputs: Vec<u64> = Self::parse_single_private_arg(&sub_matches);
-                let context_in: Vec<u64> = Self::parse_context_in_arg(&sub_matches);
-                let context_out_path: Option<PathBuf> =
-                    Self::parse_context_out_path_arg(&sub_matches);
-
-                let context_out = Arc::new(Mutex::new(vec![]));
-
-                assert!(public_inputs.len() <= Self::MAX_PUBLIC_INPUT_SIZE);
-                match host_mode {
-                    HostMode::DEFAULT => {
-                        exec_create_proof::<DefaultHostEnvBuilder>(
-                            Self::NAME,
-                            zkwasm_k,
-                            wasm_binary,
-                            phantom_functions,
-                            &output_dir,
-                            &param_dir,
-                            ExecutionArg {
-                                public_inputs,
-                                private_inputs,
-                                context_inputs: context_in,
-                                context_outputs: context_out.clone(),
-                            },
-                            (),
-                        )?;
-                    }
-                    HostMode::STANDARD => {
-                        exec_create_proof::<StandardEnvBuilder>(
-                            Self::NAME,
-                            zkwasm_k,
-                            wasm_binary,
-                            phantom_functions,
-                            &output_dir,
-                            &param_dir,
-                            StandardArg {
-                                public_inputs,
-                                private_inputs,
-                                context_inputs: context_in,
-                                context_outputs: context_out.clone(),
-                                indexed_witness: Rc::new(RefCell::new(HashMap::new())),
-                                tree_db: None,
-                            },
-                            HostEnvConfig::default(),
-                        )?;
-                    }
-                };
-
-                write_context_output(&context_out.lock().unwrap(), context_out_path)?;
-
-                Ok(())
-            }
-            Some(("single-verify", _)) => exec_verify_proof(Self::NAME, &output_dir, &param_dir),
-            Some((_, _)) => todo!(),
-            None => todo!(),
+        ZkWasmCli {
+            name: self.get_one::<String>("NAME").unwrap().to_owned(),
+            params_dir: self.get_one::<PathBuf>("params").unwrap().to_owned(),
+            subcommand,
         }
     }
 }

@@ -1,22 +1,25 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
-use crate::circuits::config::zkwasm_k;
-use crate::runtime::memory_event_of_step;
 use anyhow::Result;
 use specs::host_function::HostFunctionDesc;
+use specs::itable::InstructionTable;
 use specs::jtable::StaticFrameEntry;
-use specs::mtable::MTable;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
+use specs::state::InitializationState;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
+use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::host::host_env::ExecEnv;
 use super::host::host_env::HostEnv;
+use super::state::UpdateCompilationTable;
 use super::CompiledImage;
 use super::ExecutionResult;
 
@@ -67,31 +70,40 @@ impl Execution<RuntimeValue>
         let execution_tables = if !dryrun {
             let tracer = self.tracer.borrow();
 
-            let mtable = {
-                let mentries = tracer
-                    .etable
-                    .entries()
-                    .iter()
-                    .map(|eentry| memory_event_of_step(eentry, &mut 1))
-                    .collect::<Vec<Vec<_>>>()
-                    .concat();
-
-                MTable::new(mentries, &self.tables.imtable)
-            };
-
             ExecutionTable {
                 etable: tracer.etable.clone(),
-                mtable,
-                jtable: tracer.jtable.clone(),
+                jtable: Arc::new(tracer.jtable.clone()),
             }
         } else {
             ExecutionTable::default()
         };
 
+        let updated_init_memory_table = self
+            .tables
+            .update_init_memory_table(&execution_tables.etable.entries());
+
+        let post_image_table = if !dryrun {
+            CompilationTable {
+                itable: self.tables.itable.clone(),
+                imtable: updated_init_memory_table,
+                br_table: self.tables.br_table.clone(),
+                elem_table: self.tables.elem_table.clone(),
+                configure_table: self.tables.configure_table.clone(),
+                static_jtable: self.tables.static_jtable.clone(),
+                initialization_state: self
+                    .tables
+                    .update_initialization_state(&execution_tables.etable.entries(), None),
+            }
+        } else {
+            self.tables.clone()
+        };
+
         Ok(ExecutionResult {
             tables: Tables {
-                compilation_tables: self.tables.clone(),
+                compilation_tables: self.tables,
                 execution_tables,
+                post_image_table,
+                is_last_slice: true,
             },
             result,
             host_statics: exec_env.host_env.external_env.get_statics(),
@@ -140,20 +152,27 @@ impl WasmiRuntime {
                     iid: 0,
                 });
 
-            if let Some(idx_of_start_function) = module.module().start_section() {
-                tracer
-                    .clone()
-                    .borrow_mut()
-                    .static_jtable_entries
-                    .push(StaticFrameEntry {
+            tracer.as_ref().borrow_mut().static_jtable_entries.push(
+                if let Some(idx_of_start_function) = module.module().start_section() {
+                    StaticFrameEntry {
                         enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
                         callee_fid: idx_of_start_function,
                         fid: idx_of_entry,
                         iid: 0,
-                    });
-            }
+                    }
+                } else {
+                    StaticFrameEntry {
+                        enable: false,
+                        frame_id: 0,
+                        next_frame_id: 0,
+                        callee_fid: 0,
+                        fid: 0,
+                        iid: 0,
+                    }
+                },
+            );
 
             if instance.has_start() {
                 module.module().start_section().unwrap()
@@ -162,21 +181,51 @@ impl WasmiRuntime {
             }
         };
 
-        let itable = tracer.borrow().itable.clone().into();
-        let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
-        let elem_table = tracer.borrow().elem_table.clone();
-        let configure_table = tracer.borrow().configure_table.clone();
-        let static_jtable = tracer.borrow().static_jtable_entries.clone();
+        let itable: InstructionTable = tracer.borrow().itable.clone().into();
+        let imtable = tracer.borrow().imtable.finalized();
+        let br_table = Arc::new(itable.create_brtable());
+        let elem_table = Arc::new(tracer.borrow().elem_table.clone());
+        let configure_table = Arc::new(tracer.borrow().configure_table.clone());
+        let static_jtable = Arc::new(
+            tracer
+                .borrow()
+                .static_jtable_entries
+                .clone()
+                .try_into()
+                .expect(&format!(
+                    "The number of static frame entries should be {}",
+                    STATIC_FRAME_ENTRY_NUMBER
+                )),
+        );
+        let initialization_state = InitializationState {
+            eid: 1,
+            fid: fid_of_entry,
+            iid: 0,
+            frame_id: 0,
+            sp: DEFAULT_VALUE_STACK_LIMIT as u32 - 1,
+
+            host_public_inputs: 1,
+            context_in_index: 1,
+            context_out_index: 1,
+            external_host_call_call_index: 1,
+
+            initial_memory_pages: configure_table.init_memory_pages,
+            maximal_memory_pages: configure_table.maximal_memory_pages,
+
+            #[cfg(feature = "continuation")]
+            jops: 0,
+        };
 
         Ok(CompiledImage {
             entry: entry.to_owned(),
             tables: CompilationTable {
-                itable,
+                itable: Arc::new(itable),
                 imtable,
+                br_table,
                 elem_table,
                 configure_table,
                 static_jtable,
-                fid_of_entry,
+                initialization_state,
             },
             instance,
             tracer,

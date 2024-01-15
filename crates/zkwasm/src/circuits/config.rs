@@ -26,7 +26,3 @@ pub fn zkwasm_k() -> u32 {
 pub fn init_zkwasm_runtime(k: u32) {
     set_zkwasm_k(k);
 }
-
-pub(crate) fn max_image_table_rows() -> u32 {
-    8192
-}

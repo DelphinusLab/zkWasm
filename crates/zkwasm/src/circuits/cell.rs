@@ -78,6 +78,12 @@ impl<F: FieldExt> AllocatedU64Cell<F> {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub(crate) struct AllocatedU32Cell<F: FieldExt> {
+    pub(crate) u16_cells_le: [AllocatedU16Cell<F>; 2],
+    pub(crate) u32_cell: AllocatedUnlimitedCell<F>,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedU64CellWithFlagBitDyn<F: FieldExt> {
     pub(crate) u16_cells_le: [AllocatedU16Cell<F>; 4],
     pub(crate) u64_cell: AllocatedUnlimitedCell<F>,
@@ -131,6 +137,27 @@ define_cell!(
 define_cell!(AllocatedU8Cell, F::from(u8::MAX as u64));
 define_cell!(AllocatedU16Cell, F::from(u16::MAX as u64));
 define_cell!(AllocatedUnlimitedCell, -F::one());
+
+impl<F: FieldExt> AllocatedU32Cell<F> {
+    pub(crate) fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.u32_cell.curr_expr(meta)
+    }
+
+    pub(crate) fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.expr(meta)
+    }
+
+    pub(crate) fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        value: u32,
+    ) -> Result<AssignedCell<F, F>, Error> {
+        for i in 0..2 {
+            self.u16_cells_le[i].assign(ctx, (((value >> (i * 16)) & 0xffffu32) as u64).into())?;
+        }
+        self.u32_cell.assign(ctx, (value as u64).into())
+    }
+}
 
 impl<F: FieldExt> AllocatedU64Cell<F> {
     pub(crate) fn assign(&self, ctx: &mut Context<'_, F>, value: u64) -> Result<(), Error> {
