@@ -101,7 +101,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         )
     }
 
-    fn circuit_without_witness(
+    pub fn circuit_without_witness(
         &self,
         envconfig: EnvBuilder::HostConfig,
     ) -> Result<TestCircuit<E::Scalar>> {
@@ -151,11 +151,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn create_vkey(
         &self,
         params: &Params<E::G1Affine>,
-        envconfig: EnvBuilder::HostConfig,
+        circuit: &TestCircuit<E::Scalar>,
     ) -> Result<VerifyingKey<E::G1Affine>> {
-        let circuit = self.circuit_without_witness(envconfig)?;
-
-        Ok(keygen_vk(&params, &circuit).unwrap())
+        Ok(keygen_vk(&params, circuit).unwrap())
     }
 
     pub fn checksum(
@@ -181,17 +179,12 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         arg: T,
         config: EnvBuilder::HostConfig,
         dryrun: bool,
-        write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
         let compiled_module = self.compile(&env, dryrun)?;
         let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
         if !dryrun {
             result.tables.profile_tables();
-
-            if write_to_file {
-                result.tables.write_json(None);
-            }
         }
 
         Ok(result)
@@ -343,7 +336,7 @@ mod tests {
             }
 
             let params = prepare_param(self.k);
-            let vkey = self.create_vkey(&params, ()).unwrap();
+            let vkey = self.create_vkey(&params, &circuit).unwrap();
 
             let proof = self
                 .create_proof(&params, vkey.clone(), circuit, &instances)

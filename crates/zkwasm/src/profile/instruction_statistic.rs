@@ -105,6 +105,6 @@ impl InstructionStatistic for Tables {
             })
             .collect::<BTreeMap<_, _>>();
 
-        println!("{:?}", summary);
+        debug!("{:?}", summary);
     }
 }
