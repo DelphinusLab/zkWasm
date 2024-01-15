@@ -181,17 +181,12 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         arg: T,
         config: EnvBuilder::HostConfig,
         dryrun: bool,
-        write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
         let compiled_module = self.compile(&env, dryrun)?;
         let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
         if !dryrun {
             result.tables.profile_tables();
-
-            if write_to_file {
-                result.tables.write_json(None);
-            }
         }
 
         Ok(result)

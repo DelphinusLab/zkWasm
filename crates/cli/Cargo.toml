@@ -10,7 +10,6 @@ ark-std = { version = "0.3.0", features = ["print-trace"] }
 env_logger = "0.9.3"
 log = "0.4.17"
 md5 = "0.7.0"
-notify = "6.0.1"
 sha2 = "0.10.6"
 specs = { path = "../specs" }
 clap = { version = "3.2.22", features = ["derive","cargo"] }
@@ -24,6 +23,8 @@ halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 wasmi.workspace = true
 circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git" }
+indicatif = "0.17.7"
+console = "0.15.8"
 
 [features]
 default = []

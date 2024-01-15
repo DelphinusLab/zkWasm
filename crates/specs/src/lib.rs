@@ -2,7 +2,7 @@
 #![deny(unused_imports)]
 #![deny(dead_code)]
 
-use std::env;
+use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -58,12 +58,10 @@ pub struct Tables {
 }
 
 impl Tables {
-    pub fn write_json(&self, dir: Option<PathBuf>) {
+    pub fn write(&self, dir: &PathBuf) {
         fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
-            let mut folder = folder.clone();
-            folder.push(filename);
-            let mut fd = std::fs::File::create(folder.as_path()).unwrap();
-            folder.pop();
+            let folder = folder.join(filename);
+            let mut fd = File::create(folder.as_path()).unwrap();
 
             fd.write(buf.as_bytes()).unwrap();
         }
@@ -81,12 +79,11 @@ impl Tables {
         let mtable = serde_json::to_string_pretty(&self.execution_tables.mtable).unwrap();
         let jtable = serde_json::to_string_pretty(&self.execution_tables.jtable).unwrap();
 
-        let dir = dir.unwrap_or(env::current_dir().unwrap());
-        write_file(&dir, "itable.json", &itable);
-        write_file(&dir, "imtable.json", &imtable);
-        write_file(&dir, "etable.json", &etable);
-        write_file(&dir, "mtable.json", &mtable);
-        write_file(&dir, "jtable.json", &jtable);
-        write_file(&dir, "external_host_table.json", &external_host_call_table);
+        write_file(dir, "itable.json", &itable);
+        write_file(dir, "imtable.json", &imtable);
+        write_file(dir, "etable.json", &etable);
+        write_file(dir, "mtable.json", &mtable);
+        write_file(dir, "jtable.json", &jtable);
+        write_file(dir, "external_host_table.json", &external_host_call_table);
     }
 }

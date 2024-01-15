@@ -1,8 +1,8 @@
-pub fn parse_args(values: Vec<&str>) -> Vec<u64> {
+pub fn parse_args<T: AsRef<str>>(values: &[T]) -> Vec<u64> {
     values
         .into_iter()
         .map(|v| {
-            let [v, t] = v.split(":").collect::<Vec<&str>>()[..] else { todo!() };
+            let [v, t] = v.as_ref().split(":").collect::<Vec<&str>>()[..] else { todo!() };
             match t {
                 "i64" => {
                     if v.starts_with("0x") {
