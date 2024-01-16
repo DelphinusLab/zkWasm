@@ -51,7 +51,7 @@ impl BN254SumContext {
         }
     }
 
-    pub fn bn254_sum_new(&mut self, new: usize) {
+    pub fn bn254_sum_new(&mut self, new: usize, inc_round: bool) {
         log::debug!("new bn254 sum context");
         self.result_limbs = None;
         self.result_cursor = 0;
@@ -60,7 +60,9 @@ impl BN254SumContext {
         if new != 0 {
             G1Affine::identity();
         }
-        self.used_round += 1;
+        if inc_round {
+            self.used_round += 1;
+        }
     }
 
     fn bn254_sum_push_scalar(&mut self, v: u64) {
@@ -102,9 +104,9 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_bn254sum_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BN254SumContext>().unwrap();
-                context.bn254_sum_new(args.nth::<u64>(0) as usize);
+                context.bn254_sum_new(args.nth::<u64>(0) as usize, !obs.is_in_phantom);
                 None
             },
         ),

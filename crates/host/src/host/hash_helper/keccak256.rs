@@ -46,12 +46,12 @@ impl Keccak256Context {
         }
     }
 
-    pub fn keccak_new(&mut self, new: usize, obs: &Observer) {
+    pub fn keccak_new(&mut self, new: usize, inc_round: bool) {
         self.buf = vec![];
         self.generator.cursor = 0;
         if new != 0 {
             self.hasher = Some(KECCAK_HASHER.clone());
-            if !obs.is_in_phantom {
+            if inc_round {
                 self.used_round += 1;
             }
         }
@@ -98,7 +98,7 @@ pub fn register_keccak_foreign(env: &mut HostEnv) {
             |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Keccak256Context>().unwrap();
                 log::debug!("buf len is {}", context.buf.len());
-                context.keccak_new(args.nth::<u64>(0) as usize, obs);
+                context.keccak_new(args.nth::<u64>(0) as usize, !obs.is_in_phantom);
                 None
             },
         ),

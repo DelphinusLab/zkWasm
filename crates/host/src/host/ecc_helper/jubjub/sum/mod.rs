@@ -52,13 +52,13 @@ impl BabyJubjubSumContext {
         }
     }
 
-    pub fn babyjubjub_sum_new(&mut self, new: usize, obs: &Observer) {
+    pub fn babyjubjub_sum_new(&mut self, new: usize, inc_round: bool) {
         self.result_limbs = None;
         self.result_cursor = 0;
         self.limbs = vec![];
         self.input_cursor = 0;
         self.coeffs = vec![];
-        if !obs.is_in_phantom {
+        if inc_round {
             self.used_round += 1;
         }
         if new != 0 {
@@ -139,7 +139,7 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
         Rc::new(
             |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BabyJubjubSumContext>().unwrap();
-                context.babyjubjub_sum_new(args.nth::<u64>(0) as usize, obs);
+                context.babyjubjub_sum_new(args.nth::<u64>(0) as usize, !obs.is_in_phantom);
                 None
             },
         ),

@@ -80,11 +80,11 @@ impl PoseidonContext {
         }
     }
 
-    pub fn poseidon_new(&mut self, new: usize, obj: &Observer) {
+    pub fn poseidon_new(&mut self, new: usize, inc_round: bool) {
         self.buf = vec![];
         if new != 0 {
             self.hasher = Some(POSEIDON_HASHER.clone());
-            if !obj.is_in_phantom {
+            if inc_round {
                 self.used_round += 1;
             }
         }
@@ -139,7 +139,7 @@ pub fn register_poseidon_foreign(env: &mut HostEnv) {
             |obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<PoseidonContext>().unwrap();
                 log::debug!("buf len is {}", context.buf.len());
-                context.poseidon_new(args.nth::<u64>(0) as usize, &obs);
+                context.poseidon_new(args.nth::<u64>(0) as usize, !obs.is_in_phantom);
                 None
             },
         ),
