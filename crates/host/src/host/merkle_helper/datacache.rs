@@ -24,7 +24,6 @@ pub struct CacheContext {
     pub data: Vec<u64>,
     pub fetch: bool,
     pub mongo_datahash: datahelper::MongoDataHash,
-    pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
 }
 
 fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
@@ -38,8 +37,7 @@ impl CacheContext {
             hash: new_reduce(vec![ReduceRule::Bytes(vec![], 4)]),
             fetch: false,
             data: vec![],
-            mongo_datahash: datahelper::MongoDataHash::construct([0; 32], tree_db.clone()),
-            tree_db,
+            mongo_datahash: datahelper::MongoDataHash::construct([0; 32], tree_db),
         }
     }
 
