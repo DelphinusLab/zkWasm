@@ -272,7 +272,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                             + load_picked.u16_cells_le[3].expr(meta)),
                     is_two_bytes.expr(meta)
                         * (load_picked.expr(meta) - load_picked_leading_u16.expr(meta)),
-                    is_one_byte.expr(meta) * (load_picked_leading_u16_u8_high.expr(meta)),
+                    is_one_byte.expr(meta)
+                        * (load_picked.expr(meta) - load_picked_leading_u16_u8_low.expr(meta)),
                 ]
             }),
         );
