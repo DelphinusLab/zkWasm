@@ -95,6 +95,13 @@ pub trait ArgBuilder {
         ).value_parser(value_parser!(PathBuf))
     }
 
+    fn tables_path_arg<'a>() -> Arg<'a> {
+        arg!(
+            -t --tables [TABLES_PATH] "Path of the tables files.\nMust be provided."
+        )
+        .value_parser(value_parser!(PathBuf))
+    }
+
     fn proof_path_arg<'a>() -> Arg<'a> {
         arg!(
             -p --proof <PROOF_PATH> "Path of proof."

@@ -44,7 +44,9 @@ fn test_circuit_mock<F: FieldExt>(
         v
     };
 
-    execution_result.tables.write_json(None);
+    execution_result
+        .tables
+        .write_json(None, &execution_result.public_inputs_and_outputs);
     let memory_writing_table: MemoryWritingTable = execution_result
         .tables
         .execution_tables

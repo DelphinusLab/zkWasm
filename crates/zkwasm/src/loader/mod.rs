@@ -190,7 +190,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             result.tables.profile_tables();
 
             if write_to_file {
-                result.tables.write_json(None);
+                result
+                    .tables
+                    .write_json(None, &result.public_inputs_and_outputs);
             }
         }
 
