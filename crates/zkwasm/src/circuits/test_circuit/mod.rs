@@ -151,12 +151,11 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
     fn synthesize(
         &self,
         config: Self::Config,
-        mut layouter: impl Layouter<F>,
+        layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
         let assign_timer = start_timer!(|| "Assign");
 
         let rchip = RangeTableChip::new(config.rtable);
-        let image_chip = ImageTableChip::new(config.image_table);
         let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
         let jchip = JumpTableChip::new(config.jtable, config.max_available_rows);
         let echip = EventTableChip::new(config.etable, config.max_available_rows);
@@ -165,44 +164,66 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
         let context_chip = ContextContHelperTableChip::new(config.context_helper_table);
 
-        layouter.assign_region(
-            || "foreign helper",
-            |mut region| {
-                for offset in 0..foreign_table_enable_lines() {
-                    region.assign_fixed(
-                        || "foreign table from zero index",
-                        config.foreign_table_from_zero_index,
-                        offset,
-                        || Ok(F::from(offset as u64)),
-                    )?;
-                }
+        let foreign_assigner = layouter.clone();
+        let range_assigner = layouter.clone();
+        let context_assigner = layouter.clone();
+        let host_assigner = layouter.clone();
 
-                Ok(())
-            },
-        )?;
+        let etable = self.tables.execution_tables.etable.clone();
 
-        exec_with_profile!(|| "Init range chip", rchip.init(&mut layouter)?);
+        rayon::scope(|s| {
+            let context_inputs = etable.get_context_inputs();
+            let context_outputs = etable.get_context_outputs();
+            s.spawn(move |_| {
+                foreign_assigner.assign_region(
+                    || "foreign helper",
+                    |region| {
+                        for offset in 0..foreign_table_enable_lines() {
+                            region.assign_fixed(
+                                || "foreign table from zero index",
+                                config.foreign_table_from_zero_index,
+                                offset,
+                                || Ok(F::from(offset as u64)),
+                                )?;
+                        }
 
-        exec_with_profile!(
-            || "Assign external host call table",
-            external_host_call_chip.assign(
-                &mut layouter,
-                &self
-                    .tables
-                    .execution_tables
-                    .etable
-                    .filter_external_host_call_table(),
-            )?
-        );
+                        Ok(())
+                    },
+                    ).unwrap()
+            });
+            s.spawn(move |_| {
+                exec_with_profile!(|| "Init range chip", rchip.init(&range_assigner).unwrap());
+            });
+            s.spawn(move |_| {
+                exec_with_profile!(
+                    || "Assign context cont chip",
+                    context_chip.assign(
+                        &context_assigner,
+                        &context_inputs,
+                        &context_outputs
+                        ).unwrap()
+                    );
 
-        let (entry_fid, static_frame_entries, initial_memory_pages, maximal_memory_pages) =
+            });
+            s.spawn(move |_| {
+                exec_with_profile!(
+                    || "Assign external host call table",
+                    external_host_call_chip.assign(
+                        &host_assigner,
+                        &etable.filter_external_host_call_table(),
+                        ).unwrap()
+                    );
+            });
+        });
+
+        let memory_writing_table: MemoryWritingTable =
+            self.tables.execution_tables.mtable.clone().into();
+
+        let (etable, etable_permutation_cells) =
             layouter.assign_region(
                 || "jtable mtable etable",
                 |region| {
                     let mut ctx = Context::new(region);
-
-                    let memory_writing_table: MemoryWritingTable =
-                        self.tables.execution_tables.mtable.clone().into();
 
                     let etable = exec_with_profile!(
                         || "Prepare memory info for etable",
@@ -222,75 +243,107 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                             self.tables.compilation_tables.fid_of_entry,
                         )?
                     );
+                    Ok((etable, etable_permutation_cells))
+                }
+        )?;
 
-                    {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign mtable",
-                            mchip.assign(
-                                &mut ctx,
-                                etable_permutation_cells.rest_mops,
-                                &memory_writing_table,
-                                &self.tables.compilation_tables.imtable
-                            )?
-                        );
+        let (entry_fid, initial_memory_pages, maximal_memory_pages) = (
+            etable_permutation_cells.fid_of_entry,
+            etable_permutation_cells.initial_memory_pages,
+            etable_permutation_cells.maximal_memory_pages,
+            );
+
+
+        let rest_mops = etable_permutation_cells.rest_mops.clone();
+        let imtable = self.tables.compilation_tables.imtable.clone();
+
+        let mtable_assigner = layouter.clone();
+        let jme_assigner = layouter.clone();
+
+
+        let jtable = self.tables.execution_tables.jtable.clone();
+        let rest_jops = etable_permutation_cells.rest_jops;
+        let static_jtable = self.tables.compilation_tables.static_jtable.clone();
+        let encoded_compilation_table_values =
+            self.tables
+            .compilation_tables
+            .encode_compilation_table_values();
+
+
+        rayon::scope(|s| {
+            s.spawn(move |_| {
+                mtable_assigner.assign_region(
+                    || "jtable mtable etable",
+                    |region| {
+                        let mut ctx = Context::new(region);
+                        {
+                            ctx.reset();
+                            exec_with_profile!(
+                                || "Assign mtable",
+                                mchip.assign(
+                                    &mut ctx,
+                                    rest_mops,
+                                    &memory_writing_table,
+                                    &imtable,
+                                    )?
+                                );
+                        }
+                        Ok(())
+                    }).unwrap();
+            });
+
+            s.spawn(move |_| {
+                let image_chip = ImageTableChip::new(config.image_table.clone());
+                let static_frame_entries = jme_assigner.assign_region(
+                    || "jtable mtable etable",
+                    |region| {
+                        let mut ctx = Context::new(region);
+                        let static_frame_entries = {
+                            exec_with_profile!(
+                                || "Assign frame table",
+                                jchip.assign(
+                                    &mut ctx,
+                                    &jtable,
+                                    rest_jops,
+                                    &static_jtable,
+                                    )?
+                                )
+                        };
+                        Ok(static_frame_entries)
                     }
+                    ).unwrap();
 
-                    let jtable_info = {
-                        ctx.reset();
-                        exec_with_profile!(
-                            || "Assign frame table",
-                            jchip.assign(
-                                &mut ctx,
-                                &self.tables.execution_tables.jtable,
-                                etable_permutation_cells.rest_jops,
-                                &self.tables.compilation_tables.static_jtable,
-                            )?
-                        )
-                    };
+                exec_with_profile!(
+                    || "Assign Image Table",
+                    image_chip.assign(
+                        &jme_assigner,
+                        encoded_compilation_table_values,
+                        ImageTableLayouter {
+                            entry_fid,
+                            static_frame_entries,
+                            initial_memory_pages,
+                            maximal_memory_pages,
+                            lookup_entries: None
+                        }
+                        ).unwrap()
+                    );
+            });
 
-                    {
-                        ctx.reset();
+            s.spawn(move |_| {
+                layouter.assign_region(
+                    || "jtable mtable etable",
+                    |region| {
+                        let mut ctx = Context::new(region);
                         exec_with_profile!(
                             || "Assign bit table",
                             bit_chip.assign(&mut ctx, &etable)?
-                        );
-                    }
+                            );
 
-                    Ok((
-                        etable_permutation_cells.fid_of_entry,
-                        jtable_info,
-                        etable_permutation_cells.initial_memory_pages,
-                        etable_permutation_cells.maximal_memory_pages,
-                    ))
-                },
-            )?;
-
-        exec_with_profile!(
-            || "Assign context cont chip",
-            context_chip.assign(
-                &mut layouter,
-                &self.tables.execution_tables.etable.get_context_inputs(),
-                &self.tables.execution_tables.etable.get_context_outputs()
-            )?
-        );
-
-        exec_with_profile!(
-            || "Assign Image Table",
-            image_chip.assign(
-                &mut layouter,
-                self.tables
-                    .compilation_tables
-                    .encode_compilation_table_values(),
-                ImageTableLayouter {
-                    entry_fid,
-                    static_frame_entries,
-                    initial_memory_pages,
-                    maximal_memory_pages,
-                    lookup_entries: None
-                }
-            )?
-        );
+                        Ok(())
+                    },
+                    ).unwrap();
+            });
+        });
 
         end_timer!(assign_timer);
 

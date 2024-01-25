@@ -10,7 +10,7 @@ use crate::circuits::utils::Context;
 impl<F: FieldExt> ImageTableChip<F> {
     pub fn assign(
         self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &impl Layouter<F>,
         image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<Cell>,
     ) -> Result<(), Error> {

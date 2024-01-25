@@ -25,6 +25,7 @@ serde_json = "1.0"
 ff = "0.12"
 sha2 = "0.10.6"
 poseidon = { git = "https://github.com/lanbones/poseidon" }
+rayon = "1.5"
 
 anyhow.workspace = true
 cfg-if.workspace = true

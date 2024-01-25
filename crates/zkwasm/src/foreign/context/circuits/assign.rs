@@ -20,13 +20,13 @@ impl<F: FieldExt> ContextContHelperTableChip<F> {
 
     pub fn assign(
         &self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &impl Layouter<F>,
         inputs: &Vec<u64>,
         outputs: &Vec<u64>,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "context cont helper assign",
-            |mut region| {
+            |region| {
                 for (offset, input) in inputs.iter().enumerate() {
                     region.assign_advice(
                         || "context cont input index",
