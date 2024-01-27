@@ -7,11 +7,10 @@ use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
 use specs::step::StepInfo;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::EventTableChip;
-use super::EventTableOpcodeConfig;
+use super::EventTableOpcodeConfigBox;
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::cell::CellExpression;
 use crate::circuits::utils::bn_to_field;
@@ -19,6 +18,7 @@ use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
+use std::sync::Arc;
 
 pub(in crate::circuits) struct EventTablePermutationCells {
     pub(in crate::circuits) rest_mops: Option<Cell>,
@@ -31,7 +31,7 @@ pub(in crate::circuits) struct EventTablePermutationCells {
 impl<F: FieldExt> EventTableChip<F> {
     fn compute_rest_mops_and_jops(
         &self,
-        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        op_configs: &BTreeMap<OpcodeClassPlain, Arc<EventTableOpcodeConfigBox<F>>>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
     ) -> Vec<(u32, u32)> {
@@ -47,8 +47,8 @@ impl<F: FieldExt> EventTableChip<F> {
                 let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
 
                 let acc = (
-                    rest_mops_sum + op_config.memory_writing_ops(&entry.eentry),
-                    rest_jops_sum + op_config.jops(),
+                    rest_mops_sum + op_config.0.memory_writing_ops(&entry.eentry),
+                    rest_jops_sum + op_config.0.jops(),
                 );
 
                 rest_ops.push(acc);
@@ -116,7 +116,7 @@ impl<F: FieldExt> EventTableChip<F> {
     fn assign_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        op_configs: &BTreeMap<OpcodeClassPlain, Arc<EventTableOpcodeConfigBox<F>>>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
@@ -282,18 +282,18 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_advice!(itable_lookup_cell, bn_to_field(&instruction.encode));
 
             let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
-            op_config.assign(ctx, &step_status, &entry)?;
+            op_config.0.assign(ctx, &step_status, &entry)?;
 
-            if op_config.is_host_public_input(&entry.eentry) {
+            if op_config.0.is_host_public_input(&entry.eentry) {
                 host_public_inputs += 1;
             }
-            if op_config.is_context_input_op(&entry.eentry) {
+            if op_config.0.is_context_input_op(&entry.eentry) {
                 context_in_index += 1;
             }
-            if op_config.is_context_output_op(&entry.eentry) {
+            if op_config.0.is_context_output_op(&entry.eentry) {
                 context_out_index += 1;
             }
-            if op_config.is_external_host_call(&entry.eentry) {
+            if op_config.0.is_external_host_call(&entry.eentry) {
                 external_host_call_call_index += 1;
             }
 

@@ -59,7 +59,7 @@ use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 mod assign;
 mod op_configure;
@@ -107,6 +107,17 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
+
+pub struct EventTableOpcodeConfigBox<F: FieldExt> (Box<dyn EventTableOpcodeConfig<F>>);
+
+impl<F:FieldExt> From<Box<dyn EventTableOpcodeConfig<F>>> for EventTableOpcodeConfigBox<F> {
+    fn from(d: Box<dyn EventTableOpcodeConfig<F>>) -> Self {
+        EventTableOpcodeConfigBox (d)
+    }
+}
+
+unsafe impl<F:FieldExt> Send for EventTableOpcodeConfigBox<F>{}
+unsafe impl<F:FieldExt> Sync for EventTableOpcodeConfigBox<F>{}
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
@@ -206,7 +217,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
 pub struct EventTableConfig<F: FieldExt> {
     pub step_sel: Column<Fixed>,
     pub common_config: EventTableCommonConfig<F>,
-    op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+    op_configs: BTreeMap<OpcodeClassPlain, Arc<EventTableOpcodeConfigBox<F>>>,
 }
 
 impl<F: FieldExt> EventTableConfig<F> {
@@ -293,7 +304,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
-        let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
+        let mut op_configs: BTreeMap<OpcodeClassPlain, Arc<EventTableOpcodeConfigBox<F>>> =
             BTreeMap::new();
 
         macro_rules! configure {
@@ -314,7 +325,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 });
 
                 op_bitmaps.insert(op, op.index());
-                op_configs.insert(op, Rc::new(config));
+                op_configs.insert(op, Arc::new(config.into()));
             };
         }
 
@@ -366,7 +377,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 });
 
                 op_bitmaps.insert(op, op.index());
-                op_configs.insert(op, Rc::new(config));
+                op_configs.insert(op, Arc::new(config.into()));
             };
         }
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
@@ -404,7 +415,7 @@ impl<F: FieldExt> EventTableConfig<F> {
              meta: &mut VirtualCells<'_, F>,
              get_expr: &dyn Fn(
                 &mut VirtualCells<'_, F>,
-                &Rc<Box<dyn EventTableOpcodeConfig<F>>>,
+                &Arc<EventTableOpcodeConfigBox<F>>,
             ) -> Option<Expression<F>>,
              enable: Option<&dyn Fn(&mut VirtualCells<'_, F>) -> Expression<F>>| {
                 let expr = op_bitmaps
@@ -422,7 +433,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let sum_ops_expr = |meta: &mut VirtualCells<'_, F>,
                             get_expr: &dyn Fn(
             &mut VirtualCells<'_, F>,
-            &Rc<Box<dyn EventTableOpcodeConfig<F>>>,
+            &Arc<EventTableOpcodeConfigBox<F>>,
         ) -> Option<Expression<F>>| {
             op_bitmaps
                 .iter()
@@ -438,7 +449,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 rest_mops_cell.next_expr(meta) - rest_mops_cell.curr_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.mops(meta),
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| config.0.mops(meta),
                 None,
             )]
         });
@@ -447,7 +458,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 rest_jops_cell.next_expr(meta) - rest_jops_cell.curr_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| config.0.jops_expr(meta),
                 None,
             )]
         });
@@ -456,8 +467,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 input_index_cell.curr_expr(meta) - input_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.input_index_increase(meta, &common_config)
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0.input_index_increase(meta, &common_config)
                 },
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
@@ -468,8 +479,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 external_host_call_index_cell.curr_expr(meta)
                     - external_host_call_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.external_host_call_index_increase(meta, &common_config)
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0.external_host_call_index_increase(meta, &common_config)
                 },
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
@@ -479,7 +490,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 sp_cell.curr_expr(meta) - sp_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| config.0.sp_diff(meta),
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
         });
@@ -488,8 +499,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 mpages_cell.curr_expr(meta) - mpages_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.allocated_memory_pages_diff(meta)
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0.allocated_memory_pages_diff(meta)
                 },
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
@@ -499,8 +510,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 context_input_index_cell.curr_expr(meta) - context_input_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.context_input_index_increase(meta, &common_config)
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0.context_input_index_increase(meta, &common_config)
                 },
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
@@ -511,8 +522,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 context_output_index_cell.curr_expr(meta)
                     - context_output_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.context_output_index_increase(meta, &common_config)
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0.context_output_index_increase(meta, &common_config)
                 },
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
@@ -530,8 +541,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 fid_cell.curr_expr(meta) - fid_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0
                         .next_fid(meta, &common_config)
                         .map(|x| x - fid_cell.curr_expr(meta))
                 },
@@ -543,8 +554,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 iid_cell.next_expr(meta) - iid_cell.curr_expr(meta) - constant_from!(1),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0
                         .next_iid(meta, &common_config)
                         .map(|x| iid_cell.curr_expr(meta) + constant_from!(1) - x)
                 },
@@ -556,8 +567,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 frame_id_cell.curr_expr(meta) - frame_id_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                    config.0
                         .next_frame_id(meta, &common_config)
                         .map(|x| x - frame_id_cell.curr_expr(meta))
                 },
@@ -568,7 +579,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         meta.create_gate("c7. itable_lookup_encode", |meta| {
             let opcode = sum_ops_expr(
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| Some(config.opcode(meta)),
+                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| Some(config.0.opcode(meta)),
             );
             vec![
                 (encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)

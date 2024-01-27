@@ -168,8 +168,23 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         let range_assigner = layouter.clone();
         let context_assigner = layouter.clone();
         let host_assigner = layouter.clone();
+        let jme_assigner = layouter.clone();
+
+
+        let itable = self.tables.compilation_tables.itable.clone_internal();
+        let config_table = self.tables.compilation_tables.configure_table;
 
         let etable = self.tables.execution_tables.etable.clone();
+
+        let external_call_table = etable.filter_external_host_call_table();
+
+        let memory_writing_table: MemoryWritingTable =
+            self.tables.execution_tables.mtable.clone().into();
+
+
+        let fid_of_entry = self.tables.compilation_tables.fid_of_entry;
+
+        let (sender, receiver) = std::sync::mpsc::channel();
 
         rayon::scope(|s| {
             let context_inputs = etable.get_context_inputs();
@@ -210,42 +225,46 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                     || "Assign external host call table",
                     external_host_call_chip.assign(
                         &host_assigner,
-                        &etable.filter_external_host_call_table(),
+                        &external_call_table,
                         ).unwrap()
                     );
             });
+            s.spawn(move |_| {
+                jme_assigner.assign_region(
+                    || "jtable mtable etable",
+                    |region| {
+                        let mut ctx = Context::new(region);
+
+                        let etable = exec_with_profile!(
+                            || "Prepare memory info for etable",
+                            EventTableWithMemoryInfo::new(
+                                &etable,
+                                &memory_writing_table,
+                                )
+                            );
+                        let etable_permutation_cells = exec_with_profile!(
+                            || "Assign etable",
+                            echip.assign(
+                                &mut ctx,
+                                &itable.clone().into(),
+                                &etable,
+                                &config_table,
+                                fid_of_entry,
+                                )?
+                            );
+                        sender.send((etable, etable_permutation_cells)).expect("can not send obj in rayon");
+                        Ok(())
+                    }
+                ).unwrap();
+            });
         });
+
+        let (etable, etable_permutation_cells) = receiver.recv().expect("can not receiver obj ...");
+
 
         let memory_writing_table: MemoryWritingTable =
             self.tables.execution_tables.mtable.clone().into();
 
-        let (etable, etable_permutation_cells) =
-            layouter.assign_region(
-                || "jtable mtable etable",
-                |region| {
-                    let mut ctx = Context::new(region);
-
-                    let etable = exec_with_profile!(
-                        || "Prepare memory info for etable",
-                        EventTableWithMemoryInfo::new(
-                            &self.tables.execution_tables.etable,
-                            &memory_writing_table,
-                        )
-                    );
-
-                    let etable_permutation_cells = exec_with_profile!(
-                        || "Assign etable",
-                        echip.assign(
-                            &mut ctx,
-                            &self.tables.compilation_tables.itable,
-                            &etable,
-                            &self.tables.compilation_tables.configure_table,
-                            self.tables.compilation_tables.fid_of_entry,
-                        )?
-                    );
-                    Ok((etable, etable_permutation_cells))
-                }
-        )?;
 
         let (entry_fid, initial_memory_pages, maximal_memory_pages) = (
             etable_permutation_cells.fid_of_entry,
