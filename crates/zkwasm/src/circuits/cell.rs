@@ -9,7 +9,7 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 
-use crate::circuits::config::zkwasm_k;
+use crate::circuits::config::common_range_max;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 use crate::nextn;
@@ -132,7 +132,7 @@ macro_rules! define_cell {
 define_cell!(AllocatedBitCell, F::one());
 define_cell!(
     AllocatedCommonRangeCell,
-    F::from((1u64 << (zkwasm_k() - 1)) - 1)
+    F::from((common_range_max()) as u64)
 );
 define_cell!(AllocatedU8Cell, F::from(u8::MAX as u64));
 define_cell!(AllocatedU16Cell, F::from(u16::MAX as u64));

@@ -11,7 +11,7 @@ use std::env;
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::circuits::config::zkwasm_k;
+use crate::circuits::config::common_range_max;
 use crate::runtime::memory_event_of_step;
 
 #[derive(Clone, Debug, Serialize)]
@@ -35,7 +35,7 @@ impl From<MTable> for MemoryWritingTable {
         let maximal_eid = if cfg!(feature = "continuation") {
             u32::MAX
         } else {
-            (1u32 << (zkwasm_k() - 1)) - 1
+            common_range_max()
         };
         let mut index = 0;
 

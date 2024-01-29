@@ -129,7 +129,7 @@ impl Tables {
             let folder = folder.join(filename);
             let mut fd = File::create(folder.as_path()).unwrap();
 
-            fd.write(buf.as_bytes()).unwrap();
+            fd.write_all(buf.as_bytes()).unwrap();
         }
 
         let itable = serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap();

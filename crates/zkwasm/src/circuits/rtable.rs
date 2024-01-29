@@ -1,4 +1,4 @@
-use super::config::zkwasm_k;
+use super::config::common_range;
 use super::config::POW_TABLE_POWER_START;
 use super::utils::bn_to_field;
 use crate::circuits::bit_table::BitTableOp;
@@ -48,7 +48,7 @@ struct OpTable {
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
-    // [0 .. 1 << zkwasm_k() - 1)
+    // [0 .. common_range())
     common_range_col: TableColumn,
     // [0 .. 65536)
     u16_col: TableColumn,
@@ -163,11 +163,11 @@ impl<F: FieldExt> RangeTableChip<F> {
         layouter.assign_table(
             || "common range table",
             |mut table| {
-                for i in 0..(1 << (zkwasm_k() - 1)) {
+                for i in 0..common_range() {
                     table.assign_cell(
                         || "range table",
                         self.config.common_range_col,
-                        i,
+                        i as usize,
                         || Ok(F::from(i as u64)),
                     )?;
                 }

@@ -108,7 +108,11 @@ impl ImageTableAssigner {
         let padding_offset = br_table_offset + br_table_number;
         let init_memory_offset = INIT_MEMORY_ENTRIES_OFFSET;
 
-        assert!(padding_offset <= init_memory_offset);
+        assert!(
+            padding_offset <= init_memory_offset,
+            "The number of instructions of the image({}) is too large",
+            instruction_number + br_table_number
+        );
 
         Self {
             heap_capability: pages_capability * PAGE_ENTRIES,

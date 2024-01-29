@@ -716,6 +716,7 @@ dependencies = [
  "specs",
  "strum",
  "strum_macros",
+ "wabt",
  "wasmi",
  "zkwasm-host-circuits",
 ]
