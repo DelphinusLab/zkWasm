@@ -4,6 +4,7 @@ use specs::etable::EventTableEntry;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
+use std::sync::Arc;
 
 use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
@@ -78,13 +79,13 @@ impl Iterator for Slices {
         };
 
         let execution_tables = ExecutionTable {
-            etable: EventTable::new(etable_entries),
+            etable: Arc::new(EventTable::new(etable_entries)),
             jtable: self.origin_table.execution_tables.jtable.clone(),
         };
 
         let post_image_table = CompilationTable {
             itable: self.origin_table.compilation_tables.itable.clone(),
-            imtable: updated_init_memory_table,
+            imtable: Arc::new(updated_init_memory_table),
             br_table: self.origin_table.compilation_tables.br_table.clone(),
             elem_table: self.origin_table.compilation_tables.elem_table.clone(),
             configure_table: self.origin_table.compilation_tables.configure_table.clone(),

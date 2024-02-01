@@ -47,7 +47,7 @@ impl Iterator for RestJops {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct EventTable(Vec<EventTableEntry>);
 
 impl EventTable {

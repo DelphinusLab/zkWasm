@@ -30,6 +30,7 @@ use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
+#[cfg(feature = "profile")]
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::HostEnvBuilder;
@@ -193,6 +194,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         let compiled_module = self.compile(&env, dryrun)?;
         let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
         if !dryrun {
+            #[cfg(feature = "profile")]
             result.tables.profile_tables();
         }
 
