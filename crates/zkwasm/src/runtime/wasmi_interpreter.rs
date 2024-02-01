@@ -67,11 +67,15 @@ impl Execution<RuntimeValue>
         let result =
             instance.invoke_export_trace(&self.entry, &[], &mut exec_env, self.tracer.clone())?;
 
-        let execution_tables = if !dryrun {
-            let tracer = self.tracer.borrow();
+        let host_statics = exec_env.host_env.external_env.get_statics();
+        // drop to decrease the reference counter of self.tracer
+        drop(exec_env);
 
+        let tracer = Rc::try_unwrap(self.tracer).unwrap().into_inner();
+
+        let execution_tables = if !dryrun {
             ExecutionTable {
-                etable: tracer.etable.clone(),
+                etable: Arc::new(tracer.etable),
                 jtable: Arc::new(tracer.jtable.clone()),
             }
         } else {
@@ -85,7 +89,7 @@ impl Execution<RuntimeValue>
         let post_image_table = if !dryrun {
             CompilationTable {
                 itable: self.tables.itable.clone(),
-                imtable: updated_init_memory_table,
+                imtable: Arc::new(updated_init_memory_table),
                 br_table: self.tables.br_table.clone(),
                 elem_table: self.tables.elem_table.clone(),
                 configure_table: self.tables.configure_table.clone(),
@@ -106,8 +110,8 @@ impl Execution<RuntimeValue>
                 is_last_slice: true,
             },
             result,
-            host_statics: exec_env.host_env.external_env.get_statics(),
-            guest_statics: self.tracer.borrow().observer.counter,
+            host_statics,
+            guest_statics: tracer.observer.counter,
             public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
             outputs: wasm_io.outputs.borrow().clone(),
         })
@@ -182,6 +186,7 @@ impl WasmiRuntime {
         };
 
         let itable: InstructionTable = tracer.borrow().itable.clone().into();
+        // FIXME: avoid clone
         let imtable = tracer.borrow().imtable.finalized();
         let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(tracer.borrow().elem_table.clone());
@@ -220,7 +225,7 @@ impl WasmiRuntime {
             entry: entry.to_owned(),
             tables: CompilationTable {
                 itable: Arc::new(itable),
-                imtable,
+                imtable: Arc::new(imtable),
                 br_table,
                 elem_table,
                 configure_table,

@@ -49,7 +49,7 @@ pub mod types;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
-    pub imtable: InitMemoryTable,
+    pub imtable: Arc<InitMemoryTable>,
     pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
@@ -59,7 +59,7 @@ pub struct CompilationTable {
 
 #[derive(Default, Serialize, Deserialize, Clone)]
 pub struct ExecutionTable {
-    pub etable: EventTable,
+    pub etable: Arc<EventTable>,
     pub jtable: Arc<JumpTable>,
 }
 
