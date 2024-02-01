@@ -7,7 +7,7 @@ use specs::itable::Opcode;
 use specs::itable::OpcodeClassPlain;
 use specs::state::InitializationState;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::EventTableChip;
 use super::EventTableOpcodeConfig;
@@ -30,7 +30,7 @@ pub(in crate::circuits) struct EventTablePermutationCells {
 impl<F: FieldExt> EventTableChip<F> {
     fn compute_rest_mops_and_jops(
         &self,
-        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        op_configs: &BTreeMap<OpcodeClassPlain, Arc<Box<dyn EventTableOpcodeConfig<F>>>>,
         event_table: &EventTableWithMemoryInfo,
         #[cfg(feature = "continuation")] initialization_state: &InitializationState<u32>,
     ) -> (u32, u32) {
@@ -189,7 +189,7 @@ impl<F: FieldExt> EventTableChip<F> {
     fn assign_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        op_configs: &BTreeMap<OpcodeClassPlain, Arc<Box<dyn EventTableOpcodeConfig<F>>>>,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         initialization_state: &InitializationState<u32>,
