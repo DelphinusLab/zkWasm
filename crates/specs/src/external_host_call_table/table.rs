@@ -1,9 +1,13 @@
+use std::alloc::Allocator;
+
+use serde::Serialize;
+
 use super::ExternalHostCallEntry;
 use super::ExternalHostCallTable;
 use crate::etable::EventTable;
 use crate::step::StepInfo;
 
-impl EventTable {
+impl<A: Allocator + Default + Serialize + Clone> EventTable<A> {
     pub fn filter_external_host_call_table(&self) -> ExternalHostCallTable {
         let entries = self
             .entries()

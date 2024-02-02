@@ -10,17 +10,17 @@ use specs::CompilationTable;
 use super::memory_event_of_step;
 
 pub(crate) trait UpdateCompilationTable {
-    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable;
+    fn update_init_memory_table(&self, execution_table: &[EventTableEntry]) -> InitMemoryTable;
 
     fn update_initialization_state(
         &self,
-        execution_table: &Vec<EventTableEntry>,
+        execution_table: &[EventTableEntry],
         is_last_slice: bool,
     ) -> InitializationState<u32>;
 }
 
 impl UpdateCompilationTable for CompilationTable {
-    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable {
+    fn update_init_memory_table(&self, execution_table: &[EventTableEntry]) -> InitMemoryTable {
         // First insert origin imtable entries which may be overwritten.
         let mut map = self.imtable.entries().clone();
 
@@ -50,7 +50,7 @@ impl UpdateCompilationTable for CompilationTable {
 
     fn update_initialization_state(
         &self,
-        execution_table: &Vec<EventTableEntry>,
+        execution_table: &[EventTableEntry],
         is_last_slice: bool,
     ) -> InitializationState<u32> {
         let mut host_public_inputs = self.initialization_state.host_public_inputs;

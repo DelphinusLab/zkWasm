@@ -1,4 +1,4 @@
-#![deny(warnings)]
+// #![deny(warnings)]
 
 use std::cell::RefCell;
 use std::collections::HashMap;

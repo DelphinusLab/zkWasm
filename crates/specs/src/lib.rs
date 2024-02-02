@@ -1,4 +1,4 @@
-#![feature(trait_alias)]
+#![feature(allocator_api)]
 #![deny(unused_imports)]
 #![deny(dead_code)]
 
@@ -13,6 +13,7 @@ use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
 use etable::EventTableEntry;
+use hugepage::hugepage::HugeTlbAllocator;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
 use jtable::JumpTable;
@@ -22,8 +23,8 @@ use mtable::AccessType;
 use mtable::LocationType;
 use mtable::MTable;
 use mtable::MemoryTableEntry;
-use rayon::prelude::IntoParallelRefIterator;
-use rayon::prelude::ParallelIterator;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use serde::Deserialize;
 use serde::Serialize;
 use state::InitializationState;
@@ -57,9 +58,9 @@ pub struct CompilationTable {
     pub initialization_state: InitializationState<u32>,
 }
 
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Clone)]
 pub struct ExecutionTable {
-    pub etable: Arc<EventTable>,
+    pub etable: Arc<EventTable<HugeTlbAllocator>>,
     pub jtable: Arc<JumpTable>,
 }
 
@@ -134,7 +135,7 @@ impl Tables {
 
         let itable = serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap();
         // let imtable = serde_json::to_string_pretty(&self.compilation_tables.imtable).unwrap();
-        let etable = serde_json::to_string_pretty(&self.execution_tables.etable).unwrap();
+        // let etable = serde_json::to_string_pretty(&self.execution_tables.etable).unwrap();
         let external_host_call_table = serde_json::to_string_pretty(
             &self
                 .execution_tables
@@ -146,7 +147,7 @@ impl Tables {
 
         write_file(dir, "itable.json", &itable);
         // write_file(&dir, "imtable.json", &imtable);
-        write_file(dir, "etable.json", &etable);
+        // write_file(dir, "etable.json", &etable);
         write_file(dir, "jtable.json", &jtable);
         write_file(dir, "external_host_table.json", &external_host_call_table);
     }

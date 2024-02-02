@@ -1,5 +1,4 @@
 use serde::Serialize;
-use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
@@ -136,7 +135,7 @@ pub(crate) struct EventTableWithMemoryInfo(
 
 impl EventTableWithMemoryInfo {
     pub(in crate::circuits) fn new(
-        event_table: &EventTable,
+        event_table_entries: &[EventTableEntry],
         memory_writing_table: &MemoryWritingTable,
     ) -> Self {
         let lookup = memory_writing_table.build_lookup_mapping();
@@ -167,8 +166,7 @@ impl EventTableWithMemoryInfo {
         };
 
         EventTableWithMemoryInfo(
-            event_table
-                .entries()
+            event_table_entries
                 .iter()
                 .map(|eentry| EventTableEntryWithMemoryInfo {
                     eentry: eentry.clone(),

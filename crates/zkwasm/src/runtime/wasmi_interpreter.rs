@@ -17,6 +17,8 @@ use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
+use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
+
 use super::host::host_env::ExecEnv;
 use super::host::host_env::HostEnv;
 use super::state::UpdateCompilationTable;
@@ -84,7 +86,7 @@ impl Execution<RuntimeValue>
 
         let updated_init_memory_table = self
             .tables
-            .update_init_memory_table(&execution_tables.etable.entries());
+            .update_init_memory_table(execution_tables.etable.entries());
 
         let post_image_table = if !dryrun {
             CompilationTable {
@@ -96,7 +98,7 @@ impl Execution<RuntimeValue>
                 static_jtable: self.tables.static_jtable.clone(),
                 initialization_state: self
                     .tables
-                    .update_initialization_state(&execution_tables.etable.entries(), true),
+                    .update_initialization_state(execution_tables.etable.entries(), true),
             }
         } else {
             self.tables.clone()
@@ -133,8 +135,12 @@ impl WasmiRuntime {
         dry_run: bool,
         phantom_functions: &Vec<String>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer =
-            wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, dry_run);
+        let tracer = wasmi::tracer::Tracer::new(
+            host_plugin_lookup.clone(),
+            phantom_functions,
+            dry_run,
+            (1 << 30 as usize) / EVENT_TABLE_ENTRY_ROWS as usize,
+        );
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))

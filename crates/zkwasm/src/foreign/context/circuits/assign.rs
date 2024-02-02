@@ -1,7 +1,7 @@
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
-use specs::etable::EventTable;
+use specs::etable::EventTableEntry;
 use specs::host_function::HostPlugin;
 use specs::step::StepInfo;
 
@@ -54,14 +54,13 @@ impl<F: FieldExt> ContextContHelperTableChip<F> {
 }
 
 pub trait ExtractContextFromTrace {
-    fn get_context_inputs(&self) -> Vec<u64>;
-    fn get_context_outputs(&self) -> Vec<u64>;
+    fn get_context_inputs(self) -> Vec<u64>;
+    fn get_context_outputs(self) -> Vec<u64>;
 }
 
-impl ExtractContextFromTrace for EventTable {
-    fn get_context_inputs(&self) -> Vec<u64> {
-        self.entries()
-            .iter()
+impl ExtractContextFromTrace for &[EventTableEntry] {
+    fn get_context_inputs(self) -> Vec<u64> {
+        self.iter()
             .filter_map(|e| match &e.step_info {
                 StepInfo::CallHost {
                     plugin: HostPlugin::Context,
@@ -80,9 +79,8 @@ impl ExtractContextFromTrace for EventTable {
             .collect()
     }
 
-    fn get_context_outputs(&self) -> Vec<u64> {
-        self.entries()
-            .iter()
+    fn get_context_outputs(self) -> Vec<u64> {
+        self.iter()
             .filter_map(|e| match &e.step_info {
                 StepInfo::CallHost {
                     plugin: HostPlugin::Context,

@@ -1,3 +1,5 @@
+use std::alloc::Allocator;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -47,23 +49,33 @@ impl Iterator for RestJops {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct EventTable(Vec<EventTableEntry>);
+#[derive(Debug)]
+pub struct EventTable<A: Allocator + Clone>(Vec<EventTableEntry, A>);
 
-impl EventTable {
-    pub fn new(entries: Vec<EventTableEntry>) -> Self {
+impl<A: Allocator + Default + Clone> Default for EventTable<A> {
+    fn default() -> Self {
+        Self(Vec::<EventTableEntry, A>::with_capacity_in(0, A::default()))
+    }
+}
+
+impl<A: Allocator + Serialize + Clone> EventTable<A> {
+    pub fn with_capability_in(capacity: usize, alloc: A) -> Self {
+        Self(Vec::with_capacity_in(capacity, alloc))
+    }
+
+    pub fn new(entries: Vec<EventTableEntry, A>) -> Self {
         Self(entries)
     }
 
-    pub fn unwrap(self) -> Vec<EventTableEntry> {
+    pub fn unwrap(self) -> Vec<EventTableEntry, A> {
         self.0
     }
 
-    pub fn entries(&self) -> &Vec<EventTableEntry> {
-        &self.0
+    pub fn entries(&self) -> &[EventTableEntry] {
+        self.0.as_slice()
     }
 
-    pub fn entries_mut(&mut self) -> &mut Vec<EventTableEntry> {
+    pub fn entries_mut(&mut self) -> &mut Vec<EventTableEntry, A> {
         &mut self.0
     }
 

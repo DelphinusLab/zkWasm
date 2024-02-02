@@ -11,6 +11,7 @@ bitvec = "1.0.1"
 downcast-rs = "1.2.0"
 ff = "0.12"
 hex = "0.4.3"
+hugepage = { git = "https://github.com/junyu0312/hugepage.git" }
 log = "0.4.17"
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
@@ -30,6 +31,7 @@ cfg-if.workspace = true
 halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
+rayon.workspace = true
 wasmi.workspace = true
 
 # TODO put the host circuits into features

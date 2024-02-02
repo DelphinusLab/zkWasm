@@ -2,6 +2,7 @@
 #![deny(unused_variables)]
 #![deny(unused_imports)]
 #![feature(int_roundings)]
+#![feature(allocator_api)]
 #![feature(stmt_expr_attributes)]
 
 pub mod checksum;

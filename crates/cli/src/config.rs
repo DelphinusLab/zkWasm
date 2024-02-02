@@ -6,6 +6,8 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use ark_std::end_timer;
+use ark_std::start_timer;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use circuits_batcher::proof::ProofPieceInfo;
@@ -233,8 +235,8 @@ impl Config {
         println!("{} Load image...", style("[1/9]").bold().dim(),);
         let wasm_image = self.read_wasm_image(wasm_image)?;
 
-        println!("{} Load params...", style("[2/9]").bold().dim(),);
-        let params = self.read_params(params_dir)?;
+        // println!("{} Load params...", style("[2/9]").bold().dim(),);
+        // let params = self.read_params(params_dir)?;
 
         let loader = ZkWasmLoader::<Bn256, EnvBuilder::Arg, EnvBuilder>::new(
             self.k,
@@ -242,8 +244,9 @@ impl Config {
             self.phantom_functions.clone(),
         )?;
 
-        let context_output = arg.get_context_output();
+        // let context_output = arg.get_context_output();
 
+        let timer = start_timer!(|| "run");
         let result = {
             println!("{} Executing...", style("[3/9]").bold().dim(),);
             let result = loader.run(arg, EnvBuilder::HostConfig::default(), false)?;
@@ -253,164 +256,10 @@ impl Config {
 
             result
         };
+        end_timer!(timer);
 
-        {
-            if let Some(context_output_filename) = context_output_filename {
-                let context_output_path = output_dir.join(context_output_filename);
-
-                println!(
-                    "{} Write context output to file {:?}...",
-                    style("[4/9]").bold().dim(),
-                    context_output_path
-                );
-
-                context_output.write(&mut File::create(&context_output_path)?)?;
-            } else {
-                println!(
-                    "{} Context output is not specified. Skip writing context output...",
-                    style("[4/9]").bold().dim()
-                );
-            }
-        }
-
-        {
-            let dir = output_dir.join("traces");
-            fs::create_dir_all(&dir)?;
-
-            println!(
-                "{} Writing traces to {:?}...",
-                style("[5/9]").bold().dim(),
-                dir
-            );
-            result.tables.write(&dir);
-        }
-
-        println!("{} Build circuit(s)...", style("[6/9]").bold().dim(),);
-        let instances = result
-            .public_inputs_and_outputs
-            .clone()
-            .iter()
-            .map(|v| (*v).into())
-            .collect::<Vec<_>>();
-
-        #[cfg(feature = "continuation")]
-        let circuits = {
-            let mut slices = loader.slice(result).into_iter();
-            let mut circuits = vec![];
-
-            while let Some(slice) = slices.next() {
-                let circuit = slice.build_circuit();
-
-                circuits.push(circuit);
-            }
-
-            circuits
-        };
-
-        #[cfg(not(feature = "continuation"))]
-        let circuits = {
-            let (circuit, _) = loader.circuit_with_witness(result)?;
-
-            vec![circuit]
-        };
-
-        if mock_test {
-            println!(
-                "{} Mock test is enabled, testing...",
-                style("[7/9]").bold().dim(),
-            );
-
-            let progress_bar = ProgressBar::new(circuits.len() as u64);
-
-            let mut circuits = circuits.iter();
-            while let Some(circuit) = circuits.next() {
-                loader.mock_test(circuit, &instances)?;
-
-                progress_bar.inc(1);
-            }
-
-            progress_bar.finish_and_clear();
-        } else {
-            println!(
-                "{} Mock test is disabled, skip...",
-                style("[7/9]").bold().dim(),
-            );
-        }
-
-        println!("{} Creating proof(s)...", style("[8/9]").bold().dim(),);
-        let mut proof_load_info = ProofLoadInfo::new(
-            &self.name,
-            self.k as usize,
-            circuits_batcher::args::HashType::Poseidon,
-        );
-
-        let progress_bar = ProgressBar::new(circuits.len() as u64);
-        let mut circuits = circuits.into_iter().enumerate().peekable();
-        while let Some((index, circuit)) = circuits.next() {
-            let _is_finalized_circuit = circuits.peek().is_none();
-
-            #[cfg(feature = "continuation")]
-            let proving_key = if _is_finalized_circuit {
-                self.read_circuit_data(
-                    &params_dir.join(name_of_circuit_data(&self.name, true)),
-                    &self.circuit_datas.finalized_circuit.circuit_data_md5,
-                )?
-                .into_proving_key(&params)
-            } else {
-                self.read_circuit_data(
-                    &params_dir.join(name_of_circuit_data(&self.name, false)),
-                    &self.circuit_datas.on_going_circuit.circuit_data_md5,
-                )?
-                .into_proving_key(&params)
-            };
-
-            #[cfg(not(feature = "continuation"))]
-            let proving_key = self
-                .read_circuit_data(
-                    &params_dir.join(name_of_circuit_data(&self.name)),
-                    &self.circuit_datas.finalized_circuit.circuit_data_md5,
-                )?
-                .into_proving_key(&params);
-
-            #[cfg(feature = "continuation")]
-            let circuit_data_name = name_of_circuit_data(&self.name, _is_finalized_circuit);
-            #[cfg(not(feature = "continuation"))]
-            let circuit_data_name = name_of_circuit_data(&self.name);
-
-            let proof_piece_info = ProofPieceInfo {
-                circuit: circuit_data_name,
-                instance_size: instances.len() as u32,
-                witness: name_of_witness(&self.name, index),
-                instance: name_of_instance(&self.name, index),
-                transcript: name_of_transcript(&self.name, index),
-            };
-
-            proof_piece_info.exec_create_proof_with_params::<Bn256, _>(
-                &circuit,
-                &vec![instances.clone()],
-                &params,
-                &proving_key,
-                output_dir,
-                proof_load_info.hashtype,
-            );
-
-            proof_load_info.append_single_proof(proof_piece_info);
-
-            progress_bar.inc(1);
-        }
-        progress_bar.finish_and_clear();
-
-        {
-            let proof_load_info_path = output_dir.join(&name_of_loadinfo(&self.name));
-            println!(
-                "{} Saving proof load info to {:?}...",
-                style("[9/9]").bold().dim(),
-                proof_load_info_path
-            );
-            proof_load_info.save(proof_load_info_path.parent().unwrap());
-        }
-
-        Ok(())
+        return Ok(());
+    
     }
 
     pub(crate) fn verify(self, params_dir: &PathBuf, output_dir: &PathBuf) -> anyhow::Result<()> {

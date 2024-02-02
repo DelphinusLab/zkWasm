@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+hugepage = { git = "https://github.com/junyu0312/hugepage.git" }
 lazy_static = "1.4.0"
 num-bigint = { version = "0.4", features = ["rand", "serde"] }
 serde = { version = "1.0", features = ["derive", "rc"] }

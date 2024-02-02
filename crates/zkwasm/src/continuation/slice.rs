@@ -1,4 +1,5 @@
 use halo2_proofs::arithmetic::FieldExt;
+use hugepage::hugepage::HugeTlbAllocator;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::CompilationTable;
@@ -24,7 +25,7 @@ impl Slice {
 }
 
 pub struct Slices {
-    remaining_etable_entries: Vec<EventTableEntry>,
+    remaining_etable_entries: Vec<EventTableEntry, HugeTlbAllocator>,
     last_compilation_table: CompilationTable,
 
     // the length of etable entries
@@ -36,17 +37,32 @@ pub struct Slices {
 impl Slices {
     pub fn new(tables: Tables, capability: usize) -> Self {
         Self {
-            remaining_etable_entries: tables.execution_tables.etable.entries().clone(),
+            remaining_etable_entries: tables
+                .execution_tables
+                .etable
+                .entries()
+                .to_vec_in(HugeTlbAllocator),
             last_compilation_table: tables.compilation_tables.clone(),
             capability,
             origin_table: tables,
         }
     }
 
-    fn pop_etable_entries(&mut self) -> Vec<EventTableEntry> {
-        self.remaining_etable_entries
-            .drain(0..self.capability.min(self.remaining_etable_entries.len()))
-            .collect::<Vec<_>>()
+    fn pop_etable_entries(&mut self) -> Vec<EventTableEntry, HugeTlbAllocator> {
+        let drain = self
+            .remaining_etable_entries
+            .drain(0..self.capability.min(self.remaining_etable_entries.len()));
+
+        let mut vec = Vec::<EventTableEntry, HugeTlbAllocator>::with_capacity_in(
+            drain.len(),
+            HugeTlbAllocator,
+        );
+
+        for entry in drain {
+            vec.push(entry);
+        }
+
+        vec
     }
 }
 
@@ -84,7 +100,7 @@ impl Iterator for Slices {
         };
 
         let execution_tables = ExecutionTable {
-            etable: Arc::new(EventTable::new(etable_entries)),
+            etable: Arc::new(EventTable::<HugeTlbAllocator>::new(etable_entries)),
             jtable: self.origin_table.execution_tables.jtable.clone(),
         };
 

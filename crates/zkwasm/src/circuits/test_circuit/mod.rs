@@ -270,7 +270,7 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
                 let etable = exec_with_profile!(
                     || "Prepare memory info for etable",
                     EventTableWithMemoryInfo::new(
-                        &self.tables.execution_tables.etable,
+                        self.tables.execution_tables.etable.entries(),
                         &memory_writing_table,
                     )
                 );
@@ -329,8 +329,18 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
             || "Assign context cont chip",
             context_chip.assign(
                 &mut layouter,
-                &self.tables.execution_tables.etable.get_context_inputs(),
-                &self.tables.execution_tables.etable.get_context_outputs()
+                &self
+                    .tables
+                    .execution_tables
+                    .etable
+                    .entries()
+                    .get_context_inputs(),
+                &self
+                    .tables
+                    .execution_tables
+                    .etable
+                    .entries()
+                    .get_context_outputs()
             )?
         );
 
