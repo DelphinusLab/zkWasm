@@ -1,4 +1,4 @@
-use crate::circuits::TestCircuit;
+use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
@@ -36,7 +36,7 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
         public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
     };
 
-    let circuit: TestCircuit<Fr> = builder.build_circuit();
+    let circuit: ZkWasmCircuit<Fr> = builder.build_circuit();
 
     let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");

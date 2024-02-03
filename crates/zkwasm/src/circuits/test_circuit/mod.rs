@@ -32,7 +32,7 @@ use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::utils::Context;
-use crate::circuits::TestCircuit;
+use crate::circuits::ZkWasmCircuit;
 use crate::exec_with_profile;
 use crate::foreign::context::circuits::assign::ContextContHelperTableChip;
 use crate::foreign::context::circuits::assign::ExtractContextFromTrace;
@@ -53,7 +53,7 @@ pub const VAR_COLUMNS: usize = 51;
 const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
 
 #[derive(Clone)]
-pub struct TestCircuitConfig<F: FieldExt> {
+pub struct ZkWasmCircuitConfig<F: FieldExt> {
     rtable: RangeTableConfig<F>,
     image_table: ImageTableConfig<F>,
     mtable: MemoryTableConfig<F>,
@@ -68,13 +68,13 @@ pub struct TestCircuitConfig<F: FieldExt> {
     max_available_rows: usize,
 }
 
-impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
-    type Config = TestCircuitConfig<F>;
+impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
+    type Config = ZkWasmCircuitConfig<F>;
 
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        TestCircuit::new(Tables {
+        ZkWasmCircuit::new(Tables {
             compilation_tables: self.tables.compilation_tables.clone(),
             execution_tables: ExecutionTable::default(),
         })

@@ -27,14 +27,14 @@ pub type CompilationTable = specs::CompilationTable;
 pub type ExecutionTable = specs::ExecutionTable;
 
 #[derive(Default, Clone)]
-pub struct TestCircuit<F: FieldExt> {
+pub struct ZkWasmCircuit<F: FieldExt> {
     pub tables: Tables,
     _data: PhantomData<F>,
 }
 
-impl<F: FieldExt> TestCircuit<F> {
+impl<F: FieldExt> ZkWasmCircuit<F> {
     pub fn new(tables: Tables) -> Self {
-        TestCircuit {
+        ZkWasmCircuit {
             tables,
             _data: PhantomData,
         }
@@ -64,7 +64,7 @@ pub struct ZkWasmCircuitBuilder {
 }
 
 impl ZkWasmCircuitBuilder {
-    pub fn build_circuit<F: FieldExt>(&self) -> TestCircuit<F> {
-        TestCircuit::new(self.tables.clone())
+    pub fn build_circuit<F: FieldExt>(&self) -> ZkWasmCircuit<F> {
+        ZkWasmCircuit::new(self.tables.clone())
     }
 }
