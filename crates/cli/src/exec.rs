@@ -4,7 +4,7 @@ use circuits_batcher::proof::ParamsCache;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use circuits_batcher::proof::ProvingKeyCache;
-use delphinus_zkwasm::circuits::TestCircuit;
+use delphinus_zkwasm::circuits::ZkWasmCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::pairing::bn256::Bn256;
@@ -156,7 +156,7 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
         info!("Mock test passed");
     }
 
-    let circuit: CircuitInfo<Bn256, TestCircuit<Fr>> = CircuitInfo::new(
+    let circuit: CircuitInfo<Bn256, ZkWasmCircuit<Fr>> = CircuitInfo::new(
         circuit,
         prefix.to_string(),
         vec![instances],
