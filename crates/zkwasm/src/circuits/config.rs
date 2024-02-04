@@ -26,3 +26,11 @@ pub fn zkwasm_k() -> u32 {
 pub fn init_zkwasm_runtime(k: u32) {
     set_zkwasm_k(k);
 }
+
+pub(crate) fn common_range() -> u32 {
+    (1 << zkwasm_k()) - 256
+}
+
+pub(crate) fn common_range_max() -> u32 {
+    common_range() - 1
+}

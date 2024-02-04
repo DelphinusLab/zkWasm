@@ -164,7 +164,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         let circuit_maximal_pages = compute_maximal_pages(k);
         info!(
             "Circuit K: {} supports up to {} pages.",
-            k, max_available_rows
+            k, circuit_maximal_pages
         );
 
         Self::Config {
