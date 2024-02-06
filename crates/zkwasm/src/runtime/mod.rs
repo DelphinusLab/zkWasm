@@ -18,11 +18,25 @@ use self::wasmi_interpreter::WasmiRuntime;
 pub mod host;
 pub mod wasmi_interpreter;
 
-pub struct CompiledImage<I, T> {
+pub struct CompiledImage<I: Clone, T> {
     pub entry: String,
-    pub tables: CompilationTable,
+    pub tables: Rc<CompilationTable>,
     pub instance: I,
     pub tracer: Rc<RefCell<T>>,
+}
+
+unsafe impl<I:Clone, T> Send for CompiledImage<I,T> {}
+unsafe impl<I:Clone, T> Sync for CompiledImage<I,T> {}
+
+impl<I: Clone, T> CompiledImage<I, T> {
+    pub fn clone_with_reset(&self, tracer: T) -> Self {
+        Self {
+            entry: self.entry.clone(),
+            tables: self.tables.clone(),
+            instance: self.instance.clone(),
+            tracer: Rc::new(RefCell::new(tracer)),
+        }
+    }
 }
 
 #[derive(Clone)]

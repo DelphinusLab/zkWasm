@@ -1,4 +1,6 @@
 use anyhow::Result;
+use ark_std::end_timer;
+use ark_std::start_timer;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::keygen_vk;
@@ -9,6 +11,7 @@ use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use log::warn;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
@@ -53,7 +56,9 @@ pub struct ZkWasmLoader<E: MultiMillerLoop, Arg, EnvBuilder: HostEnvBuilder<Arg 
     _mark: PhantomData<(Arg, EnvBuilder, E)>,
 }
 
-impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
+impl<E: MultiMillerLoop, T: Send + Sync, EnvBuilder: HostEnvBuilder<Arg = T>>
+    ZkWasmLoader<E, T, EnvBuilder>
+{
     fn precheck(&self) -> Result<()> {
         fn check_zkmain_exists(module: &wasmi::Module) -> Result<()> {
             use parity_wasm::elements::Internal;
@@ -91,14 +96,18 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
-        WasmInterpreter::compile(
+        let timer = start_timer!(|| "compile image");
+        let instance = WasmInterpreter::compile(
             &self.module,
             &imports,
             &env.function_description_table(),
             ENTRY,
             dryrun,
             &self.phantom_functions,
-        )
+        )?;
+        end_timer!(timer);
+
+        Ok(instance)
     }
 
     fn circuit_without_witness(
@@ -107,11 +116,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     ) -> Result<TestCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
 
-        let compiled_module = self.compile(&env, true)?;
+        let mut compiled_module = self.compile(&env, true)?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
-                compilation_tables: compiled_module.tables,
+                compilation_tables: Rc::get_mut(&mut compiled_module.tables).unwrap().clone(),
                 execution_tables: ExecutionTable::default(),
             },
             public_inputs_and_outputs: wasm_runtime_io.public_inputs_and_outputs.borrow().clone(),
@@ -175,7 +184,9 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     }
 }
 
-impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
+impl<E: MultiMillerLoop, T: Sync + Send, EnvBuilder: HostEnvBuilder<Arg = T>>
+    ZkWasmLoader<E, T, EnvBuilder>
+{
     pub fn run(
         &self,
         arg: T,
@@ -183,8 +194,21 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         dryrun: bool,
         write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
+        let timer = start_timer!(|| "create env");
         let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
+        end_timer!(timer);
+
+        let host_plugin_lookup = env.function_description_table().clone();
+
         let compiled_module = self.compile(&env, dryrun)?;
+
+        let timer = start_timer!(|| "clone instance");
+        let tracer =
+            wasmi::tracer::Tracer::new(host_plugin_lookup, &self.phantom_functions, dryrun);
+        // let tracer = Rc::new(RefCell::new(tracer));
+        let cloned_instance = compiled_module.clone_with_reset(tracer);
+        end_timer!(timer);
+
         let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
         if !dryrun {
             result.tables.profile_tables();
@@ -193,6 +217,16 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
                 result.tables.write_json(None);
             }
         }
+
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
+
+                let instance = cloned_instance;
+
+                instance.run(env, dryrun, wasm_runtime_io).unwrap();
+            })
+        });
 
         Ok(result)
     }

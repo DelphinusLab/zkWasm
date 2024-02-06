@@ -93,7 +93,7 @@ struct HostFunction {
 pub trait HostEnvBuilder {
     /// Argument type
     type Arg;
-    type HostConfig: Default;
+    type HostConfig: Default + Send + Sync;
     /// Create an empty env without value, this is used by compiling, computing hash
     fn create_env_without_value(config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
     /// Create an env with execution parameters, this is used by dry-run, run

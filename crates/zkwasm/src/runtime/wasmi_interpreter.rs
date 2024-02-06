@@ -5,6 +5,8 @@ use std::rc::Rc;
 use crate::circuits::config::zkwasm_k;
 use crate::runtime::memory_event_of_step;
 use anyhow::Result;
+use ark_std::end_timer;
+use ark_std::start_timer;
 use specs::host_function::HostFunctionDesc;
 use specs::jtable::StaticFrameEntry;
 use specs::mtable::MTable;
@@ -88,9 +90,10 @@ impl Execution<RuntimeValue>
             ExecutionTable::default()
         };
 
+        let mut tables = self.tables;
         Ok(ExecutionResult {
             tables: Tables {
-                compilation_tables: self.tables.clone(),
+                compilation_tables: Rc::get_mut(&mut tables).unwrap().clone(),
                 execution_tables,
             },
             result,
@@ -117,9 +120,11 @@ impl WasmiRuntime {
         dry_run: bool,
         phantom_functions: &Vec<String>,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
+        let t = start_timer!(|| "tracer");
         let tracer =
             wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, dry_run);
         let tracer = Rc::new(RefCell::new(tracer));
+        end_timer!(t);
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
             .expect("failed to instantiate wasm module");
@@ -170,14 +175,14 @@ impl WasmiRuntime {
 
         Ok(CompiledImage {
             entry: entry.to_owned(),
-            tables: CompilationTable {
+            tables: Rc::new(CompilationTable {
                 itable,
                 imtable,
                 elem_table,
                 configure_table,
                 static_jtable,
                 fid_of_entry,
-            },
+            }),
             instance,
             tracer,
         })
