@@ -17,7 +17,7 @@ impl<F: FieldExt> ImageTableChip<F> {
         layouter.assign_region(
             || "image table",
             |region| {
-                let mut ctx = Context::new(region);
+                let mut ctx = Context::new(region.clone());
 
                 cfg_if::cfg_if! {
                     if #[cfg(feature="uniform-circuit")] {

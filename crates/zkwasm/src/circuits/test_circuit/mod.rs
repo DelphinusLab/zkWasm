@@ -233,7 +233,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                 jme_assigner.assign_region(
                     || "jtable mtable etable",
                     |region| {
-                        let mut ctx = Context::new(region);
+                        let mut ctx = Context::new(region.clone());
 
                         let etable = exec_with_profile!(
                             || "Prepare memory info for etable",
@@ -294,7 +294,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                 mtable_assigner.assign_region(
                     || "jtable mtable etable",
                     |region| {
-                        let mut ctx = Context::new(region);
+                        let mut ctx = Context::new(region.clone());
                         {
                             ctx.reset();
                             exec_with_profile!(
@@ -316,7 +316,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                 let static_frame_entries = jme_assigner.assign_region(
                     || "jtable mtable etable",
                     |region| {
-                        let mut ctx = Context::new(region);
+                        let mut ctx = Context::new(region.clone());
                         let static_frame_entries = {
                             exec_with_profile!(
                                 || "Assign frame table",
@@ -352,7 +352,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                 layouter.assign_region(
                     || "jtable mtable etable",
                     |region| {
-                        let mut ctx = Context::new(region);
+                        let mut ctx = Context::new(region.clone());
                         exec_with_profile!(
                             || "Assign bit table",
                             bit_chip.assign(&mut ctx, &etable)?
