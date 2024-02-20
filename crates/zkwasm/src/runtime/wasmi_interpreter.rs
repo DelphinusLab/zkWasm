@@ -124,23 +124,18 @@ impl WasmiRuntime {
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
             .expect("failed to instantiate wasm module");
 
-        let fid_of_entry = {
-            let idx_of_entry = instance.lookup_function_by_name(tracer.clone(), entry);
+        // For performance
+        if dry_run {
+            Ok(CompiledImage {
+                entry: entry.to_owned(),
+                tables: CompilationTable::default(),
+                instance,
+                tracer,
+            })
+        } else {
+            let fid_of_entry = {
+                let idx_of_entry = instance.lookup_function_by_name(tracer.clone(), entry);
 
-            tracer
-                .clone()
-                .borrow_mut()
-                .static_jtable_entries
-                .push(StaticFrameEntry {
-                    enable: true,
-                    frame_id: 0,
-                    next_frame_id: 0,
-                    callee_fid: idx_of_entry,
-                    fid: 0,
-                    iid: 0,
-                });
-
-            if let Some(idx_of_start_function) = module.module().start_section() {
                 tracer
                     .clone()
                     .borrow_mut()
@@ -149,37 +144,52 @@ impl WasmiRuntime {
                         enable: true,
                         frame_id: 0,
                         next_frame_id: 0,
-                        callee_fid: idx_of_start_function,
-                        fid: idx_of_entry,
+                        callee_fid: idx_of_entry,
+                        fid: 0,
                         iid: 0,
                     });
-            }
 
-            if instance.has_start() {
-                module.module().start_section().unwrap()
-            } else {
-                idx_of_entry
-            }
-        };
+                if let Some(idx_of_start_function) = module.module().start_section() {
+                    tracer
+                        .clone()
+                        .borrow_mut()
+                        .static_jtable_entries
+                        .push(StaticFrameEntry {
+                            enable: true,
+                            frame_id: 0,
+                            next_frame_id: 0,
+                            callee_fid: idx_of_start_function,
+                            fid: idx_of_entry,
+                            iid: 0,
+                        });
+                }
 
-        let itable = tracer.borrow().itable.clone().into();
-        let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
-        let elem_table = tracer.borrow().elem_table.clone();
-        let configure_table = tracer.borrow().configure_table.clone();
-        let static_jtable = tracer.borrow().static_jtable_entries.clone();
+                if instance.has_start() {
+                    module.module().start_section().unwrap()
+                } else {
+                    idx_of_entry
+                }
+            };
 
-        Ok(CompiledImage {
-            entry: entry.to_owned(),
-            tables: CompilationTable {
-                itable,
-                imtable,
-                elem_table,
-                configure_table,
-                static_jtable,
-                fid_of_entry,
-            },
-            instance,
-            tracer,
-        })
+            let itable = tracer.borrow().itable.clone().into();
+            let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
+            let elem_table = tracer.borrow().elem_table.clone();
+            let configure_table = tracer.borrow().configure_table.clone();
+            let static_jtable = tracer.borrow().static_jtable_entries.clone();
+
+            Ok(CompiledImage {
+                entry: entry.to_owned(),
+                tables: CompilationTable {
+                    itable,
+                    imtable,
+                    elem_table,
+                    configure_table,
+                    static_jtable,
+                    fid_of_entry,
+                },
+                instance,
+                tracer,
+            })
+        }
     }
 }
