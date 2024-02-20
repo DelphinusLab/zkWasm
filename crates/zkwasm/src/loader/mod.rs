@@ -107,7 +107,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     ) -> Result<TestCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
 
-        let compiled_module = self.compile(&env, true)?;
+        let compiled_module = self.compile(&env, false)?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
@@ -164,7 +164,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         envconfig: EnvBuilder::HostConfig,
     ) -> Result<Vec<E::G1Affine>> {
         let (env, _) = EnvBuilder::create_env_without_value(envconfig);
-        let compiled = self.compile(&env, true)?;
+        let compiled = self.compile(&env, false)?;
 
         let table_with_params = CompilationTableWithParams {
             table: &compiled.tables,
