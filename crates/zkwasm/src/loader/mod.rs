@@ -1,4 +1,6 @@
 use anyhow::Result;
+use ark_std::end_timer;
+use ark_std::start_timer;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::keygen_vk;
@@ -9,6 +11,7 @@ use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use log::warn;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use halo2aggregator_s::circuits::utils::load_or_create_proof;
 use halo2aggregator_s::circuits::utils::TranscriptHash;
@@ -48,7 +51,7 @@ pub struct ExecutionReturn {
 
 pub struct ZkWasmLoader<E: MultiMillerLoop, Arg, EnvBuilder: HostEnvBuilder<Arg = Arg>> {
     k: u32,
-    module: wasmi::Module,
+    module: Arc<wasmi::Module>,
     phantom_functions: Vec<String>,
     _mark: PhantomData<(Arg, EnvBuilder, E)>,
 }
@@ -88,11 +91,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         env: &HostEnv,
         dryrun: bool,
-    ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
+    ) -> Result<CompiledImage<NotStartedModuleRef, Tracer>> {
         let imports = ImportsBuilder::new().with_resolver("env", env);
 
         WasmInterpreter::compile(
-            &self.module,
+            self.module.clone(),
             &imports,
             &env.function_description_table(),
             ENTRY,
@@ -137,7 +140,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
         let loader = Self {
             k,
-            module,
+            module: Arc::new(module),
             phantom_functions,
             _mark: PhantomData,
         };
@@ -184,15 +187,28 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         write_to_file: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
-        let compiled_module = self.compile(&env, dryrun)?;
-        let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
-        if !dryrun {
-            result.tables.profile_tables();
 
-            if write_to_file {
-                result.tables.write_json(None);
+        let timer = start_timer!(|| "compile");
+        let compiled_module_clean = self.compile(&env, dryrun)?;
+        end_timer!(timer);
+
+        let timer = start_timer!(|| "recompile");
+        let compiled_module = compiled_module_clean.clone_from_clean_image();
+        end_timer!(timer);
+
+        let result = std::thread::spawn(move || {
+            let result = compiled_module.run(env, dryrun, wasm_runtime_io).unwrap();
+            if !dryrun {
+                result.tables.profile_tables();
+
+                if write_to_file {
+                    result.tables.write_json(None);
+                }
             }
-        }
+            result
+        })
+        .join()
+        .unwrap();
 
         Ok(result)
     }

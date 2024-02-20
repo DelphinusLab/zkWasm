@@ -30,6 +30,8 @@ pub struct HostEnv {
     time_profile: BTreeMap<String, u128>,
 }
 
+unsafe impl Send for HostEnv {}
+
 impl HostEnv {
     /// Constructs a host environment
     ///

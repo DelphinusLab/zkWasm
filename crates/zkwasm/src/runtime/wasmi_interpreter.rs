@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::circuits::config::zkwasm_k;
 use crate::runtime::memory_event_of_step;
@@ -25,6 +26,8 @@ pub struct WasmRuntimeIO {
     pub outputs: Rc<RefCell<Vec<u64>>>,
 }
 
+unsafe impl Send for WasmRuntimeIO {}
+
 impl WasmRuntimeIO {
     pub fn empty() -> Self {
         Self {
@@ -44,7 +47,7 @@ pub trait Execution<R> {
 }
 
 impl Execution<RuntimeValue>
-    for CompiledImage<wasmi::NotStartedModuleRef<'_>, wasmi::tracer::Tracer>
+    for CompiledImage<wasmi::NotStartedModuleRef, wasmi::tracer::Tracer>
 {
     fn run(
         self,
@@ -109,19 +112,19 @@ impl WasmiRuntime {
         WasmiRuntime
     }
 
-    pub fn compile<'a, I: ImportResolver>(
-        module: &'a wasmi::Module,
+    pub fn compile<I: ImportResolver>(
+        module: Arc<wasmi::Module>,
         imports: &I,
         host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
         entry: &str,
         dry_run: bool,
         phantom_functions: &Vec<String>,
-    ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
+    ) -> Result<CompiledImage<wasmi::NotStartedModuleRef, wasmi::tracer::Tracer>> {
         let tracer =
             wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, dry_run);
         let tracer = Rc::new(RefCell::new(tracer));
 
-        let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
+        let instance = ModuleInstance::new(module.clone(), imports, Some(tracer.clone()))
             .expect("failed to instantiate wasm module");
 
         let fid_of_entry = {
@@ -162,8 +165,8 @@ impl WasmiRuntime {
             }
         };
 
-        let itable = tracer.borrow().itable.clone().into();
-        let imtable = tracer.borrow().imtable.finalized(zkwasm_k());
+        let itable = tracer.borrow().itable.borrow().clone().into();
+        let imtable = tracer.borrow().imtable.borrow().finalized(zkwasm_k());
         let elem_table = tracer.borrow().elem_table.clone();
         let configure_table = tracer.borrow().configure_table.clone();
         let static_jtable = tracer.borrow().static_jtable_entries.clone();
