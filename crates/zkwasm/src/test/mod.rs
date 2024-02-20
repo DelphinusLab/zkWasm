@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::circuits::TestCircuit;
@@ -74,7 +76,7 @@ fn compile_then_execute_wasm(
     let imports = ImportsBuilder::new().with_resolver("env", &env);
 
     let compiled_module = WasmInterpreter::compile(
-        &module,
+        Arc::new(module),
         &imports,
         &env.function_description_table(),
         function_name,
