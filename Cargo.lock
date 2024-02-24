@@ -90,6 +90,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-std"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
+dependencies = [
+ "num-traits",
+ "rand",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -316,7 +326,7 @@ version = "0.1.0"
 source = "git+https://github.com/DelphinusLab/continuation-batcher.git#8376e7de916b165c8e4965b9b8933e0f3095b50a"
 dependencies = [
  "anyhow",
- "ark-std",
+ "ark-std 0.3.0",
  "bitvec",
  "clap",
  "downcast-rs",
@@ -563,7 +573,7 @@ name = "delphinus-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std",
+ "ark-std 0.3.0",
  "circuits-batcher",
  "clap",
  "delphinus-host",
@@ -587,7 +597,7 @@ name = "delphinus-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std",
+ "ark-std 0.3.0",
  "bitvec",
  "delphinus-zkwasm",
  "downcast-rs",
@@ -620,7 +630,7 @@ name = "delphinus-zkwasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std",
+ "ark-std 0.3.0",
  "bitvec",
  "cfg-if 1.0.0",
  "downcast-rs",
@@ -636,6 +646,7 @@ dependencies = [
  "parity-wasm",
  "poseidon",
  "rand",
+ "rayon",
  "rusty-fork",
  "serde",
  "serde_json",
@@ -731,7 +742,7 @@ name = "ec-gpu-gen"
 version = "0.4.0"
 source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#784eda53754a5344f75e4b3c533361d628ad1402"
 dependencies = [
- "ark-std",
+ "ark-std 0.3.0",
  "bitvec",
  "crossbeam-channel",
  "ec-gpu",
@@ -1072,9 +1083,8 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#9ac108049b488df640eecdd5eb18751062442898"
 dependencies = [
- "ark-std",
+ "ark-std 0.3.0",
  "blake2b_simd",
  "bumpalo",
  "cfg-if 0.1.10",
@@ -1100,9 +1110,8 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=main#4fc143e5a10a77cb24f31c0b792ec9a01d1bfd34"
 dependencies = [
- "ark-std",
+ "ark-std 0.4.0",
  "blake2b_simd",
  "halo2_proofs",
  "halo2ecc-s",
@@ -1117,7 +1126,6 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.3.3#9698edde834f0bd90a82d0ac37803f5be2b093ad"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
@@ -3316,9 +3324,8 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=main#e3a2eff4583b2fd8be7fc3e54f2789cbfbfd72d4"
 dependencies = [
- "ark-std",
+ "ark-std 0.3.0",
  "cfg-if 1.0.0",
  "circuits-batcher",
  "clap",

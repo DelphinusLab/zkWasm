@@ -678,6 +678,10 @@ impl InstructionTable {
 
         BrTable::new(entries.concat())
     }
+
+    pub fn clone_internal(&self) -> InstructionTableInternal {
+        InstructionTableInternal(self.0.iter().map(|x| x.clone()).collect::<Vec<_>>())
+    }
 }
 
 impl Into<InstructionTable> for InstructionTableInternal {

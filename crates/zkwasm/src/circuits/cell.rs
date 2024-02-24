@@ -116,7 +116,6 @@ macro_rules! define_cell {
                     value,
                     $limit
                 );
-
                 self.0.assign(ctx, value)
             }
         }

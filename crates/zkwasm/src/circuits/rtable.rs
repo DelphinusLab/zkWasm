@@ -159,10 +159,10 @@ impl<F: FieldExt> RangeTableChip<F> {
         RangeTableChip { config }
     }
 
-    pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+    pub fn init(&self, layouter: &impl Layouter<F>) -> Result<(), Error> {
         layouter.assign_table(
             || "common range table",
-            |mut table| {
+            |table| {
                 for i in 0..(1 << (zkwasm_k() - 1)) {
                     table.assign_cell(
                         || "range table",
@@ -177,7 +177,7 @@ impl<F: FieldExt> RangeTableChip<F> {
 
         layouter.assign_table(
             || "u16 range table",
-            |mut table| {
+            |table| {
                 for i in 0..(1 << 16) {
                     table.assign_cell(
                         || "range table",
@@ -191,11 +191,11 @@ impl<F: FieldExt> RangeTableChip<F> {
         )?;
 
         {
-            let mut offset = 0;
 
             layouter.assign_table(
                 || "op lookup table",
-                |mut table| {
+                |table| {
+                    let mut offset = 0;
                     for op in BitOp::iter() {
                         for left in 0..1u16 << 8 {
                             for right in 0u16..1 << 8 {

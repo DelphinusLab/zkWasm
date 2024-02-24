@@ -106,14 +106,14 @@ impl MemoryWritingTable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemoryRWEntry {
     pub entry: MemoryTableEntry,
     pub start_eid: u32,
     pub end_eid: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventTableEntryWithMemoryInfo {
     pub eentry: EventTableEntry,
     pub memory_rw_entires: Vec<MemoryRWEntry>,
