@@ -202,7 +202,6 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         execution_result: ExecutionResult<RuntimeValue>,
     ) -> Result<(ZkWasmCircuit<E::Scalar>, Vec<E::Scalar>)> {
-        //let execution_result = self.run(arg, config, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
             .clone()
@@ -214,7 +213,14 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             tables: execution_result.tables,
         };
 
-        Ok((builder.build_circuit(None), instance))
+        Ok((
+            builder.build_circuit(if cfg!(feature = "continuation") {
+                Some(self.compute_slice_capability())
+            } else {
+                None
+            }),
+            instance,
+        ))
     }
 
     pub fn mock_test(

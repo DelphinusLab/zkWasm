@@ -1,3 +1,6 @@
+#[cfg(feature = "continuation")]
+use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
+
 use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::runtime::host::host_env::HostEnv;
@@ -36,7 +39,8 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
         tables: execution_result.tables,
     };
 
-    let circuit: ZkWasmCircuit<Fr> = builder.build_circuit(None);
+    let circuit: ZkWasmCircuit<Fr> =
+        builder.build_circuit(Some(((1 << K) - 200) / EVENT_TABLE_ENTRY_ROWS as usize));
 
     let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
@@ -108,6 +112,7 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
 }
 
 mod tests {
+
     use halo2_proofs::plonk::create_proof;
     use halo2_proofs::plonk::verify_proof;
     use halo2_proofs::plonk::SingleVerifier;
@@ -143,7 +148,11 @@ mod tests {
             create_proof(
                 &params,
                 &uniform_verifier_pk,
-                &[builder.build_circuit(None)],
+                &[builder.build_circuit(if cfg!(feature = "continuation") {
+                    Some(((1 << K) - 200) / EVENT_TABLE_ENTRY_ROWS as usize)
+                } else {
+                    None
+                })],
                 &[&[&instances]],
                 OsRng,
                 &mut transcript,
