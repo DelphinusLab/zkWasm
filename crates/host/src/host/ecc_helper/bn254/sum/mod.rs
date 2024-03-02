@@ -1,4 +1,3 @@
-use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
@@ -19,6 +18,7 @@ use super::fetch_fr;
 use super::fetch_g1;
 
 struct BN254SumContext {
+    pub k: u32,
     pub acc: G1Affine,
     pub limbs: Vec<u64>,
     pub coeffs: Vec<u64>,
@@ -40,8 +40,9 @@ impl BN254SumContext {
         }
     }
 
-    pub fn default() -> Self {
+    pub fn default(k: u32) -> Self {
         BN254SumContext {
+            k,
             acc: G1Affine::identity(),
             limbs: vec![],
             coeffs: vec![],
@@ -78,7 +79,7 @@ impl ForeignContext for BN254SumContext {
     fn get_statics(&self) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: Bn256SumChip::max_rounds(zkwasm_k() as usize),
+            max_round: Bn256SumChip::max_rounds(self.k as usize),
         })
     }
 }
@@ -92,9 +93,10 @@ impl ForeignContext for BN254SumContext {
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_bn254sum_foreign(env: &mut HostEnv) {
-    let foreign_bn254sum_plugin = env
-        .external_env
-        .register_plugin("foreign_bn254sum", Box::new(BN254SumContext::default()));
+    let foreign_bn254sum_plugin = env.external_env.register_plugin(
+        "foreign_bn254sum",
+        Box::new(BN254SumContext::default(env.k)),
+    );
 
     env.external_env.register_function(
         "bn254_sum_new",

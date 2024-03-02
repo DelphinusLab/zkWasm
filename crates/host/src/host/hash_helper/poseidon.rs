@@ -1,4 +1,3 @@
-use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
@@ -59,6 +58,7 @@ pub fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
 }
 
 pub struct PoseidonContext {
+    pub k: u32,
     pub hasher: Option<Poseidon<Fr, 9, 8>>,
     pub generator: Generator,
     pub buf: Vec<Fr>,
@@ -67,8 +67,9 @@ pub struct PoseidonContext {
 }
 
 impl PoseidonContext {
-    pub fn default() -> Self {
+    pub fn default(k: u32) -> Self {
         PoseidonContext {
+            k,
             hasher: None,
             fieldreducer: new_reduce(vec![ReduceRule::Field(Fr::zero(), 64)]),
             buf: vec![],
@@ -117,16 +118,17 @@ impl ForeignContext for PoseidonContext {
     fn get_statics(&self) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: PoseidonChip::max_rounds(zkwasm_k() as usize),
+            max_round: PoseidonChip::max_rounds(self.k as usize),
         })
     }
 }
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_poseidon_foreign(env: &mut HostEnv) {
-    let foreign_poseidon_plugin = env
-        .external_env
-        .register_plugin("foreign_poseidon", Box::new(PoseidonContext::default()));
+    let foreign_poseidon_plugin = env.external_env.register_plugin(
+        "foreign_poseidon",
+        Box::new(PoseidonContext::default(env.k)),
+    );
 
     env.external_env.register_function(
         "poseidon_new",

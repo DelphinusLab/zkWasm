@@ -95,7 +95,7 @@ pub trait HostEnvBuilder {
     type Arg: HostEnvArg;
     type HostConfig: Default;
     /// Create an empty env without value, this is used by compiling, computing hash
-    fn create_env_without_value(config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
+    fn create_env_without_value(k: u32, config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
     /// Create an env with execution parameters, this is used by dry-run, run
-    fn create_env(env: Self::Arg, config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
+    fn create_env(k: u32, env: Self::Arg, config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
 }

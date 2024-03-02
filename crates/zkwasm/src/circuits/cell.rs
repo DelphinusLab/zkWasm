@@ -9,7 +9,6 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 
-use crate::circuits::config::common_range_max;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 use crate::nextn;
@@ -104,11 +103,13 @@ pub(crate) struct AllocatedU64CellWithFlagBitDynSign<F: FieldExt> {
 macro_rules! define_cell {
     ($x: ident, $limit: expr) => {
         #[derive(Debug, Clone, Copy)]
-        pub(crate) struct $x<F: FieldExt>(pub(crate) AllocatedCell<F>);
+        pub(crate) struct $x<F: FieldExt> {
+            pub(crate) cell: AllocatedCell<F>,
+        }
 
         impl<F: FieldExt> CellExpression<F> for $x<F> {
             fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-                self.0.curr_expr(meta)
+                self.cell.curr_expr(meta)
             }
 
             fn assign(
@@ -123,20 +124,39 @@ macro_rules! define_cell {
                     $limit
                 );
 
-                self.0.assign(ctx, value)
+                self.cell.assign(ctx, value)
             }
         }
     };
 }
 
 define_cell!(AllocatedBitCell, F::one());
-define_cell!(
-    AllocatedCommonRangeCell,
-    F::from((common_range_max()) as u64)
-);
 define_cell!(AllocatedU8Cell, F::from(u8::MAX as u64));
 define_cell!(AllocatedU16Cell, F::from(u16::MAX as u64));
 define_cell!(AllocatedUnlimitedCell, -F::one());
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AllocatedCommonRangeCell<F: FieldExt> {
+    pub(crate) cell: AllocatedCell<F>,
+    pub(crate) upper_bound: F,
+}
+
+impl<F: FieldExt> CellExpression<F> for AllocatedCommonRangeCell<F> {
+    fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.cell.curr_expr(meta)
+    }
+
+    fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<AssignedCell<F, F>, Error> {
+        assert!(
+            value <= self.upper_bound,
+            "assigned value {:?} exceeds the limit {:?}",
+            value,
+            self.upper_bound
+        );
+
+        self.cell.assign(ctx, value)
+    }
+}
 
 impl<F: FieldExt> AllocatedU32Cell<F> {
     pub(crate) fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {

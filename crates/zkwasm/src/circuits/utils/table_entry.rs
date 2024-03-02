@@ -30,12 +30,12 @@ impl MemoryWritingEntry {
 #[derive(Debug, Serialize)]
 pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
-impl From<MTable> for MemoryWritingTable {
-    fn from(value: MTable) -> Self {
+impl MemoryWritingTable {
+    pub fn from(k: u32, value: MTable) -> Self {
         let maximal_eid = if cfg!(feature = "continuation") {
             u32::MAX
         } else {
-            common_range_max()
+            common_range_max(k)
         };
         let mut index = 0;
 

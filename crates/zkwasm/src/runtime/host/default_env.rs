@@ -32,8 +32,8 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
     type Arg = ExecutionArg;
     type HostConfig = ();
 
-    fn create_env_without_value(_config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
-        let mut env = HostEnv::new();
+    fn create_env_without_value(k: u32, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
+        let mut env = HostEnv::new(k);
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
@@ -43,8 +43,8 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         (env, wasm_runtime_io)
     }
 
-    fn create_env(arg: Self::Arg, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
-        let mut env = HostEnv::new();
+    fn create_env(k: u32, arg: Self::Arg, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
+        let mut env = HostEnv::new(k);
         let wasm_runtime_io =
             register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);
         register_require_foreign(&mut env);

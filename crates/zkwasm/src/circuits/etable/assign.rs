@@ -214,7 +214,7 @@ impl<F: FieldExt> EventTableChip<F> {
 
         ctx.region.assign_advice_from_constant(
             || "etable: rest mops terminates",
-            self.config.common_config.rest_mops_cell.0.col,
+            self.config.common_config.rest_mops_cell.cell.col,
             ctx.offset,
             F::zero(),
         )?;
@@ -222,7 +222,7 @@ impl<F: FieldExt> EventTableChip<F> {
         #[cfg(not(feature = "continuation"))]
         ctx.region.assign_advice_from_constant(
             || "etable: rest jops terminates",
-            self.config.common_config.jops_cell.0.col,
+            self.config.common_config.jops_cell.cell.col,
             ctx.offset,
             F::zero(),
         )?;

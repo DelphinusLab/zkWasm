@@ -1,4 +1,3 @@
-use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
@@ -30,6 +29,7 @@ fn fetch_biguint(_limbs: &Vec<u64>) -> BigUint {
 }
 
 pub struct BabyJubjubSumContext {
+    pub k: u32,
     pub acc: jubjub::Point,
     pub limbs: Vec<u64>,
     pub coeffs: Vec<u64>,
@@ -40,8 +40,9 @@ pub struct BabyJubjubSumContext {
 }
 
 impl BabyJubjubSumContext {
-    pub fn default() -> Self {
+    pub fn default(k: u32) -> Self {
         BabyJubjubSumContext {
+            k,
             acc: jubjub::Point::identity(),
             limbs: vec![],
             coeffs: vec![],
@@ -117,7 +118,7 @@ impl ForeignContext for BabyJubjubSumContext {
     fn get_statics(&self) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: AltJubChip::max_rounds(zkwasm_k() as usize),
+            max_round: AltJubChip::max_rounds(self.k as usize),
         })
     }
 }
@@ -126,7 +127,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
     let foreign_babyjubjubsum_plugin = env.external_env.register_plugin(
         "foreign_babyjubjubsum",
-        Box::new(BabyJubjubSumContext::default()),
+        Box::new(BabyJubjubSumContext::default(env.k)),
     );
 
     env.external_env.register_function(

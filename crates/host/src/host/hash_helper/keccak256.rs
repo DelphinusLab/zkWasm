@@ -1,4 +1,3 @@
-use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
@@ -27,6 +26,7 @@ impl Generator {
 }
 
 struct Keccak256Context {
+    pub k: u32,
     pub hasher: Option<Keccak>,
     pub generator: Generator,
     pub buf: Vec<u64>,
@@ -34,8 +34,9 @@ struct Keccak256Context {
 }
 
 impl Keccak256Context {
-    fn default() -> Self {
+    fn default(k: u32) -> Self {
         Keccak256Context {
+            k,
             hasher: None,
             generator: Generator {
                 cursor: 0,
@@ -76,7 +77,7 @@ impl ForeignContext for Keccak256Context {
     fn get_statics(&self) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: KeccakChip::max_rounds(zkwasm_k() as usize),
+            max_round: KeccakChip::max_rounds(self.k as usize),
         })
     }
 }
@@ -85,7 +86,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_keccak_foreign(env: &mut HostEnv) {
     let foreign_keccak_plugin = env
         .external_env
-        .register_plugin("foreign_keccak", Box::new(Keccak256Context::default()));
+        .register_plugin("foreign_keccak", Box::new(Keccak256Context::default(env.k)));
 
     env.external_env.register_function(
         "keccak_new",

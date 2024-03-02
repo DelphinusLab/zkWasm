@@ -159,11 +159,11 @@ impl<F: FieldExt> RangeTableChip<F> {
         RangeTableChip { config }
     }
 
-    pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+    pub fn init(&self, layouter: &mut impl Layouter<F>, k: u32) -> Result<(), Error> {
         layouter.assign_table(
             || "common range table",
             |mut table| {
-                for i in 0..common_range() {
+                for i in 0..common_range(k) {
                     table.assign_cell(
                         || "range table",
                         self.config.common_range_col,

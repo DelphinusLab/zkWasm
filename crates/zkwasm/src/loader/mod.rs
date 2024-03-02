@@ -24,7 +24,6 @@ use wasmi::RuntimeValue;
 use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
-use crate::circuits::config::set_zkwasm_k;
 use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
@@ -108,7 +107,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         envconfig: EnvBuilder::HostConfig,
         is_last_slice: bool,
     ) -> Result<ZkWasmCircuit<E::Scalar>> {
-        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
+        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(self.k, envconfig);
 
         let compiled_module = self.compile(&env, true)?;
 
@@ -135,8 +134,6 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     /// - image: wasm binary
     /// - phantom_functions: regular expressions of phantom function
     pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
-        set_zkwasm_k(k);
-
         let mut module = wasmi::Module::from_buffer(&image)?;
         if let Ok(parity_module) = module.module().clone().parse_names() {
             module.module = parity_module;
@@ -170,7 +167,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         params: &'a Params<E::G1Affine>,
         envconfig: EnvBuilder::HostConfig,
     ) -> Result<Vec<E::G1Affine>> {
-        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
+        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(self.k, envconfig);
 
         let compiled_module = self.compile(&env, true)?;
 
@@ -190,7 +187,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         config: EnvBuilder::HostConfig,
         dryrun: bool,
     ) -> Result<ExecutionResult<RuntimeValue>> {
-        let (env, wasm_runtime_io) = EnvBuilder::create_env(arg, config);
+        let (env, wasm_runtime_io) = EnvBuilder::create_env(self.k, arg, config);
         let compiled_module = self.compile(&env, dryrun)?;
         let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
         if !dryrun {
@@ -249,7 +246,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         ))
     }
 
-    pub fn init_env(&self) -> Result<()> {
+    fn init_env(&self) -> Result<()> {
         init_zkwasm_runtime(self.k);
 
         Ok(())

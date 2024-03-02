@@ -1,6 +1,7 @@
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::bit_table::BitTableOp;
 use crate::circuits::cell::*;
+use crate::circuits::config::common_range_max;
 use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::rtable::RangeTableConfig;
@@ -48,20 +49,20 @@ macro_rules! impl_cell {
     ($x: ident) => {
         impl<F: FieldExt> EventTableCellExpression<F> for $x<F> {
             fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-                self.0.next_expr(meta)
+                self.cell.next_expr(meta)
             }
 
             fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-                self.0.prev_expr(meta)
+                self.cell.prev_expr(meta)
             }
         }
     };
 }
 
 impl_cell!(AllocatedBitCell);
-impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedU8Cell);
 impl_cell!(AllocatedU16Cell);
+impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedUnlimitedCell);
 impl_cell!(AllocatedJumpTableLookupCell);
 
@@ -69,22 +70,24 @@ impl<F: FieldExt> EventTableCellExpression<F> for AllocatedU32Cell<F> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         nextn!(
             meta,
-            self.u32_cell.0.col,
-            self.u32_cell.0.rot + EVENT_TABLE_ENTRY_ROWS as i32
+            self.u32_cell.cell.col,
+            self.u32_cell.cell.rot + EVENT_TABLE_ENTRY_ROWS as i32
         )
     }
 
     fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         nextn!(
             meta,
-            self.u32_cell.0.col,
-            self.u32_cell.0.rot - EVENT_TABLE_ENTRY_ROWS as i32
+            self.u32_cell.cell.col,
+            self.u32_cell.cell.rot - EVENT_TABLE_ENTRY_ROWS as i32
         )
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct AllocatedJumpTableLookupCell<F: FieldExt>(pub(crate) AllocatedCell<F>);
+pub(crate) struct AllocatedJumpTableLookupCell<F: FieldExt> {
+    pub(crate) cell: AllocatedCell<F>,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedMemoryTableLookupReadCell<F: FieldExt> {
@@ -225,6 +228,7 @@ impl<F: FieldExt> AllocatedBitTableLookupCells<F> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct EventTableCellAllocator<F: FieldExt> {
+    k: u32,
     pub(crate) free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     all_cols: BTreeMap<EventTableCellType, Vec<Vec<Column<Advice>>>>,
     free_u32_cells: Vec<AllocatedU32Cell<F>>,
@@ -263,7 +267,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     * enable(meta),
             ]
         });
-        meta.enable_equality(u32_cell.0.col);
+        meta.enable_equality(u32_cell.cell.col);
 
         AllocatedU32Cell {
             u16_cells_le,
@@ -296,13 +300,14 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
+        k: u32,
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         jtable: &JumpTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, sel, rtable, mtable, jtable, cols);
+        let mut allocator = Self::_new(meta, k, sel, rtable, mtable, jtable, cols);
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell(meta, |meta| fixed_curr!(meta, sel));
             allocator.free_u32_cells.push(cell);
@@ -316,6 +321,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     fn _new(
         meta: &mut ConstraintSystem<F>,
+        k: u32,
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
@@ -398,6 +404,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         );
 
         Self {
+            k,
             all_cols,
             free_cells: BTreeMap::from_iter(
                 vec![
@@ -457,11 +464,16 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     }
 
     pub(crate) fn alloc_bit_cell(&mut self) -> AllocatedBitCell<F> {
-        AllocatedBitCell(self.alloc(&EventTableCellType::Bit))
+        AllocatedBitCell {
+            cell: self.alloc(&EventTableCellType::Bit),
+        }
     }
 
     pub(crate) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
-        AllocatedCommonRangeCell(self.alloc(&EventTableCellType::CommonRange))
+        AllocatedCommonRangeCell {
+            cell: self.alloc(&EventTableCellType::CommonRange),
+            upper_bound: F::from(common_range_max(self.k) as u64),
+        }
     }
 
     pub(crate) fn alloc_u32_state_cell(&mut self) -> AllocatedU32StateCell<F> {
@@ -475,19 +487,27 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     }
 
     pub(crate) fn alloc_u8_cell(&mut self) -> AllocatedU8Cell<F> {
-        AllocatedU8Cell(self.alloc(&EventTableCellType::U8))
+        AllocatedU8Cell {
+            cell: self.alloc(&EventTableCellType::U8),
+        }
     }
 
     pub(crate) fn alloc_u16_cell(&mut self) -> AllocatedU16Cell<F> {
-        AllocatedU16Cell(self.alloc(&EventTableCellType::U16))
+        AllocatedU16Cell {
+            cell: self.alloc(&EventTableCellType::U16),
+        }
     }
 
     pub(crate) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
-        AllocatedUnlimitedCell(self.alloc(&EventTableCellType::Unlimited))
+        AllocatedUnlimitedCell {
+            cell: self.alloc(&EventTableCellType::Unlimited),
+        }
     }
 
     pub(crate) fn alloc_jump_table_lookup_cell(&mut self) -> AllocatedJumpTableLookupCell<F> {
-        AllocatedJumpTableLookupCell(self.alloc(&EventTableCellType::JTableLookup))
+        AllocatedJumpTableLookupCell {
+            cell: self.alloc(&EventTableCellType::JTableLookup),
+        }
     }
 
     pub(crate) fn alloc_memory_table_lookup_read_cell(
@@ -504,7 +524,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let cells: Vec<_> = self
             .alloc_group(&EventTableCellType::MTableLookup)
             .into_iter()
-            .map(|x| AllocatedUnlimitedCell(x))
+            .map(|x| AllocatedUnlimitedCell { cell: x })
             .collect();
 
         let cell = AllocatedMemoryTableLookupReadCell {
@@ -554,7 +574,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let cells: Vec<_> = self
             .alloc_group(&EventTableCellType::MTableLookup)
             .into_iter()
-            .map(|x| AllocatedUnlimitedCell(x))
+            .map(|x| AllocatedUnlimitedCell { cell: x })
             .collect();
 
         let cell = AllocatedMemoryTableLookupWriteCell {
@@ -594,7 +614,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let cells: Vec<_> = self
             .alloc_group(&EventTableCellType::MTableLookup)
             .into_iter()
-            .map(|x| AllocatedUnlimitedCell(x))
+            .map(|x| AllocatedUnlimitedCell { cell: x })
             .collect();
 
         let cell = AllocatedMemoryTableLookupReadCell {
@@ -642,7 +662,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let cells: Vec<_> = self
             .alloc_group(&EventTableCellType::MTableLookup)
             .into_iter()
-            .map(|x| AllocatedUnlimitedCell(x))
+            .map(|x| AllocatedUnlimitedCell { cell: x })
             .collect();
 
         let cell = AllocatedMemoryTableLookupWriteCell {

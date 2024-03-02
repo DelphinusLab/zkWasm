@@ -3,6 +3,7 @@ use crate::circuits::ZkWasmCircuitBuilder;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::ExecutionResult;
+use crate::test::MIN_K;
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
@@ -15,7 +16,7 @@ use wasmi::RuntimeValue;
 
 use super::test_circuit_with_env;
 
-const K: u32 = 18;
+const K: u32 = MIN_K;
 
 fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> {
     let textual_repr = r#"
@@ -26,7 +27,7 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
 
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-    let mut env = HostEnv::new();
+    let mut env = HostEnv::new(K);
     env.finalize();
 
     let execution_result = test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;
@@ -98,7 +99,7 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
 
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-    let mut env = HostEnv::new();
+    let mut env = HostEnv::new(K);
     env.finalize();
 
     let execution_result = test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;

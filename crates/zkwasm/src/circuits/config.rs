@@ -1,4 +1,3 @@
-use std::env;
 use std::sync::Mutex;
 
 pub const POW_TABLE_POWER_START: u64 = 128;
@@ -7,30 +6,32 @@ pub const MIN_K: u32 = 18;
 const MAX_K: u32 = 25;
 
 lazy_static! {
-    static ref ZKWASM_K: Mutex<u32> =
-        Mutex::new(env::var("ZKWASM_K").map_or(MIN_K, |k| k.parse().unwrap()));
+    static ref ZKWASM_K: Mutex<Option<u32>> = Mutex::new(None);
 }
 
-pub fn set_zkwasm_k(k: u32) {
+pub(crate) fn set_zkwasm_k(k: u32) {
     assert!(k >= MIN_K);
     assert!(k <= MAX_K);
 
     let mut zkwasm_k = (*ZKWASM_K).lock().unwrap();
-    *zkwasm_k = k;
+    *zkwasm_k = Some(k);
 }
 
-pub fn zkwasm_k() -> u32 {
-    *ZKWASM_K.lock().unwrap()
+pub(in crate::circuits) fn zkwasm_k() -> u32 {
+    ZKWASM_K
+        .lock()
+        .unwrap()
+        .expect("ZKWASM_K is not set, please make sure 'init_zkwasm_runtime' have called.")
 }
 
-pub fn init_zkwasm_runtime(k: u32) {
+pub(crate) fn init_zkwasm_runtime(k: u32) {
     set_zkwasm_k(k);
 }
 
-pub(crate) fn common_range() -> u32 {
-    (1 << zkwasm_k()) - 256
+pub(crate) fn common_range(k: u32) -> u32 {
+    (1 << k) - 256
 }
 
-pub(crate) fn common_range_max() -> u32 {
-    common_range() - 1
+pub(crate) fn common_range_max(k: u32) -> u32 {
+    common_range(k) - 1
 }

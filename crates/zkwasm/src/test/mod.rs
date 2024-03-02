@@ -1,4 +1,5 @@
-use crate::circuits::config::zkwasm_k;
+use crate::circuits::config::init_zkwasm_runtime;
+use crate::circuits::config::MIN_K;
 use crate::circuits::ZkWasmCircuit;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
@@ -28,6 +29,7 @@ mod test_uniform_verifier;
 
 /// Create circuit with trace and run mock test.
 fn test_circuit_mock<F: FieldExt>(
+    k: u32,
     execution_result: ExecutionResult<wasmi::RuntimeValue>,
 ) -> Result<()> {
     let instance = {
@@ -47,7 +49,7 @@ fn test_circuit_mock<F: FieldExt>(
     execution_result.tables.profile_tables();
 
     let circuit = ZkWasmCircuit::new(execution_result.tables, None);
-    let prover = MockProver::run(zkwasm_k(), &circuit, vec![instance])?;
+    let prover = MockProver::run(k, &circuit, vec![instance])?;
     assert_eq!(prover.verify(), Ok(()));
 
     Ok(())
@@ -86,8 +88,12 @@ pub fn test_circuit_with_env(
     wasm: Vec<u8>,
     function_name: &str,
 ) -> Result<ExecutionResult<RuntimeValue>> {
+    assert_eq!(MIN_K, env.k);
+
+    init_zkwasm_runtime(MIN_K);
+
     let trace = compile_then_execute_wasm(env, wasm_runtime_io, wasm, function_name)?;
-    test_circuit_mock::<Fr>(trace.clone())?;
+    test_circuit_mock::<Fr>(MIN_K, trace.clone())?;
 
     Ok(trace)
 }
@@ -100,7 +106,7 @@ fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
 
     let wasm = wat2wasm_with_features(&textual_repr, features).expect("failed to parse wat");
 
-    let mut env = HostEnv::new();
+    let mut env = HostEnv::new(MIN_K);
     env.finalize();
 
     test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "test")?;

@@ -2,6 +2,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 use std::rc::Rc;
 use wasmi::tracer::Observer;
 
+use crate::circuits::config::MIN_K;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
 use crate::runtime::host::ForeignStatics;
@@ -40,7 +41,7 @@ fn test_call_host_external() {
         "#;
 
     let env = {
-        let mut env = HostEnv::new();
+        let mut env = HostEnv::new(MIN_K);
 
         let foreign_playground_plugin = env
             .external_env

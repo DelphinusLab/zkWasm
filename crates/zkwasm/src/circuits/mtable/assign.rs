@@ -34,16 +34,16 @@ impl<F: FieldExt> MemoryTableChip<F> {
             if i == capability - 1 {
                 ctx.region.assign_advice_from_constant(
                     || "rest_mops terminate",
-                    self.config.rest_mops_cell.0.col,
-                    ctx.offset + self.config.rest_mops_cell.0.rot as usize,
+                    self.config.rest_mops_cell.cell.col,
+                    ctx.offset + self.config.rest_mops_cell.cell.rot as usize,
                     F::zero(),
                 )?;
 
                 #[cfg(feature = "continuation")]
                 ctx.region.assign_advice_from_constant(
                     || "rest_memory_finalize_ops terminate",
-                    self.config.rest_memory_finalize_ops_cell.0.col,
-                    ctx.offset + self.config.rest_memory_finalize_ops_cell.0.rot as usize,
+                    self.config.rest_memory_finalize_ops_cell.cell.col,
+                    ctx.offset + self.config.rest_memory_finalize_ops_cell.cell.rot as usize,
                     F::zero(),
                 )?;
             }

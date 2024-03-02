@@ -78,6 +78,8 @@ pub struct ZkWasmCircuitConfig<F: FieldExt> {
 
     max_available_rows: usize,
     circuit_maximal_pages: u32,
+
+    k: u32,
 }
 
 impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
@@ -98,6 +100,8 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        let k = zkwasm_k();
+
         /*
          * Allocate a column to enable assign_advice_from_constant.
          */
@@ -119,7 +123,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
         let rtable = RangeTableConfig::configure(meta);
         let image_table = ImageTableConfig::configure(meta, memory_addr_sel);
-        let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
+        let mtable = MemoryTableConfig::configure(meta, k, &mut cols, &rtable, &image_table);
         let post_image_table =
             PostImageTableConfig::configure(meta, memory_addr_sel, &mtable, &image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
@@ -144,6 +148,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
         let etable = EventTableConfig::configure(
             meta,
+            k,
             &mut cols,
             &rtable,
             &image_table,
@@ -155,8 +160,6 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         );
 
         assert_eq!(cols.count(), 0);
-
-        let k = zkwasm_k();
 
         let max_available_rows = (1 << k) - (meta.blinding_factors() + 1 + RESERVE_ROWS);
         debug!("max_available_rows: {:?}", max_available_rows);
@@ -181,6 +184,8 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
             max_available_rows,
             circuit_maximal_pages,
+
+            k,
         }
     }
 
@@ -229,7 +234,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         layouter.assign_region(
             || "foreign helper",
             |mut region| {
-                for offset in 0..foreign_table_enable_lines() {
+                for offset in 0..foreign_table_enable_lines(config.k) {
                     region.assign_fixed(
                         || "foreign table from zero index",
                         config.foreign_table_from_zero_index,
@@ -242,7 +247,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             },
         )?;
 
-        exec_with_profile!(|| "Init range chip", rchip.init(&mut layouter)?);
+        exec_with_profile!(|| "Init range chip", rchip.init(&mut layouter, config.k)?);
 
         exec_with_profile!(
             || "Assign external host call table",
@@ -264,8 +269,10 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             |region| {
                 let mut ctx = Context::new(region);
 
-                let memory_writing_table: MemoryWritingTable =
-                    self.tables.create_memory_table(memory_event_of_step).into();
+                let memory_writing_table: MemoryWritingTable = MemoryWritingTable::from(
+                    config.k,
+                    self.tables.create_memory_table(memory_event_of_step),
+                );
 
                 let etable = exec_with_profile!(
                     || "Prepare memory info for etable",
