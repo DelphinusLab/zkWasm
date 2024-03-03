@@ -13,7 +13,7 @@ pub struct BrTableEntry {
     pub dst_pc: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct BrTable(Vec<BrTableEntry>);
 
 impl BrTable {

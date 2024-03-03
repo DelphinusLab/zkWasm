@@ -109,7 +109,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     ) -> Result<ZkWasmCircuit<E::Scalar>> {
         let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(self.k, envconfig);
 
-        let compiled_module = self.compile(&env, true)?;
+        let compiled_module = self.compile(&env, false)?;
 
         let builder = ZkWasmCircuitBuilder {
             tables: Tables {
@@ -169,7 +169,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     ) -> Result<Vec<E::G1Affine>> {
         let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(self.k, envconfig);
 
-        let compiled_module = self.compile(&env, true)?;
+        let compiled_module = self.compile(&env, false)?;
 
         let table_with_params = CompilationTableWithParams {
             table: &compiled_module.tables,
@@ -213,14 +213,14 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             tables: execution_result.tables,
         };
 
-        Ok((
-            builder.build_circuit(if cfg!(feature = "continuation") {
-                Some(self.compute_slice_capability())
-            } else {
-                None
-            }),
+        #[cfg(feature = "continuation")]
+        return Ok((
+            builder.build_circuit(Some(self.compute_slice_capability())),
             instance,
-        ))
+        ));
+
+        #[cfg(not(feature = "continuation"))]
+        return Ok((builder.build_circuit(None), instance));
     }
 
     pub fn mock_test(

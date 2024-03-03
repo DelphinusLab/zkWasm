@@ -640,7 +640,7 @@ impl InstructionTableInternal {
 }
 
 // Use Option because iid may be discontinuous
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct InstructionTable(Arc<Vec<Vec<Option<InstructionTableEntry>>>>);
 
 impl InstructionTable {
