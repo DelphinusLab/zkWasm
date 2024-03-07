@@ -3459,7 +3459,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=para-synthesize#ad9e2e18396ff57ca89644a9f40779586c1dacfe"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=para-synthesize#4e13e40ace94b071785d66fe0ff355760890cd3c"
 dependencies = [
  "ark-std 0.3.0",
  "cfg-if 1.0.0",
