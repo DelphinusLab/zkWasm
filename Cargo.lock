@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?branch=para-synthesize#f2e5283358de9b3e14551542d885a9146a54cb5d"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git?branch=para-synthesize#7f7c1ea5e96f0ecdbbdc61cfb627e7714cced243"
 dependencies = [
  "anyhow",
  "ark-std 0.4.0",
@@ -387,44 +387,6 @@ dependencies = [
  "wabt",
  "wast",
  "zkwasm-prover",
-]
-
-[[package]]
-name = "circuits-batcher"
-version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#91619d7d3956473d8db195a1c5219bd6be5574bf"
-dependencies = [
- "anyhow",
- "ark-std 0.4.0",
- "bitvec",
- "clap",
- "downcast-rs",
- "env_logger",
- "ff",
- "halo2_proofs",
- "halo2aggregator-s",
- "halo2ecc-s",
- "hex",
- "lazy_static",
- "log",
- "lru",
- "md5",
- "num",
- "num-bigint",
- "num-derive",
- "num-integer",
- "num-traits",
- "poseidon",
- "quote",
- "rand",
- "serde",
- "serde_json",
- "sha2",
- "strum",
- "strum_macros",
- "uuid",
- "wabt",
- "wast",
 ]
 
 [[package]]
@@ -663,7 +625,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ark-std 0.3.0",
- "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?branch=para-synthesize)",
+ "circuits-batcher",
  "clap",
  "delphinus-host",
  "delphinus-zkwasm",
@@ -829,7 +791,7 @@ source = "git+https://github.com/lanbones/ec-gpu#165d1dd6215f6fd1dd85c83cf430ff5
 [[package]]
 name = "ec-gpu-gen"
 version = "0.4.0"
-source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#784eda53754a5344f75e4b3c533361d628ad1402"
+source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#5481be558da026bb9bddcd5807f973f6b1a8346e"
 dependencies = [
  "ark-std 0.3.0",
  "bitvec",
@@ -1172,6 +1134,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=zhangjunyu/para-synthesize#a382f2d261a0c1279df03944ec06c0953254e564"
 dependencies = [
  "ark-std 0.3.0",
  "blake2b_simd",
@@ -1199,6 +1162,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=para-synthesize#d0a3bf7f4e580160e8da2daac7be2b0dec9fa369"
 dependencies = [
  "ark-std 0.4.0",
  "blake2b_simd",
@@ -1215,6 +1179,7 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=para-synthesize#919e91ebd78a766b180a679389c735a8b5fda9aa"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
@@ -2058,7 +2023,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 [[package]]
 name = "poseidon"
 version = "0.2.0"
-source = "git+https://github.com/lanbones/poseidon#df8891073182c5c6cc1e2e7f9d2f4297d3c1565d"
+source = "git+https://github.com/DelphinusLab/poseidon?branch=para-synthesize#07db5bfcfafc2fc2144666a0a9a83cd081f3357f"
 dependencies = [
  "halo2_proofs",
  "subtle",
@@ -3494,10 +3459,11 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=para-synthesize#ad9e2e18396ff57ca89644a9f40779586c1dacfe"
 dependencies = [
  "ark-std 0.3.0",
  "cfg-if 1.0.0",
- "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git)",
+ "circuits-batcher",
  "clap",
  "ff",
  "halo2_proofs",
@@ -3522,7 +3488,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+ssh://git@github.com/lanbones/zkWasm-prover.git?branch=zhangjunyu/para-synthesize#5023e6547550862642fc7b1f9c40da3739c0729c"
+source = "git+ssh://git@github.com/lanbones/zkWasm-prover.git?branch=zhangjunyu/para-synthesize#08d733fd7b5a0093ca33ddfcef222838707bdfab"
 dependencies = [
  "ark-std 0.4.0",
  "cc",

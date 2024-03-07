@@ -3,6 +3,7 @@
 set -e
 set -x
 
+rm -rf params/*.data
 rm -rf output/*.data
 
 # Single test

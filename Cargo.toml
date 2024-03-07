@@ -5,23 +5,12 @@ exclude = ["third-party/wasmi", "crates/playground"]
 [workspace.dependencies]
 anyhow = { version = "1.0.68", features = ["backtrace"] }
 cfg-if = "1.0.0"
-halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", branch = "main", features = ["unsafe"] }
-halo2_proofs = { git = "https://github.com/DelphinusLab/halo2-gpu-specific.git", default-features = true }
+halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", branch = "para-synthesize", features = ["unsafe"] }
+halo2_proofs = { git = "https://github.com/DelphinusLab/halo2-gpu-specific.git", branch = "zhangjunyu/para-synthesize", default-features = true }
 parity-wasm = { version = "0.42.0", features = ["sign_ext"] }
 wasmi = { path = "third-party/wasmi" }
 circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git", branch = "para-synthesize" }
+zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="para-synthesize" }
 
 [profile.dev]
 opt-level = 3
-
-[patch."https://github.com/DelphinusLab/halo2-gpu-specific.git"]
-halo2_proofs = { path = "../halo2/halo2_proofs" }
-
-[patch."https://github.com/lanbones/halo2ecc-s.git"]
-halo2ecc-s = { path = "../halo2ecc-s" }
-
-[patch."https://github.com/DelphinusLab/halo2aggregator-s.git"]
-halo2aggregator-s = { path = "../halo2aggregator-s" }
-
-[patch."https://github.com/DelphinusLab/zkWasm-host-circuits.git"]
-zkwasm-host-circuits = { path = "../zkWasm-host-circuits" }
