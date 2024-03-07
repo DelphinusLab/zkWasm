@@ -1,6 +1,7 @@
 [workspace]
 members = ["crates/specs", "crates/zkwasm", "crates/cli", "crates/host"]
 exclude = ["third-party/wasmi", "crates/playground"]
+resolver = "2"
 
 [workspace.dependencies]
 anyhow = { version = "1.0.68", features = ["backtrace"] }
