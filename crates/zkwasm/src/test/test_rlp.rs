@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use crate::circuits::TestCircuit;
+use crate::circuits::ZkWasmCircuit;
 use crate::loader::ZkWasmLoader;
 use crate::runtime::host::default_env::DefaultHostEnvBuilder;
 use crate::runtime::host::default_env::ExecutionArg;
@@ -12,7 +12,7 @@ use halo2_proofs::pairing::bn256::Fr;
 
 fn build_circuit() -> Result<(
     ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder>,
-    TestCircuit<Fr>,
+    ZkWasmCircuit<Fr>,
     Vec<Fr>,
 )> {
     let public_inputs = vec![133];

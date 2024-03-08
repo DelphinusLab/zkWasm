@@ -1,6 +1,6 @@
 use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
-use crate::circuits::TestCircuit;
+use crate::circuits::ZkWasmCircuit;
 use crate::profile::Profiler;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::Execution;
@@ -55,7 +55,7 @@ fn test_circuit_mock<F: FieldExt>(
 
     execution_result.tables.profile_tables();
 
-    let circuit = TestCircuit::new(execution_result.tables);
+    let circuit = ZkWasmCircuit::new(execution_result.tables);
     let prover = MockProver::run(zkwasm_k(), &circuit, vec![instance])?;
     assert_eq!(prover.verify(), Ok(()));
 

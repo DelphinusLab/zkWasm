@@ -26,7 +26,7 @@ delphinus-zkwasm = { path = "../zkwasm" }
 
 ff = "0.12"
 sha2 = "0.10.6"
-poseidon = { git = "https://github.com/lanbones/poseidon" }
+poseidon = { git = "https://github.com/DelphinusLab/poseidon", branch="para-synthesize" }
 
 anyhow.workspace = true
 halo2aggregator-s.workspace = true
@@ -35,7 +35,7 @@ parity-wasm.workspace = true
 wasmi.workspace = true
 
 # TODO put the host circuits into features
-zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="main" }
+zkwasm-host-circuits.workspace = true
 
 [dev-dependencies]
 rusty-fork = "0.3.0"

@@ -24,7 +24,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ff = "0.12"
 sha2 = "0.10.6"
-poseidon = { git = "https://github.com/lanbones/poseidon" }
+poseidon = { git = "https://github.com/DelphinusLab/poseidon", branch="para-synthesize" }
+rayon = "1.5"
 
 anyhow.workspace = true
 cfg-if.workspace = true
@@ -35,7 +36,7 @@ wasmi.workspace = true
 
 # TODO put the host circuits into features
 
-zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="main" }
+zkwasm-host-circuits.workspace = true
 
 [dev-dependencies]
 rusty-fork = "0.3.0"

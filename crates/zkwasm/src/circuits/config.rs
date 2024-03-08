@@ -4,6 +4,7 @@ use std::sync::Mutex;
 pub const POW_TABLE_POWER_START: u64 = 128;
 
 pub const MIN_K: u32 = 18;
+const MAX_K: u32 = 25;
 
 lazy_static! {
     static ref ZKWASM_K: Mutex<u32> =
@@ -12,6 +13,7 @@ lazy_static! {
 
 pub fn set_zkwasm_k(k: u32) {
     assert!(k >= MIN_K);
+    assert!(k <= MAX_K);
 
     let mut zkwasm_k = (*ZKWASM_K).lock().unwrap();
     *zkwasm_k = k;

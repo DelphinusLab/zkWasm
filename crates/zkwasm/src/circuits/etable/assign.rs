@@ -1,3 +1,5 @@
+use ark_std::end_timer;
+use ark_std::start_timer;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
@@ -7,18 +9,19 @@ use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
 use specs::step::StepInfo;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::EventTableChip;
-use super::EventTableOpcodeConfig;
+use super::EventTableOpcodeConfigBox;
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::cell::CellExpression;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
+use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::Context;
+use std::sync::Arc;
 
 pub(in crate::circuits) struct EventTablePermutationCells {
     pub(in crate::circuits) rest_mops: Option<Cell>,
@@ -31,7 +34,7 @@ pub(in crate::circuits) struct EventTablePermutationCells {
 impl<F: FieldExt> EventTableChip<F> {
     fn compute_rest_mops_and_jops(
         &self,
-        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        op_configs: &BTreeMap<OpcodeClassPlain, Arc<EventTableOpcodeConfigBox<F>>>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
     ) -> Vec<(u32, u32)> {
@@ -47,8 +50,8 @@ impl<F: FieldExt> EventTableChip<F> {
                 let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
 
                 let acc = (
-                    rest_mops_sum + op_config.memory_writing_ops(&entry.eentry),
-                    rest_jops_sum + op_config.jops(),
+                    rest_mops_sum + op_config.0.memory_writing_ops(&entry.eentry),
+                    rest_jops_sum + op_config.0.jops(),
                 );
 
                 rest_ops.push(acc);
@@ -116,7 +119,7 @@ impl<F: FieldExt> EventTableChip<F> {
     fn assign_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+        op_configs: &BTreeMap<OpcodeClassPlain, Arc<EventTableOpcodeConfigBox<F>>>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
@@ -126,12 +129,6 @@ impl<F: FieldExt> EventTableChip<F> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
                 self.config.common_config.$cell.assign(ctx, $value)?
-            };
-        }
-
-        macro_rules! assign_advice_cell {
-            ($cell:ident, $value:expr) => {
-                $cell.assign(ctx, $value)?
             };
         }
 
@@ -145,6 +142,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 )?
             };
         }
+
 
         let mut host_public_inputs = 1u32;
         let mut context_in_index = 1u32;
@@ -234,71 +232,104 @@ impl<F: FieldExt> EventTableChip<F> {
             status
         };
 
-        for (index, (entry, (rest_mops, rest_jops))) in
-            event_table.0.iter().zip(rest_ops.iter()).enumerate()
-        {
-            let instruction = entry.eentry.get_instruction(itable);
+        use rayon::prelude::*;
 
-            let step_status = StepStatus {
-                current: &status[index],
-                next: &status[index + 1],
-                current_external_host_call_index: external_host_call_call_index,
-                configure_table: *configure_table,
-                host_public_inputs,
-                context_in_index,
-                context_out_index,
-            };
+        let etable: Vec<EventTableEntryWithMemoryInfo> = event_table.0.clone();
 
-            {
-                let class: OpcodeClassPlain = (&instruction.opcode).into();
 
-                let op = self.config.common_config.ops[class.index()];
-                assign_advice_cell!(op, F::one());
-            }
+        let instructions =
+            etable.iter().enumerate().map(|(index, entry)| {
+                let step_status = StepStatus {
+                    current: &status[index],
+                    next: &status[index + 1],
+                    current_external_host_call_index: external_host_call_call_index,
+                    configure_table: *configure_table,
+                    host_public_inputs,
+                    context_in_index,
+                    context_out_index,
+                };
+                let instruction = entry.eentry.get_instruction(itable);
+                let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
+                let arg_context = (host_public_inputs, context_in_index, context_out_index, external_host_call_call_index);
+                if op_config.0.is_host_public_input(&entry.eentry) {
+                    host_public_inputs += 1;
+                }
+                if op_config.0.is_context_input_op(&entry.eentry) {
+                    context_in_index += 1;
+                }
+                if op_config.0.is_context_output_op(&entry.eentry) {
+                    context_out_index += 1;
+                }
+                if op_config.0.is_external_host_call(&entry.eentry) {
+                    external_host_call_call_index += 1;
+                }
+                (entry, instruction, step_status, arg_context)
+            }).zip(rest_ops.iter()).collect::<Vec<_>>();
 
-            assign_advice!(enabled_cell, F::one());
-            assign_advice!(rest_mops_cell, F::from(*rest_mops as u64));
-            assign_advice!(rest_jops_cell, F::from(*rest_jops as u64));
-            assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
-            assign_advice!(context_input_index_cell, F::from(context_in_index as u64));
-            assign_advice!(context_output_index_cell, F::from(context_out_index as u64));
-            assign_advice!(
-                external_host_call_index_cell,
-                F::from(external_host_call_call_index as u64)
-            );
-            assign_advice!(sp_cell, F::from(entry.eentry.sp as u64));
-            assign_advice!(
-                mpages_cell,
-                F::from(entry.eentry.allocated_memory_pages as u64)
-            );
-            assign_advice!(
-                maximal_memory_pages_cell,
-                F::from(configure_table.maximal_memory_pages as u64)
-            );
-            assign_advice!(frame_id_cell, F::from(entry.eentry.last_jump_eid as u64));
-            assign_advice!(eid_cell, F::from(entry.eentry.eid as u64));
-            assign_advice!(fid_cell, F::from(entry.eentry.fid as u64));
-            assign_advice!(iid_cell, F::from(entry.eentry.iid as u64));
-            assign_advice!(itable_lookup_cell, bn_to_field(&instruction.encode));
+        println!("instruction length {}", instructions.len());
+        let chunk_len = instructions.len()/4;
+        let chunk_len = if chunk_len == 0 { instructions.len() } else { chunk_len };
 
-            let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
-            op_config.assign(ctx, &step_status, &entry)?;
+        let chunks = instructions.chunks(chunk_len).map(|x| (x, ctx.clone())).collect::<Vec<_>>();
 
-            if op_config.is_host_public_input(&entry.eentry) {
-                host_public_inputs += 1;
-            }
-            if op_config.is_context_input_op(&entry.eentry) {
-                context_in_index += 1;
-            }
-            if op_config.is_context_output_op(&entry.eentry) {
-                context_out_index += 1;
-            }
-            if op_config.is_external_host_call(&entry.eentry) {
-                external_host_call_call_index += 1;
-            }
+        let timer = start_timer!(|| "par time");
+        let _ = chunks.par_iter().enumerate().map(|(index, (instructions, ctx))| {
+            println!("chunk size {}", instructions.len());
+            let mut _ctx = ctx.clone();
+            let ctx = &mut _ctx;
+            ctx.step(EVENT_TABLE_ENTRY_ROWS as usize * index * chunk_len);
+            let timer = start_timer!(|| format!("par time {}", index));
+            let _ = instructions.iter().map(
 
-            ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
-        }
+                |((entry, instruction, step_status, arg_context), (rest_mops, rest_jops))| {
+
+                    let (host_public_inputs, context_in_index, context_out_index, external_host_call_call_index) = *arg_context;
+
+                    {
+                        let class: OpcodeClassPlain = (&instruction.opcode).into();
+
+                        let op = self.config.common_config.ops[class.index()];
+                        op.assign(ctx, F::one())?;
+                        //assign_advice_cell!(op, F::one());
+                    }
+
+                    self.config.common_config.enabled_cell.assign(ctx, F::one())?;
+                    self.config.common_config.rest_mops_cell.assign(ctx, F::from(*rest_mops as u64))?;
+                    self.config.common_config.rest_jops_cell.assign(ctx, F::from(*rest_jops as u64))?;
+                    self.config.common_config.input_index_cell.assign(ctx, F::from(host_public_inputs as u64))?;
+                    self.config.common_config.context_input_index_cell.assign(ctx, F::from(context_in_index as u64))?;
+                    self.config.common_config.context_output_index_cell.assign(ctx, F::from(context_out_index as u64))?;
+                    self.config.common_config.external_host_call_index_cell.assign(
+                        ctx,
+                        F::from(external_host_call_call_index as u64)
+                        )?;
+                    self.config.common_config.sp_cell.assign(ctx, F::from(entry.eentry.sp as u64))?;
+                    self.config.common_config.mpages_cell.assign(
+                        ctx,
+                        F::from(entry.eentry.allocated_memory_pages as u64)
+                        )?;
+                    self.config.common_config.maximal_memory_pages_cell.assign(
+                        ctx,
+                        F::from(configure_table.maximal_memory_pages as u64)
+                        )?;
+                    self.config.common_config.frame_id_cell.assign(ctx, F::from(entry.eentry.last_jump_eid as u64))?;
+                    self.config.common_config.eid_cell.assign(ctx, F::from(entry.eentry.eid as u64))?;
+                    self.config.common_config.fid_cell.assign(ctx, F::from(entry.eentry.fid as u64))?;
+                    self.config.common_config.iid_cell.assign(ctx, F::from(entry.eentry.iid as u64))?;
+                    self.config.common_config.itable_lookup_cell.assign(ctx, bn_to_field(&instruction.encode))?;
+
+                    let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
+                    op_config.0.assign(ctx, &step_status, &entry)?;
+
+
+                    ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
+                    Ok::<(), Error>(())
+                }).collect::<Vec<_>>();
+            end_timer!(timer);
+        }).collect::<Vec<_>>();
+        end_timer!(timer);
+
+        ctx.step(EVENT_TABLE_ENTRY_ROWS as usize * instructions.len());
 
         // Assign terminate status
         assign_advice!(eid_cell, F::from(status.last().unwrap().eid as u64));

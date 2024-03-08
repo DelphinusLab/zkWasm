@@ -25,7 +25,7 @@ use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
 use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::set_zkwasm_k;
-use crate::circuits::TestCircuit;
+use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
@@ -104,7 +104,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     fn circuit_without_witness(
         &self,
         envconfig: EnvBuilder::HostConfig,
-    ) -> Result<TestCircuit<E::Scalar>> {
+    ) -> Result<ZkWasmCircuit<E::Scalar>> {
         let (env, wasm_runtime_io) = EnvBuilder::create_env_without_value(envconfig);
 
         let compiled_module = self.compile(&env, false)?;
@@ -165,7 +165,6 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     ) -> Result<Vec<E::G1Affine>> {
         let (env, _) = EnvBuilder::create_env_without_value(envconfig);
         let compiled = self.compile(&env, false)?;
-
         let table_with_params = CompilationTableWithParams {
             table: &compiled.tables,
             params,
@@ -200,7 +199,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn circuit_with_witness(
         &self,
         execution_result: ExecutionResult<RuntimeValue>,
-    ) -> Result<(TestCircuit<E::Scalar>, Vec<E::Scalar>)> {
+    ) -> Result<(ZkWasmCircuit<E::Scalar>, Vec<E::Scalar>)> {
         //let execution_result = self.run(arg, config, false, true)?;
         let instance: Vec<E::Scalar> = execution_result
             .public_inputs_and_outputs
@@ -219,7 +218,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
     pub fn mock_test(
         &self,
-        circuit: &TestCircuit<E::Scalar>,
+        circuit: &ZkWasmCircuit<E::Scalar>,
         instances: &Vec<E::Scalar>,
     ) -> Result<()> {
         let prover = MockProver::run(self.k, circuit, vec![instances.clone()])?;
@@ -232,7 +231,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         params: &Params<E::G1Affine>,
         vkey: VerifyingKey<E::G1Affine>,
-        circuit: TestCircuit<E::Scalar>,
+        circuit: ZkWasmCircuit<E::Scalar>,
         instances: &Vec<E::Scalar>,
     ) -> Result<Vec<u8>> {
         Ok(load_or_create_proof::<E, _>(
@@ -312,14 +311,14 @@ mod tests {
     use std::io::Read;
     use std::path::PathBuf;
 
-    use crate::circuits::TestCircuit;
+    use crate::circuits::ZkWasmCircuit;
     use crate::runtime::host::default_env::DefaultHostEnvBuilder;
     use crate::runtime::host::default_env::ExecutionArg;
 
     use super::ZkWasmLoader;
 
     impl ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder> {
-        pub(crate) fn bench_test(&self, circuit: TestCircuit<Fr>, instances: Vec<Fr>) {
+        pub(crate) fn bench_test(&self, circuit: ZkWasmCircuit<Fr>, instances: Vec<Fr>) {
             fn prepare_param(k: u32) -> Params<G1Affine> {
                 let path = PathBuf::from(format!("test_param.{}.data", k));
 

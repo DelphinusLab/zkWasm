@@ -10,14 +10,14 @@ use crate::circuits::utils::Context;
 impl<F: FieldExt> ImageTableChip<F> {
     pub fn assign(
         self,
-        layouter: &mut impl Layouter<F>,
+        layouter: &impl Layouter<F>,
         image_table: ImageTableLayouter<F>,
         permutation_cells: ImageTableLayouter<Cell>,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "image table",
             |region| {
-                let mut ctx = Context::new(region);
+                let mut ctx = Context::new(region.clone());
 
                 cfg_if::cfg_if! {
                     if #[cfg(feature="uniform-circuit")] {
