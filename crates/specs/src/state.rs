@@ -40,6 +40,34 @@ pub struct InitializationState<T> {
 }
 
 impl<T> InitializationState<T> {
+    pub fn zip_for_each<U, E>(
+        &self,
+        other: &Self,
+        mut closure: impl FnMut(&T, &T) -> Result<U, E>,
+    ) -> Result<(), E> {
+        closure(&self.eid, &other.eid)?;
+        closure(&self.fid, &other.fid)?;
+        closure(&self.iid, &other.iid)?;
+        closure(&self.frame_id, &other.frame_id)?;
+        closure(&self.sp, &other.sp)?;
+
+        closure(&self.host_public_inputs, &other.host_public_inputs)?;
+        closure(&self.context_in_index, &other.context_in_index)?;
+        closure(&self.context_out_index, &other.context_out_index)?;
+        closure(
+            &self.external_host_call_call_index,
+            &other.external_host_call_call_index,
+        )?;
+
+        closure(&self.initial_memory_pages, &other.initial_memory_pages)?;
+        closure(&self.maximal_memory_pages, &other.maximal_memory_pages)?;
+
+        #[cfg(feature = "continuation")]
+        closure(&self.jops, &other.jops)?;
+
+        Ok(())
+    }
+
     pub fn field_count() -> usize {
         if cfg!(feature = "continuation") {
             12

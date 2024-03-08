@@ -1,4 +1,5 @@
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::Error;
@@ -10,62 +11,64 @@ use crate::circuits::utils::Context;
 
 use super::BitTableChip;
 use super::BitTableOp;
+use super::BitTableTrait;
 use super::BLOCK_SEL_OFFSET;
 use super::STEP_SIZE;
 use super::U32_OFFSET;
 use super::U8_OFFSET;
 
-struct BitTableAssign {
+pub(crate) struct BitTableAssign {
     op: BitTableOp,
     left: u64,
     right: u64,
     result: u64,
 }
 
-fn filter_bit_table_entries(event_table: &EventTableWithMemoryInfo) -> Vec<BitTableAssign> {
-    event_table
-        .0
-        .iter()
-        .filter_map(|entry| match &entry.eentry.step_info {
-            StepInfo::I32BinBitOp {
-                class,
-                left,
-                right,
-                value,
-            } => Some(BitTableAssign {
-                op: BitTableOp::BinaryBit(*class),
-                left: *left as u32 as u64,
-                right: *right as u32 as u64,
-                result: *value as u32 as u64,
-            }),
+impl BitTableTrait for EventTableWithMemoryInfo {
+    fn filter_bit_table_entries(&self) -> Vec<BitTableAssign> {
+        self.0
+            .iter()
+            .filter_map(|entry| match &entry.eentry.step_info {
+                StepInfo::I32BinBitOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                } => Some(BitTableAssign {
+                    op: BitTableOp::BinaryBit(*class),
+                    left: *left as u32 as u64,
+                    right: *right as u32 as u64,
+                    result: *value as u32 as u64,
+                }),
 
-            StepInfo::I64BinBitOp {
-                class,
-                left,
-                right,
-                value,
-            } => Some(BitTableAssign {
-                op: BitTableOp::BinaryBit(*class),
-                left: *left as u64,
-                right: *right as u64,
-                result: *value as u64,
-            }),
+                StepInfo::I64BinBitOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                } => Some(BitTableAssign {
+                    op: BitTableOp::BinaryBit(*class),
+                    left: *left as u64,
+                    right: *right as u64,
+                    result: *value as u64,
+                }),
 
-            StepInfo::UnaryOp {
-                class: UnaryOp::Popcnt,
-                operand,
-                result,
-                ..
-            } => Some(BitTableAssign {
-                op: BitTableOp::Popcnt,
-                left: *operand,
-                right: 0,
-                result: *result,
-            }),
+                StepInfo::UnaryOp {
+                    class: UnaryOp::Popcnt,
+                    operand,
+                    result,
+                    ..
+                } => Some(BitTableAssign {
+                    op: BitTableOp::Popcnt,
+                    left: *operand,
+                    right: 0,
+                    result: *result,
+                }),
 
-            _ => None,
-        })
-        .collect::<Vec<_>>()
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    }
 }
 
 impl<F: FieldExt> BitTableChip<F> {
@@ -222,7 +225,7 @@ impl<F: FieldExt> BitTableChip<F> {
     fn assign_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        entries: Vec<BitTableAssign>,
+        entries: &Vec<BitTableAssign>,
     ) -> Result<(), Error> {
         assert!(entries.len() <= self.max_available_rows / STEP_SIZE);
 
@@ -245,15 +248,22 @@ impl<F: FieldExt> BitTableChip<F> {
 
     pub(crate) fn assign(
         &self,
-        ctx: &mut Context<'_, F>,
-        event_table: &EventTableWithMemoryInfo,
+        layouter: &impl Layouter<F>,
+        event_table: Vec<BitTableAssign>,
     ) -> Result<(), Error> {
-        self.init(ctx)?;
+        layouter.assign_region(
+            || "bit table",
+            |region| {
+                let mut ctx = Context::new(region);
 
-        ctx.reset();
+                self.init(&mut ctx)?;
 
-        self.assign_entries(ctx, filter_bit_table_entries(event_table))?;
+                ctx.reset();
 
-        Ok(())
+                self.assign_entries(&mut ctx, &event_table)?;
+
+                Ok(())
+            },
+        )
     }
 }

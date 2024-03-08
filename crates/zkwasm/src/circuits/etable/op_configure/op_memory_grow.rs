@@ -77,7 +77,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
         let sp = common_config.sp_cell;
 
         let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
+            "op_memory_grow stack read",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
@@ -88,7 +88,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
         );
 
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_test stack write",
+            "op_memory_grow stack write",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),

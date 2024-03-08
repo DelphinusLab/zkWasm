@@ -42,14 +42,12 @@ impl<F: FieldExt> PostImageTableChip<F> {
 
     pub(in crate::circuits) fn assign(
         self,
-        _layouter: &mut impl Layouter<F>,
-        _image_table_assigner: &mut ImageTableAssigner,
+        _layouter: &impl Layouter<F>,
+        _image_table_assigner: &ImageTableAssigner,
         _post_image_table: ImageTableLayouter<F>,
-        _permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
-        _rest_memory_writing_ops_cell: Option<AssignedCell<F, F>>,
-        _rest_memory_writing_ops: F,
+        _rest_memory_finalized_count: u32,
         _memory_finalized_set: HashSet<(LocationType, u32)>,
-    ) -> Result<(), Error> {
-        Ok(())
+    ) -> Result<Option<(ImageTableLayouter<AssignedCell<F, F>>, AssignedCell<F, F>)>, Error> {
+        Ok(None)
     }
 }

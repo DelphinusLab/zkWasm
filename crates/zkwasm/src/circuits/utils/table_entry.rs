@@ -7,6 +7,7 @@ use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::env;
 use std::io::Write;
 use std::path::PathBuf;
@@ -31,6 +32,26 @@ impl MemoryWritingEntry {
 pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl MemoryWritingTable {
+    pub(crate) fn count_rest_memory_finalize_ops(&self) -> (u32, HashSet<(LocationType, u32)>) {
+        let mut count = 0u32;
+        let mut set = HashSet::default();
+
+        let mut iter = self.0.iter().peekable();
+
+        while let Some(entry) = iter.next() {
+            if entry.entry.atype == AccessType::Write
+                && iter.peek().map_or(true, |next_entry| {
+                    !next_entry.entry.is_same_location(&entry.entry)
+                })
+            {
+                set.insert((entry.entry.ltype, entry.entry.offset));
+                count += 1;
+            }
+        }
+
+        (count, set)
+    }
+
     pub fn from(k: u32, value: MTable) -> Self {
         let maximal_eid = if cfg!(feature = "continuation") {
             u32::MAX

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-std = { version = "0.4.0" }
+ark-std = { version = "0.4.0", features = ["parallel"] }
 bitvec = "1.0.1"
 downcast-rs = "1.2.0"
 hex = "0.4.3"
@@ -31,11 +31,12 @@ cfg-if.workspace = true
 halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
+rayon.workspace = true
 wasmi.workspace = true
 
 # TODO put the host circuits into features
 
-zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="main" }
+zkwasm-host-circuits.workspace = true
 
 [dev-dependencies]
 rusty-fork = "0.3.0"

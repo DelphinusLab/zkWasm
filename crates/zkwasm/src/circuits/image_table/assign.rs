@@ -12,11 +12,61 @@ use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::Context;
 
+cfg_if::cfg_if! {
+    if #[cfg(feature="uniform-circuit")] {
+        macro_rules! assign_option {
+            ($ctx:expr, $col: expr, $v: expr) => {{
+                let offset = $ctx.borrow().offset;
+
+                let cell = $ctx
+                    .borrow_mut()
+                    .region
+                    .assign_advice(
+                        || "pre image table",
+                        $col,
+                        offset,
+                        || $v,
+                    )?;
+
+                $ctx.borrow_mut().next();
+
+                Ok::<_, Error>(cell)
+            }};
+        }
+    } else {
+        macro_rules! assign_option {
+            ($ctx:expr, $col: expr, $v: expr) => {{
+                let offset = $ctx.borrow().offset;
+
+                let cell = $ctx
+                    .borrow_mut()
+                    .region
+                    .assign_fixed(
+                        || "pre image table",
+                        $col,
+                        offset,
+                        || $v,
+                    )?;
+
+                $ctx.borrow_mut().next();
+
+                Ok::<_, Error>(cell)
+            }};
+        }
+    }
+}
+
+macro_rules! assign {
+    ($ctx:expr, $col: expr, $v: expr) => {{
+        assign_option!($ctx, $col, Ok($v))
+    }};
+}
+
 impl<F: FieldExt> ImageTableChip<F> {
     pub(crate) fn assign(
-        self,
-        layouter: &mut impl Layouter<F>,
-        image_table_assigner: &mut ImageTableAssigner,
+        &self,
+        layouter: &impl Layouter<F>,
+        image_table_assigner: &ImageTableAssigner,
         image_table: ImageTableLayouter<F>,
     ) -> Result<ImageTableLayouter<AssignedCell<F, F>>, Error> {
         layouter.assign_region(
@@ -24,56 +74,12 @@ impl<F: FieldExt> ImageTableChip<F> {
             |region| {
                 let ctx = Rc::new(RefCell::new(Context::new(region)));
 
-                cfg_if::cfg_if! {
-                    if #[cfg(feature="uniform-circuit")] {
-                        macro_rules! assign {
-                            ($v: expr) => {{
-                                let offset = ctx.borrow().offset;
-
-                                let cell = ctx
-                                    .borrow_mut()
-                                    .region
-                                    .assign_advice(
-                                        || "pre image table",
-                                        self.config.col,
-                                        offset,
-                                        || Ok($v),
-                                    )?;
-
-                                ctx.borrow_mut().next();
-
-                                Ok::<_, Error>(cell)
-                            }};
-                        }
-                    } else {
-                        macro_rules! assign {
-                            ($v: expr) => {{
-                                let offset = ctx.borrow().offset;
-
-                                let cell = ctx
-                                    .borrow_mut()
-                                    .region
-                                    .assign_fixed(
-                                        || "pre image table",
-                                        self.config.col,
-                                        offset,
-                                        || Ok($v),
-                                    )?;
-
-                                ctx.borrow_mut().next();
-
-                                Ok::<_, Error>(cell)
-                            }};
-                        }
-                    }
-                }
-
                 let initialization_state_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
                     let initialization_state = image_table
                         .initialization_state
-                        .map(|field| assign!(*field));
+                        .map(|field| assign!(ctx, self.config.col, *field));
 
                     initialization_state.transpose()
                 };
@@ -84,8 +90,8 @@ impl<F: FieldExt> ImageTableChip<F> {
                     let mut cells = vec![];
 
                     for (enable, entry) in &image_table.static_frame_entries {
-                        let enable = assign!(*enable)?;
-                        let entry = assign!(*entry)?;
+                        let enable = assign!(ctx, self.config.col, *enable)?;
+                        let entry = assign!(ctx, self.config.col, *entry)?;
 
                         cells.push((enable, entry));
                     }
@@ -102,7 +108,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .instructions
                         .iter()
-                        .map(|entry| assign!(*entry))
+                        .map(|entry| assign!(ctx, self.config.col, *entry))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -112,7 +118,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .br_table_entires
                         .iter()
-                        .map(|entry| assign!(*entry))
+                        .map(|entry| assign!(ctx, self.config.col, *entry))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -120,17 +126,18 @@ impl<F: FieldExt> ImageTableChip<F> {
                     ctx.borrow_mut().offset = start_offset;
 
                     (start_offset..end_offset)
-                        .map(|_| assign!(F::zero()))
+                        .map(|_| assign!(ctx, self.config.col, F::zero()))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
                 let init_memory_handler = |base_offset| {
+                    // start from 'base_offset" because 'encode_compilation_table_values' have inserted an empty at the beginning.
                     ctx.borrow_mut().offset = base_offset;
 
                     image_table
                         .init_memory_entries
                         .iter()
-                        .map(|entry| assign!(*entry))
+                        .map(|entry| assign!(ctx, self.config.col, *entry))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 

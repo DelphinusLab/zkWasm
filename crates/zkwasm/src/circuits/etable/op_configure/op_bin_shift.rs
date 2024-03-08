@@ -101,7 +101,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let sp = common_config.sp_cell;
 
         let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
+            "op_bin_shift stack read",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
@@ -112,7 +112,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_test stack read",
+            "op_bin_shift stack read",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
@@ -124,7 +124,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
 
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
-                "op_test stack read",
+                "op_bin_shift stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),

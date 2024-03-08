@@ -21,9 +21,9 @@ pub struct Context<'a, F: FieldExt> {
 }
 
 impl<'a, F: FieldExt> Context<'a, F> {
-    pub fn new(region: Region<'a, F>) -> Self {
+    pub fn new(region: &Region<'a, F>) -> Self {
         Self {
-            region: Box::new(region),
+            region: Box::new(region.clone()),
             offset: 0usize,
             records: vec![],
         }

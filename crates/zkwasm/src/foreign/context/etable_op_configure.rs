@@ -184,7 +184,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextHelperTableConfig<F
                     )?;
                     self.is_context_in_op.assign_bool(ctx, true)?;
                     self.context_input_index_for_lookup
-                        .assign(ctx, F::from(step.context_in_index as u64))?;
+                        .assign(ctx, F::from(step.current.context_in_index as u64))?;
 
                     Ok(())
                 } else {
@@ -203,7 +203,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextHelperTableConfig<F
                     )?;
                     self.is_context_out_op.assign_bool(ctx, true)?;
                     self.context_output_index_for_lookup
-                        .assign(ctx, F::from(step.context_out_index as u64))?;
+                        .assign(ctx, F::from(step.current.context_out_index as u64))?;
 
                     Ok(())
                 }

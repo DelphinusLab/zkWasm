@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
@@ -32,6 +34,56 @@ use crate::fixed_curr;
 use crate::next;
 
 pub const POST_IMAGE_TABLE: &str = "post_img_col";
+
+cfg_if::cfg_if! {
+    if #[cfg(feature="uniform-circuit")] {
+        macro_rules! assign_option {
+            ($ctx:expr, $col: expr, $v: expr) => {{
+                let offset = $ctx.borrow().offset;
+
+                let cell = $ctx
+                    .borrow_mut()
+                    .region
+                    .assign_advice(
+                        || "pre image table",
+                        $col,
+                        offset,
+                        || $v,
+                    )?;
+
+                $ctx.borrow_mut().next();
+
+                Ok::<_, Error>(cell)
+            }};
+        }
+    } else {
+        macro_rules! assign_option {
+            ($ctx:expr, $col: expr, $v: expr) => {{
+                let offset = $ctx.borrow().offset;
+
+                let cell = $ctx
+                    .borrow_mut()
+                    .region
+                    .assign_fixed(
+                        || "pre image table",
+                        $col,
+                        offset,
+                        || $v,
+                    )?;
+
+                $ctx.borrow_mut().next();
+
+                Ok::<_, Error>(cell)
+            }};
+        }
+    }
+}
+
+macro_rules! assign {
+    ($ctx:expr, $col: expr, $v: expr) => {{
+        assign_option!($ctx, $col, Ok($v))
+    }};
+}
 
 #[derive(Clone)]
 pub(in crate::circuits) struct PostImageTableConfig<F: FieldExt> {
@@ -115,37 +167,25 @@ impl<F: FieldExt> PostImageTableChip<F> {
 
     pub(in crate::circuits) fn assign(
         self,
-        layouter: &mut impl Layouter<F>,
-        image_table_assigner: &mut ImageTableAssigner,
+        layouter: &impl Layouter<F>,
+        image_table_assigner: &ImageTableAssigner,
         post_image_table: ImageTableLayouter<F>,
-        permutation_cells: ImageTableLayouter<AssignedCell<F, F>>,
-        rest_memory_writing_ops_cell: Option<AssignedCell<F, F>>,
-        rest_memory_writing_ops: F,
+        rest_memory_finalized_count: u32,
         memory_finalized_set: HashSet<(LocationType, u32)>,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<(ImageTableLayouter<AssignedCell<F, F>>, AssignedCell<F, F>)>, Error> {
         layouter.assign_region(
             || "post image table",
             |region| {
+                let assigned_rest_memory_finalized_count_cell = Arc::new(Mutex::new(None));
+
                 let ctx = Rc::new(RefCell::new(Context::new(region)));
 
                 let initialization_state_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
-                    let initialization_state =
-                        permutation_cells.initialization_state.map(|field| {
-                            let offset = ctx.borrow().offset;
-
-                            field.copy_advice(
-                                || "image table: initialization state",
-                                &mut ctx.borrow_mut().region,
-                                self.config.post_image_table,
-                                offset,
-                            )?;
-
-                            ctx.borrow_mut().next();
-
-                            Ok(field.clone())
-                        });
+                    let initialization_state = post_image_table
+                        .initialization_state
+                        .map(|field| Ok(assign!(ctx, self.config.post_image_table, *field)?));
 
                     initialization_state.transpose()
                 };
@@ -155,28 +195,11 @@ impl<F: FieldExt> PostImageTableChip<F> {
 
                     let mut cells = vec![];
 
-                    for (enable, entry) in &permutation_cells.static_frame_entries {
-                        let offset = ctx.borrow().offset;
+                    for (enable, entry) in &post_image_table.static_frame_entries {
+                        let enable = assign!(ctx, self.config.post_image_table, *enable)?;
+                        let entry = assign!(ctx, self.config.post_image_table, *entry)?;
 
-                        enable.copy_advice(
-                            || "image table: static frame entry",
-                            &mut ctx.borrow_mut().region,
-                            self.config.post_image_table,
-                            offset,
-                        )?;
-                        ctx.borrow_mut().next();
-
-                        let offset = ctx.borrow().offset;
-
-                        entry.copy_advice(
-                            || "image table: static frame entry",
-                            &mut ctx.borrow_mut().region,
-                            self.config.post_image_table,
-                            offset,
-                        )?;
-                        ctx.borrow_mut().next();
-
-                        cells.push((enable.clone(), entry.clone()));
+                        cells.push((enable, entry));
                     }
 
                     Ok(cells.try_into().expect(&format!(
@@ -188,69 +211,30 @@ impl<F: FieldExt> PostImageTableChip<F> {
                 let instruction_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
-                    permutation_cells
+                    post_image_table
                         .instructions
                         .iter()
-                        .map(|entry| {
-                            let offset = ctx.borrow().offset;
-
-                            let entry = entry.copy_advice(
-                                || "image table",
-                                &mut ctx.borrow_mut().region,
-                                self.config.post_image_table,
-                                offset,
-                            )?;
-
-                            ctx.borrow_mut().next();
-
-                            Ok(entry)
-                        })
+                        .map(|entry| Ok(assign!(ctx, self.config.post_image_table, *entry)?))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
                 let br_table_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
-                    permutation_cells
+                    post_image_table
                         .br_table_entires
                         .iter()
-                        .map(|entry| {
-                            let offset = ctx.borrow().offset;
-
-                            let entry = entry.copy_advice(
-                                || "image table",
-                                &mut ctx.borrow_mut().region,
-                                self.config.post_image_table,
-                                offset,
-                            )?;
-
-                            ctx.borrow_mut().next();
-
-                            Ok(entry)
-                        })
+                        .map(|entry| Ok(assign!(ctx, self.config.post_image_table, *entry)?))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
                 let padding_handler = |start_offset, _| {
                     ctx.borrow_mut().offset = start_offset;
 
-                    permutation_cells
+                    post_image_table
                         .padding_entires
                         .iter()
-                        .map(|entry| {
-                            let offset = ctx.borrow().offset;
-
-                            let entry = entry.copy_advice(
-                                || "image table",
-                                &mut ctx.borrow_mut().region,
-                                self.config.post_image_table,
-                                offset,
-                            )?;
-
-                            ctx.borrow_mut().next();
-
-                            Ok(entry)
-                        })
+                        .map(|entry| Ok(assign!(ctx, self.config.post_image_table, *entry)?))
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -311,20 +295,25 @@ impl<F: FieldExt> PostImageTableChip<F> {
 
                     {
                         // First line is placeholder for default lookup
-                        let offset = base_offset + 1;
+                        ctx.borrow_mut().offset = base_offset + 1;
 
-                        rest_memory_writing_ops_cell.as_ref().unwrap().copy_advice(
-                            || "post image table: init memory",
-                            &mut ctx.borrow_mut().region,
+                        let rest_memory_finalized_count_cell = assign!(
+                            ctx,
                             self.config.rest_memory_finalized_count,
-                            offset,
+                            F::from(rest_memory_finalized_count as u64)
                         )?;
+
+                        *assigned_rest_memory_finalized_count_cell
+                            .lock()
+                            .unwrap() = Some(rest_memory_finalized_count_cell);
                     }
 
                     let entries = {
+                        // start from 'base_offset" because 'encode_compilation_table_values' have inserted an empty at the beginning.
                         let mut offset = base_offset;
 
-                        let mut rest_memory_writing_ops = rest_memory_writing_ops;
+                        let mut rest_memory_writing_ops =
+                            F::from(rest_memory_finalized_count as u64);
 
                         post_image_table
                             .init_memory_entries
@@ -338,7 +327,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
                                 )?;
 
                                 ctx.borrow_mut().region.assign_advice(
-                                    || "post image table: init memory",
+                                    || "post image table: updated memory count",
                                     self.config.rest_memory_finalized_count,
                                     offset,
                                     || Ok(rest_memory_writing_ops),
@@ -380,7 +369,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
                     Ok(entries)
                 };
 
-                image_table_assigner.exec(
+                let layouter = image_table_assigner.exec(
                     initialization_state_handler,
                     static_frame_entries_handler,
                     instruction_handler,
@@ -389,7 +378,14 @@ impl<F: FieldExt> PostImageTableChip<F> {
                     init_memory_entries_handler,
                 )?;
 
-                Ok(())
+                Ok(Some((
+                    layouter,
+                    Arc::try_unwrap(assigned_rest_memory_finalized_count_cell)
+                        .unwrap()
+                        .into_inner()
+                        .unwrap()
+                        .unwrap(),
+                )))
             },
         )
     }

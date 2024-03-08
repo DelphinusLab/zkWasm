@@ -1,6 +1,4 @@
-#![deny(dead_code)]
-#![deny(unused_variables)]
-#![deny(unused_imports)]
+#![deny(warnings)]
 #![feature(int_roundings)]
 #![feature(stmt_expr_attributes)]
 

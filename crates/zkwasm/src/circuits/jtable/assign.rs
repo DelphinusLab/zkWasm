@@ -1,5 +1,6 @@
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
+use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
 use specs::jtable::JumpTable;
 use specs::jtable::StaticFrameEntry;
@@ -12,28 +13,19 @@ use crate::circuits::utils::Context;
 
 impl<F: FieldExt> JumpTableChip<F> {
     /// Frame Table Constraint 1. The etable and jtable must have the same jops count."
-    fn constraint_to_etable_jops(
+    fn assign_first_rest_jops(
         &self,
         ctx: &mut Context<'_, F>,
-        etable_rest_jops_cell: &AssignedCell<F, F>,
-    ) -> Result<(), Error> {
-        /*
-         * Assign a meaningless rest_jops value to get the cell which should equal to the
-         * rest_jops cell in etable.
-         *
-         * The value will be overwritten in assign_static_entries/assign_jtable_entries.
-         */
+        rest_jops: u64,
+    ) -> Result<AssignedCell<F, F>, Error> {
         let cell = ctx.region.assign_advice(
             || "jtable rest",
             self.config.data,
             JtableOffset::JtableOffsetRest as usize,
-            || Ok(F::from(0)),
+            || Ok(F::from(rest_jops as u64)),
         )?;
 
-        ctx.region
-            .constrain_equal(cell.cell(), etable_rest_jops_cell.cell())?;
-
-        Ok(())
+        Ok(cell)
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
@@ -62,19 +54,15 @@ impl<F: FieldExt> JumpTableChip<F> {
         Ok(())
     }
 
-    fn assign_static_entries(
+    fn assign_static_entries_and_first_rest_jops(
         &self,
         ctx: &mut Context<'_, F>,
         rest_jops: &mut u64,
         static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
-        assigned_static_entries: &[(AssignedCell<F, F>, AssignedCell<F, F>);
-             STATIC_FRAME_ENTRY_NUMBER],
     ) -> Result<[(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER], Error> {
         let mut cells = vec![];
 
-        for (entry, (assigned_enable_cell, assigned_entry_cell)) in
-            static_entries.iter().zip(assigned_static_entries.iter())
-        {
+        for entry in static_entries {
             ctx.region.assign_fixed(
                 || "jtable start entries",
                 self.config.static_bit,
@@ -88,8 +76,6 @@ impl<F: FieldExt> JumpTableChip<F> {
                 ctx.offset,
                 || Ok(F::from(entry.enable as u64)),
             )?;
-            ctx.region
-                .constrain_equal(enable_cell.cell(), assigned_enable_cell.cell())?;
             ctx.next();
 
             ctx.region.assign_advice(
@@ -106,8 +92,6 @@ impl<F: FieldExt> JumpTableChip<F> {
                 ctx.offset,
                 || Ok(bn_to_field(&entry.encode())),
             )?;
-            ctx.region
-                .constrain_equal(entry_cell.cell(), assigned_entry_cell.cell())?;
             ctx.next();
 
             cells.push((enable_cell, entry_cell));
@@ -191,32 +175,38 @@ impl<F: FieldExt> JumpTableChip<F> {
 
     pub fn assign(
         &self,
-        ctx: &mut Context<'_, F>,
+        layouter: &impl Layouter<F>,
         static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
-        assigned_static_entries: &[(AssignedCell<F, F>, AssignedCell<F, F>);
-             STATIC_FRAME_ENTRY_NUMBER],
         jtable: &JumpTable,
-        etable_jops_cell: &Option<AssignedCell<F, F>>,
-    ) -> Result<[(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER], Error> {
-        if etable_jops_cell.is_some() {
-            self.constraint_to_etable_jops(ctx, etable_jops_cell.as_ref().unwrap())?;
-        }
+    ) -> Result<
+        (
+            AssignedCell<F, F>,
+            [(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER],
+        ),
+        Error,
+    > {
+        layouter.assign_region(
+            || "frame table",
+            |region| {
+                let mut ctx = Context::new(region);
 
-        self.init(ctx)?;
-        ctx.reset();
+                self.init(&mut ctx)?;
+                ctx.reset();
 
-        // non-static entry includes `call`` and `return`` op, static entry only includes `return` op
-        let mut rest_jops = jtable.entries().len() as u64 * 2
-            + static_entries.iter().filter(|entry| entry.enable).count() as u64;
+                // non-static entry includes `call`` and `return`` op, static entry only includes `return` op
+                let mut rest_jops = jtable.entries().len() as u64 * 2
+                    + static_entries.iter().filter(|entry| entry.enable).count() as u64;
 
-        let frame_table_start_jump_cells = self.assign_static_entries(
-            ctx,
-            &mut rest_jops,
-            static_entries,
-            assigned_static_entries,
-        )?;
-        self.assign_jtable_entries(ctx, &mut rest_jops, jtable)?;
+                let rest_jopss = self.assign_first_rest_jops(&mut ctx, rest_jops)?;
+                let cells_to_permutation = self.assign_static_entries_and_first_rest_jops(
+                    &mut ctx,
+                    &mut rest_jops,
+                    static_entries,
+                )?;
+                self.assign_jtable_entries(&mut ctx, &mut rest_jops, jtable)?;
 
-        Ok(frame_table_start_jump_cells)
+                Ok((rest_jopss, cells_to_permutation))
+            },
+        )
     }
 }

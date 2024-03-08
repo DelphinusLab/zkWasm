@@ -75,6 +75,7 @@ pub fn image_table_offset_to_memory_location(offset: usize) -> (LocationType, u3
  * Heap
  * --------------------
  */
+#[derive(Debug)]
 pub struct ImageTableLayouter<T> {
     pub(crate) initialization_state: InitializationState<T>,
     pub(crate) static_frame_entries: [(T, T); STATIC_FRAME_ENTRY_NUMBER],
@@ -85,6 +86,7 @@ pub struct ImageTableLayouter<T> {
     pub(crate) init_memory_entries: Vec<T>,
 }
 
+#[derive(Clone, Copy)]
 pub struct ImageTableAssigner {
     pub heap_capability: u32,
 
@@ -127,14 +129,14 @@ impl ImageTableAssigner {
     }
 
     pub fn exec_initialization_state<T, Error>(
-        &mut self,
+        &self,
         mut initialization_state_handler: impl FnMut(usize) -> Result<InitializationState<T>, Error>,
     ) -> Result<InitializationState<T>, Error> {
         initialization_state_handler(self.initialization_state_offset)
     }
 
     pub fn exec_static_frame_entries<T, Error>(
-        &mut self,
+        &self,
         mut static_frame_entries_handler: impl FnMut(
             usize,
         ) -> Result<
@@ -146,35 +148,35 @@ impl ImageTableAssigner {
     }
 
     pub fn exec_instruction<T, Error>(
-        &mut self,
+        &self,
         mut instruction_handler: impl FnMut(usize) -> Result<Vec<T>, Error>,
     ) -> Result<Vec<T>, Error> {
         instruction_handler(self.instruction_offset)
     }
 
     pub fn exec_br_table_entires<T, Error>(
-        &mut self,
+        &self,
         mut br_table_handler: impl FnMut(usize) -> Result<Vec<T>, Error>,
     ) -> Result<Vec<T>, Error> {
         br_table_handler(self.br_table_offset)
     }
 
     pub fn exec_padding_entires<T, Error>(
-        &mut self,
+        &self,
         mut padding_handler: impl FnMut(usize, usize) -> Result<Vec<T>, Error>,
     ) -> Result<Vec<T>, Error> {
         padding_handler(self.padding_offset, self.init_memory_offset)
     }
 
     pub fn exec_init_memory_entries<T, Error>(
-        &mut self,
+        &self,
         mut init_memory_entries_handler: impl FnMut(usize) -> Result<Vec<T>, Error>,
     ) -> Result<Vec<T>, Error> {
         init_memory_entries_handler(self.init_memory_offset)
     }
 
     pub fn exec<T, Error>(
-        &mut self,
+        &self,
         initialization_state_handler: impl FnMut(usize) -> Result<InitializationState<T>, Error>,
         static_frame_entries_handler: impl FnMut(
             usize,
@@ -303,7 +305,7 @@ impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
             Ok(cells)
         };
 
-        let mut assigner = ImageTableAssigner::new(
+        let assigner = ImageTableAssigner::new(
             self.itable.len() + 1,
             self.br_table.entries().len() + self.elem_table.entries().len() + 1,
             page_capability,

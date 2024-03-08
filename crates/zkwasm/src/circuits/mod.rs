@@ -28,8 +28,8 @@ pub mod config;
 pub mod image_table;
 pub mod jtable;
 pub mod rtable;
-pub mod test_circuit;
 pub mod utils;
+pub mod zkwasm_circuit;
 
 pub type CompilationTable = specs::CompilationTable;
 pub type ExecutionTable = specs::ExecutionTable;

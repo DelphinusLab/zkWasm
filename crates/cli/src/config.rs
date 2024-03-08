@@ -15,10 +15,11 @@ use delphinus_zkwasm::runtime::host::HostEnvArg;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::G1Affine;
+use halo2_proofs::plonk::verify_proof_with_shplonk;
 use halo2_proofs::plonk::CircuitData;
+use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::poly::commitment::Params;
-use halo2aggregator_s::circuits::utils::TranscriptHash;
-use halo2aggregator_s::native_verifier;
+use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use indicatif::ProgressBar;
 use serde::Deserialize;
 use serde::Serialize;
@@ -322,9 +323,12 @@ impl Config {
 
             let progress_bar = ProgressBar::new(circuits.len() as u64);
 
+            let mut index = 0;
             let mut circuits = circuits.iter();
             while let Some(circuit) = circuits.next() {
+                println!("slice: {}", index);
                 loader.mock_test(circuit, &instances)?;
+                index += 1;
 
                 progress_bar.inc(1);
             }
@@ -338,6 +342,7 @@ impl Config {
         }
 
         println!("{} Creating proof(s)...", style("[8/9]").bold().dim(),);
+
         let mut proof_load_info = ProofLoadInfo::new(
             &self.name,
             self.k as usize,
@@ -474,13 +479,15 @@ impl Config {
                 )?;
             };
 
-            native_verifier::verify_single_proof::<Bn256>(
+            let strategy = SingleVerifier::new(&params_verifier);
+            verify_proof_with_shplonk::<Bn256, _, _, _>(
                 &params_verifier,
                 &proof.vkey,
-                &proof.instances,
-                proof.transcripts,
-                TranscriptHash::Poseidon,
-            );
+                strategy,
+                &[&proof.instances.iter().map(|x| &x[..]).collect::<Vec<_>>()[..]],
+                &mut PoseidonRead::init(&proof.transcripts[..]),
+            )
+            .unwrap();
 
             progress_bar.inc(1);
         }
