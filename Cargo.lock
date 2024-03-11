@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?branch=para-synthesize#7f7c1ea5e96f0ecdbbdc61cfb627e7714cced243"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git?branch=para-synthesize#9a416f88d26fda9901d6eee560f6398233cf43b3"
 dependencies = [
  "anyhow",
  "ark-std 0.4.0",
@@ -1162,7 +1162,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=para-synthesize#d0a3bf7f4e580160e8da2daac7be2b0dec9fa369"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=para-synthesize#78b441b7c0c3ef091239e109d7f06e96f0bec739"
 dependencies = [
  "ark-std 0.4.0",
  "blake2b_simd",
@@ -1179,7 +1179,7 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=para-synthesize#919e91ebd78a766b180a679389c735a8b5fda9aa"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?branch=para-synthesize#e86efc4791385caf0d07e812c5d006484c536cbf"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
@@ -1290,8 +1290,8 @@ dependencies = [
 
 [[package]]
 name = "icicle-bn254"
-version = "1.4.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.4.0#15a63cc5496ddd1b97885459eb3b31a439f9e1a4"
+version = "1.7.0"
+source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.7.0#1abd2ef9c9b4e387ded2333b18e22e95d90f6653"
 dependencies = [
  "cmake",
  "icicle-core",
@@ -1300,8 +1300,8 @@ dependencies = [
 
 [[package]]
 name = "icicle-core"
-version = "1.4.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.4.0#15a63cc5496ddd1b97885459eb3b31a439f9e1a4"
+version = "1.7.0"
+source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.7.0#1abd2ef9c9b4e387ded2333b18e22e95d90f6653"
 dependencies = [
  "icicle-cuda-runtime",
  "rayon",
@@ -1309,8 +1309,8 @@ dependencies = [
 
 [[package]]
 name = "icicle-cuda-runtime"
-version = "1.4.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.4.0#15a63cc5496ddd1b97885459eb3b31a439f9e1a4"
+version = "1.7.0"
+source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.7.0#1abd2ef9c9b4e387ded2333b18e22e95d90f6653"
 dependencies = [
  "bindgen",
  "bitflags 1.3.2",
@@ -3488,7 +3488,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+ssh://git@github.com/lanbones/zkWasm-prover.git?branch=zhangjunyu/para-synthesize#08d733fd7b5a0093ca33ddfcef222838707bdfab"
+source = "git+ssh://git@github.com/lanbones/zkWasm-prover.git?branch=zhangjunyu/para-synthesize#37e17876a5e9a39feba73ee1bb9d6382ba4d3918"
 dependencies = [
  "ark-std 0.4.0",
  "cc",
