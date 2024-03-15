@@ -243,6 +243,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             None,
             TranscriptHash::Poseidon,
             false,
+            false
         ))
     }
 
