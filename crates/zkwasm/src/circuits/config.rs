@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 pub const POW_TABLE_POWER_START: u64 = 128;
 
-pub const MIN_K: u32 = 18;
+pub const MIN_K: u32 = 1;
 const MAX_K: u32 = 25;
 
 lazy_static! {
