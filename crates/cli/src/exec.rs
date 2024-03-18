@@ -1,8 +1,9 @@
 use anyhow::Result;
-use circuits_batcher::proof::CircuitInfo;
+
 use circuits_batcher::proof::ParamsCache;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
+use circuits_batcher::proof::ProofPieceInfo;
 use circuits_batcher::proof::ProvingKeyCache;
 use delphinus_zkwasm::circuits::ZkWasmCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
@@ -156,25 +157,27 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
         info!("Mock test passed");
     }
 
-    let circuit: CircuitInfo<Bn256, ZkWasmCircuit<Fr>> = CircuitInfo::new(
-        circuit,
-        prefix.to_string(),
-        vec![instances],
-        zkwasm_k as usize,
-        circuits_batcher::args::HashType::Poseidon,
-    );
+    let prover: ProofPieceInfo = ProofPieceInfo::new(prefix.to_string(), 0, zkwasm_k);
 
-    // save the proof load info for the zkwasm circuit
-    circuit.proofloadinfo.save(output_dir);
+    // let circuit: CircuitInfo<Bn256, ZkWasmCircuit<Fr>> = CircuitInfo::new(
+    //     circuit,
+    //     prefix.to_string(),
+    //     vec![instances],
+    //     zkwasm_k as usize,
+    //     circuits_batcher::args::HashType::Poseidon,
+    // );
 
-    // Cli saves zkwasm.0.instance.data as the
-    // first instance file for .loadinfo
-    // Thus we provide arg index = 0 to generate a
-    // proof with the first instance file
-    let mut param_cache = ParamsCache::new(5);
-    let mut pkey_cache = ProvingKeyCache::new(5);
+    // // save the proof load info for the zkwasm circuit
+    // circuit.proofloadinfo.save(output_dir);
 
-    circuit.exec_create_proof(output_dir, param_dir, &mut pkey_cache, 0, &mut param_cache);
+    // // Cli saves zkwasm.0.instance.data as the
+    // // first instance file for .loadinfo
+    // // Thus we provide arg index = 0 to generate a
+    // // proof with the first instance file
+    // let mut param_cache = ParamsCache::new(5);
+    // let mut pkey_cache = ProvingKeyCache::new(5);
+
+    // circuit.exec_create_proof(output_dir, param_dir, &mut pkey_cache, 0, &mut param_cache);
 
     info!("Proof has been created.");
 
@@ -213,6 +216,8 @@ pub fn exec_verify_proof(
             &proof.instances,
             proof.transcripts.clone(),
             TranscriptHash::Poseidon,
+            false,
+            &vec![],
         );
     }
     info!("Verifing proof passed");

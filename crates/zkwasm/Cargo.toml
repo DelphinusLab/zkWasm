@@ -35,7 +35,7 @@ wasmi.workspace = true
 
 # TODO put the host circuits into features
 
-zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="main" }
+zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="keccak-test" }
 
 [dev-dependencies]
 rusty-fork = "0.3.0"
