@@ -159,9 +159,6 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
 
     let prover: ProofPieceInfo = ProofPieceInfo::new(prefix.to_string(), 0, zkwasm_k);
 
-    
-    
-
     // let circuit: CircuitInfo<Bn256, ZkWasmCircuit<Fr>> = CircuitInfo::new(
     //     circuit,
     //     prefix.to_string(),
