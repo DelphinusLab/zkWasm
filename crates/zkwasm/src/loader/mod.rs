@@ -2,7 +2,7 @@ use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::keygen_vk;
-use halo2_proofs::plonk::verify_proof;
+use halo2_proofs::plonk::verify_proof_with_shplonk;
 use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
@@ -242,6 +242,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             None,
             TranscriptHash::Poseidon,
             false,
+            true,
         ))
     }
 
@@ -262,7 +263,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
         let strategy = SingleVerifier::new(&params_verifier);
 
-        verify_proof(
+        verify_proof_with_shplonk(
             &params_verifier,
             &vkey,
             strategy,

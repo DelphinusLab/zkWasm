@@ -27,6 +27,7 @@ circuits-batcher.workspace = true
 
 [features]
 default = []
+perf = ["circuits-batcher/perf"]
 cuda = ["delphinus-zkwasm/cuda"]
 uniform-circuit = ["delphinus-zkwasm/uniform-circuit"]
 

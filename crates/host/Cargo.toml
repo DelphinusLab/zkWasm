@@ -26,7 +26,7 @@ delphinus-zkwasm = { path = "../zkwasm" }
 
 ff = "0.12"
 sha2 = "0.10.6"
-poseidon = { git = "https://github.com/DelphinusLab/poseidon", branch="para-synthesize" }
+poseidon = { git = "https://github.com/DelphinusLab/poseidon" }
 
 anyhow.workspace = true
 halo2aggregator-s.workspace = true

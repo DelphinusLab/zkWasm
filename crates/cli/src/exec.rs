@@ -1,18 +1,18 @@
 use anyhow::Result;
-use circuits_batcher::proof::CircuitInfo;
+use circuits_batcher::args::HashType::Poseidon;
 use circuits_batcher::proof::ParamsCache;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
+use circuits_batcher::proof::ProofPieceInfo;
 use circuits_batcher::proof::ProvingKeyCache;
-use delphinus_zkwasm::circuits::ZkWasmCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::pairing::bn256::Bn256;
-use halo2_proofs::pairing::bn256::Fr;
+use halo2_proofs::plonk::verify_proof_with_shplonk;
+use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::poly::commitment::ParamsVerifier;
 use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
-use halo2aggregator_s::circuits::utils::TranscriptHash;
-use halo2aggregator_s::native_verifier;
+use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use log::info;
 use std::io::Write;
 use std::path::PathBuf;
@@ -156,25 +156,27 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
         info!("Mock test passed");
     }
 
-    let circuit: CircuitInfo<Bn256, ZkWasmCircuit<Fr>> = CircuitInfo::new(
-        circuit,
-        prefix.to_string(),
-        vec![instances],
+    let prover: ProofPieceInfo = ProofPieceInfo::new(prefix.to_string(), 0, instances.len() as u32);
+
+    let mut param_cache = ParamsCache::<Bn256>::new(5);
+    let mut pkey_cache = ProvingKeyCache::<Bn256>::new(5);
+
+    let mut proof_load_info = ProofLoadInfo::new(prefix, zkwasm_k as usize, Poseidon);
+
+    prover.exec_create_proof(
+        &circuit,
+        &vec![instances],
+        output_dir.as_path(),
+        param_dir.as_path(),
+        format!("K{}.params", zkwasm_k),
         zkwasm_k as usize,
+        &mut pkey_cache,
+        &mut param_cache,
         circuits_batcher::args::HashType::Poseidon,
     );
-
-    // save the proof load info for the zkwasm circuit
-    circuit.proofloadinfo.save(output_dir);
-
-    // Cli saves zkwasm.0.instance.data as the
-    // first instance file for .loadinfo
-    // Thus we provide arg index = 0 to generate a
-    // proof with the first instance file
-    let mut param_cache = ParamsCache::new(5);
-    let mut pkey_cache = ProvingKeyCache::new(5);
-
-    circuit.exec_create_proof(output_dir, param_dir, &mut pkey_cache, 0, &mut param_cache);
+    //prover.mock_proof(k as u32);
+    proof_load_info.append_single_proof(prover);
+    proof_load_info.save(output_dir);
 
     info!("Proof has been created.");
 
@@ -206,14 +208,16 @@ pub fn exec_verify_proof(
     }
 
     let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
-    for (_, proof) in proofs.iter().enumerate() {
-        native_verifier::verify_single_proof::<Bn256>(
+    for (_, proof) in proofs.into_iter().enumerate() {
+        let strategy = SingleVerifier::new(&params_verifier);
+        verify_proof_with_shplonk::<Bn256, _, _, _>(
             &params_verifier,
             &proof.vkey,
-            &proof.instances,
-            proof.transcripts.clone(),
-            TranscriptHash::Poseidon,
-        );
+            strategy,
+            &[&proof.instances.iter().map(|x| &x[..]).collect::<Vec<_>>()[..]],
+            &mut PoseidonRead::init(&proof.transcripts[..]),
+        )
+        .unwrap();
     }
     info!("Verifing proof passed");
 
