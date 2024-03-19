@@ -175,7 +175,7 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
         &mut pkey_cache,
         &mut param_cache,
         circuits_batcher::args::HashType::Poseidon,
-        OpenSchema::GWC,
+        circuits_batcher::args::OpenSchema::Shplonk,
     );
 
     prover.save_proof_data(&vec![instances], &transcript, output_dir);
