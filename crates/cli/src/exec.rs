@@ -173,6 +173,7 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
         &mut pkey_cache,
         &mut param_cache,
         circuits_batcher::args::HashType::Poseidon,
+        circuits_batcher::args::OpenSchema::Shplonk,
     );
     //prover.mock_proof(k as u32);
     proof_load_info.append_single_proof(prover);
