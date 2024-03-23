@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use circuits_batcher::args::OpenSchema;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use circuits_batcher::proof::ProofPieceInfo;
@@ -15,11 +16,8 @@ use delphinus_zkwasm::runtime::host::HostEnvArg;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::G1Affine;
-use halo2_proofs::plonk::verify_proof_with_shplonk;
 use halo2_proofs::plonk::CircuitData;
-use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::poly::commitment::Params;
-use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use indicatif::ProgressBar;
 use serde::Deserialize;
 use serde::Serialize;
@@ -397,6 +395,7 @@ impl Config {
                 &proving_key,
                 output_dir,
                 proof_load_info.hashtype,
+                OpenSchema::Shplonk,
             );
 
             proof_load_info.append_single_proof(proof_piece_info);
@@ -418,7 +417,11 @@ impl Config {
         Ok(())
     }
 
-    pub(crate) fn verify(self, params_dir: &PathBuf, output_dir: &PathBuf) -> anyhow::Result<()> {
+    pub(crate) fn verify<EnvBuilder: HostEnvBuilder>(
+        self,
+        params_dir: &PathBuf,
+        output_dir: &PathBuf,
+    ) -> anyhow::Result<()> {
         let mut proofs = {
             println!(
                 "{} Reading proofs from {:?}",
@@ -479,15 +482,43 @@ impl Config {
                 )?;
             };
 
-            let strategy = SingleVerifier::new(&params_verifier);
-            verify_proof_with_shplonk::<Bn256, _, _, _>(
-                &params_verifier,
-                &proof.vkey,
-                strategy,
-                &[&proof.instances.iter().map(|x| &x[..]).collect::<Vec<_>>()[..]],
-                &mut PoseidonRead::init(&proof.transcripts[..]),
-            )
-            .unwrap();
+            proof.verify_proof(&params_verifier).unwrap();
+
+            // TODO: handle checksum sanity check
+            // #[cfg(feature = "uniform-circuit")]
+            // {
+            //     use delphinus_zkwasm::circuits::image_table::IMAGE_COL_NAME;
+            //     use halo2_proofs::plonk::get_advice_commitments_from_transcript;
+            //     use halo2aggregator_s::transcript::poseidon::PoseidonRead;
+
+            //     let _img_col_idx = proof
+            //         .vkey
+            //         .cs
+            //         .named_advices
+            //         .iter()
+            //         .find(|(k, _)| k == IMAGE_COL_NAME)
+            //         .unwrap()
+            //         .1;
+            //     let _img_col_commitment: Vec<G1Affine> =
+            //         get_advice_commitments_from_transcript::<Bn256, _, _>(
+            //             &proof.vkey,
+            //             &mut PoseidonRead::init(&proof.transcripts[..]),
+            //         )
+            //         .unwrap();
+
+            //     assert!(
+            //         vec![_img_col_commitment[_img_col_idx as usize]][0]
+            //             .x
+            //             .to_string()
+            //             == self.checksum.0
+            //     );
+            //     assert!(
+            //         vec![_img_col_commitment[_img_col_idx as usize]][0]
+            //             .y
+            //             .to_string()
+            //             == self.checksum.1
+            //     );
+            // }
 
             progress_bar.inc(1);
         }

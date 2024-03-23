@@ -1,18 +1,20 @@
 use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
+use halo2_proofs::plonk::create_proof;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::verify_proof;
+use halo2_proofs::plonk::ProvingKey;
 use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsVerifier;
+use halo2_proofs::transcript::Blake2bRead;
+use halo2_proofs::transcript::Blake2bWrite;
 use log::warn;
+use rand::rngs::OsRng;
 use std::marker::PhantomData;
 
-use halo2aggregator_s::circuits::utils::load_or_create_proof;
-use halo2aggregator_s::circuits::utils::TranscriptHash;
-use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
@@ -237,20 +239,22 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
     pub fn create_proof(
         &self,
         params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
+        pk: &ProvingKey<E::G1Affine>,
         circuit: ZkWasmCircuit<E::Scalar>,
         instances: &Vec<E::Scalar>,
     ) -> Result<Vec<u8>> {
-        Ok(load_or_create_proof::<E, _>(
-            &params,
-            vkey,
-            circuit,
-            &[instances],
-            None,
-            TranscriptHash::Poseidon,
-            false,
-            false,
-        ))
+        let mut transcript = Blake2bWrite::init(vec![]);
+
+        create_proof(
+            params,
+            pk,
+            &[circuit],
+            &[&[&instances[..]]],
+            OsRng,
+            &mut transcript,
+        )?;
+
+        Ok(transcript.finalize())
     }
 
     fn init_env(&self) -> Result<()> {
@@ -263,7 +267,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         _image: &CompilationTable,
         params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
+        vkey: &VerifyingKey<E::G1Affine>,
         instances: &Vec<E::Scalar>,
         proof: Vec<u8>,
     ) -> Result<()> {
@@ -272,37 +276,12 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
         verify_proof(
             &params_verifier,
-            &vkey,
+            vkey,
             strategy,
             &[&[&instances]],
-            &mut PoseidonRead::init(&proof[..]),
+            &mut Blake2bRead::init(&proof[..]),
         )
         .unwrap();
-
-        #[cfg(feature = "uniform-circuit")]
-        {
-            use crate::circuits::image_table::IMAGE_COL_NAME;
-            use halo2_proofs::plonk::get_advice_commitments_from_transcript;
-
-            let _img_col_idx = vkey
-                .cs
-                .named_advices
-                .iter()
-                .find(|(k, _)| k == IMAGE_COL_NAME)
-                .unwrap()
-                .1;
-            let _img_col_commitment: Vec<E::G1Affine> =
-                get_advice_commitments_from_transcript::<E, _, _>(
-                    &vkey,
-                    &mut PoseidonRead::init(&proof[..]),
-                )
-                .unwrap();
-            // let checksum = self.checksum(image, params)?;
-            // todo!("compute checksum");
-
-            // assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
-            // todo!("assert");
-        }
 
         Ok(())
     }
@@ -315,6 +294,7 @@ mod tests {
     use halo2_proofs::pairing::bn256::Bn256;
     use halo2_proofs::pairing::bn256::Fr;
     use halo2_proofs::pairing::bn256::G1Affine;
+    use halo2_proofs::plonk::keygen_pk;
     use halo2_proofs::poly::commitment::Params;
     use std::fs::File;
     use std::io::Cursor;
@@ -353,14 +333,15 @@ mod tests {
 
             let params = prepare_param(self.k);
             let vkey = self.create_vkey(&params, &circuit).unwrap();
+            let pkey = keygen_pk(&params, vkey, &circuit).unwrap();
 
             let proof = self
-                .create_proof(&params, vkey.clone(), circuit.clone(), &instances)
+                .create_proof(&params, &pkey, circuit.clone(), &instances)
                 .unwrap();
             self.verify_proof(
                 &circuit.tables.compilation_tables,
                 &params,
-                vkey,
+                pkey.get_vk(),
                 instances,
                 proof,
             )

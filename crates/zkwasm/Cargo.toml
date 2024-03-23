@@ -24,11 +24,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ff = "0.12"
 sha2 = "0.10.6"
-poseidon = { git = "https://github.com/lanbones/poseidon" }
-
 anyhow.workspace = true
 cfg-if.workspace = true
-halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
 rayon.workspace = true
@@ -43,7 +40,7 @@ rusty-fork = "0.3.0"
 
 [features]
 default = []
-profile = ["ark-std/print-trace", "halo2_proofs/profile", "halo2aggregator-s/profile"]
+profile = ["ark-std/print-trace", "halo2_proofs/profile"]
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
 uniform-circuit = []
 continuation = ["uniform-circuit", "specs/continuation"]

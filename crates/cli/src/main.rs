@@ -149,7 +149,14 @@ fn main() -> Result<()> {
                 cli.params_dir.join(&name_of_config(&cli.name)),
             )?)?;
 
-            config.verify(&cli.params_dir, &arg.output_dir)?;
+            match config.host_mode {
+                HostMode::DEFAULT => {
+                    config.verify::<StandardHostEnvBuilder>(&cli.params_dir, &arg.output_dir)?
+                }
+                HostMode::STANDARD => {
+                    config.verify::<StandardHostEnvBuilder>(&cli.params_dir, &arg.output_dir)?
+                }
+            }
         }
     }
 
