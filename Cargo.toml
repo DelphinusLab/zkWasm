@@ -17,3 +17,5 @@ poseidon = { git = "https://github.com/DelphinusLab/poseidon" }
 [profile.dev]
 opt-level = 3
 
+[patch."https://github.com/DelphinusLab/halo2-gpu-specific.git"]
+halo2_proofs = { path = "./halo2-gpu-specific/halo2_proofs" }

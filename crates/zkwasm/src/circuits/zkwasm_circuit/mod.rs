@@ -45,6 +45,8 @@ use crate::foreign::context::circuits::assign::ExtractContextFromTrace;
 use crate::foreign::context::circuits::ContextContHelperTableConfig;
 use crate::foreign::context::circuits::CONTEXT_FOREIGN_TABLE_KEY;
 use crate::foreign::foreign_table_enable_lines;
+use crate::foreign::wasm_input_helper::circuits::assign::ExtractInputFromTrace;
+use crate::foreign::wasm_input_helper::circuits::assign::WasmInputHelperTableChip;
 use crate::foreign::wasm_input_helper::circuits::WasmInputHelperTableConfig;
 use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
@@ -75,6 +77,7 @@ pub struct ZkWasmCircuitConfig<F: FieldExt> {
     bit_table: BitTableConfig<F>,
     external_host_call_table: ExternalHostCallTableConfig<F>,
     context_helper_table: ContextContHelperTableConfig<F>,
+    wasm_input_helper_table: WasmInputHelperTableConfig<F>,
 
     foreign_table_from_zero_index: Column<Fixed>,
 
@@ -182,6 +185,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             bit_table,
             external_host_call_table,
             context_helper_table,
+            wasm_input_helper_table,
             foreign_table_from_zero_index,
 
             max_available_rows,
@@ -207,6 +211,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
         let external_host_call_chip =
             ExternalHostCallChip::new(config.external_host_call_table, config.max_available_rows);
+        let wasm_input_helper_chip = WasmInputHelperTableChip::new(config.wasm_input_helper_table);
         let context_chip = ContextContHelperTableChip::new(config.context_helper_table);
 
         let image_table_assigner = ImageTableAssigner::new(
@@ -321,16 +326,22 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             });
 
             s.spawn(move |_| {
-                exec_with_profile!(
-                    || "Assign context cont chip",
+                exec_with_profile!(|| "Assign context cont chip", {
                     context_chip
                         .assign(
                             &layout4,
                             &self.tables.execution_tables.etable.get_context_inputs(),
-                            &self.tables.execution_tables.etable.get_context_outputs()
+                            &self.tables.execution_tables.etable.get_context_outputs(),
                         )
-                        .unwrap()
-                );
+                        .unwrap();
+
+                    wasm_input_helper_chip
+                        .assign(
+                            &layout4,
+                            self.tables.execution_tables.etable.get_wasm_inputs(),
+                        )
+                        .unwrap();
+                });
             });
 
             s.spawn(move |_| {
