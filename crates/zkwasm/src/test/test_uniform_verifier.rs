@@ -1,8 +1,12 @@
+#[cfg(feature = "continuation")]
+use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
+
 use crate::circuits::ZkWasmCircuit;
 use crate::circuits::ZkWasmCircuitBuilder;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 use crate::runtime::ExecutionResult;
+use crate::test::MIN_K;
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::Fr;
@@ -15,7 +19,7 @@ use wasmi::RuntimeValue;
 
 use super::test_circuit_with_env;
 
-const K: u32 = 18;
+const K: u32 = MIN_K;
 
 fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> {
     let textual_repr = r#"
@@ -26,17 +30,17 @@ fn setup_uniform_verifier() -> Result<(Params<G1Affine>, ProvingKey<G1Affine>)> 
 
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-    let mut env = HostEnv::new();
+    let mut env = HostEnv::new(K);
     env.finalize();
 
     let execution_result = test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;
 
     let builder = ZkWasmCircuitBuilder {
         tables: execution_result.tables,
-        public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
     };
 
-    let circuit: ZkWasmCircuit<Fr> = builder.build_circuit();
+    let circuit: ZkWasmCircuit<Fr> =
+        builder.build_circuit(Some(((1 << K) - 200) / EVENT_TABLE_ENTRY_ROWS as usize));
 
     let params = Params::<G1Affine>::unsafe_setup::<Bn256>(K);
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
@@ -99,7 +103,7 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
 
     let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-    let mut env = HostEnv::new();
+    let mut env = HostEnv::new(K);
     env.finalize();
 
     let execution_result = test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "zkmain")?;
@@ -108,6 +112,7 @@ fn build_test() -> Result<(ExecutionResult<RuntimeValue>, i32)> {
 }
 
 mod tests {
+
     use halo2_proofs::plonk::create_proof;
     use halo2_proofs::plonk::verify_proof;
     use halo2_proofs::plonk::SingleVerifier;
@@ -135,7 +140,6 @@ mod tests {
 
         let builder = ZkWasmCircuitBuilder {
             tables: execution_result.tables,
-            public_inputs_and_outputs: execution_result.public_inputs_and_outputs,
         };
 
         let proof = {
@@ -144,7 +148,11 @@ mod tests {
             create_proof(
                 &params,
                 &uniform_verifier_pk,
-                &[builder.build_circuit()],
+                &[builder.build_circuit(if cfg!(feature = "continuation") {
+                    Some(((1 << K) - 200) / EVENT_TABLE_ENTRY_ROWS as usize)
+                } else {
+                    None
+                })],
                 &[&[&instances]],
                 OsRng,
                 &mut transcript,

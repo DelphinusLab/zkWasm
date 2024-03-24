@@ -14,10 +14,16 @@ use crate::fixed_curr;
 use crate::nextn;
 use crate::prev;
 
+use self::assign::BitTableAssign;
+
 use super::rtable::RangeTableConfig;
 
 mod assign;
 mod configure;
+
+pub(crate) trait BitTableTrait {
+    fn filter_bit_table_entries(&self) -> Vec<BitTableAssign>;
+}
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum BitTableOp {

@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::circuits::config::MIN_K;
     use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
     use crate::runtime::host::host_env::HostEnv;
     use crate::test::test_circuit_with_env;
@@ -17,10 +18,12 @@ mod tests {
                 )
             "#;
 
+        let k = MIN_K;
+
         let public_inputs = vec![9];
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-        let mut env = HostEnv::new();
+        let mut env = HostEnv::new(k);
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, vec![]);
         env.finalize();
 
@@ -55,7 +58,7 @@ mod tests {
         let private_inputs = vec![];
         let public_inputs = vec![1, 2];
 
-        let mut env = HostEnv::new();
+        let mut env = HostEnv::new(MIN_K);
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
         env.finalize();
 

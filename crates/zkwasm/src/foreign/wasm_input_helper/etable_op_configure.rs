@@ -206,7 +206,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
                     self.enable_input_table_lookup.assign_bool(ctx, is_public)?;
                     self.public_input_index_for_lookup.assign(
                         ctx,
-                        (is_public as u64 * step.host_public_inputs as u64).into(),
+                        (is_public as u64 * step.current.host_public_inputs as u64).into(),
                     )?;
                     self.value_for_lookup
                         .assign(ctx, ((is_public as u64) * value).into())?;
@@ -243,7 +243,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
 
                     self.enable_input_table_lookup.assign_bool(ctx, true)?;
                     self.public_input_index_for_lookup
-                        .assign(ctx, (step.host_public_inputs as u64).into())?;
+                        .assign(ctx, (step.current.host_public_inputs as u64).into())?;
                     self.value_for_lookup.assign(ctx, value.into())?;
 
                     self.lookup_read_stack.assign(

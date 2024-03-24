@@ -10,6 +10,7 @@ use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
+use super::utils::u32_state::AllocatedU32StateCell;
 use super::utils::Context;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
@@ -54,12 +55,13 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
+use num_integer::Integer;
 use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 mod assign;
 mod op_configure;
@@ -78,15 +80,16 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     ops: [AllocatedBitCell<F>; OP_CAPABILITY],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    rest_jops_cell: AllocatedCommonRangeCell<F>,
+    // If continuation is enabled, it's an incremental counter; otherwise, it's decremental.
+    jops_cell: AllocatedCommonRangeCell<F>,
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
     external_host_call_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) sp_cell: AllocatedCommonRangeCell<F>,
     mpages_cell: AllocatedCommonRangeCell<F>,
-    frame_id_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) eid_cell: AllocatedCommonRangeCell<F>,
+    frame_id_cell: AllocatedU32StateCell<F>,
+    pub(crate) eid_cell: AllocatedU32StateCell<F>,
     fid_cell: AllocatedCommonRangeCell<F>,
     iid_cell: AllocatedCommonRangeCell<F>,
     maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
@@ -202,16 +205,22 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     }
 }
 
+struct OpcodeConfig<F: FieldExt>(Box<dyn EventTableOpcodeConfig<F>>);
+
+unsafe impl<F: FieldExt> Send for OpcodeConfig<F> {}
+unsafe impl<F: FieldExt> Sync for OpcodeConfig<F> {}
+
 #[derive(Clone)]
 pub struct EventTableConfig<F: FieldExt> {
     pub step_sel: Column<Fixed>,
     pub common_config: EventTableCommonConfig<F>,
-    op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
+    op_configs: Arc<BTreeMap<OpcodeClassPlain, OpcodeConfig<F>>>,
 }
 
 impl<F: FieldExt> EventTableConfig<F> {
     pub(crate) fn configure(
         meta: &mut ConstraintSystem<F>,
+        k: u32,
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
         image_table: &ImageTableConfig<F>,
@@ -224,21 +233,21 @@ impl<F: FieldExt> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
         let mut allocator =
-            EventTableCellAllocator::new(meta, step_sel, rtable, mtable, jtable, cols);
+            EventTableCellAllocator::new(meta, k, step_sel, rtable, mtable, jtable, cols);
 
         let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();
 
         let rest_mops_cell = allocator.alloc_common_range_cell();
-        let rest_jops_cell = allocator.alloc_common_range_cell();
+        let jops_cell = allocator.alloc_common_range_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
         let external_host_call_index_cell = allocator.alloc_common_range_cell();
         let sp_cell = allocator.alloc_common_range_cell();
         let mpages_cell = allocator.alloc_common_range_cell();
-        let frame_id_cell = allocator.alloc_common_range_cell();
-        let eid_cell = allocator.alloc_common_range_cell();
+        let frame_id_cell = allocator.alloc_u32_state_cell();
+        let eid_cell = allocator.alloc_u32_state_cell();
         let fid_cell = allocator.alloc_common_range_cell();
         let iid_cell = allocator.alloc_common_range_cell();
         let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
@@ -271,7 +280,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             enabled_cell,
             ops,
             rest_mops_cell,
-            rest_jops_cell,
+            jops_cell,
             input_index_cell,
             context_input_index_cell,
             context_output_index_cell,
@@ -293,8 +302,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
-        let mut op_configs: BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>> =
-            BTreeMap::new();
+        let mut op_configs: BTreeMap<OpcodeClassPlain, OpcodeConfig<F>> = BTreeMap::new();
 
         macro_rules! configure {
             ($op:expr, $x:ident) => {
@@ -314,7 +322,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 });
 
                 op_bitmaps.insert(op, op.index());
-                op_configs.insert(op, Rc::new(config));
+                op_configs.insert(op, OpcodeConfig::<F>(config));
             };
         }
 
@@ -366,7 +374,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 });
 
                 op_bitmaps.insert(op, op.index());
-                op_configs.insert(op, Rc::new(config));
+                op_configs.insert(op, OpcodeConfig(config));
             };
         }
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
@@ -404,7 +412,7 @@ impl<F: FieldExt> EventTableConfig<F> {
              meta: &mut VirtualCells<'_, F>,
              get_expr: &dyn Fn(
                 &mut VirtualCells<'_, F>,
-                &Rc<Box<dyn EventTableOpcodeConfig<F>>>,
+                &OpcodeConfig<F>,
             ) -> Option<Expression<F>>,
              enable: Option<&dyn Fn(&mut VirtualCells<'_, F>) -> Expression<F>>| {
                 let expr = op_bitmaps
@@ -422,7 +430,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let sum_ops_expr = |meta: &mut VirtualCells<'_, F>,
                             get_expr: &dyn Fn(
             &mut VirtualCells<'_, F>,
-            &Rc<Box<dyn EventTableOpcodeConfig<F>>>,
+            &OpcodeConfig<F>,
         ) -> Option<Expression<F>>| {
             op_bitmaps
                 .iter()
@@ -438,16 +446,20 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 rest_mops_cell.next_expr(meta) - rest_mops_cell.curr_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.mops(meta),
+                &|meta, config: &OpcodeConfig<F>| config.0.mops(meta),
                 None,
             )]
         });
 
-        meta.create_gate("c5b. rest_jops change", |meta| {
+        meta.create_gate("c5b. jops change(increase if continuation)", |meta| {
             vec![sum_ops_expr_with_init(
-                rest_jops_cell.next_expr(meta) - rest_jops_cell.curr_expr(meta),
+                if cfg!(feature = "continuation") {
+                    jops_cell.curr_expr(meta) - jops_cell.next_expr(meta)
+                } else {
+                    jops_cell.next_expr(meta) - jops_cell.curr_expr(meta)
+                },
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.jops_expr(meta),
+                &|meta, config: &OpcodeConfig<F>| config.0.jops_expr(meta),
                 None,
             )]
         });
@@ -456,10 +468,10 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 input_index_cell.curr_expr(meta) - input_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.input_index_increase(meta, &common_config)
+                &|meta, config: &OpcodeConfig<F>| {
+                    config.0.input_index_increase(meta, &common_config)
                 },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                None,
             )]
         });
 
@@ -468,10 +480,12 @@ impl<F: FieldExt> EventTableConfig<F> {
                 external_host_call_index_cell.curr_expr(meta)
                     - external_host_call_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.external_host_call_index_increase(meta, &common_config)
+                &|meta, config: &OpcodeConfig<F>| {
+                    config
+                        .0
+                        .external_host_call_index_increase(meta, &common_config)
                 },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                None,
             )]
         });
 
@@ -479,8 +493,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 sp_cell.curr_expr(meta) - sp_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| config.sp_diff(meta),
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                &|meta, config: &OpcodeConfig<F>| config.0.sp_diff(meta),
+                None,
             )]
         });
 
@@ -488,10 +502,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 mpages_cell.curr_expr(meta) - mpages_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.allocated_memory_pages_diff(meta)
-                },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                &|meta, config: &OpcodeConfig<F>| config.0.allocated_memory_pages_diff(meta),
+                None,
             )]
         });
 
@@ -499,10 +511,10 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 context_input_index_cell.curr_expr(meta) - context_input_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.context_input_index_increase(meta, &common_config)
+                &|meta, config: &OpcodeConfig<F>| {
+                    config.0.context_input_index_increase(meta, &common_config)
                 },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                None,
             )]
         });
 
@@ -511,17 +523,18 @@ impl<F: FieldExt> EventTableConfig<F> {
                 context_output_index_cell.curr_expr(meta)
                     - context_output_index_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
-                    config.context_output_index_increase(meta, &common_config)
+                &|meta, config: &OpcodeConfig<F>| {
+                    config.0.context_output_index_increase(meta, &common_config)
                 },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                None,
             )]
         });
 
         meta.create_gate("c6a. eid change", |meta| {
             vec![
-                (eid_cell.next_expr(meta) - eid_cell.curr_expr(meta) - constant_from!(1))
-                    * enabled_cell.curr_expr(meta)
+                (eid_cell.next_expr(meta)
+                    - eid_cell.curr_expr(meta)
+                    - enabled_cell.curr_expr(meta))
                     * fixed_curr!(meta, step_sel),
             ]
         });
@@ -530,25 +543,27 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 fid_cell.curr_expr(meta) - fid_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
+                &|meta, config: &OpcodeConfig<F>| {
                     config
+                        .0
                         .next_fid(meta, &common_config)
                         .map(|x| x - fid_cell.curr_expr(meta))
                 },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                None,
             )]
         });
 
         meta.create_gate("c6c. iid change", |meta| {
             vec![sum_ops_expr_with_init(
-                iid_cell.next_expr(meta) - iid_cell.curr_expr(meta) - constant_from!(1),
+                iid_cell.next_expr(meta) - iid_cell.curr_expr(meta) - enabled_cell.curr_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
+                &|meta, config: &OpcodeConfig<F>| {
                     config
+                        .0
                         .next_iid(meta, &common_config)
-                        .map(|x| iid_cell.curr_expr(meta) + constant_from!(1) - x)
+                        .map(|x| iid_cell.curr_expr(meta) + enabled_cell.curr_expr(meta) - x)
                 },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                None,
             )]
         });
 
@@ -556,20 +571,20 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![sum_ops_expr_with_init(
                 frame_id_cell.curr_expr(meta) - frame_id_cell.next_expr(meta),
                 meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| {
+                &|meta, config: &OpcodeConfig<F>| {
                     config
+                        .0
                         .next_frame_id(meta, &common_config)
                         .map(|x| x - frame_id_cell.curr_expr(meta))
                 },
-                Some(&|meta| enabled_cell.curr_expr(meta)),
+                None,
             )]
         });
 
         meta.create_gate("c7. itable_lookup_encode", |meta| {
-            let opcode = sum_ops_expr(
-                meta,
-                &|meta, config: &Rc<Box<dyn EventTableOpcodeConfig<F>>>| Some(config.opcode(meta)),
-            );
+            let opcode = sum_ops_expr(meta, &|meta, config: &OpcodeConfig<F>| {
+                Some(config.0.opcode(meta))
+            });
             vec![
                 (encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
                     - itable_lookup_cell.curr_expr(meta))
@@ -617,7 +632,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![
                 (maximal_memory_pages_cell.next_expr(meta)
                     - maximal_memory_pages_cell.curr_expr(meta))
-                    * enabled_cell.expr(meta)
                     * fixed_curr!(meta, step_sel),
             ]
         });
@@ -625,22 +639,33 @@ impl<F: FieldExt> EventTableConfig<F> {
         Self {
             step_sel,
             common_config,
-            op_configs,
+            op_configs: Arc::new(op_configs),
         }
     }
 }
 
+#[derive(Clone)]
 pub struct EventTableChip<F: FieldExt> {
     config: EventTableConfig<F>,
-    max_available_rows: usize,
+    // The maximal number of entries(which sel = 1) of etable
+    capability: usize,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
-    pub(super) fn new(config: EventTableConfig<F>, max_available_rows: usize) -> Self {
-        Self {
-            config,
-            max_available_rows: max_available_rows / EVENT_TABLE_ENTRY_ROWS as usize
-                * EVENT_TABLE_ENTRY_ROWS as usize,
-        }
+    pub(super) fn new(
+        config: EventTableConfig<F>,
+        slice_capability: Option<usize>,
+        max_available_rows: usize,
+    ) -> Self {
+        let capability = if let Some(slice_capability) = slice_capability {
+            assert!(slice_capability * EVENT_TABLE_ENTRY_ROWS as usize <= max_available_rows);
+
+            slice_capability
+        } else {
+            max_available_rows.prev_multiple_of(&(EVENT_TABLE_ENTRY_ROWS as usize))
+                / EVENT_TABLE_ENTRY_ROWS as usize
+        };
+
+        Self { config, capability }
     }
 }

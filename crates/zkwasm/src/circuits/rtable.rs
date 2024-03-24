@@ -1,4 +1,4 @@
-use super::config::zkwasm_k;
+use super::config::common_range;
 use super::config::POW_TABLE_POWER_START;
 use super::utils::bn_to_field;
 use crate::circuits::bit_table::BitTableOp;
@@ -48,7 +48,7 @@ struct OpTable {
 
 #[derive(Clone)]
 pub struct RangeTableConfig<F: FieldExt> {
-    // [0 .. 1 << zkwasm_k() - 1)
+    // [0 .. common_range())
     common_range_col: TableColumn,
     // [0 .. 65536)
     u16_col: TableColumn,
@@ -159,15 +159,15 @@ impl<F: FieldExt> RangeTableChip<F> {
         RangeTableChip { config }
     }
 
-    pub fn init(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+    pub fn init(&self, layouter: &impl Layouter<F>, k: u32) -> Result<(), Error> {
         layouter.assign_table(
             || "common range table",
-            |mut table| {
-                for i in 0..(1 << (zkwasm_k() - 1)) {
+            |table| {
+                for i in 0..common_range(k) {
                     table.assign_cell(
                         || "range table",
                         self.config.common_range_col,
-                        i,
+                        i as usize,
                         || Ok(F::from(i as u64)),
                     )?;
                 }
@@ -177,7 +177,7 @@ impl<F: FieldExt> RangeTableChip<F> {
 
         layouter.assign_table(
             || "u16 range table",
-            |mut table| {
+            |table| {
                 for i in 0..(1 << 16) {
                     table.assign_cell(
                         || "range table",
@@ -191,11 +191,11 @@ impl<F: FieldExt> RangeTableChip<F> {
         )?;
 
         {
-            let mut offset = 0;
-
             layouter.assign_table(
                 || "op lookup table",
-                |mut table| {
+                |table| {
+                    let mut offset = 0;
+
                     for op in BitOp::iter() {
                         for left in 0..1u16 << 8 {
                             for right in 0u16..1 << 8 {
@@ -334,7 +334,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                 },
             )?;
         }
-
+        
         Ok(())
     }
 }

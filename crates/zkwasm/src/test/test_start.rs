@@ -1,9 +1,7 @@
 mod tests {
-    use std::sync::Arc;
-    use std::sync::Mutex;
-
     use halo2_proofs::pairing::bn256::Bn256;
 
+    use crate::foreign::context::ContextOutput;
     use crate::loader::ZkWasmLoader;
     use crate::runtime::host::default_env::DefaultHostEnvBuilder;
     use crate::runtime::host::default_env::ExecutionArg;
@@ -43,10 +41,10 @@ mod tests {
             public_inputs: vec![],
             private_inputs: vec![],
             context_inputs: vec![],
-            context_outputs: Arc::new(Mutex::new(vec![])),
+            context_outputs: ContextOutput::default(),
         };
 
-        let result = loader.run(arg, (), false, true).unwrap();
+        let result = loader.run(arg, (), false).unwrap();
 
         let (circuit, instances) = loader.circuit_with_witness(result).unwrap();
 

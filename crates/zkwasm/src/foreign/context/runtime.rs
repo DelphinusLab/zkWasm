@@ -1,6 +1,4 @@
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 use specs::host_function::HostPlugin;
 use specs::host_function::Signature;
@@ -11,15 +9,16 @@ use wasmi::RuntimeArgs;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
 
+use super::ContextOutput;
 use super::Op;
 
 struct Context {
     inputs: Vec<u64>,
-    outputs: Arc<Mutex<Vec<u64>>>,
+    outputs: ContextOutput,
 }
 
 impl Context {
-    fn new(context_input: Vec<u64>, context_output: Arc<Mutex<Vec<u64>>>) -> Self {
+    fn new(context_input: Vec<u64>, context_output: ContextOutput) -> Self {
         let mut inputs = context_input.clone();
         inputs.reverse();
 
@@ -30,7 +29,7 @@ impl Context {
     }
 
     pub fn write_context(&mut self, value: u64) {
-        self.outputs.lock().unwrap().push(value)
+        self.outputs.0.lock().unwrap().push(value)
     }
 
     pub fn read_context(&mut self) -> u64 {
@@ -45,7 +44,7 @@ impl ForeignContext for Context {}
 pub fn register_context_foreign(
     env: &mut HostEnv,
     context_input: Vec<u64>,
-    context_output: Arc<Mutex<Vec<u64>>>,
+    context_output: ContextOutput,
 ) {
     env.internal_env.register_plugin(
         "context plugin",

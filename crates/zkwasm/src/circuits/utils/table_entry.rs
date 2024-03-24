@@ -7,11 +7,12 @@ use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::env;
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::circuits::config::zkwasm_k;
+use crate::circuits::config::common_range_max;
 use crate::runtime::memory_event_of_step;
 
 #[derive(Clone, Debug, Serialize)]
@@ -30,9 +31,33 @@ impl MemoryWritingEntry {
 #[derive(Debug, Serialize)]
 pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
-impl From<MTable> for MemoryWritingTable {
-    fn from(value: MTable) -> Self {
-        let maximal_eid = (1u32 << (zkwasm_k() - 1)) - 1;
+impl MemoryWritingTable {
+    pub(crate) fn count_rest_memory_finalize_ops(&self) -> (u32, HashSet<(LocationType, u32)>) {
+        let mut count = 0u32;
+        let mut set = HashSet::default();
+
+        let mut iter = self.0.iter().peekable();
+
+        while let Some(entry) = iter.next() {
+            if entry.entry.atype == AccessType::Write
+                && iter.peek().map_or(true, |next_entry| {
+                    !next_entry.entry.is_same_location(&entry.entry)
+                })
+            {
+                set.insert((entry.entry.ltype, entry.entry.offset));
+                count += 1;
+            }
+        }
+
+        (count, set)
+    }
+
+    pub fn from(k: u32, value: MTable) -> Self {
+        let maximal_eid = if cfg!(feature = "continuation") {
+            u32::MAX
+        } else {
+            common_range_max(k)
+        };
         let mut index = 0;
 
         let mut entries: Vec<MemoryWritingEntry> = value
@@ -63,6 +88,12 @@ impl From<MTable> for MemoryWritingTable {
                 curr.end_eid = next.entry.eid;
             }
         });
+
+        // FIXME: create_memory_table pushed a lot of meaningless Stack init. Fix it elegantly.
+        let entries = entries
+            .into_iter()
+            .filter(|entry| entry.entry.eid != entry.end_eid)
+            .collect();
 
         MemoryWritingTable(entries)
     }
@@ -151,6 +182,7 @@ impl EventTableWithMemoryInfo {
                         }
                     })
                     .unwrap();
+
                 records[idx]
             }
         };
@@ -161,7 +193,7 @@ impl EventTableWithMemoryInfo {
                 .iter()
                 .map(|eentry| EventTableEntryWithMemoryInfo {
                     eentry: eentry.clone(),
-                    memory_rw_entires: memory_event_of_step(eentry, &mut 1)
+                    memory_rw_entires: memory_event_of_step(eentry)
                         .iter()
                         .map(|mentry| {
                             let (start_eid, end_eid) = lookup_mtable_eid((

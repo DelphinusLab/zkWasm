@@ -20,6 +20,7 @@ use super::internal_circuit_plugin::InternalCircuitEnv;
 use super::HostFunction;
 
 pub struct HostEnv {
+    pub k: u32,
     pub(crate) internal_env: InternalCircuitEnv,
     pub external_env: ExternalCircuitEnv,
 
@@ -38,12 +39,13 @@ impl HostEnv {
     /// ```
     /// use delphinus_zkwasm::runtime::host::host_env::HostEnv;
     ///
-    /// let env = HostEnv::new();
+    /// let env = HostEnv::new(18);
     /// ```
-    pub fn new() -> Self {
+    pub fn new(k: u32) -> Self {
         let finalized = Rc::new(RefCell::new(false));
 
         Self {
+            k,
             internal_env: InternalCircuitEnv::new(finalized.clone()),
             external_env: ExternalCircuitEnv::new(finalized.clone()),
             cached_lookup: None,

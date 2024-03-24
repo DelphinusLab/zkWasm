@@ -5,9 +5,11 @@ use num_bigint::BigUint;
 
 pub mod bit;
 pub mod common_range;
+pub mod image_table;
 pub mod row_diff;
 pub mod step_status;
 pub mod u16;
+pub mod u32_state;
 pub mod u8;
 
 pub mod table_entry;
@@ -19,9 +21,9 @@ pub struct Context<'a, F: FieldExt> {
 }
 
 impl<'a, F: FieldExt> Context<'a, F> {
-    pub fn new(region: Region<'a, F>) -> Self {
+    pub fn new(region: &Region<'a, F>) -> Self {
         Self {
-            region: Box::new(region),
+            region: Box::new(region.clone()),
             offset: 0usize,
             records: vec![],
         }

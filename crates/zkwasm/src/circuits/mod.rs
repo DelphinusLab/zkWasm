@@ -16,26 +16,36 @@ mod external_host_call_table;
 mod mtable;
 mod traits;
 
+#[cfg(feature = "continuation")]
+#[path = "./post_image_table/continuation.rs"]
+pub mod post_image_table;
+
+#[cfg(not(feature = "continuation"))]
+#[path = "./post_image_table/trivial.rs"]
+pub mod post_image_table;
+
 pub mod config;
 pub mod image_table;
 pub mod jtable;
 pub mod rtable;
-pub mod test_circuit;
 pub mod utils;
+pub mod zkwasm_circuit;
 
 pub type CompilationTable = specs::CompilationTable;
 pub type ExecutionTable = specs::ExecutionTable;
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct ZkWasmCircuit<F: FieldExt> {
     pub tables: Tables,
+    pub slice_capability: Option<usize>,
     _data: PhantomData<F>,
 }
 
 impl<F: FieldExt> ZkWasmCircuit<F> {
-    pub fn new(tables: Tables) -> Self {
+    pub fn new(tables: Tables, slice_capability: Option<usize>) -> Self {
         ZkWasmCircuit {
             tables,
+            slice_capability,
             _data: PhantomData,
         }
     }
@@ -60,11 +70,16 @@ pub(self) trait Lookup<F: FieldExt> {
 
 pub struct ZkWasmCircuitBuilder {
     pub tables: Tables,
-    pub public_inputs_and_outputs: Vec<u64>,
 }
 
 impl ZkWasmCircuitBuilder {
-    pub fn build_circuit<F: FieldExt>(&self) -> ZkWasmCircuit<F> {
-        ZkWasmCircuit::new(self.tables.clone())
+    pub fn build_circuit<F: FieldExt>(self, slice_capability: Option<usize>) -> ZkWasmCircuit<F> {
+        #[cfg(feature = "continuation")]
+        assert!(slice_capability.is_some());
+
+        #[cfg(not(feature = "continuation"))]
+        assert!(slice_capability.is_none());
+
+        ZkWasmCircuit::new(self.tables, slice_capability)
     }
 }

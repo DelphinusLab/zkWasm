@@ -1,13 +1,12 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use crate::foreign::context::runtime::register_context_foreign;
+use crate::foreign::context::ContextOutput;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
 use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use super::host_env::HostEnv;
+use super::HostEnvArg;
 use super::HostEnvBuilder;
 
 pub struct ExecutionArg {
@@ -18,11 +17,11 @@ pub struct ExecutionArg {
     /// Context inputs for `wasm_read_context()`
     pub context_inputs: Vec<u64>,
     /// Context outputs for `wasm_write_context()`
-    pub context_outputs: Arc<Mutex<Vec<u64>>>,
+    pub context_outputs: ContextOutput,
 }
 
-impl super::ContextOutput for ExecutionArg {
-    fn get_context_outputs(&self) -> Arc<Mutex<Vec<u64>>> {
+impl HostEnvArg for ExecutionArg {
+    fn get_context_output(&self) -> ContextOutput {
         self.context_outputs.clone()
     }
 }
@@ -33,19 +32,19 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
     type Arg = ExecutionArg;
     type HostConfig = ();
 
-    fn create_env_without_value(_config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
-        let mut env = HostEnv::new();
+    fn create_env_without_value(k: u32, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
+        let mut env = HostEnv::new(k);
         let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
-        register_context_foreign(&mut env, vec![], Arc::new(Mutex::new(vec![])));
+        register_context_foreign(&mut env, vec![], ContextOutput::default());
         env.finalize();
 
         (env, wasm_runtime_io)
     }
 
-    fn create_env(arg: Self::Arg, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
-        let mut env = HostEnv::new();
+    fn create_env(k: u32, arg: Self::Arg, _config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
+        let mut env = HostEnv::new(k);
         let wasm_runtime_io =
             register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);
         register_require_foreign(&mut env);

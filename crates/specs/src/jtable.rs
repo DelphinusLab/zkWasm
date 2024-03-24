@@ -1,6 +1,10 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+// 1. jumps to zkmain
+// 2. jumps to start(if exists)
+pub const STATIC_FRAME_ENTRY_NUMBER: usize = 2;
+
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct StaticFrameEntry {
     pub enable: bool,

@@ -1,7 +1,5 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use anyhow::Result;
+use delphinus_zkwasm::foreign::context::ContextOutput;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
@@ -11,7 +9,7 @@ fn main() -> Result<()> {
     let wasm = std::fs::read("wasm/context.wasm")?;
 
     let context_in: Vec<u64> = vec![2, 1];
-    let context_outputs = Arc::new(Mutex::new(vec![]));
+    let context_outputs = ContextOutput::default();
 
     let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(18, wasm, vec![])?;
     let arg = ExecutionArg {
@@ -21,18 +19,18 @@ fn main() -> Result<()> {
         context_outputs: context_outputs.clone(),
     };
 
-    let result = loader.run(arg, (), false, true)?;
+    let result = loader.run(arg, (), false)?;
     let (circuit, instances) = loader.circuit_with_witness(result)?;
     loader.mock_test(&circuit, &instances)?;
 
     let arg = ExecutionArg {
         public_inputs: vec![],
         private_inputs: vec![],
-        context_inputs: context_outputs.lock().unwrap().to_vec(),
-        context_outputs: Arc::new(Mutex::new(vec![])),
+        context_inputs: context_outputs.0.lock().unwrap().to_vec(),
+        context_outputs: ContextOutput::default(),
     };
 
-    let result = loader.run(arg, (), false, true)?;
+    let result = loader.run(arg, (), false)?;
 
     let (circuit, instances) = loader.circuit_with_witness(result)?;
     loader.mock_test(&circuit, &instances)?;

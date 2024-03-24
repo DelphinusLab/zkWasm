@@ -128,7 +128,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ExternalCallHostCircuitConfig<F>
                 self.external_foreign_call_lookup_cell.assign_bn(
                     ctx,
                     &encode_host_call_entry(
-                        BigUint::from(step.current_external_host_call_index),
+                        BigUint::from(step.current.external_host_call_call_index),
                         BigUint::from(*op as u64),
                         BigUint::from(value.unwrap()),
                     ),

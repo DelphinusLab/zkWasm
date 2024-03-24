@@ -1,7 +1,6 @@
 use super::bls381_fq_to_limbs;
 use super::fetch_fq;
 use super::fetch_fq2;
-use delphinus_zkwasm::circuits::config::zkwasm_k;
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
@@ -18,6 +17,7 @@ use zkwasm_host_circuits::host::ForeignInst;
 
 #[derive(Default)]
 struct BlsPairContext {
+    pub k: u32,
     pub limbs: Vec<u64>,
     pub g1_identity: bool,
     pub g2_identity: bool,
@@ -60,7 +60,7 @@ impl ForeignContext for BlsPairContext {
     fn get_statics(&self) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: Bls381PairChip::max_rounds(zkwasm_k() as usize),
+            max_round: Bls381PairChip::max_rounds(self.k as usize),
         })
     }
 }

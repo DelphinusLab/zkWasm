@@ -1,5 +1,4 @@
 use crate::circuits::cell::AllocatedUnlimitedCell;
-use crate::circuits::config::zkwasm_k;
 use crate::circuits::etable::allocator::EventTableCellAllocator;
 use crate::circuits::etable::constraint_builder::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
@@ -14,8 +13,8 @@ pub mod log_helper;
 pub mod require_helper;
 pub mod wasm_input_helper;
 
-pub fn foreign_table_enable_lines() -> usize {
-    1 << (zkwasm_k() - 1)
+pub fn foreign_table_enable_lines(k: u32) -> usize {
+    1 << (k as usize - 1)
 }
 
 pub trait ForeignTableConfig<F: FieldExt> {

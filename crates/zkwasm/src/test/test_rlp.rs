@@ -1,7 +1,5 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use crate::circuits::ZkWasmCircuit;
+use crate::foreign::context::ContextOutput;
 use crate::loader::ZkWasmLoader;
 use crate::runtime::host::default_env::DefaultHostEnvBuilder;
 use crate::runtime::host::default_env::ExecutionArg;
@@ -161,11 +159,10 @@ fn build_circuit() -> Result<(
                 public_inputs,
                 private_inputs,
                 context_inputs: vec![],
-                context_outputs: Arc::new(Mutex::new(vec![])),
+                context_outputs: ContextOutput::default(),
             },
             (),
             false,
-            true,
         )
         .unwrap();
 
@@ -191,7 +188,7 @@ mod tests {
         fn test_rlp_bench() {
             let (loader, circuit, instances) = build_circuit().unwrap();
 
-            loader.bench_test(circuit, instances)
+            loader.bench_test(circuit, &instances)
         }
     }
 }
