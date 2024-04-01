@@ -1,8 +1,8 @@
 use anyhow::Result;
 use circuits_batcher::args::HashType::Poseidon;
 use circuits_batcher::proof::ParamsCache;
+use circuits_batcher::proof::ProofGenerationInfo;
 use circuits_batcher::proof::ProofInfo;
-use circuits_batcher::proof::ProofLoadInfo;
 use circuits_batcher::proof::ProofPieceInfo;
 use circuits_batcher::proof::ProvingKeyCache;
 use delphinus_zkwasm::loader::ZkWasmLoader;
@@ -158,22 +158,23 @@ pub fn exec_create_proof<Builder: HostEnvBuilder>(
 
     let prover: ProofPieceInfo = ProofPieceInfo::new(prefix.to_string(), 0, instances.len() as u32);
 
-    let mut param_cache = ParamsCache::<Bn256>::new(5);
-    let mut pkey_cache = ProvingKeyCache::<Bn256>::new(5);
+    let mut param_cache = ParamsCache::<Bn256>::new(5, param_dir.clone());
+    let mut pkey_cache = ProvingKeyCache::<Bn256>::new(5, param_dir.clone());
 
-    let mut proof_load_info = ProofLoadInfo::new(prefix, zkwasm_k as usize, Poseidon);
+    let mut proof_load_info = ProofGenerationInfo::new(prefix, zkwasm_k as usize, Poseidon);
 
-    prover.exec_create_proof(
+    let transcript = prover.exec_create_proof(
         &circuit,
-        &vec![instances],
-        output_dir.as_path(),
-        param_dir.as_path(),
-        format!("K{}.params", zkwasm_k),
+        &vec![instances.clone()],
         zkwasm_k as usize,
         &mut pkey_cache,
         &mut param_cache,
         circuits_batcher::args::HashType::Poseidon,
+        circuits_batcher::args::OpenSchema::GWC,
     );
+
+    prover.save_proof_data(&vec![instances], &transcript, output_dir);
+
     //prover.mock_proof(k as u32);
     proof_load_info.append_single_proof(prover);
     proof_load_info.save(output_dir);
@@ -189,7 +190,7 @@ pub fn exec_verify_proof(
     param_dir: &PathBuf,
 ) -> Result<()> {
     let load_info = output_dir.join(format!("{}.loadinfo.json", prefix));
-    let proofloadinfo = ProofLoadInfo::load(&load_info);
+    let proofloadinfo = ProofGenerationInfo::load(&load_info);
     let proofs: Vec<ProofInfo<Bn256>> =
         ProofInfo::load_proof(&output_dir, &param_dir, &proofloadinfo);
     let params = load_or_build_unsafe_params::<Bn256>(

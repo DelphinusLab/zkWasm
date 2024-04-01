@@ -9,7 +9,7 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 
-use crate::circuits::config::zkwasm_k;
+//use crate::circuits::config::zkwasm_k;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 use crate::nextn;
@@ -110,12 +110,14 @@ macro_rules! define_cell {
                 ctx: &mut Context<'_, F>,
                 value: F,
             ) -> Result<AssignedCell<F, F>, Error> {
+                /* only for debug purpose
                 assert!(
                     value <= $limit,
                     "assigned value {:?} exceeds the limit {:?}",
                     value,
                     $limit
                 );
+                */
                 self.0.assign(ctx, value)
             }
         }

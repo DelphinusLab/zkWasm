@@ -108,16 +108,16 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 }
 
-pub struct EventTableOpcodeConfigBox<F: FieldExt> (Box<dyn EventTableOpcodeConfig<F>>);
+pub struct EventTableOpcodeConfigBox<F: FieldExt>(Box<dyn EventTableOpcodeConfig<F>>);
 
-impl<F:FieldExt> From<Box<dyn EventTableOpcodeConfig<F>>> for EventTableOpcodeConfigBox<F> {
+impl<F: FieldExt> From<Box<dyn EventTableOpcodeConfig<F>>> for EventTableOpcodeConfigBox<F> {
     fn from(d: Box<dyn EventTableOpcodeConfig<F>>) -> Self {
-        EventTableOpcodeConfigBox (d)
+        EventTableOpcodeConfigBox(d)
     }
 }
 
-unsafe impl<F:FieldExt> Send for EventTableOpcodeConfigBox<F>{}
-unsafe impl<F:FieldExt> Sync for EventTableOpcodeConfigBox<F>{}
+unsafe impl<F: FieldExt> Send for EventTableOpcodeConfigBox<F> {}
+unsafe impl<F: FieldExt> Sync for EventTableOpcodeConfigBox<F> {}
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
@@ -480,7 +480,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                     - external_host_call_index_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
-                    config.0.external_host_call_index_increase(meta, &common_config)
+                    config
+                        .0
+                        .external_host_call_index_increase(meta, &common_config)
                 },
                 Some(&|meta| enabled_cell.curr_expr(meta)),
             )]
@@ -542,7 +544,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 fid_cell.curr_expr(meta) - fid_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
-                    config.0
+                    config
+                        .0
                         .next_fid(meta, &common_config)
                         .map(|x| x - fid_cell.curr_expr(meta))
                 },
@@ -555,7 +558,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 iid_cell.next_expr(meta) - iid_cell.curr_expr(meta) - constant_from!(1),
                 meta,
                 &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
-                    config.0
+                    config
+                        .0
                         .next_iid(meta, &common_config)
                         .map(|x| iid_cell.curr_expr(meta) + constant_from!(1) - x)
                 },
@@ -568,7 +572,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 frame_id_cell.curr_expr(meta) - frame_id_cell.next_expr(meta),
                 meta,
                 &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
-                    config.0
+                    config
+                        .0
                         .next_frame_id(meta, &common_config)
                         .map(|x| x - frame_id_cell.curr_expr(meta))
                 },
@@ -577,10 +582,9 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("c7. itable_lookup_encode", |meta| {
-            let opcode = sum_ops_expr(
-                meta,
-                &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| Some(config.0.opcode(meta)),
-            );
+            let opcode = sum_ops_expr(meta, &|meta, config: &Arc<EventTableOpcodeConfigBox<F>>| {
+                Some(config.0.opcode(meta))
+            });
             vec![
                 (encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
                     - itable_lookup_cell.curr_expr(meta))

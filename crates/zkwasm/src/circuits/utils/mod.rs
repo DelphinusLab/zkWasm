@@ -12,7 +12,7 @@ pub mod u8;
 
 pub mod table_entry;
 
-#[derive (Clone)]
+#[derive(Clone)]
 pub struct Context<'a, F: FieldExt> {
     pub region: Box<Region<'a, F>>,
     pub offset: usize,

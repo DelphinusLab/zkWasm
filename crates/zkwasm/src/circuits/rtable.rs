@@ -191,7 +191,6 @@ impl<F: FieldExt> RangeTableChip<F> {
         )?;
 
         {
-
             layouter.assign_table(
                 || "op lookup table",
                 |table| {
