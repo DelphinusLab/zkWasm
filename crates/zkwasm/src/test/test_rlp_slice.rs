@@ -1,9 +1,12 @@
+use crate::circuits::config::MIN_K;
 use crate::foreign::context::ContextOutput;
 use crate::loader::ZkWasmLoader;
+use crate::runtime::host::default_env::DefaultHostEnvBuilder;
 use crate::runtime::host::default_env::ExecutionArg;
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
+use specs::TraceBackend;
 
 fn test_slices() -> Result<()> {
     let public_inputs = vec![133];
@@ -145,7 +148,7 @@ fn test_slices() -> Result<()> {
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256, _, _>::new(18, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256, _, DefaultHostEnvBuilder>::new(18, wasm, vec![])?;
 
     let execution_result = loader.run(
         ExecutionArg {
@@ -156,28 +159,12 @@ fn test_slices() -> Result<()> {
         },
         (),
         false,
+        TraceBackend::Memory,
     )?;
+    let instances = execution_result.public_inputs_and_outputs();
 
-    let instances = execution_result
-        .public_inputs_and_outputs
-        .iter()
-        .map(|v| (*v).into())
-        .collect();
-
-    let mut slices = loader.slice(execution_result).into_iter();
-
-    let mut index = 0;
-
-    while let Some(slice) = slices.next() {
-        println!("slice {}", index);
-
-        let circuit = slice.build_circuit();
-
-        loader.mock_test(&circuit, &instances)?;
-        loader.bench_test(circuit, &instances);
-
-        index += 1;
-    }
+    let slices = loader.slice(execution_result).into_iter();
+    slices.mock_test_all(MIN_K, instances)?;
 
     Ok(())
 }

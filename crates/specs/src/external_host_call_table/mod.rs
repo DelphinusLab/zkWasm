@@ -55,9 +55,13 @@ impl Serialize for ExternalHostCallEntry {
 }
 
 #[derive(Serialize)]
-pub struct ExternalHostCallTable(Vec<ExternalHostCallEntry>);
+pub struct ExternalHostCallTable(pub(crate) Vec<ExternalHostCallEntry>);
 
 impl ExternalHostCallTable {
+    pub fn new(entries: Vec<ExternalHostCallEntry>) -> Self {
+        Self(entries)
+    }
+
     pub fn entries(&self) -> &Vec<ExternalHostCallEntry> {
         &self.0
     }

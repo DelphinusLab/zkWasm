@@ -20,7 +20,7 @@ impl<F: FieldExt> ContextContHelperTableChip<F> {
 
     pub fn assign(
         &self,
-        layouter: &impl Layouter<F>,
+        layouter: impl Layouter<F>,
         inputs: &Vec<u64>,
         outputs: &Vec<u64>,
     ) -> Result<(), Error> {

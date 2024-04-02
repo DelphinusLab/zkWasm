@@ -1,10 +1,5 @@
 mod tests {
-    use halo2_proofs::pairing::bn256::Bn256;
-
-    use crate::foreign::context::ContextOutput;
-    use crate::loader::ZkWasmLoader;
-    use crate::runtime::host::default_env::DefaultHostEnvBuilder;
-    use crate::runtime::host::default_env::ExecutionArg;
+    use crate::test::test_circuit_with_env;
 
     #[test]
     fn test_start_mock() {
@@ -33,21 +28,6 @@ mod tests {
 
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-        let loader =
-            ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(18, wasm, vec![])
-                .unwrap();
-
-        let arg = ExecutionArg {
-            public_inputs: vec![],
-            private_inputs: vec![],
-            context_inputs: vec![],
-            context_outputs: ContextOutput::default(),
-        };
-
-        let result = loader.run(arg, (), false).unwrap();
-
-        let (circuit, instances) = loader.circuit_with_witness(result).unwrap();
-
-        loader.mock_test(&circuit, &instances).unwrap()
+        test_circuit_with_env(wasm, "zkmain".to_string(), vec![], vec![]).unwrap();
     }
 }

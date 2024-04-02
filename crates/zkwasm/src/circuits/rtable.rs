@@ -159,7 +159,7 @@ impl<F: FieldExt> RangeTableChip<F> {
         RangeTableChip { config }
     }
 
-    pub fn init(&self, layouter: &impl Layouter<F>, k: u32) -> Result<(), Error> {
+    pub fn init(&self, layouter: impl Layouter<F>, k: u32) -> Result<(), Error> {
         layouter.assign_table(
             || "common range table",
             |table| {
@@ -334,7 +334,7 @@ impl<F: FieldExt> RangeTableChip<F> {
                 },
             )?;
         }
-        
+
         Ok(())
     }
 }

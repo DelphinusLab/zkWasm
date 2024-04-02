@@ -6,6 +6,7 @@ use ark_std::end_timer;
 use ark_std::start_timer;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::floor_planner::FlatFloorPlanner;
+use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::Column;
@@ -14,8 +15,10 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use log::debug;
 use log::info;
-use specs::ExecutionTable;
-use specs::Tables;
+use specs::etable::EventTable;
+use specs::jtable::JumpTable;
+use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
+use specs::slice::Slice;
 
 use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
@@ -33,7 +36,7 @@ use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::post_image_table::PostImageTableChip;
 use crate::circuits::rtable::RangeTableChip;
 use crate::circuits::rtable::RangeTableConfig;
-use crate::circuits::utils::image_table::EncodeCompilationTableValues;
+use crate::circuits::utils::image_table::EncodeImageTable;
 use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::image_table::ImageTableLayouter;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
@@ -51,6 +54,7 @@ use crate::foreign::ForeignTableConfig;
 use crate::runtime::memory_event_of_step;
 
 use super::config::zkwasm_k;
+use super::etable::assign::EventTablePermutationCells;
 use super::image_table::ImageTableConfig;
 use super::post_image_table::PostImageTableConfig;
 
@@ -63,6 +67,19 @@ pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
 pub(crate) const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
+
+#[derive(Default, Clone)]
+struct AssignedCells<F: FieldExt> {
+    pre_image_table_cells: Arc<Mutex<Option<ImageTableLayouter<AssignedCell<F, F>>>>>,
+    post_image_table_cells:
+        Arc<Mutex<Option<Option<(ImageTableLayouter<AssignedCell<F, F>>, AssignedCell<F, F>)>>>>,
+    mtable_rest_mops: Arc<Mutex<Option<AssignedCell<F, F>>>>,
+    rest_memory_finalize_ops_cell: Arc<Mutex<Option<Option<AssignedCell<F, F>>>>>,
+    etable_cells: Arc<Mutex<Option<EventTablePermutationCells<F>>>>,
+    rest_jops_cell_in_frame_table: Arc<Mutex<Option<AssignedCell<F, F>>>>,
+    static_frame_entry_in_frame_table:
+        Arc<Mutex<Option<[(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER]>>>,
+}
 
 #[derive(Clone)]
 pub struct ZkWasmCircuitConfig<F: FieldExt> {
@@ -91,11 +108,24 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
     fn without_witnesses(&self) -> Self {
         ZkWasmCircuit::new(
-            Tables {
-                compilation_tables: self.tables.compilation_tables.clone(),
-                execution_tables: ExecutionTable::default(),
-                post_image_table: self.tables.post_image_table.clone(),
-                is_last_slice: self.tables.is_last_slice,
+            // fill slice like circuit_without_witness
+            Slice {
+                itable: self.slice.itable.clone(),
+                br_table: self.slice.br_table.clone(),
+                elem_table: self.slice.elem_table.clone(),
+                configure_table: self.slice.configure_table.clone(),
+                static_jtable: self.slice.static_jtable.clone(),
+
+                etable: Arc::new(EventTable::default()),
+                frame_table: Arc::new(JumpTable::default()),
+
+                imtable: self.slice.imtable.clone(),
+                post_imtable: self.slice.imtable.clone(),
+
+                initialization_state: self.slice.initialization_state.clone(),
+                post_initialization_state: self.slice.initialization_state.clone(),
+
+                is_last_slice: self.slice.is_last_slice,
             },
             self.slice_capability,
         )
@@ -211,71 +241,43 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
         let image_table_assigner = ImageTableAssigner::new(
             // Add one for default lookup value
-            self.tables.compilation_tables.itable.len() + 1,
-            self.tables.compilation_tables.br_table.entries().len()
-                + self.tables.compilation_tables.elem_table.entries().len()
-                + 1,
+            self.slice.itable.len() + 1,
+            self.slice.br_table.entries().len() + self.slice.elem_table.entries().len() + 1,
             config.circuit_maximal_pages,
         );
 
-        let memory_writing_table: Arc<MemoryWritingTable> = Arc::new(MemoryWritingTable::from(
+        let memory_writing_table: MemoryWritingTable = MemoryWritingTable::from(
             config.k,
-            self.tables.create_memory_table(memory_event_of_step),
-        ));
-        let memory_writing_table_for_post_image_table = memory_writing_table.clone();
+            self.slice.create_memory_table(memory_event_of_step),
+        );
 
-        let etable = Arc::new(exec_with_profile!(
+        let etable = exec_with_profile!(
             || "Prepare memory info for etable",
-            EventTableWithMemoryInfo::new(
-                &self.tables.execution_tables.etable,
-                &memory_writing_table,
-            )
-        ));
-        let etable_for_bit_table = etable.clone();
+            EventTableWithMemoryInfo::new(&self.slice.etable, &memory_writing_table,)
+        );
 
-        let layout1 = layouter.clone();
-        let layout2 = layouter.clone();
-        let layout22 = layouter.clone();
-        let layout3 = layouter.clone();
-        let layout4 = layouter.clone();
-        let layout5 = layouter.clone();
-        let layout55 = layouter.clone();
-        let layout6 = layouter.clone();
-        let layout7 = layouter.clone();
-        let layout8 = layouter.clone();
+        let assigned_cells = AssignedCells::default();
 
-        let assigned_pre_image_table_cells = Arc::new(Mutex::new(None));
-        let assigned_post_image_table_cells = Arc::new(Mutex::new(None));
-        let assigned_mtable_rest_mops = Arc::new(Mutex::new(None));
-        let assigned_rest_memory_finalize_ops_cell = Arc::new(Mutex::new(None));
-        let assigned_etable_cells = Arc::new(Mutex::new(None));
-        let assigned_rest_jops_cell_in_frame_table = Arc::new(Mutex::new(None));
-        let assigned_static_frame_entry_in_frame_table = Arc::new(Mutex::new(None));
+        let layouter_cloned = layouter.clone();
+        let assigned_cells_cloned = assigned_cells.clone();
 
-        let assigned_pre_image_table_cells_assignment_pass = assigned_pre_image_table_cells.clone();
-        let assigned_post_image_table_cells_assignment_pass =
-            assigned_post_image_table_cells.clone();
-        let assigned_mtable_rest_mops_assignment_pass = assigned_mtable_rest_mops.clone();
-        let assigned_rest_memory_finalize_ops_cell_assignment_pass =
-            assigned_rest_memory_finalize_ops_cell.clone();
-        let assigned_etable_cells_assignment_pass = assigned_etable_cells.clone();
-        let assigned_rest_jops_cell_in_frame_table_assignment_pass =
-            assigned_rest_jops_cell_in_frame_table.clone();
-        let assigned_static_frame_entry_in_frame_table_assignment_pass =
-            assigned_static_frame_entry_in_frame_table.clone();
+        rayon::scope(move |s| {
+            let memory_writing_table = Arc::new(memory_writing_table);
+            let etable = Arc::new(etable);
 
-        rayon::scope(|s| {
+            let _layouter = layouter.clone();
             s.spawn(move |_| {
                 exec_with_profile!(
                     || "Init range chip",
-                    rchip.init(&layout1, config.k).unwrap()
+                    rchip.init(_layouter, config.k).unwrap()
                 );
             });
 
+            let _layouter = layouter.clone();
             s.spawn(move |_| {
                 exec_with_profile!(
                     || "Init foreign table index",
-                    layout2
+                    _layouter
                         .assign_region(
                             || "foreign helper",
                             |region| {
@@ -295,74 +297,75 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                 );
             });
 
+            let _layouter = layouter.clone();
+            let _etable = etable.clone();
             s.spawn(move |_| {
                 exec_with_profile!(
                     || "Assign bit table",
                     bit_chip
-                        .assign(&layout22, etable_for_bit_table.filter_bit_table_entries())
+                        .assign(_layouter, _etable.filter_bit_table_entries())
                         .unwrap()
                 );
             });
 
+            let _layouter = layouter.clone();
             s.spawn(move |_| {
                 exec_with_profile!(
                     || "Assign external host call table",
                     external_host_call_chip
                         .assign(
-                            &layout3,
-                            &self
-                                .tables
-                                .execution_tables
-                                .etable
-                                .filter_external_host_call_table(),
+                            _layouter,
+                            &self.slice.etable.filter_external_host_call_table(),
                         )
                         .unwrap()
                 );
             });
 
+            let _layouter = layouter.clone();
             s.spawn(move |_| {
                 exec_with_profile!(
                     || "Assign context cont chip",
                     context_chip
                         .assign(
-                            &layout4,
-                            &self.tables.execution_tables.etable.get_context_inputs(),
-                            &self.tables.execution_tables.etable.get_context_outputs()
+                            _layouter,
+                            &self.slice.etable.get_context_inputs(),
+                            &self.slice.etable.get_context_outputs()
                         )
                         .unwrap()
                 );
             });
 
+            let _layouter = layouter.clone();
+            let _assigned_cells = assigned_cells.clone();
             s.spawn(move |_| {
                 let pre_image_table = self
-                    .tables
-                    .compilation_tables
-                    .encode_compilation_table_values(config.circuit_maximal_pages);
+                    .slice
+                    .encode_pre_compilation_table_values(config.circuit_maximal_pages);
 
                 let cells = exec_with_profile!(
                     || "Assign pre image table chip",
                     image_chip
-                        .assign(&layout5, &image_table_assigner, pre_image_table)
+                        .assign(_layouter, &image_table_assigner, pre_image_table)
                         .unwrap()
                 );
 
-                *assigned_pre_image_table_cells_assignment_pass
-                    .lock()
-                    .unwrap() = Some(cells);
+                *_assigned_cells.pre_image_table_cells.lock().unwrap() = Some(cells);
             });
 
+            let _layouter = layouter.clone();
+            let _assigned_cells = assigned_cells.clone();
+            let _memory_writing_table = memory_writing_table.clone();
             s.spawn(move |_| {
                 let post_image_table: ImageTableLayouter<F> = self
-                    .tables
-                    .post_image_table
-                    .encode_compilation_table_values(config.circuit_maximal_pages);
+                    .slice
+                    .encode_post_compilation_table_values(config.circuit_maximal_pages);
 
                 let (rest_memory_writing_ops, memory_finalized_set) =
-                    memory_writing_table_for_post_image_table.count_rest_memory_finalize_ops();
+                    _memory_writing_table.count_rest_memory_finalize_ops();
 
                 let cells = post_image_chip
                     .assign(
-                        &layout55,
+                        _layouter,
                         &image_table_assigner,
                         post_image_table,
                         rest_memory_writing_ops,
@@ -370,86 +373,97 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                     )
                     .unwrap();
 
-                *assigned_post_image_table_cells_assignment_pass
-                    .lock()
-                    .unwrap() = Some(cells);
+                *_assigned_cells.post_image_table_cells.lock().unwrap() = Some(cells);
             });
 
+            let _layouter = layouter.clone();
+            let _assigned_cells = assigned_cells.clone();
             s.spawn(move |_| {
                 exec_with_profile!(|| "Assign frame table", {
                     let (rest_jops_cell, static_frame_entry_cells) = frame_table_chip
                         .assign(
-                            &layout8,
-                            &self.tables.compilation_tables.static_jtable,
-                            &self.tables.execution_tables.jtable,
+                            _layouter,
+                            &self.slice.static_jtable,
+                            &self.slice.frame_table,
                         )
                         .unwrap();
 
-                    *assigned_rest_jops_cell_in_frame_table_assignment_pass
+                    *_assigned_cells
+                        .rest_jops_cell_in_frame_table
                         .lock()
                         .unwrap() = Some(rest_jops_cell);
-                    *assigned_static_frame_entry_in_frame_table_assignment_pass
+                    *_assigned_cells
+                        .static_frame_entry_in_frame_table
                         .lock()
                         .unwrap() = Some(static_frame_entry_cells);
                 });
             });
 
+            let _layouter = layouter.clone();
+            let _assigned_cells = assigned_cells.clone();
             s.spawn(move |_| {
                 exec_with_profile!(|| "Assign mtable", {
                     let (rest_mops, rest_memory_finalize_ops_cell) =
-                        mchip.assign(&layout7, memory_writing_table).unwrap();
+                        mchip.assign(_layouter, &memory_writing_table).unwrap();
 
-                    *assigned_mtable_rest_mops_assignment_pass.lock().unwrap() = Some(rest_mops);
-                    *assigned_rest_memory_finalize_ops_cell_assignment_pass
+                    *_assigned_cells.mtable_rest_mops.lock().unwrap() = Some(rest_mops);
+                    *_assigned_cells
+                        .rest_memory_finalize_ops_cell
                         .lock()
                         .unwrap() = Some(rest_memory_finalize_ops_cell);
                 });
             });
 
+            let _layouter = layouter.clone();
+            let _assigned_cells = assigned_cells.clone();
             s.spawn(move |_| {
                 exec_with_profile!(|| "Assign etable", {
                     let cells = echip
                         .assign(
-                            &layout6,
-                            &self.tables.compilation_tables.itable,
+                            _layouter,
+                            &self.slice.itable,
                             &etable,
-                            &self.tables.compilation_tables.configure_table,
-                            &self.tables.compilation_tables.initialization_state,
-                            &self.tables.post_image_table.initialization_state,
-                            self.tables.is_last_slice,
+                            &self.slice.configure_table,
+                            &self.slice.initialization_state,
+                            &self.slice.post_initialization_state,
+                            self.slice.is_last_slice,
                         )
                         .unwrap();
 
-                    *assigned_etable_cells_assignment_pass.lock().unwrap() = Some(cells);
+                    *_assigned_cells.etable_cells.lock().unwrap() = Some(cells);
                 });
             });
         });
 
-        fn into_inner<T: std::fmt::Debug>(v: Arc<Mutex<Option<T>>>) -> T {
-            Arc::try_unwrap(v).unwrap().into_inner().unwrap().unwrap()
+        macro_rules! into_inner {
+            ($arc:ident) => {
+                let $arc = Arc::try_unwrap(assigned_cells_cloned.$arc)
+                    .unwrap()
+                    .into_inner()
+                    .unwrap()
+                    .unwrap();
+            };
         }
 
-        let assigned_static_frame_entry_in_frame_table =
-            into_inner(assigned_static_frame_entry_in_frame_table);
-        let assigned_etable_cells = into_inner(assigned_etable_cells);
-        let assigned_mtable_rest_mops = into_inner(assigned_mtable_rest_mops);
-        let assigned_rest_memory_finalize_ops = into_inner(assigned_rest_memory_finalize_ops_cell);
-        let assigned_pre_image_table_cells = into_inner(assigned_pre_image_table_cells);
-        let assigned_post_image_table_cells = into_inner(assigned_post_image_table_cells);
-        let assigned_rest_jops_cell_in_frame_table =
-            into_inner(assigned_rest_jops_cell_in_frame_table);
+        into_inner!(static_frame_entry_in_frame_table);
+        into_inner!(etable_cells);
+        into_inner!(mtable_rest_mops);
+        into_inner!(rest_memory_finalize_ops_cell);
+        into_inner!(pre_image_table_cells);
+        into_inner!(post_image_table_cells);
+        into_inner!(rest_jops_cell_in_frame_table);
         /*
          * Permutation between chips
          *
          */
-        layouter.assign_region(
+        layouter_cloned.assign_region(
             || "permutation between tables",
             |region| {
                 // 1. static frame entries
                 // 1.1. between frame table and pre image table
-                for (left, right) in assigned_static_frame_entry_in_frame_table
+                for (left, right) in static_frame_entry_in_frame_table
                     .iter()
-                    .zip(assigned_pre_image_table_cells.static_frame_entries.iter())
+                    .zip(pre_image_table_cells.static_frame_entries.iter())
                 {
                     // enable
                     region.constrain_equal(left.0.cell(), right.0.cell())?;
@@ -458,12 +472,10 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
                 }
 
                 // 1.2 (if continuation) between frame table and post image table
-                if let Some((assigned_post_image_table_cells, _)) =
-                    assigned_post_image_table_cells.as_ref()
-                {
-                    for (left, right) in assigned_static_frame_entry_in_frame_table
+                if let Some((post_image_table_cells, _)) = post_image_table_cells.as_ref() {
+                    for (left, right) in static_frame_entry_in_frame_table
                         .iter()
-                        .zip(assigned_post_image_table_cells.static_frame_entries.iter())
+                        .zip(post_image_table_cells.static_frame_entries.iter())
                     {
                         // enable
                         region.constrain_equal(left.0.cell(), right.0.cell())?;
@@ -474,95 +486,81 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
                 // 2. rest jops
                 // 2.1 (if not continuation) rest_jops between event chip and frame chip
-                if let Some(rest_jops_in_event_chip) = assigned_etable_cells.rest_jops.as_ref() {
+                if let Some(rest_jops_in_event_chip) = etable_cells.rest_jops.as_ref() {
                     region.constrain_equal(
                         rest_jops_in_event_chip.cell(),
-                        assigned_rest_jops_cell_in_frame_table.cell(),
+                        rest_jops_cell_in_frame_table.cell(),
                     )?;
                 }
 
                 // 2.2 (if continuation and last slice circuit) rest_jops between post image chip and frame chip
                 #[cfg(feature = "continuation")]
-                if self.tables.is_last_slice {
+                if self.slice.is_last_slice {
                     if let Some((assigned_post_image_table_cells, _)) =
-                        assigned_post_image_table_cells.as_ref()
+                        post_image_table_cells.as_ref()
                     {
                         region.constrain_equal(
                             assigned_post_image_table_cells
                                 .initialization_state
                                 .jops
                                 .cell(),
-                            assigned_rest_jops_cell_in_frame_table.cell(),
+                            rest_jops_cell_in_frame_table.cell(),
                         )?;
-
-                        // region.constrain_equal(
-                        //     assigned_etable_cells.post_initialization_state.jops.cell(),
-                        //     assigned_rest_jops_cell_in_frame_table.cell(),
-                        // )?;
                     }
                 }
 
                 // 3. rest_mops between event chip and memory chip
-                region.constrain_equal(
-                    assigned_etable_cells.rest_mops.cell(),
-                    assigned_mtable_rest_mops.cell(),
-                )?;
+                region.constrain_equal(etable_cells.rest_mops.cell(), mtable_rest_mops.cell())?;
 
                 // 4. (if continuation) memory finalized count between memory chip and post image chip
                 if let Some((_, rest_memory_finalized_ops_in_post_image_table)) =
-                    assigned_post_image_table_cells.as_ref()
+                    post_image_table_cells.as_ref()
                 {
                     region.constrain_equal(
                         rest_memory_finalized_ops_in_post_image_table.cell(),
-                        assigned_rest_memory_finalize_ops.as_ref().unwrap().cell(),
+                        rest_memory_finalize_ops_cell.as_ref().unwrap().cell(),
                     )?;
                 }
 
                 // 5. initialization state
                 // 5.1 between event chip and pre image chip
-                assigned_etable_cells
+                etable_cells
                     .pre_initialization_state
-                    .zip_for_each(
-                        &assigned_pre_image_table_cells.initialization_state,
-                        |l, r| region.constrain_equal(l.cell(), r.cell()),
-                    )?;
+                    .zip_for_each(&pre_image_table_cells.initialization_state, |l, r| {
+                        region.constrain_equal(l.cell(), r.cell())
+                    })?;
 
                 // 5.2 (if continuation) between event chip and post image chip
-                if let Some((assigned_post_image_table_cells, _)) =
-                    assigned_post_image_table_cells.as_ref()
-                {
-                    assigned_etable_cells
+                if let Some((post_image_table_cells, _)) = post_image_table_cells.as_ref() {
+                    etable_cells
                         .post_initialization_state
-                        .zip_for_each(
-                            &assigned_post_image_table_cells.initialization_state,
-                            |l, r| region.constrain_equal(l.cell(), r.cell()),
-                        )?;
+                        .zip_for_each(&post_image_table_cells.initialization_state, |l, r| {
+                            region.constrain_equal(l.cell(), r.cell())
+                        })?;
                 }
 
                 // 6. fixed part(instructions, br_tables, padding) within pre image chip and post image chip
-                if let Some((assigned_post_image_table_cells, _)) =
-                    assigned_post_image_table_cells.as_ref()
-                {
-                    for (l, r) in assigned_pre_image_table_cells
+                if let Some((post_image_table_cells, _)) = post_image_table_cells.as_ref() {
+                    for (l, r) in pre_image_table_cells
                         .instructions
                         .iter()
-                        .zip(assigned_post_image_table_cells.instructions.iter())
+                        .zip(post_image_table_cells.instructions.iter())
                     {
                         region.constrain_equal(l.cell(), r.cell())?;
                     }
 
-                    for (l, r) in assigned_pre_image_table_cells
+                    for (l, r) in pre_image_table_cells
                         .br_table_entires
                         .iter()
-                        .zip(assigned_post_image_table_cells.br_table_entires.iter())
+                        .zip(post_image_table_cells.br_table_entires.iter())
                     {
                         region.constrain_equal(l.cell(), r.cell())?;
                     }
 
-                    for (l, r) in assigned_pre_image_table_cells
+                    for (l, r) in pre_image_table_cells
                         .padding_entires
                         .iter()
-                        .zip(assigned_post_image_table_cells.padding_entires.iter())
+                        .zip(post_image_table_cells.padding_entires.iter())
                     {
                         region.constrain_equal(l.cell(), r.cell())?;
                     }

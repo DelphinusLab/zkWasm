@@ -470,7 +470,7 @@ impl<F: FieldExt> EventTableChip<F> {
 
     pub(in crate::circuits) fn assign(
         &self,
-        layouter: &impl Layouter<F>,
+        layouter: impl Layouter<F>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,

@@ -8,12 +8,12 @@ use super::ExternalHostCallChip;
 impl<F: FieldExt> ExternalHostCallChip<F> {
     pub(in crate::circuits) fn assign(
         self,
-        layouter: &impl Layouter<F>,
+        layouter: impl Layouter<F>,
         table: &ExternalHostCallTable,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "foreign table",
-            | region| {
+            |region| {
                 // Assign Fixed Column
                 {
                     for offset in 0..self.maximal_available_rows {

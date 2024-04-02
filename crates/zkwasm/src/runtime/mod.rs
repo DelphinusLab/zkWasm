@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use halo2_proofs::arithmetic::FieldExt;
 use specs::etable::EventTableEntry;
 use specs::external_host_call_table::ExternalHostCallSignature;
 use specs::mtable::AccessType;
@@ -26,7 +27,6 @@ pub struct CompiledImage<I, T> {
     pub tracer: Rc<RefCell<T>>,
 }
 
-#[derive(Clone)]
 pub struct ExecutionResult<R> {
     pub tables: Tables,
     pub result: Option<R>,
@@ -34,6 +34,15 @@ pub struct ExecutionResult<R> {
     pub host_statics: HashMap<String, ForeignStatics>,
     pub guest_statics: usize, // total instructions used in guest circuits
     pub outputs: Vec<u64>,
+}
+
+impl<R> ExecutionResult<R> {
+    pub fn public_inputs_and_outputs<F: FieldExt>(&self) -> Vec<F> {
+        self.public_inputs_and_outputs
+            .iter()
+            .map(|v| F::from(*v))
+            .collect()
+    }
 }
 
 // TODO: use feature

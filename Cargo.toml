@@ -16,4 +16,3 @@ poseidon = { git = "https://github.com/DelphinusLab/poseidon" }
 
 [profile.dev]
 opt-level = 3
-

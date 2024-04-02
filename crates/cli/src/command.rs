@@ -114,7 +114,7 @@ impl SetupArg {
         let circuit_data = SetupArg::_setup_circuit_data(
             params,
             &circuit,
-            params_dir.join(name_of_circuit_data(name)),
+            params_dir.join(name_of_circuit_data(name, true)),
         )?;
         Ok(CircuitDataConfig {
             finalized_circuit: circuit_data,
@@ -255,6 +255,7 @@ pub(crate) struct ProveArg {
     pub(crate) output_dir: PathBuf,
     pub(crate) running_arg: RunningArg,
     pub(crate) mock_test: bool,
+    pub(crate) file_backend: bool,
 }
 
 /// Verify the proof.

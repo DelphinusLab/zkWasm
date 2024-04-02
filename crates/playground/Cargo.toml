@@ -13,3 +13,6 @@ pairing_bn256 = { git = "https://github.com/lanbones/pairing.git" }
 [features]
 default = []
 cuda = ["delphinus-zkwasm/cuda"]
+
+[patch."https://github.com/DelphinusLab/halo2-gpu-specific.git"]
+halo2_proofs = { path = "../../../halo2-gpu-specific/halo2_proofs" }

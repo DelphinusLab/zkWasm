@@ -1,13 +1,18 @@
 use anyhow::Error;
 use halo2_proofs::arithmetic::FieldExt;
 use num_bigint::BigUint;
+use specs::brtable::BrTable;
+use specs::brtable::ElemTable;
 use specs::encode::image_table::ImageTableEncoder;
+use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
+use specs::itable::InstructionTable;
+use specs::jtable::StaticFrameEntry;
 use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
+use specs::slice::Slice;
 use specs::state::InitializationState;
-use specs::CompilationTable;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::image_table::PAGE_ENTRIES;
@@ -205,124 +210,154 @@ impl ImageTableAssigner {
     }
 }
 
-pub(crate) trait EncodeCompilationTableValues<F: Clone> {
-    fn encode_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F>;
-}
+pub(crate) fn encode_compilation_table_values<F: FieldExt>(
+    itable: &InstructionTable,
+    br_table: &BrTable,
+    elem_table: &ElemTable,
+    static_frame_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
+    initialization_state: &InitializationState<u32>,
+    init_memory_table: &InitMemoryTable,
+    page_capability: u32,
+) -> ImageTableLayouter<F> {
+    let initialization_state_handler = |_| Ok(initialization_state.map(|v| F::from((*v) as u64)));
 
-impl<F: FieldExt> EncodeCompilationTableValues<F> for CompilationTable {
-    fn encode_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F> {
-        let initialization_state_handler =
-            |_| Ok(self.initialization_state.map(|v| F::from((*v) as u64)));
+    let static_frame_entries_handler = |_| {
+        let mut cells = vec![];
 
-        let static_frame_entries_handler = |_| {
-            // Encode disabled static frame entry in image table
-            assert_eq!(self.static_jtable.len(), STATIC_FRAME_ENTRY_NUMBER);
+        for entry in static_frame_entries.as_ref() {
+            cells.push((F::from(entry.enable as u64), bn_to_field(&entry.encode())));
+        }
 
-            let mut cells = vec![];
+        Ok(cells.try_into().expect(&format!(
+            "The number of static frame entries should be {}",
+            STATIC_FRAME_ENTRY_NUMBER
+        )))
+    };
 
-            for entry in self.static_jtable.as_ref() {
-                cells.push((F::from(entry.enable as u64), bn_to_field(&entry.encode())));
-            }
+    let instruction_handler = |_| {
+        let mut cells = vec![];
 
-            Ok(cells.try_into().expect(&format!(
-                "The number of static frame entries should be {}",
-                STATIC_FRAME_ENTRY_NUMBER
-            )))
+        cells.push(bn_to_field(
+            &ImageTableEncoder::Instruction.encode(BigUint::from(0u64)),
+        ));
+
+        for e in itable.iter() {
+            cells.push(bn_to_field(
+                &ImageTableEncoder::Instruction.encode(e.encode.clone()),
+            ));
+        }
+
+        Ok(cells)
+    };
+
+    let br_table_handler = |_| {
+        let mut cells = vec![];
+
+        cells.push(bn_to_field(
+            &ImageTableEncoder::BrTable.encode(BigUint::from(0u64)),
+        ));
+
+        for e in br_table.entries() {
+            cells.push(bn_to_field(&ImageTableEncoder::BrTable.encode(e.encode())));
+        }
+
+        for e in elem_table.entries() {
+            cells.push(bn_to_field(&ImageTableEncoder::BrTable.encode(e.encode())));
+        }
+
+        Ok(cells)
+    };
+
+    let padding_handler = |start, end| Ok(vec![F::zero(); end - start]);
+
+    let init_memory_entries_handler = |_| {
+        let mut cells = vec![];
+
+        cells.push(bn_to_field(
+            &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
+        ));
+
+        let layouter = InitMemoryLayouter {
+            pages: page_capability,
         };
 
-        let instruction_handler = |_| {
-            let mut cells = vec![];
+        layouter.for_each(|(ltype, offset)| {
+            if let Some(entry) = init_memory_table.try_find(ltype, offset) {
+                cells.push(bn_to_field::<F>(
+                    &ImageTableEncoder::InitMemory.encode(entry.encode()),
+                ));
+            } else if ltype == LocationType::Heap {
+                let entry = InitMemoryTableEntry {
+                    ltype,
+                    is_mutable: true,
+                    offset,
+                    vtype: VarType::I64,
+                    value: 0,
+                    eid: 0,
+                };
 
-            cells.push(bn_to_field(
-                &ImageTableEncoder::Instruction.encode(BigUint::from(0u64)),
-            ));
-
-            for e in self.itable.iter() {
-                cells.push(bn_to_field(
-                    &ImageTableEncoder::Instruction.encode(e.encode.clone()),
+                cells.push(bn_to_field::<F>(
+                    &ImageTableEncoder::InitMemory.encode(entry.encode()),
+                ));
+            } else {
+                cells.push(bn_to_field::<F>(
+                    &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
                 ));
             }
+        });
 
-            Ok(cells)
-        };
+        Ok(cells)
+    };
 
-        let br_table_handler = |_| {
-            let mut cells = vec![];
+    let assigner = ImageTableAssigner::new(
+        itable.len() + 1,
+        br_table.entries().len() + elem_table.entries().len() + 1,
+        page_capability,
+    );
 
-            cells.push(bn_to_field(
-                &ImageTableEncoder::BrTable.encode(BigUint::from(0u64)),
-            ));
+    let layouter = assigner
+        .exec::<_, Error>(
+            initialization_state_handler,
+            static_frame_entries_handler,
+            instruction_handler,
+            br_table_handler,
+            padding_handler,
+            init_memory_entries_handler,
+        )
+        .unwrap();
 
-            for e in self.br_table.entries() {
-                cells.push(bn_to_field(&ImageTableEncoder::BrTable.encode(e.encode())));
-            }
+    layouter
+}
 
-            for e in self.elem_table.entries() {
-                cells.push(bn_to_field(&ImageTableEncoder::BrTable.encode(e.encode())));
-            }
+pub(crate) trait EncodeImageTable<F: FieldExt> {
+    fn encode_pre_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F>;
 
-            Ok(cells)
-        };
+    fn encode_post_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F>;
+}
 
-        let padding_handler = |start, end| Ok(vec![F::zero(); end - start]);
-
-        let init_memory_entries_handler = |_| {
-            let mut cells = vec![];
-
-            cells.push(bn_to_field(
-                &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
-            ));
-
-            let layouter = InitMemoryLayouter {
-                pages: page_capability,
-            };
-
-            layouter.for_each(|(ltype, offset)| {
-                if let Some(entry) = self.imtable.try_find(ltype, offset) {
-                    cells.push(bn_to_field::<F>(
-                        &ImageTableEncoder::InitMemory.encode(entry.encode()),
-                    ));
-                } else if ltype == LocationType::Heap {
-                    let entry = InitMemoryTableEntry {
-                        ltype,
-                        is_mutable: true,
-                        offset,
-                        vtype: VarType::I64,
-                        value: 0,
-                        eid: 0,
-                    };
-
-                    cells.push(bn_to_field::<F>(
-                        &ImageTableEncoder::InitMemory.encode(entry.encode()),
-                    ));
-                } else {
-                    cells.push(bn_to_field::<F>(
-                        &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
-                    ));
-                }
-            });
-
-            Ok(cells)
-        };
-
-        let assigner = ImageTableAssigner::new(
-            self.itable.len() + 1,
-            self.br_table.entries().len() + self.elem_table.entries().len() + 1,
+impl<F: FieldExt> EncodeImageTable<F> for Slice {
+    fn encode_pre_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F> {
+        encode_compilation_table_values(
+            &self.itable,
+            &self.br_table,
+            &self.elem_table,
+            &self.static_jtable,
+            &self.initialization_state,
+            &self.imtable,
             page_capability,
-        );
+        )
+    }
 
-        let layouter = assigner
-            .exec::<_, Error>(
-                initialization_state_handler,
-                static_frame_entries_handler,
-                instruction_handler,
-                br_table_handler,
-                padding_handler,
-                init_memory_entries_handler,
-            )
-            .unwrap();
-
-        layouter
+    fn encode_post_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F> {
+        encode_compilation_table_values(
+            &self.itable,
+            &self.br_table,
+            &self.elem_table,
+            &self.static_jtable,
+            &self.post_initialization_state,
+            &self.post_imtable,
+            page_capability,
+        )
     }
 }
 

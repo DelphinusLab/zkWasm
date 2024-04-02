@@ -5,7 +5,7 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
-use specs::Tables;
+use specs::slice::Slice;
 use std::marker::PhantomData;
 
 pub(crate) mod cell;
@@ -34,17 +34,16 @@ pub mod zkwasm_circuit;
 pub type CompilationTable = specs::CompilationTable;
 pub type ExecutionTable = specs::ExecutionTable;
 
-#[derive(Clone)]
 pub struct ZkWasmCircuit<F: FieldExt> {
-    pub tables: Tables,
-    pub slice_capability: Option<usize>,
+    pub slice: Slice,
+    pub slice_capability: usize,
     _data: PhantomData<F>,
 }
 
 impl<F: FieldExt> ZkWasmCircuit<F> {
-    pub fn new(tables: Tables, slice_capability: Option<usize>) -> Self {
+    pub fn new(slice: Slice, slice_capability: usize) -> Self {
         ZkWasmCircuit {
-            tables,
+            slice,
             slice_capability,
             _data: PhantomData,
         }
@@ -65,21 +64,5 @@ pub(self) trait Lookup<F: FieldExt> {
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup_any(key, |meta| vec![(expr(meta), self.encode(meta))]);
-    }
-}
-
-pub struct ZkWasmCircuitBuilder {
-    pub tables: Tables,
-}
-
-impl ZkWasmCircuitBuilder {
-    pub fn build_circuit<F: FieldExt>(self, slice_capability: Option<usize>) -> ZkWasmCircuit<F> {
-        #[cfg(feature = "continuation")]
-        assert!(slice_capability.is_some());
-
-        #[cfg(not(feature = "continuation"))]
-        assert!(slice_capability.is_none());
-
-        ZkWasmCircuit::new(self.tables, slice_capability)
     }
 }

@@ -65,7 +65,7 @@ macro_rules! assign {
 impl<F: FieldExt> ImageTableChip<F> {
     pub(crate) fn assign(
         &self,
-        layouter: &impl Layouter<F>,
+        layouter: impl Layouter<F>,
         image_table_assigner: &ImageTableAssigner,
         image_table: ImageTableLayouter<F>,
     ) -> Result<ImageTableLayouter<AssignedCell<F, F>>, Error> {

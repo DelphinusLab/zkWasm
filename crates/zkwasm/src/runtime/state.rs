@@ -1,3 +1,5 @@
+use specs::configure_table::ConfigureTable;
+use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
@@ -5,26 +7,28 @@ use specs::imtable::InitMemoryTableEntry;
 use specs::mtable::AccessType;
 use specs::state::InitializationState;
 use specs::step::StepInfo;
-use specs::CompilationTable;
 
 use super::memory_event_of_step;
 
-pub(crate) trait UpdateCompilationTable {
-    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable;
-
-    fn update_initialization_state(
-        &self,
-        execution_table: &Vec<EventTableEntry>,
-        next_event_entry: Option<&EventTableEntry>,
-    ) -> InitializationState<u32>;
+pub(crate) trait UpdateInitMemoryTable {
+    fn update_init_memory_table(&self, execution_table: &EventTable) -> Self;
 }
 
-impl UpdateCompilationTable for CompilationTable {
-    fn update_init_memory_table(&self, execution_table: &Vec<EventTableEntry>) -> InitMemoryTable {
-        // First insert origin imtable entries which may be overwritten.
-        let mut map = self.imtable.entries().clone();
+pub(crate) trait UpdateInitializationState {
+    fn update_initialization_state(
+        &self,
+        execution_table: &EventTable,
+        configure_table: &ConfigureTable,
+        next_event_entry: Option<&EventTableEntry>,
+    ) -> Self;
+}
 
-        let mut it = execution_table.iter();
+impl UpdateInitMemoryTable for InitMemoryTable {
+    fn update_init_memory_table(&self, execution_table: &EventTable) -> InitMemoryTable {
+        // First insert origin imtable entries which may be overwritten.
+        let mut map = self.0.clone();
+
+        let mut it = execution_table.entries().iter();
         while let Some(etable_entry) = it.next() {
             let memory_writing_entires = memory_event_of_step(etable_entry)
                 .into_iter()
@@ -47,23 +51,25 @@ impl UpdateCompilationTable for CompilationTable {
 
         InitMemoryTable(map)
     }
+}
 
+impl UpdateInitializationState for InitializationState<u32> {
     fn update_initialization_state(
         &self,
-        execution_table: &Vec<EventTableEntry>,
+        execution_table: &EventTable,
+        configure_table: &ConfigureTable,
         // None indicates last slice
         next_event_entry: Option<&EventTableEntry>,
     ) -> InitializationState<u32> {
-        let mut host_public_inputs = self.initialization_state.host_public_inputs;
-        let mut context_in_index = self.initialization_state.context_in_index;
-        let mut context_out_index = self.initialization_state.context_out_index;
-        let mut external_host_call_call_index =
-            self.initialization_state.external_host_call_call_index;
+        let mut host_public_inputs = self.host_public_inputs;
+        let mut context_in_index = self.context_in_index;
+        let mut context_out_index = self.context_out_index;
+        let mut external_host_call_call_index = self.external_host_call_call_index;
 
         #[cfg(feature = "continuation")]
-        let mut jops = self.initialization_state.jops;
+        let mut jops = self.jops;
 
-        for entry in execution_table {
+        for entry in execution_table.entries() {
             match &entry.step_info {
                 // TODO: fix hard code
                 StepInfo::CallHost {
@@ -98,7 +104,7 @@ impl UpdateCompilationTable for CompilationTable {
         }
 
         let post_initialization_state = if next_event_entry.is_none() {
-            let last_entry = execution_table.last().unwrap();
+            let last_entry = execution_table.entries().last().unwrap();
 
             InitializationState {
                 eid: last_entry.eid + 1,
@@ -119,7 +125,7 @@ impl UpdateCompilationTable for CompilationTable {
                 external_host_call_call_index,
 
                 initial_memory_pages: last_entry.allocated_memory_pages,
-                maximal_memory_pages: self.configure_table.maximal_memory_pages,
+                maximal_memory_pages: configure_table.maximal_memory_pages,
 
                 #[cfg(feature = "continuation")]
                 jops,
@@ -140,7 +146,7 @@ impl UpdateCompilationTable for CompilationTable {
                 external_host_call_call_index,
 
                 initial_memory_pages: next_entry.allocated_memory_pages,
-                maximal_memory_pages: self.configure_table.maximal_memory_pages,
+                maximal_memory_pages: configure_table.maximal_memory_pages,
 
                 #[cfg(feature = "continuation")]
                 jops,

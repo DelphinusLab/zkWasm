@@ -1,4 +1,3 @@
-use crate::circuits::ZkWasmCircuit;
 use crate::foreign::context::ContextOutput;
 use crate::loader::ZkWasmLoader;
 use crate::runtime::host::default_env::DefaultHostEnvBuilder;
@@ -6,13 +5,11 @@ use crate::runtime::host::default_env::ExecutionArg;
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Bn256;
-use halo2_proofs::pairing::bn256::Fr;
+use specs::TraceBackend;
 
-fn build_circuit() -> Result<(
-    ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder>,
-    ZkWasmCircuit<Fr>,
-    Vec<Fr>,
-)> {
+const K: u32 = 20;
+
+fn run_test() -> Result<()> {
     let public_inputs = vec![133];
     let private_inputs: Vec<u64> = vec![
         14625441452057167097,
@@ -152,7 +149,7 @@ fn build_circuit() -> Result<(
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(20, wasm, vec![])?;
+    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(K, wasm, vec![])?;
     let result = loader
         .run(
             ExecutionArg {
@@ -163,11 +160,17 @@ fn build_circuit() -> Result<(
             },
             (),
             false,
+            TraceBackend::Memory,
         )
         .unwrap();
 
-    let (circuit, instances) = loader.circuit_with_witness(result)?;
-    Ok((loader, circuit, instances))
+    let instances = result.public_inputs_and_outputs();
+
+    let slices = loader.slice(result).into_iter();
+
+    slices.mock_test_all(K, instances)?;
+
+    Ok(())
 }
 
 mod tests {
@@ -177,18 +180,7 @@ mod tests {
     rusty_fork_test! {
         #[test]
         fn test_rlp_mock() {
-            let (loader, circuit, instances) = build_circuit().unwrap();
-
-            loader.mock_test(&circuit, &instances).unwrap()
-        }
-    }
-
-    rusty_fork_test! {
-        #[test]
-        fn test_rlp_bench() {
-            let (loader, circuit, instances) = build_circuit().unwrap();
-
-            loader.bench_test(circuit, &instances)
+            run_test().unwrap();
         }
     }
 }

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use delphinus_zkwasm::foreign::context::ContextOutput;
+use delphinus_zkwasm::loader::TraceBackend;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
@@ -18,8 +19,12 @@ fn main() -> Result<()> {
         },
         (),
         false,
+        TraceBackend::Memory,
     )?;
+    let instances = result.public_inputs_and_outputs();
 
-    let (circuit, instances) = loader.circuit_with_witness(result)?;
-    loader.mock_test(&circuit, &instances)
+    let slices = loader.slice(result);
+    slices.mock_test_all(18, instances)?;
+
+    Ok(())
 }

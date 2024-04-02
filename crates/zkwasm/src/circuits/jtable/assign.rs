@@ -175,7 +175,7 @@ impl<F: FieldExt> JumpTableChip<F> {
 
     pub fn assign(
         &self,
-        layouter: &impl Layouter<F>,
+        layouter: impl Layouter<F>,
         static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
         jtable: &JumpTable,
     ) -> Result<

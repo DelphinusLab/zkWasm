@@ -4,8 +4,6 @@
 
 pub mod checksum;
 pub mod circuits;
-#[cfg(feature = "continuation")]
-pub mod continuation;
 pub mod foreign;
 pub mod loader;
 pub mod runtime;

@@ -167,7 +167,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
 
     pub(in crate::circuits) fn assign(
         self,
-        layouter: &impl Layouter<F>,
+        layouter: impl Layouter<F>,
         image_table_assigner: &ImageTableAssigner,
         post_image_table: ImageTableLayouter<F>,
         rest_memory_finalized_count: u32,
@@ -303,9 +303,8 @@ impl<F: FieldExt> PostImageTableChip<F> {
                             F::from(rest_memory_finalized_count as u64)
                         )?;
 
-                        *assigned_rest_memory_finalized_count_cell
-                            .lock()
-                            .unwrap() = Some(rest_memory_finalized_count_cell);
+                        *assigned_rest_memory_finalized_count_cell.lock().unwrap() =
+                            Some(rest_memory_finalized_count_cell);
                     }
 
                     let entries = {

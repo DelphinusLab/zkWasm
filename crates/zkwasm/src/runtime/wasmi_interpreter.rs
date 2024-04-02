@@ -12,6 +12,7 @@ use specs::state::InitializationState;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
+use specs::TraceBackend;
 use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
@@ -19,7 +20,6 @@ use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use super::host::host_env::ExecEnv;
 use super::host::host_env::HostEnv;
-use super::state::UpdateCompilationTable;
 use super::CompiledImage;
 use super::ExecutionResult;
 
@@ -71,43 +71,25 @@ impl Execution<RuntimeValue>
         // drop to decrease the reference counter of self.tracer
         drop(exec_env);
 
-        let tracer = Rc::try_unwrap(self.tracer).unwrap().into_inner();
+        let tracer = Rc::try_unwrap(self.tracer)
+            .unwrap_or_else(|_| panic!())
+            .into_inner();
+
+        let slices = tracer.etable.finalized();
 
         let execution_tables = if !dryrun {
             ExecutionTable {
-                etable: Arc::new(tracer.etable),
-                jtable: Arc::new(tracer.jtable.clone()),
+                etable: slices,
+                jtable: tracer.jtable.clone(),
             }
         } else {
             ExecutionTable::default()
-        };
-
-        let updated_init_memory_table = self
-            .tables
-            .update_init_memory_table(&execution_tables.etable.entries());
-
-        let post_image_table = if !dryrun {
-            CompilationTable {
-                itable: self.tables.itable.clone(),
-                imtable: Arc::new(updated_init_memory_table),
-                br_table: self.tables.br_table.clone(),
-                elem_table: self.tables.elem_table.clone(),
-                configure_table: self.tables.configure_table.clone(),
-                static_jtable: self.tables.static_jtable.clone(),
-                initialization_state: self
-                    .tables
-                    .update_initialization_state(&execution_tables.etable.entries(), None),
-            }
-        } else {
-            self.tables.clone()
         };
 
         Ok(ExecutionResult {
             tables: Tables {
                 compilation_tables: self.tables,
                 execution_tables,
-                post_image_table,
-                is_last_slice: true,
             },
             result,
             host_statics,
@@ -132,9 +114,16 @@ impl WasmiRuntime {
         entry: &str,
         dry_run: bool,
         phantom_functions: &Vec<String>,
+        backend: TraceBackend,
+        capacity: u32,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer =
-            wasmi::tracer::Tracer::new(host_plugin_lookup.clone(), phantom_functions, dry_run);
+        let tracer = wasmi::tracer::Tracer::new(
+            host_plugin_lookup.clone(),
+            phantom_functions,
+            dry_run,
+            backend,
+            capacity,
+        );
         let tracer = Rc::new(RefCell::new(tracer));
 
         let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
@@ -202,7 +191,7 @@ impl WasmiRuntime {
                     STATIC_FRAME_ENTRY_NUMBER
                 )),
         );
-        let initialization_state = InitializationState {
+        let initialization_state = Arc::new(InitializationState {
             eid: 1,
             fid: fid_of_entry,
             iid: 0,
@@ -219,7 +208,7 @@ impl WasmiRuntime {
 
             #[cfg(feature = "continuation")]
             jops: 0,
-        };
+        });
 
         Ok(CompiledImage {
             entry: entry.to_owned(),

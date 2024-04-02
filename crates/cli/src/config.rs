@@ -1,4 +1,3 @@
-use std::fs;
 use std::fs::File;
 use std::io::Cursor;
 use std::io::Read;
@@ -21,9 +20,11 @@ use halo2_proofs::poly::commitment::Params;
 use indicatif::ProgressBar;
 use serde::Deserialize;
 use serde::Serialize;
+use specs::TraceBackend;
 
 use crate::args::HostMode;
 use crate::names::name_of_circuit_data;
+use crate::names::name_of_etable_slice;
 use crate::names::name_of_instance;
 use crate::names::name_of_loadinfo;
 use crate::names::name_of_params;
@@ -192,7 +193,12 @@ impl Config {
 
         {
             println!("{} Executing...", style("[1/2]").bold().dim(),);
-            let result = loader.run(arg, EnvBuilder::HostConfig::default(), true)?;
+            let result = loader.run(
+                arg,
+                EnvBuilder::HostConfig::default(),
+                true,
+                TraceBackend::Memory,
+            )?;
 
             println!("total guest instructions used {:?}", result.guest_statics);
             println!("total host api used {:?}", result.host_statics);
@@ -228,11 +234,12 @@ impl Config {
         arg: EnvBuilder::Arg,
         context_output_filename: Option<String>,
         mock_test: bool,
+        backend: TraceBackend,
     ) -> anyhow::Result<()> {
-        println!("{} Load image...", style("[1/9]").bold().dim(),);
+        println!("{} Load image...", style("[1/8]").bold().dim(),);
         let wasm_image = self.read_wasm_image(wasm_image)?;
 
-        println!("{} Load params...", style("[2/9]").bold().dim(),);
+        println!("{} Load params...", style("[2/8]").bold().dim(),);
         let params = self.read_params(params_dir)?;
 
         let loader = ZkWasmLoader::<Bn256, EnvBuilder::Arg, EnvBuilder>::new(
@@ -244,8 +251,8 @@ impl Config {
         let context_output = arg.get_context_output();
 
         let result = {
-            println!("{} Executing...", style("[3/9]").bold().dim(),);
-            let result = loader.run(arg, EnvBuilder::HostConfig::default(), false)?;
+            println!("{} Executing...", style("[3/8]").bold().dim(),);
+            let result = loader.run(arg, EnvBuilder::HostConfig::default(), false, backend)?;
 
             println!("total guest instructions used {:?}", result.guest_statics);
             println!("total host api used {:?}", result.host_statics);
@@ -259,7 +266,7 @@ impl Config {
 
                 println!(
                     "{} Write context output to file {:?}...",
-                    style("[4/9]").bold().dim(),
+                    style("[4/8]").bold().dim(),
                     context_output_path
                 );
 
@@ -267,24 +274,25 @@ impl Config {
             } else {
                 println!(
                     "{} Context output is not specified. Skip writing context output...",
-                    style("[4/9]").bold().dim()
+                    style("[4/8]").bold().dim()
                 );
             }
         }
 
         {
             let dir = output_dir.join("traces");
-            fs::create_dir_all(&dir)?;
 
             println!(
                 "{} Writing traces to {:?}...",
-                style("[5/9]").bold().dim(),
+                style("[5/8]").bold().dim(),
                 dir
             );
-            result.tables.write(&dir);
+            result
+                .tables
+                .write(&dir, |slice| name_of_etable_slice(&self.name, slice));
         }
 
-        println!("{} Build circuit(s)...", style("[6/9]").bold().dim(),);
+        println!("{} Build circuit(s)...", style("[6/8]").bold().dim(),);
         let instances = result
             .public_inputs_and_outputs
             .clone()
@@ -292,54 +300,7 @@ impl Config {
             .map(|v| (*v).into())
             .collect::<Vec<_>>();
 
-        #[cfg(feature = "continuation")]
-        let circuits = {
-            let mut slices = loader.slice(result).into_iter();
-            let mut circuits = vec![];
-
-            while let Some(slice) = slices.next() {
-                let circuit = slice.build_circuit();
-
-                circuits.push(circuit);
-            }
-
-            circuits
-        };
-
-        #[cfg(not(feature = "continuation"))]
-        let circuits = {
-            let (circuit, _) = loader.circuit_with_witness(result)?;
-
-            vec![circuit]
-        };
-
-        if mock_test {
-            println!(
-                "{} Mock test is enabled, testing...",
-                style("[7/9]").bold().dim(),
-            );
-
-            let progress_bar = ProgressBar::new(circuits.len() as u64);
-
-            let mut index = 0;
-            let mut circuits = circuits.iter();
-            while let Some(circuit) = circuits.next() {
-                println!("slice: {}", index);
-                loader.mock_test(circuit, &instances)?;
-                index += 1;
-
-                progress_bar.inc(1);
-            }
-
-            progress_bar.finish_and_clear();
-        } else {
-            println!(
-                "{} Mock test is disabled, skip...",
-                style("[7/9]").bold().dim(),
-            );
-        }
-
-        println!("{} Creating proof(s)...", style("[8/9]").bold().dim(),);
+        println!("{} Creating proof(s)...", style("[7/8]").bold().dim(),);
 
         let mut proof_load_info = ProofLoadInfo::new(
             &self.name,
@@ -347,10 +308,16 @@ impl Config {
             circuits_batcher::args::HashType::Poseidon,
         );
 
-        let progress_bar = ProgressBar::new(circuits.len() as u64);
-        let mut circuits = circuits.into_iter().enumerate().peekable();
-        while let Some((index, circuit)) = circuits.next() {
-            let _is_finalized_circuit = circuits.peek().is_none();
+        let progress_bar = ProgressBar::new(result.tables.execution_tables.etable.len() as u64);
+
+        let mut slices = loader.slice(result).into_iter().enumerate().peekable();
+        while let Some((index, circuit)) = slices.next() {
+            let _is_finalized_circuit = slices.peek().is_none();
+
+            if mock_test {
+                println!("mock test for slice {}...", index);
+                loader.mock_test(&circuit, &instances)?;
+            }
 
             #[cfg(feature = "continuation")]
             let proving_key = if _is_finalized_circuit {
@@ -370,15 +337,12 @@ impl Config {
             #[cfg(not(feature = "continuation"))]
             let proving_key = self
                 .read_circuit_data(
-                    &params_dir.join(name_of_circuit_data(&self.name)),
+                    &params_dir.join(name_of_circuit_data(&self.name, true)),
                     &self.circuit_datas.finalized_circuit.circuit_data_md5,
                 )?
                 .into_proving_key(&params);
 
-            #[cfg(feature = "continuation")]
             let circuit_data_name = name_of_circuit_data(&self.name, _is_finalized_circuit);
-            #[cfg(not(feature = "continuation"))]
-            let circuit_data_name = name_of_circuit_data(&self.name);
 
             let proof_piece_info = ProofPieceInfo {
                 circuit: circuit_data_name,
@@ -408,7 +372,7 @@ impl Config {
             let proof_load_info_path = output_dir.join(&name_of_loadinfo(&self.name));
             println!(
                 "{} Saving proof load info to {:?}...",
-                style("[9/9]").bold().dim(),
+                style("[8/8]").bold().dim(),
                 proof_load_info_path
             );
             proof_load_info.save(proof_load_info_path.parent().unwrap());

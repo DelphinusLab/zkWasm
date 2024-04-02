@@ -111,6 +111,18 @@ impl ArgBuilder<Option<String>> for ContextOutputArg {
     }
 }
 
+struct FileBackendArg;
+impl ArgBuilder<bool> for FileBackendArg {
+    fn builder() -> Arg<'static> {
+        arg!(--file "Enabling the file backend for table to support enormous execution trace. It may reduce the speed of execution.")
+            .action(ArgAction::SetTrue)
+    }
+
+    fn parse(matches: &ArgMatches) -> bool {
+        matches.get_flag("file")
+    }
+}
+
 struct MockTestArg;
 impl ArgBuilder<bool> for MockTestArg {
     fn builder() -> Arg<'static> {
@@ -181,6 +193,7 @@ fn prove_command() -> Command<'static> {
         .arg(ContextOutputArg::builder())
         .arg(OutputDirArg::builder())
         .arg(MockTestArg::builder())
+        .arg(FileBackendArg::builder())
 }
 
 fn verify_command() -> Command<'static> {
@@ -249,6 +262,7 @@ impl Into<ProveArg> for &ArgMatches {
             output_dir: OutputDirArg::parse(self),
             running_arg: self.into(),
             mock_test: MockTestArg::parse(self),
+            file_backend: FileBackendArg::parse(self),
         }
     }
 }

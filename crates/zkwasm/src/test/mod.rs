@@ -1,21 +1,14 @@
-use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::config::MIN_K;
-use crate::circuits::ZkWasmCircuit;
-use crate::profile::Profiler;
-use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::wasmi_interpreter::Execution;
-use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
-use crate::runtime::ExecutionResult;
-use crate::runtime::WasmInterpreter;
+use crate::foreign::context::ContextOutput;
+use crate::loader::ZkWasmLoader;
+use crate::runtime::host::default_env::DefaultHostEnvBuilder;
+use crate::runtime::host::default_env::ExecutionArg;
 
 use anyhow::Result;
-use halo2_proofs::arithmetic::FieldExt;
-use halo2_proofs::dev::MockProver;
-use halo2_proofs::pairing::bn256::Fr;
+use halo2_proofs::pairing::bn256::Bn256;
+use specs::TraceBackend;
 use wabt::wat2wasm_with_features;
 use wabt::Features;
-use wasmi::ImportsBuilder;
-use wasmi::RuntimeValue;
 
 mod test_wasm_instructions;
 
@@ -24,78 +17,33 @@ mod test_rlp;
 #[cfg(feature = "continuation")]
 mod test_rlp_slice;
 mod test_start;
-#[cfg(feature = "uniform-circuit")]
-mod test_uniform_verifier;
-
-/// Create circuit with trace and run mock test.
-fn test_circuit_mock<F: FieldExt>(
-    k: u32,
-    execution_result: ExecutionResult<wasmi::RuntimeValue>,
-) -> Result<()> {
-    let instance = {
-        let mut v: Vec<F> = vec![];
-
-        v.append(
-            &mut execution_result
-                .public_inputs_and_outputs
-                .iter()
-                .map(|v| (*v).into())
-                .collect(),
-        );
-
-        v
-    };
-
-    execution_result.tables.profile_tables();
-
-    let circuit = ZkWasmCircuit::new(execution_result.tables, None);
-    let prover = MockProver::run(k, &circuit, vec![instance])?;
-    assert_eq!(prover.verify(), Ok(()));
-
-    Ok(())
-}
-
-/// Run function and generate trace.
-fn compile_then_execute_wasm(
-    env: HostEnv,
-    wasm_runtime_io: WasmRuntimeIO,
-    wasm: Vec<u8>,
-    function_name: &str,
-) -> Result<ExecutionResult<RuntimeValue>> {
-    let module = wasmi::Module::from_buffer(&wasm).expect("failed to load wasm");
-
-    let imports = ImportsBuilder::new().with_resolver("env", &env);
-
-    let compiled_module = WasmInterpreter::compile(
-        &module,
-        &imports,
-        &env.function_description_table(),
-        function_name,
-        false,
-        &vec![],
-    )
-    .unwrap();
-
-    let execution_result = compiled_module.run(env, false, wasm_runtime_io)?;
-
-    Ok(execution_result)
-}
 
 /// Run the function and generate trace, then test circuit with mock prover.
 pub fn test_circuit_with_env(
-    env: HostEnv,
-    wasm_runtime_io: WasmRuntimeIO,
     wasm: Vec<u8>,
-    function_name: &str,
-) -> Result<ExecutionResult<RuntimeValue>> {
-    assert_eq!(MIN_K, env.k);
+    function_name: String,
+    public_inputs: Vec<u64>,
+    private_inputs: Vec<u64>,
+) -> Result<()> {
+    let mut loader = ZkWasmLoader::<Bn256, _, DefaultHostEnvBuilder>::new(MIN_K, wasm, vec![])?;
+    loader.set_entry(function_name);
+    let execution_result = loader.run(
+        ExecutionArg {
+            public_inputs,
+            private_inputs,
+            context_inputs: vec![],
+            context_outputs: ContextOutput::default(),
+        },
+        (),
+        false,
+        TraceBackend::Memory,
+    )?;
+    let instances = execution_result.public_inputs_and_outputs();
+    loader
+        .slice(execution_result)
+        .mock_test_all(MIN_K, instances)?;
 
-    init_zkwasm_runtime(MIN_K);
-
-    let trace = compile_then_execute_wasm(env, wasm_runtime_io, wasm, function_name)?;
-    test_circuit_mock::<Fr>(MIN_K, trace.clone())?;
-
-    Ok(trace)
+    Ok(())
 }
 
 /// Run test function and generate trace, then test circuit with mock prover. Only tests should
@@ -106,10 +54,7 @@ fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
 
     let wasm = wat2wasm_with_features(&textual_repr, features).expect("failed to parse wat");
 
-    let mut env = HostEnv::new(MIN_K);
-    env.finalize();
-
-    test_circuit_with_env(env, WasmRuntimeIO::empty(), wasm, "test")?;
+    test_circuit_with_env(wasm, "test".to_string(), vec![], vec![])?;
 
     Ok(())
 }

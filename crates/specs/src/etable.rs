@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -55,6 +57,12 @@ impl EventTable {
         Self(entries)
     }
 
+    pub fn from_json(path: &PathBuf) -> std::io::Result<Self> {
+        let mut fd = std::fs::File::open(path)?;
+        let entries = serde_json::from_reader(&mut fd)?;
+        Ok(Self(entries))
+    }
+
     pub fn unwrap(self) -> Vec<EventTableEntry> {
         self.0
     }
@@ -77,4 +85,9 @@ impl EventTable {
             })
             .collect::<Vec<_>>()
     }
+}
+
+pub enum EventTableBackend {
+    Memory(EventTable),
+    Json(PathBuf),
 }

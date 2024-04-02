@@ -55,7 +55,6 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
-use num_integer::Integer;
 use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
@@ -63,7 +62,7 @@ use specs::itable::OpcodeClassPlain;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-mod assign;
+pub(super) mod assign;
 mod op_configure;
 
 pub(crate) mod allocator;
@@ -654,17 +653,10 @@ pub struct EventTableChip<F: FieldExt> {
 impl<F: FieldExt> EventTableChip<F> {
     pub(super) fn new(
         config: EventTableConfig<F>,
-        slice_capability: Option<usize>,
+        capability: usize,
         max_available_rows: usize,
     ) -> Self {
-        let capability = if let Some(slice_capability) = slice_capability {
-            assert!(slice_capability * EVENT_TABLE_ENTRY_ROWS as usize <= max_available_rows);
-
-            slice_capability
-        } else {
-            max_available_rows.prev_multiple_of(&(EVENT_TABLE_ENTRY_ROWS as usize))
-                / EVENT_TABLE_ENTRY_ROWS as usize
-        };
+        assert!(capability * EVENT_TABLE_ENTRY_ROWS as usize <= max_available_rows);
 
         Self { config, capability }
     }

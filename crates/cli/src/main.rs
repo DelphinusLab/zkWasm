@@ -3,6 +3,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -15,10 +16,11 @@ use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 
 use args::HostMode;
+use config::Config;
+use names::name_of_config;
+use names::name_of_etable_slice;
 use specs::args::parse_args;
-
-use crate::config::Config;
-use crate::names::name_of_config;
+use specs::TraceBackend;
 
 mod app_builder;
 mod args;
@@ -48,8 +50,6 @@ fn main() -> Result<()> {
     let app = app();
 
     let cli: ZkWasmCli = app.get_matches().into();
-
-    println!("{:?}", cli);
 
     match cli.subcommand {
         Subcommands::Setup(arg) => match arg.host_mode {
@@ -101,6 +101,9 @@ fn main() -> Result<()> {
             }
         }
         Subcommands::Prove(arg) => {
+            let trace_dir = arg.output_dir.clone().join("traces");
+            fs::create_dir_all(&trace_dir)?;
+
             let config = Config::read(&mut fs::File::open(
                 cli.params_dir.join(&name_of_config(&cli.name)),
             )?)?;
@@ -108,6 +111,22 @@ fn main() -> Result<()> {
             let public_inputs = parse_args(&arg.running_arg.public_inputs);
             let private_inputs = parse_args(&arg.running_arg.private_inputs);
             let context_inputs = parse_args(&arg.running_arg.context_inputs);
+
+            let file_backend = arg.file_backend;
+            let backend = if file_backend {
+                TraceBackend::File(Box::new(move |slice, etable| {
+                    let filename_of_etable_slice =
+                        PathBuf::from(name_of_etable_slice(&cli.name, slice));
+                    let path = trace_dir.join(&filename_of_etable_slice);
+
+                    let mut fd = File::create(&path).unwrap();
+                    serde_json::to_writer(&mut fd, etable).unwrap();
+
+                    path
+                }))
+            } else {
+                TraceBackend::Memory
+            };
 
             match config.host_mode {
                 HostMode::DEFAULT => {
@@ -123,6 +142,7 @@ fn main() -> Result<()> {
                         },
                         arg.running_arg.context_output,
                         arg.mock_test,
+                        backend,
                     )?;
                 }
                 HostMode::STANDARD => {
@@ -140,6 +160,7 @@ fn main() -> Result<()> {
                         },
                         arg.running_arg.context_output,
                         arg.mock_test,
+                        backend,
                     )?;
                 }
             }

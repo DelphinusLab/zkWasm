@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
@@ -332,8 +330,8 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
     pub(crate) fn assign(
         &self,
-        layouter: &impl Layouter<F>,
-        mtable: Arc<MemoryWritingTable>,
+        layouter: impl Layouter<F>,
+        mtable: &MemoryWritingTable,
     ) -> Result<(AssignedCell<F, F>, Option<AssignedCell<F, F>>), Error> {
         layouter.assign_region(
             || "mtable",

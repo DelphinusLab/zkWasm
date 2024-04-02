@@ -248,7 +248,7 @@ impl<F: FieldExt> BitTableChip<F> {
 
     pub(crate) fn assign(
         &self,
-        layouter: &impl Layouter<F>,
+        layouter: impl Layouter<F>,
         event_table: Vec<BitTableAssign>,
     ) -> Result<(), Error> {
         layouter.assign_region(

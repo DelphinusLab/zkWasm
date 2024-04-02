@@ -1,8 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use crate::circuits::config::MIN_K;
-    use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
-    use crate::runtime::host::host_env::HostEnv;
     use crate::test::test_circuit_with_env;
 
     #[test]
@@ -10,24 +7,19 @@ mod tests {
         let textual_repr = r#" 
                 (module
                     (import "env" "wasm_input" (func $wasm_input (param i32) (result i64)))
-                    (export "main" (func $main))
-                    (func $main (; 1 ;)
+                    (export "zkwasm" (func $zkwasm))
+                    (func $zkwasm (; 1 ;)
                         (call $wasm_input (i32.const 1))
                         (drop)
                     )
                 )
             "#;
 
-        let k = MIN_K;
-
         let public_inputs = vec![9];
+        let private_inputs = vec![];
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-        let mut env = HostEnv::new(k);
-        let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, vec![]);
-        env.finalize();
-
-        test_circuit_with_env(env, wasm_runtime_io, wasm, "main").unwrap();
+        test_circuit_with_env(wasm, "zkwasm".to_string(), public_inputs, private_inputs).unwrap();
     }
 
     #[test]
@@ -50,7 +42,7 @@ mod tests {
               i32.add)
             (memory (;0;) 2 2)
             (export "memory" (memory 0))
-            (export "main" (func 1)))
+            (export "zkwasm" (func 1)))
         "#;
 
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
@@ -58,10 +50,6 @@ mod tests {
         let private_inputs = vec![];
         let public_inputs = vec![1, 2];
 
-        let mut env = HostEnv::new(MIN_K);
-        let wasm_runtime_io = register_wasm_input_foreign(&mut env, public_inputs, private_inputs);
-        env.finalize();
-
-        test_circuit_with_env(env, wasm_runtime_io, wasm, "main").unwrap();
+        test_circuit_with_env(wasm, "zkwasm".to_string(), public_inputs, private_inputs).unwrap();
     }
 }

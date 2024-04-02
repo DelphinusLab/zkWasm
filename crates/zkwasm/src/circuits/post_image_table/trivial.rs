@@ -42,7 +42,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
 
     pub(in crate::circuits) fn assign(
         self,
-        _layouter: &impl Layouter<F>,
+        _layouter: impl Layouter<F>,
         _image_table_assigner: &ImageTableAssigner,
         _post_image_table: ImageTableLayouter<F>,
         _rest_memory_finalized_count: u32,
