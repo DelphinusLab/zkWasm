@@ -86,3 +86,20 @@ fn test_load_cross() {
 
     test_circuit_noexternal(textual_repr).unwrap();
 }
+
+#[test]
+fn test_load_large_memory() {
+    let textual_repr = r#"
+        (module
+            (memory $0 20)
+            (data (i32.const 0) "\ff\00\00\00\fe\00\00\00")
+            (func (export "test")
+                (i32.const 0)
+                (i64.load offset=1010720)
+                (drop)
+            )
+        )
+    "#;
+
+    test_circuit_noexternal(textual_repr).unwrap();
+}

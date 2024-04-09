@@ -33,10 +33,10 @@ use specs::step::StepInfo;
 
 pub struct StoreConfig<F: FieldExt> {
     // offset in opcode
-    opcode_store_offset: AllocatedCommonRangeCell<F>,
+    opcode_store_offset: AllocatedU32Cell<F>,
 
     // which heap offset to load
-    load_block_index: AllocatedCommonRangeCell<F>,
+    load_block_index: AllocatedU32Cell<F>,
     load_block_inner_pos_bits: [AllocatedBitCell<F>; 3],
     /// helper to prove load_inner_pos < WASM_BLOCK_BYTE_SIZE
     load_block_inner_pos: AllocatedUnlimitedCell<F>,
@@ -53,7 +53,7 @@ pub struct StoreConfig<F: FieldExt> {
     load_picked_byte_proof: AllocatedU8Cell<F>,
 
     unchanged_value: AllocatedUnlimitedCell<F>,
-    len: AllocatedUnlimitedCell<F>,
+    bytes: AllocatedUnlimitedCell<F>,
     len_modulus: AllocatedUnlimitedCell<F>,
 
     store_value: AllocatedU64Cell<F>,
@@ -88,17 +88,17 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let opcode_store_offset = allocator.alloc_common_range_cell();
+        let opcode_store_offset = allocator.alloc_u32_cell();
 
         // which heap offset to load
-        let load_block_index = allocator.alloc_common_range_cell();
+        let load_block_index = allocator.alloc_u32_cell();
         let load_block_inner_pos_bits = [0; 3].map(|_| allocator.alloc_bit_cell());
         let load_block_inner_pos = allocator.alloc_unlimited_cell();
         let is_cross_block = allocator.alloc_bit_cell();
         let cross_block_rem = allocator.alloc_common_range_cell();
         let cross_block_rem_diff = allocator.alloc_common_range_cell();
 
-        let len = allocator.alloc_unlimited_cell();
+        let bytes = allocator.alloc_unlimited_cell();
         let len_modulus = allocator.alloc_unlimited_cell();
 
         let load_tailing = allocator.alloc_u64_cell();
@@ -210,10 +210,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_store len",
+            "op_store bytes",
             Box::new(move |meta| {
                 vec![
-                    len.expr(meta)
+                    bytes.expr(meta)
                         - constant_from!(1)
                         - is_two_bytes.expr(meta)
                         - constant_from!(3) * is_four_bytes.expr(meta)
@@ -245,7 +245,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                     is_cross_block.expr(meta) * constant_from!(WASM_BLOCK_BYTE_SIZE)
                         + cross_block_rem.expr(meta)
                         - load_block_inner_pos.expr(meta)
-                        - len.expr(meta)
+                        - bytes.expr(meta)
                         + constant_from!(1),
                     cross_block_rem.expr(meta) + cross_block_rem_diff.expr(meta)
                         - constant_from!(WASM_BLOCK_BYTE_SIZE - 1),
@@ -426,7 +426,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             lookup_pow_modulus,
             address_within_allocated_pages_helper,
             load_tailing_diff,
-            len,
+            bytes,
             len_modulus,
         })
     }
@@ -468,12 +468,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
             } => {
                 let len = store_size.byte_size() as u32;
 
-                self.opcode_store_offset.assign_u32(ctx, offset)?;
+                self.opcode_store_offset.assign(ctx, offset)?;
 
                 let inner_byte_index = byte_offset_from_address(effective_address);
                 let block_start_index = block_from_address(effective_address);
 
-                self.load_block_index.assign_u32(ctx, block_start_index)?;
+                self.load_block_index.assign(ctx, block_start_index)?;
                 self.load_block_inner_pos
                     .assign_u32(ctx, inner_byte_index)?;
                 self.load_block_inner_pos_bits[0].assign_bool(ctx, inner_byte_index & 1 != 0)?;
@@ -545,7 +545,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.is_two_bytes.assign_bool(ctx, len == 2)?;
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
-                self.len.assign(ctx, (len as u64).into())?;
+                self.bytes.assign(ctx, (len as u64).into())?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
 
                 self.address_within_allocated_pages_helper.assign_u32(

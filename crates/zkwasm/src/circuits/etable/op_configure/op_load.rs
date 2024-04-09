@@ -33,10 +33,10 @@ use specs::step::StepInfo;
 
 pub struct LoadConfig<F: FieldExt> {
     // offset in opcode
-    opcode_load_offset: AllocatedCommonRangeCell<F>,
+    opcode_load_offset: AllocatedU32Cell<F>,
 
     // which heap offset to load
-    load_block_index: AllocatedCommonRangeCell<F>,
+    load_block_index: AllocatedU32Cell<F>,
     load_inner_pos: AllocatedU8Cell<F>,
     /// helper to prove load_inner_pos < WASM_BLOCK_BYTE_SIZE
     load_inner_pos_diff: AllocatedU8Cell<F>,
@@ -65,7 +65,7 @@ pub struct LoadConfig<F: FieldExt> {
     is_two_bytes: AllocatedBitCell<F>,
     is_four_bytes: AllocatedBitCell<F>,
     is_eight_bytes: AllocatedBitCell<F>,
-    len: AllocatedUnlimitedCell<F>,
+    bytes: AllocatedUnlimitedCell<F>,
     len_modulus: AllocatedUnlimitedCell<F>,
 
     is_sign: AllocatedBitCell<F>,
@@ -92,10 +92,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let opcode_load_offset = allocator.alloc_common_range_cell();
+        let opcode_load_offset = allocator.alloc_u32_cell();
 
         // which heap offset to load
-        let load_block_index = allocator.alloc_common_range_cell();
+        let load_block_index = allocator.alloc_u32_cell();
         let load_inner_pos = allocator.alloc_u8_cell();
         let load_inner_pos_diff = allocator.alloc_u8_cell();
         let is_cross_block = allocator.alloc_bit_cell();
@@ -106,7 +106,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_two_bytes = allocator.alloc_bit_cell();
         let is_four_bytes = allocator.alloc_bit_cell();
         let is_eight_bytes = allocator.alloc_bit_cell();
-        let len = allocator.alloc_unlimited_cell();
+        let bytes = allocator.alloc_unlimited_cell();
         let len_modulus = allocator.alloc_unlimited_cell();
 
         let load_tailing = allocator.alloc_u64_cell();
@@ -197,10 +197,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         );
 
         constraint_builder.push(
-            "op_load len",
+            "op_load bytes",
             Box::new(move |meta| {
                 vec![
-                    len.expr(meta)
+                    bytes.expr(meta)
                         - constant_from!(1)
                         - is_two_bytes.expr(meta)
                         - constant_from!(3) * is_four_bytes.expr(meta)
@@ -229,7 +229,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                     is_cross_block.expr(meta) * constant_from!(WASM_BLOCK_BYTE_SIZE)
                         + cross_block_rem.expr(meta)
                         - load_inner_pos.expr(meta)
-                        - len.expr(meta)
+                        - bytes.expr(meta)
                         + constant_from!(1),
                     cross_block_rem.expr(meta) + cross_block_rem_diff.expr(meta)
                         - constant_from!(WASM_BLOCK_BYTE_SIZE - 1),
@@ -389,7 +389,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_two_bytes,
             is_four_bytes,
             is_eight_bytes,
-            len,
+            bytes,
             len_modulus,
             is_sign,
             is_i32,
@@ -442,12 +442,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
             } => {
                 let len = load_size.byte_size();
 
-                self.opcode_load_offset.assign_u32(ctx, offset)?;
+                self.opcode_load_offset.assign(ctx, offset)?;
 
                 let inner_byte_index = byte_offset_from_address(effective_address);
                 let block_start_index = block_from_address(effective_address);
 
-                self.load_block_index.assign_u32(ctx, block_start_index)?;
+                self.load_block_index.assign(ctx, block_start_index)?;
                 self.load_inner_pos.assign_u32(ctx, inner_byte_index)?;
                 self.load_inner_pos_diff
                     .assign_u32(ctx, WASM_BLOCK_BYTE_SIZE - 1 - inner_byte_index)?;
@@ -519,7 +519,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.is_two_bytes.assign_bool(ctx, len == 2)?;
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
-                self.len.assign(ctx, (len as u64).into())?;
+                self.bytes.assign(ctx, (len as u64).into())?;
                 self.len_modulus
                     .assign_bn(ctx, &(BigUint::from(1u64) << (len * 8)))?;
 
