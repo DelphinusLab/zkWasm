@@ -226,6 +226,49 @@ impl<F: FieldExt> AllocatedBitTableLookupCells<F> {
     }
 }
 
+pub(crate) struct AllocatorFreeCellsProfiler {
+    free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
+    free_u32_cells: usize,
+    free_u64_cells: usize,
+}
+
+impl AllocatorFreeCellsProfiler {
+    pub(crate) fn new<F: FieldExt>(allocator: &EventTableCellAllocator<F>) -> Self {
+        Self {
+            free_cells: allocator.free_cells.clone(),
+            free_u32_cells: allocator.free_u32_cells.len(),
+            free_u64_cells: allocator.free_u64_cells.len(),
+        }
+    }
+
+    pub(crate) fn update<F: FieldExt>(&mut self, allocator: &EventTableCellAllocator<F>) {
+        for (t, (i, j)) in allocator.free_cells.iter() {
+            let v = self.free_cells.get_mut(t).unwrap();
+
+            if *i > v.0 {
+                v.0 = *i;
+                v.1 = *j;
+            } else if *i == v.0 {
+                v.1 = u32::max(v.1, *j);
+            }
+        }
+
+        self.free_u32_cells = usize::min(self.free_u32_cells, allocator.free_u32_cells.len());
+        self.free_u64_cells = usize::min(self.free_u64_cells, allocator.free_u64_cells.len());
+    }
+
+    pub(crate) fn assert_no_free_cells<F: FieldExt>(&self, allocator: &EventTableCellAllocator<F>) {
+        for (t, (i, j)) in &self.free_cells {
+            let cols = allocator.all_cols.get(t).unwrap();
+
+            assert!(*i == cols.len() || (*i == cols.len() - 1 && *j > 0));
+        }
+
+        assert!(self.free_u32_cells == 0);
+        assert!(self.free_u64_cells == 0);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct EventTableCellAllocator<F: FieldExt> {
     k: u32,

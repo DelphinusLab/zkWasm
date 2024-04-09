@@ -303,6 +303,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
         let mut op_configs: BTreeMap<OpcodeClassPlain, OpcodeConfig<F>> = BTreeMap::new();
 
+        let mut profiler = AllocatorFreeCellsProfiler::new(&allocator);
+
         macro_rules! configure {
             ($op:expr, $x:ident) => {
                 let op = OpcodeClassPlain($op as usize);
@@ -310,11 +312,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let foreign_table_configs = BTreeMap::new();
                 let mut constraint_builder = ConstraintBuilder::new(meta, &foreign_table_configs);
 
-                let config = $x::configure(
-                    &common_config,
-                    &mut allocator.clone(),
-                    &mut constraint_builder,
-                );
+                let mut allocator = allocator.clone();
+                let config = $x::configure(&common_config, &mut allocator, &mut constraint_builder);
 
                 constraint_builder.finalize(|meta| {
                     (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
@@ -322,6 +321,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 op_bitmaps.insert(op, op.index());
                 op_configs.insert(op, OpcodeConfig::<F>(config));
+
+                profiler.update(&allocator);
             };
         }
 
@@ -360,10 +361,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClassPlain(op);
 
                 let mut constraint_builder = ConstraintBuilder::new(meta, foreign_table_configs);
+                let mut allocator = allocator.clone();
 
                 let config = builder.configure(
                     &common_config,
-                    &mut allocator.clone(),
+                    &mut allocator,
                     &mut constraint_builder,
                     &mut foreign_table_reserved_lookup_cells,
                 );
@@ -374,11 +376,15 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 op_bitmaps.insert(op, op.index());
                 op_configs.insert(op, OpcodeConfig(config));
+
+                profiler.update(&allocator);
             };
         }
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
         configure_foreign!(ETableContextHelperTableConfigBuilder, 1);
         configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
+
+        profiler.assert_no_free_cells(&allocator);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![

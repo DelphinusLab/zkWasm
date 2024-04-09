@@ -84,7 +84,7 @@ pub(super) enum MemoryTableCellType {
 
 const BIT_COLUMNS: usize = 3;
 const U16_COLUMNS: usize = U32_CELLS.next_multiple_of(2) / 2 + U64_CELLS;
-const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 1 } else { 2 };
+const COMMON_RANGE_COLUMNS: usize = 1;
 const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 2 };
 const U32_CELLS: usize = if cfg!(feature = "continuation") { 5 } else { 2 };
 const U64_CELLS: usize = 1;
@@ -100,6 +100,17 @@ pub(super) struct MemoryTableCellAllocator<F: FieldExt> {
 }
 
 impl<F: FieldExt> MemoryTableCellAllocator<F> {
+    pub fn assert_no_free_cells(&self) {
+        for (t, (i, j)) in &self.free_cells {
+            let cols = self.all_cols.get(t).unwrap();
+
+            assert!(*i == cols.len() || (*i == cols.len() - 1 && *j > 0));
+        }
+
+        assert!(self.free_u32_cells.is_empty());
+        assert!(self.free_u64_cells.is_empty());
+    }
+
     pub fn enable_equality(&mut self, meta: &mut ConstraintSystem<F>, t: &MemoryTableCellType) {
         for c in self.all_cols.get(t).unwrap() {
             meta.enable_equality(*c);

@@ -61,7 +61,7 @@ use super::post_image_table::PostImageTableConfig;
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
     60
 } else {
-    51
+    50
 };
 
 // Reserve a few rows to keep usable rows away from blind rows.

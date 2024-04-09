@@ -115,6 +115,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
 
         let value = allocator.alloc_u64_cell();
 
+        allocator.assert_no_free_cells();
+
         macro_rules! location {
             ($meta:expr) => {
                 is_stack_cell.curr_expr($meta) * constant_from!(LocationType::Stack as u64)
