@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#174d270816af2fd19fb28e509b84845325d70792"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#b83eacaa00c4bcd92868ee10470bfa18027fdeee"
 dependencies = [
  "anyhow",
  "ark-std 0.4.0",
@@ -3490,7 +3490,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git#d32de5ec45141c030d335b473cf9333fa405aebc"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=synthesize-helper#1cb4c3beb6026e01fcbc056344b948b31de20096"
 dependencies = [
  "ark-std 0.3.0",
  "cfg-if 1.0.0",
