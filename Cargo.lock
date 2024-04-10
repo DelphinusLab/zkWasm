@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#b26f281c2f7e4d673e873f2c05accd29952eb332"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#060c8d7885c7459f91440c9d1b1f23b22bc3d473"
 dependencies = [
  "anyhow",
  "ark-std 0.4.0",
@@ -1159,12 +1159,12 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git#747788c3331014d8854ed4746c51a1582e5271c1"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=1.0.0#35026092b90743d0e37689bd21444c250e64a9d4"
 dependencies = [
  "ark-std 0.4.0",
  "blake2b_simd",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.4.0)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f)",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1177,8 +1177,9 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.4.0#eef56995f5729083d54b89faa30d5f90277acc22"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f#3b8b424f009fd945fc982f530ed29b555f8002e6"
 dependencies = [
+ "ark-std 0.4.0",
  "halo2_proofs",
  "num-bigint",
  "num-integer",
@@ -1188,8 +1189,9 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.4.0#eef56995f5729083d54b89faa30d5f90277acc22"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f#3b8b424f009fd945fc982f530ed29b555f8002e6"
 dependencies = [
+ "ark-std 0.4.0",
  "halo2_proofs",
  "num-bigint",
  "num-integer",
@@ -3487,7 +3489,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git#d32de5ec45141c030d335b473cf9333fa405aebc"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=synthesize-helper#b49ed7e13c723290ffcad0a7aa5efd093dc4b48a"
 dependencies = [
  "ark-std 0.3.0",
  "cfg-if 1.0.0",
@@ -3495,7 +3497,7 @@ dependencies = [
  "clap",
  "ff",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.4.0)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f)",
  "hex",
  "itertools",
  "lazy_static",

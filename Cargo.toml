@@ -10,7 +10,7 @@ halo2_proofs = { git = "https://github.com/DelphinusLab/halo2-gpu-specific.git",
 parity-wasm = { version = "0.42.0", features = ["sign_ext"] }
 wasmi = { path = "third-party/wasmi" }
 circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git" }
-zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git" }
+zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="synthesize-helper" }
 
 [profile.dev]
 opt-level = 3
