@@ -14,6 +14,7 @@ use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zkwasm_host_circuits::host::db::TreeDB;
@@ -32,6 +33,8 @@ pub struct ExecutionArg {
     pub indexed_witness: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
     /// db src
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
+    /// merkle_proof_tracker:
+    pub merkle_proof_recorder: Option<Rc<RefCell<dyn Write>>>,
 }
 
 impl ContextOutput for ExecutionArg {
@@ -60,7 +63,12 @@ impl Default for HostEnvConfig {
 }
 
 impl HostEnvConfig {
-    fn register_ops(&self, env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
+    fn register_ops(
+        &self,
+        env: &mut HostEnv,
+        tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
+        merkle_proof_recorder: Option<Rc<RefCell<dyn Write>>>,
+    ) {
         for op in &self.ops {
             match op {
                 OpType::BLS381PAIR => host::ecc_helper::bls381::pair::register_blspair_foreign(env),
@@ -69,7 +77,11 @@ impl HostEnvConfig {
                 OpType::BN256SUM => host::ecc_helper::bn254::sum::register_bn254sum_foreign(env),
                 OpType::POSEIDONHASH => host::hash_helper::poseidon::register_poseidon_foreign(env),
                 OpType::MERKLE => {
-                    host::merkle_helper::merkle::register_merkle_foreign(env, tree_db.clone());
+                    host::merkle_helper::merkle::register_merkle_foreign(
+                        env,
+                        tree_db.clone(),
+                        merkle_proof_recorder.clone(),
+                    );
                     host::merkle_helper::datacache::register_datacache_foreign(
                         env,
                         tree_db.clone(),
@@ -96,7 +108,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, vec![], Arc::new(Mutex::new(vec![])));
-        envconfig.register_ops(&mut env, None);
+        envconfig.register_ops(&mut env, None, None);
         host::witness_helper::register_witness_foreign(
             &mut env,
             Rc::new(RefCell::new(HashMap::new())),
@@ -114,7 +126,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, arg.context_inputs, arg.context_outputs);
         host::witness_helper::register_witness_foreign(&mut env, arg.indexed_witness);
-        envconfig.register_ops(&mut env, arg.tree_db);
+        envconfig.register_ops(&mut env, arg.tree_db, arg.merkle_proof_recorder);
         env.finalize();
 
         (env, wasm_runtime_io)
