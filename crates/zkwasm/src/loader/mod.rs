@@ -26,10 +26,11 @@ use wasmi::RuntimeValue;
 
 use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
+use crate::circuits::compute_slice_capability;
 use crate::circuits::config::init_zkwasm_runtime;
-use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::ZkWasmCircuit;
+use crate::error::BuildingCircuitError;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
 #[cfg(feature = "profile")]
@@ -107,7 +108,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
             dryrun,
             &self.phantom_functions,
             backend,
-            self.compute_slice_capability() as u32,
+            compute_slice_capability(self.k),
         )
     }
 
@@ -115,12 +116,13 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         &self,
         envconfig: EnvBuilder::HostConfig,
         is_last_slice: bool,
-    ) -> Result<ZkWasmCircuit<E::Scalar>> {
+    ) -> Result<ZkWasmCircuit<E::Scalar>, BuildingCircuitError> {
         let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(self.k, envconfig);
 
-        let compiled_module = self.compile(&env, false, TraceBackend::Memory)?;
+        let compiled_module = self.compile(&env, false, TraceBackend::Memory).unwrap();
 
-        Ok(ZkWasmCircuit::new(
+        ZkWasmCircuit::new(
+            self.k,
             Slice {
                 itable: compiled_module.tables.itable.clone(),
                 br_table: compiled_module.tables.br_table.clone(),
@@ -137,8 +139,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
                 is_last_slice,
             },
-            self.compute_slice_capability(),
-        ))
+        )
     }
 
     /// Create a ZkWasm Loader
@@ -201,11 +202,6 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 }
 
 impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
-    pub(crate) fn compute_slice_capability(&self) -> usize {
-        // FIXME
-        ((1 << self.k) - 200) / EVENT_TABLE_ENTRY_ROWS as usize
-    }
-
     pub fn run(
         &self,
         arg: T,
@@ -224,8 +220,11 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(result)
     }
 
-    pub fn slice(&self, execution_result: ExecutionResult<RuntimeValue>) -> Slices<E::Scalar> {
-        Slices::new(execution_result.tables, self.compute_slice_capability())
+    pub fn slice(
+        &self,
+        execution_result: ExecutionResult<RuntimeValue>,
+    ) -> Result<Slices<E::Scalar>, BuildingCircuitError> {
+        Slices::new(self.k, execution_result.tables)
     }
 
     pub fn mock_test(

@@ -88,14 +88,38 @@ fn test_load_cross() {
 }
 
 #[test]
-fn test_load_large_memory() {
+fn test_load_memory_overflow_circuit() {
     let textual_repr = r#"
         (module
-            (memory $0 20)
-            (data (i32.const 0) "\ff\00\00\00\fe\00\00\00")
+            (memory $0 26)
             (func (export "test")
                 (i32.const 0)
-                (i64.load offset=1010720)
+                (i64.load offset=1638400)
+                (drop)
+            )
+        )
+    "#;
+
+    assert!(test_circuit_noexternal(textual_repr).is_err());
+}
+
+#[test]
+fn test_load_maximal_memory() {
+    // k18 support 25 pages at most.
+    let textual_repr = r#"
+        (module
+            (memory $0 25)
+            (func (export "test")
+                (i32.const 0)
+                (i64.load offset=1638392)
+                (drop)
+
+                (i32.const 1638392)
+                (i64.load offset=0)
+                (drop)
+
+                (i32.const 0)
+                (i64.load offset=0)
                 (drop)
             )
         )

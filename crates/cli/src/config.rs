@@ -260,14 +260,6 @@ impl Config {
             result
         };
 
-        if cfg!(not(feature = "continuation")) {
-            if result.tables.execution_tables.etable.len() != 1 {
-                return Err(anyhow::anyhow!(
-                    "Only support single slice for non-continuation mode.\nYou could increase K or enable continuation feature."
-                ));
-            }
-        }
-
         {
             if let Some(context_output_filename) = context_output_filename {
                 let context_output_path = output_dir.join(context_output_filename);
@@ -318,8 +310,10 @@ impl Config {
 
         let progress_bar = ProgressBar::new(result.tables.execution_tables.etable.len() as u64);
 
-        let mut slices = loader.slice(result).into_iter().enumerate().peekable();
+        let mut slices = loader.slice(result)?.into_iter().enumerate().peekable();
         while let Some((index, circuit)) = slices.next() {
+            let circuit = circuit?;
+
             let _is_finalized_circuit = slices.peek().is_none();
 
             if mock_test {

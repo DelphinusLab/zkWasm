@@ -7,10 +7,10 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 use std::marker::PhantomData;
 
-use super::zkwasm_circuit::RESERVE_ROWS;
 use super::utils::image_table::GLOBAL_CAPABILITY;
 use super::utils::image_table::INIT_MEMORY_ENTRIES_OFFSET;
 use super::utils::image_table::STACK_CAPABILITY;
+use super::zkwasm_circuit::RESERVE_ROWS;
 
 mod assign;
 mod configure;

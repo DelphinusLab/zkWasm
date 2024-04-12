@@ -16,10 +16,13 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use crate::circuits::ZkWasmCircuit;
+use crate::error::BuildingCircuitError;
 use crate::runtime::state::UpdateInitMemoryTable;
 use crate::runtime::state::UpdateInitializationState;
 
 pub struct Slices<F: FieldExt> {
+    k: u32,
+
     itable: Arc<InstructionTable>,
     br_table: Arc<BrTable>,
     elem_table: Arc<ElemTable>,
@@ -31,15 +34,22 @@ pub struct Slices<F: FieldExt> {
     initialization_state: Arc<InitializationState<u32>>,
     etables: VecDeque<EventTableBackend>,
 
-    // the length of etable entries
-    capability: usize,
-
     _marker: std::marker::PhantomData<F>,
 }
 
 impl<F: FieldExt> Slices<F> {
-    pub fn new(tables: Tables, capability: usize) -> Self {
-        Self {
+    pub fn new(k: u32, tables: Tables) -> Result<Self, BuildingCircuitError> {
+        if cfg!(not(feature = "continuation")) {
+            let slices = tables.execution_tables.etable.len();
+
+            if slices != 1 {
+                return Err(BuildingCircuitError::MultiSlicesNotSupport(slices));
+            }
+        }
+
+        Ok(Self {
+            k,
+
             itable: tables.compilation_tables.itable,
             br_table: tables.compilation_tables.br_table,
             elem_table: tables.compilation_tables.elem_table,
@@ -52,10 +62,8 @@ impl<F: FieldExt> Slices<F> {
 
             etables: tables.execution_tables.etable.into(),
 
-            capability,
-
             _marker: std::marker::PhantomData,
-        }
+        })
     }
 
     pub fn mock_test_all(self, k: u32, instances: Vec<F>) -> anyhow::Result<()> {
@@ -64,7 +72,7 @@ impl<F: FieldExt> Slices<F> {
         let mut iter = self.into_iter();
 
         while let Some(slice) = iter.next() {
-            let prover = MockProver::run(k, &slice, vec![instances.clone()])?;
+            let prover = MockProver::run(k, &slice?, vec![instances.clone()])?;
             assert_eq!(prover.verify(), Ok(()));
         }
 
@@ -73,7 +81,7 @@ impl<F: FieldExt> Slices<F> {
 }
 
 impl<F: FieldExt> Iterator for Slices<F> {
-    type Item = ZkWasmCircuit<F>;
+    type Item = Result<ZkWasmCircuit<F>, BuildingCircuitError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.etables.is_empty() {
@@ -127,6 +135,8 @@ impl<F: FieldExt> Iterator for Slices<F> {
         self.imtable = post_imtable;
         self.initialization_state = post_initialization_state;
 
-        Some(ZkWasmCircuit::new(slice, self.capability))
+        let circuit = ZkWasmCircuit::new(self.k, slice);
+
+        Some(circuit)
     }
 }
