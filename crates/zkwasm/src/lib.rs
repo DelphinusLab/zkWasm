@@ -4,6 +4,7 @@
 
 pub mod checksum;
 pub mod circuits;
+pub mod error;
 pub mod foreign;
 pub mod loader;
 pub mod runtime;

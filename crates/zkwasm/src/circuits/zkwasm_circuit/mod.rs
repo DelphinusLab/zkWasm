@@ -23,6 +23,7 @@ use specs::slice::Slice;
 use crate::circuits::bit_table::BitTableChip;
 use crate::circuits::bit_table::BitTableConfig;
 use crate::circuits::bit_table::BitTableTrait;
+use crate::circuits::compute_slice_capability;
 use crate::circuits::etable::EventTableChip;
 use crate::circuits::etable::EventTableConfig;
 use crate::circuits::external_host_call_table::ExternalHostCallChip;
@@ -108,6 +109,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
     fn without_witnesses(&self) -> Self {
         ZkWasmCircuit::new(
+            self.k,
             // fill slice like circuit_without_witness
             Slice {
                 itable: self.slice.itable.clone(),
@@ -127,8 +129,8 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
                 is_last_slice: self.slice.is_last_slice,
             },
-            self.slice_capability,
         )
+        .unwrap()
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
@@ -231,7 +233,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         let frame_table_chip = JumpTableChip::new(config.jtable, config.max_available_rows);
         let echip = EventTableChip::new(
             config.etable,
-            self.slice_capability,
+            compute_slice_capability(self.k) as usize,
             config.max_available_rows,
         );
         let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);

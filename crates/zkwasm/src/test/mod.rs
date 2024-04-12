@@ -40,7 +40,7 @@ pub fn test_circuit_with_env(
     )?;
     let instances = execution_result.public_inputs_and_outputs();
     loader
-        .slice(execution_result)
+        .slice(execution_result)?
         .mock_test_all(MIN_K, instances)?;
 
     Ok(())

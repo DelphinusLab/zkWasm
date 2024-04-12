@@ -166,7 +166,7 @@ fn run_test() -> Result<()> {
 
     let instances = result.public_inputs_and_outputs();
 
-    let slices = loader.slice(result).into_iter();
+    let slices = loader.slice(result)?.into_iter();
 
     slices.mock_test_all(K, instances)?;
 
