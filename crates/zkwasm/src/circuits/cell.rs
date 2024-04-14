@@ -9,8 +9,10 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 
+use crate::circuits::etable::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
+use crate::constant_from;
 use crate::nextn;
 
 #[derive(Debug, Clone, Copy)]
@@ -78,6 +80,11 @@ impl<F: FieldExt> AllocatedU64Cell<F> {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedU32Cell<F: FieldExt> {
+    pub(crate) u16_cells_le: [AllocatedU16Cell<F>; 2],
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AllocatedU32PermutationCell<F: FieldExt> {
     pub(crate) u16_cells_le: [AllocatedU16Cell<F>; 2],
     pub(crate) u32_cell: AllocatedUnlimitedCell<F>,
 }
@@ -160,11 +167,39 @@ impl<F: FieldExt> CellExpression<F> for AllocatedCommonRangeCell<F> {
 
 impl<F: FieldExt> AllocatedU32Cell<F> {
     pub(crate) fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        self.u32_cell.curr_expr(meta)
+        self.u16_cells_le[0].curr_expr(meta)
+            + (self.u16_cells_le[1].curr_expr(meta) * constant_from!(1 << 16))
     }
 
     pub(crate) fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         self.expr(meta)
+    }
+
+    pub(crate) fn assign(&self, ctx: &mut Context<'_, F>, value: u32) -> Result<(), Error> {
+        for i in 0..2 {
+            self.u16_cells_le[i].assign(ctx, (((value >> (i * 16)) & 0xffffu32) as u64).into())?;
+        }
+
+        Ok(())
+    }
+}
+
+#[allow(dead_code)]
+impl<F: FieldExt> AllocatedU32PermutationCell<F> {
+    pub(crate) fn expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.curr_expr(meta)
+    }
+
+    pub(crate) fn curr_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        self.u32_cell.expr(meta)
+    }
+
+    pub(crate) fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
+        nextn!(
+            meta,
+            self.u32_cell.cell.col,
+            self.u32_cell.cell.rot + EVENT_TABLE_ENTRY_ROWS
+        )
     }
 
     pub(crate) fn assign(
