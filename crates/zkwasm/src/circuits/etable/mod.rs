@@ -10,7 +10,6 @@ use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
-use super::utils::u32_state::AllocatedU32StateCell;
 use super::utils::Context;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
@@ -67,6 +66,11 @@ mod op_configure;
 
 pub(crate) mod allocator;
 pub(crate) mod constraint_builder;
+
+#[cfg(feature = "continuation")]
+type AllocatedU32StateCell<F> = AllocatedU32PermutationCell<F>;
+#[cfg(not(feature = "continuation"))]
+type AllocatedU32StateCell<F> = AllocatedCommonRangeCell<F>;
 
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
 pub(crate) const OP_CAPABILITY: usize = 32;

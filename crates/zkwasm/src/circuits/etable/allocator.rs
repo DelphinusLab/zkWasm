@@ -1,3 +1,4 @@
+use super::AllocatedU32StateCell;
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::bit_table::BitTableOp;
 use crate::circuits::cell::*;
@@ -9,7 +10,6 @@ use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::utils::bit::BitColumn;
 use crate::circuits::utils::common_range::CommonRangeColumn;
 use crate::circuits::utils::u16::U16Column;
-use crate::circuits::utils::u32_state::AllocatedU32StateCell;
 use crate::circuits::utils::u8::U8Column;
 use crate::circuits::Context;
 use crate::circuits::Lookup;
@@ -65,24 +65,6 @@ impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedUnlimitedCell);
 impl_cell!(AllocatedJumpTableLookupCell);
-
-impl<F: FieldExt> EventTableCellExpression<F> for AllocatedU32Cell<F> {
-    fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.u32_cell.cell.col,
-            self.u32_cell.cell.rot + EVENT_TABLE_ENTRY_ROWS as i32
-        )
-    }
-
-    fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.u32_cell.cell.col,
-            self.u32_cell.cell.rot - EVENT_TABLE_ENTRY_ROWS as i32
-        )
-    }
-}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedJumpTableLookupCell<F: FieldExt> {
@@ -184,18 +166,20 @@ pub(crate) enum EventTableCellType {
 
 const BIT_COLUMNS: usize = 12;
 const U8_COLUMNS: usize = 1;
-const U32_CELLS: usize = if cfg!(feature = "continuation") {
-    12
+const U32_CELLS: usize = 2;
+const U32_PERMUTATION_CELLS: usize = if cfg!(feature = "continuation") {
+    10
 } else {
-    2
+    0
 };
 const U64_CELLS: usize = 5;
-const U16_COLUMNS: usize = U64_CELLS + (U32_CELLS / 2);
+const U16_COLUMNS: usize =
+    U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2);
 const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 6 };
 const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
     10
 } else {
-    8
+    7
 };
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
@@ -229,6 +213,7 @@ impl<F: FieldExt> AllocatedBitTableLookupCells<F> {
 pub(crate) struct AllocatorFreeCellsProfiler {
     free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     free_u32_cells: usize,
+    free_u32_permutation_cells: usize,
     free_u64_cells: usize,
 }
 
@@ -237,6 +222,7 @@ impl AllocatorFreeCellsProfiler {
         Self {
             free_cells: allocator.free_cells.clone(),
             free_u32_cells: allocator.free_u32_cells.len(),
+            free_u32_permutation_cells: allocator.free_u32_permutation_cells.len(),
             free_u64_cells: allocator.free_u64_cells.len(),
         }
     }
@@ -254,6 +240,10 @@ impl AllocatorFreeCellsProfiler {
         }
 
         self.free_u32_cells = usize::min(self.free_u32_cells, allocator.free_u32_cells.len());
+        self.free_u32_permutation_cells = usize::min(
+            self.free_u32_permutation_cells,
+            allocator.free_u32_permutation_cells.len(),
+        );
         self.free_u64_cells = usize::min(self.free_u64_cells, allocator.free_u64_cells.len());
     }
 
@@ -261,11 +251,29 @@ impl AllocatorFreeCellsProfiler {
         for (t, (i, j)) in &self.free_cells {
             let cols = allocator.all_cols.get(t).unwrap();
 
-            assert!(*i == cols.len() || (*i == cols.len() - 1 && *j > 0));
+            assert!(
+                *i == cols.len() || (*i == cols.len() - 1 && *j > 0),
+                "unused {:?} col should be removed: {}.",
+                t,
+                cols.len() - *i - (*j != 0) as usize
+            );
         }
 
-        assert!(self.free_u32_cells == 0);
-        assert!(self.free_u64_cells == 0);
+        assert!(
+            self.free_u32_cells == 0,
+            "unused u32 cells should be removed: {:?}.",
+            self.free_u32_cells
+        );
+        assert!(
+            self.free_u32_permutation_cells == 0,
+            "unused u32 permutation cells should be removed: {:?}.",
+            self.free_u32_permutation_cells
+        );
+        assert!(
+            self.free_u64_cells == 0,
+            "unused u64 cells should be removed: {:?}.",
+            self.free_u64_cells
+        );
     }
 }
 
@@ -275,6 +283,7 @@ pub(crate) struct EventTableCellAllocator<F: FieldExt> {
     pub(crate) free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     all_cols: BTreeMap<EventTableCellType, Vec<Vec<Column<Advice>>>>,
     free_u32_cells: Vec<AllocatedU32Cell<F>>,
+    free_u32_permutation_cells: Vec<AllocatedU32PermutationCell<F>>,
     free_u64_cells: Vec<AllocatedU64Cell<F>>,
     _mark: PhantomData<F>,
 }
@@ -293,11 +302,17 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
-    pub(super) fn prepare_alloc_u32_cell(
+    pub(super) fn prepare_alloc_u32_cell(&mut self) -> AllocatedU32Cell<F> {
+        let u16_cells_le = [0; 2].map(|_| self.alloc_u16_cell());
+
+        AllocatedU32Cell { u16_cells_le }
+    }
+
+    pub(super) fn prepare_alloc_u32_permutation_cell(
         &mut self,
         meta: &mut ConstraintSystem<F>,
         enable: impl Fn(&mut VirtualCells<'_, F>) -> Expression<F>,
-    ) -> AllocatedU32Cell<F> {
+    ) -> AllocatedU32PermutationCell<F> {
         let u16_cells_le = [0; 2].map(|_| self.alloc_u16_cell());
         let u32_cell = self.alloc_unlimited_cell();
         meta.create_gate("c9. u32 decompose", |meta| {
@@ -312,7 +327,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         });
         meta.enable_equality(u32_cell.cell.col);
 
-        AllocatedU32Cell {
+        AllocatedU32PermutationCell {
             u16_cells_le,
             u32_cell,
         }
@@ -352,8 +367,13 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     ) -> Self {
         let mut allocator = Self::_new(meta, k, sel, rtable, mtable, jtable, cols);
         for _ in 0..U32_CELLS {
-            let cell = allocator.prepare_alloc_u32_cell(meta, |meta| fixed_curr!(meta, sel));
+            let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
+        }
+        for _ in 0..U32_PERMUTATION_CELLS {
+            let cell =
+                allocator.prepare_alloc_u32_permutation_cell(meta, |meta| fixed_curr!(meta, sel));
+            allocator.free_u32_permutation_cells.push(cell);
         }
         for _ in 0..U64_CELLS {
             let cell = allocator.prepare_alloc_u64_cell(meta, |meta| fixed_curr!(meta, sel));
@@ -462,6 +482,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .into_iter(),
             ),
             free_u32_cells: vec![],
+            free_u32_permutation_cells: vec![],
             free_u64_cells: vec![],
             _mark: PhantomData,
         }
@@ -522,7 +543,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(crate) fn alloc_u32_state_cell(&mut self) -> AllocatedU32StateCell<F> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "continuation")] {
-                self.alloc_u32_cell()
+                self.alloc_u32_permutation_cell()
             } else {
                 self.alloc_common_range_cell()
             }
@@ -731,9 +752,15 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         cell
     }
 
-    #[allow(dead_code)]
     pub(crate) fn alloc_u32_cell(&mut self) -> AllocatedU32Cell<F> {
         self.free_u32_cells.pop().expect("no more free u32 cells")
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn alloc_u32_permutation_cell(&mut self) -> AllocatedU32PermutationCell<F> {
+        self.free_u32_permutation_cells
+            .pop()
+            .expect("no more free u32 permutation cells")
     }
 
     pub(crate) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {

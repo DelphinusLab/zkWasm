@@ -124,35 +124,6 @@ impl<F: FieldExt> EventTableChip<F> {
         #[cfg(feature = "continuation")]
         let jops = assign_common_range_advice!(jops_cell, state.jops);
 
-        // if let Some(assigned_pre_initialization_state) = assigned_pre_initialization_state {
-        //     macro_rules! constrain_equal {
-        //         ($field:ident) => {
-        //             ctx.region.constrain_equal(
-        //                 $field.cell(),
-        //                 assigned_pre_initialization_state.$field.cell(),
-        //             )?;
-        //         };
-        //     }
-
-        //     constrain_equal!(eid);
-        //     constrain_equal!(fid);
-        //     constrain_equal!(iid);
-        //     constrain_equal!(sp);
-        //     constrain_equal!(frame_id);
-
-        //     constrain_equal!(host_public_inputs);
-        //     constrain_equal!(context_in_index);
-        //     constrain_equal!(context_out_index);
-        //     constrain_equal!(external_host_call_call_index);
-
-        //     constrain_equal!(initial_memory_pages);
-        //     constrain_equal!(maximal_memory_pages);
-
-        //     #[cfg(feature = "continuation")]
-        //     constrain_equal!(jops);
-        // }
-
-        // The context will be stepped by EVENT_TABLE_ENTRY_ROWS.
         ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
 
         Ok(InitializationState {

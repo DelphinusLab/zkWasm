@@ -3,7 +3,6 @@ use super::cell::*;
 use super::image_table::ImageTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
-use super::utils::u32_state::AllocatedU32StateCell;
 use crate::constant_from;
 use crate::fixed_curr;
 use halo2_proofs::arithmetic::FieldExt;
@@ -23,6 +22,11 @@ mod assign;
 pub(crate) mod utils;
 
 pub(crate) const MEMORY_TABLE_ENTRY_ROWS: i32 = 4;
+
+#[cfg(feature = "continuation")]
+type AllocatedU32StateCell<F> = AllocatedU32Cell<F>;
+#[cfg(not(feature = "continuation"))]
+type AllocatedU32StateCell<F> = AllocatedCommonRangeCell<F>;
 
 #[derive(Clone)]
 pub struct MemoryTableConfig<F: FieldExt> {
