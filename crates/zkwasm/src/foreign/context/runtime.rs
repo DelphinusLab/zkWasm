@@ -9,27 +9,26 @@ use wasmi::RuntimeArgs;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
 
-use super::ContextOutput;
 use super::Op;
 
 struct Context {
     inputs: Vec<u64>,
-    outputs: ContextOutput,
+    outputs: Vec<u64>,
 }
 
 impl Context {
-    fn new(context_input: Vec<u64>, context_output: ContextOutput) -> Self {
+    fn new(context_input: Vec<u64>) -> Self {
         let mut inputs = context_input.clone();
         inputs.reverse();
 
         Context {
             inputs,
-            outputs: context_output,
+            outputs: vec![],
         }
     }
 
     pub fn write_context(&mut self, value: u64) {
-        self.outputs.0.lock().unwrap().push(value)
+        self.outputs.push(value)
     }
 
     pub fn read_context(&mut self) -> u64 {
@@ -39,17 +38,17 @@ impl Context {
     }
 }
 
-impl ForeignContext for Context {}
+impl ForeignContext for Context {
+    fn expose_context_outputs(&self) -> Vec<u64> {
+        self.outputs.clone()
+    }
+}
 
-pub fn register_context_foreign(
-    env: &mut HostEnv,
-    context_input: Vec<u64>,
-    context_output: ContextOutput,
-) {
+pub fn register_context_foreign(env: &mut HostEnv, context_input: Vec<u64>) {
     env.internal_env.register_plugin(
         "context plugin",
         HostPlugin::Context,
-        Box::new(Context::new(context_input, context_output)),
+        Box::new(Context::new(context_input)),
     );
 
     env.internal_env.register_function(

@@ -1,6 +1,7 @@
 #![deny(warnings)]
 #![feature(int_roundings)]
 #![feature(stmt_expr_attributes)]
+#![feature(trait_upcasting)]
 
 pub mod checksum;
 pub mod circuits;

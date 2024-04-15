@@ -9,9 +9,11 @@ use crate::config::CircuitDataMd5;
 use crate::TRIVIAL_WASM;
 use clap::Args;
 use console::style;
+use delphinus_zkwasm::checksum::ImageCheckSum;
 use delphinus_zkwasm::circuits::ZkWasmCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::monitor::table_monitor::TableMonitor;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::G1Affine;
@@ -108,8 +110,9 @@ impl SetupArg {
         });
     }
 
-    pub(crate) fn setup<EnvBuilder: HostEnvBuilder>(
+    pub(crate) fn setup(
         &self,
+        env_builder: &Box<dyn HostEnvBuilder>,
         name: &str,
         params_dir: &PathBuf,
     ) -> anyhow::Result<()> {
@@ -119,6 +122,7 @@ impl SetupArg {
             wabt::wat2wasm(&TRIVIAL_WASM).map_err(|err| anyhow::anyhow!(err)),
             |file| fs::read(file).map_err(|err| anyhow::anyhow!(err)),
         )?;
+        let module = ZkWasmLoader::parse_module(&wasm_image)?;
         let wasm_image_md5 = md5::compute(&wasm_image);
 
         let params_path = params_dir.join(name_of_params(self.k));
@@ -144,16 +148,15 @@ impl SetupArg {
             }
         };
 
-        let loader = ZkWasmLoader::<Bn256, _, EnvBuilder>::new(
-            self.k,
-            wasm_image,
-            self.phantom_functions.clone(),
-        )?;
+        let env = env_builder.create_env_without_value(self.k);
+        let mut monitor =
+            TableMonitor::new(self.k, &self.phantom_functions, TraceBackend::Memory, &env);
+
+        let loader = ZkWasmLoader::new(self.k, env)?;
 
         println!("{} Compiling...", style("[2/5]").bold().dim());
-        let (env, _wasm_runtime_io) =
-            EnvBuilder::create_env_without_value(self.k, EnvBuilder::HostConfig::default());
-        let compilation_table = loader.compile(&env, false, TraceBackend::Memory)?.tables;
+        loader.compile(&module, &mut monitor)?;
+        let compilation_table = monitor.into_compilation_table();
 
         println!("{} Building circuit data...", style("[3/5]").bold().dim(),);
         let circuit_datas =
@@ -161,7 +164,7 @@ impl SetupArg {
 
         println!("{} Computing checksum...", style("[4/5]").bold().dim(),);
         let checksum = {
-            let checksum = loader.checksum(&params, &compilation_table)?;
+            let checksum = compilation_table.checksum(self.k, &params);
             assert_eq!(checksum.len(), 1);
 
             (checksum[0].x.to_string(), checksum[0].y.to_string())

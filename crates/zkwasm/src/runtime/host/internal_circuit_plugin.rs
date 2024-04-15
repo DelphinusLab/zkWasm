@@ -35,6 +35,13 @@ impl InternalCircuitEnv {
         }
     }
 
+    pub(crate) fn get_context_of_plugin(
+        &self,
+        plugin: HostPlugin,
+    ) -> Rc<RefCell<Box<dyn ForeignContext>>> {
+        self.plugins.get(&plugin).unwrap().ctx.clone()
+    }
+
     pub fn register_plugin(
         &mut self,
         name: &str,

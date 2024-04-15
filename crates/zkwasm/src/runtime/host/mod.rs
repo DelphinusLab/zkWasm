@@ -1,7 +1,7 @@
 use crate::foreign::context::ContextOutput;
 
+use self::default_env::ExecutionArg;
 use self::host_env::HostEnv;
-use super::wasmi_interpreter::WasmRuntimeIO;
 use downcast_rs::impl_downcast;
 use downcast_rs::Downcast;
 use specs::external_host_call_table::ExternalHostCallSignature;
@@ -65,6 +65,18 @@ pub trait ForeignContext: Downcast {
     fn get_statics(&self) -> Option<ForeignStatics> {
         None
     }
+
+    fn expose_public_inputs_and_outputs(&self) -> Vec<u64> {
+        unreachable!()
+    }
+
+    fn expose_outputs(&self) -> Vec<u64> {
+        unreachable!()
+    }
+
+    fn expose_context_outputs(&self) -> Vec<u64> {
+        unreachable!()
+    }
 }
 impl_downcast!(ForeignContext);
 
@@ -91,11 +103,8 @@ pub trait HostEnvArg {
 
 /// Implement `HostEnvBuilder` to support customized foreign plugins.
 pub trait HostEnvBuilder {
-    /// Argument type
-    type Arg: HostEnvArg;
-    type HostConfig: Default;
     /// Create an empty env without value, this is used by compiling, computing hash
-    fn create_env_without_value(k: u32, config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
+    fn create_env_without_value(&self, k: u32) -> HostEnv;
     /// Create an env with execution parameters, this is used by dry-run, run
-    fn create_env(k: u32, env: Self::Arg, config: Self::HostConfig) -> (HostEnv, WasmRuntimeIO);
+    fn create_env(&self, k: u32, env: ExecutionArg) -> HostEnv;
 }

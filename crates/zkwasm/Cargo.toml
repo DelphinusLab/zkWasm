@@ -30,6 +30,7 @@ cfg-if.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
 rayon.workspace = true
+regex.workspace = true
 wasmi.workspace = true
 
 # TODO put the host circuits into features

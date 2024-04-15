@@ -1,4 +1,5 @@
 use anyhow::Result;
+use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::create_proof;
@@ -13,20 +14,15 @@ use halo2_proofs::transcript::Blake2bRead;
 use halo2_proofs::transcript::Blake2bWrite;
 use log::warn;
 use rand::rngs::OsRng;
-use specs::etable::EventTable;
-use specs::jtable::JumpTable;
-use specs::slice::Slice;
-use specs::CompilationTable;
-use std::marker::PhantomData;
-use std::sync::Arc;
 
-use wasmi::tracer::Tracer;
+use specs::CompilationTable;
+
 use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
 use wasmi::RuntimeValue;
 
 use crate::checksum::ImageCheckSum;
-use crate::circuits::compute_slice_capability;
+
 use crate::circuits::config::init_zkwasm_runtime;
 use crate::circuits::ZkWasmCircuit;
 use crate::error::BuildingCircuitError;
@@ -34,8 +30,9 @@ use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
 #[cfg(feature = "profile")]
 use crate::profile::Profiler;
+
 use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::host::HostEnvBuilder;
+use crate::runtime::monitor::WasmiMonitor;
 use crate::runtime::wasmi_interpreter::Execution;
 use crate::runtime::CompiledImage;
 use crate::runtime::ExecutionResult;
@@ -45,6 +42,7 @@ use anyhow::anyhow;
 use self::slice::Slices;
 
 pub use specs::TraceBackend;
+pub use wasmi::Module;
 
 mod err;
 pub mod slice;
@@ -55,73 +53,80 @@ pub struct ExecutionReturn {
     pub context_output: Vec<u64>,
 }
 
-pub struct ZkWasmLoader<E: MultiMillerLoop, Arg, EnvBuilder: HostEnvBuilder<Arg = Arg>> {
+pub struct ZkWasmLoader {
     pub k: u32,
     entry: String,
-    module: wasmi::Module,
-    phantom_functions: Vec<String>,
-    _mark: PhantomData<(Arg, EnvBuilder, E)>,
+    env: HostEnv,
 }
 
-impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
-    #[allow(dead_code)]
-    fn precheck(&self) -> Result<()> {
-        fn check_zkmain_exists(module: &wasmi::Module) -> Result<()> {
-            use parity_wasm::elements::Internal;
+impl ZkWasmLoader {
+    pub fn parse_module(image: &Vec<u8>) -> Result<Module> {
+        fn precheck(_module: &Module) -> Result<()> {
+            #[allow(dead_code)]
+            fn check_zkmain_exists(module: &Module) -> Result<()> {
+                use parity_wasm::elements::Internal;
 
-            let export = module.module().export_section().unwrap();
+                let export = module.module().export_section().unwrap();
 
-            if let Some(entry) = export.entries().iter().find(|entry| entry.field() == ENTRY) {
-                match entry.internal() {
-                    Internal::Function(_fid) => Ok(()),
-                    _ => Err(anyhow!(Error::PreCheck(PreCheckErr::ZkmainIsNotFunction))),
+                if let Some(entry) = export.entries().iter().find(|entry| entry.field() == ENTRY) {
+                    match entry.internal() {
+                        Internal::Function(_fid) => Ok(()),
+                        _ => Err(anyhow!(Error::PreCheck(PreCheckErr::ZkmainIsNotFunction))),
+                    }
+                } else {
+                    Err(anyhow!(Error::PreCheck(PreCheckErr::ZkmainNotExists)))
                 }
-            } else {
-                Err(anyhow!(Error::PreCheck(PreCheckErr::ZkmainNotExists)))
             }
+
+            #[cfg(not(test))]
+            check_zkmain_exists(_module)?;
+            // TODO: check the signature of zkmain function.
+            // TODO: check the relation between maximal pages and K.
+            // TODO: check the instructions of phantom functions.
+            // TODO: check phantom functions exists.
+            // TODO: check if instructions are supported.
+
+            Ok(())
         }
 
-        check_zkmain_exists(&self.module)?;
-        // TODO: check the signature of zkmain function.
-        // TODO: check the relation between maximal pages and K.
-        // TODO: check the instructions of phantom functions.
-        // TODO: check phantom functions exists.
-        // TODO: check if instructions are supported.
+        let mut module = Module::from_buffer(&image)?;
+        if let Ok(parity_module) = module.module().clone().parse_names() {
+            module.module = parity_module;
+        } else {
+            warn!("Failed to parse name section of the wasm binary.");
+        }
 
-        Ok(())
+        precheck(&module)?;
+
+        Ok(module)
+    }
+}
+
+impl ZkWasmLoader {
+    pub fn compile<'a>(
+        &self,
+        module: &'a Module,
+        monitor: &mut dyn WasmiMonitor,
+    ) -> Result<CompiledImage<NotStartedModuleRef<'a>>> {
+        let imports = ImportsBuilder::new().with_resolver("env", &self.env);
+
+        WasmInterpreter::compile(monitor, module, &imports, self.entry.as_str())
     }
 
-    pub fn compile(
-        &self,
-        env: &HostEnv,
-        dryrun: bool,
-        backend: TraceBackend,
-    ) -> Result<CompiledImage<NotStartedModuleRef<'_>, Tracer>> {
-        let imports = ImportsBuilder::new().with_resolver("env", env);
-
-        WasmInterpreter::compile(
-            &self.module,
-            &imports,
-            &env.function_description_table(),
-            self.entry.as_str(),
-            dryrun,
-            &self.phantom_functions,
-            backend,
-            compute_slice_capability(self.k),
-        )
-    }
-
-    pub fn circuit_without_witness(
-        &self,
-        envconfig: EnvBuilder::HostConfig,
-        is_last_slice: bool,
+    pub fn circuit_without_witness<E: MultiMillerLoop>(
+        &mut self,
+        _is_last_slice: bool,
     ) -> Result<ZkWasmCircuit<E::Scalar>, BuildingCircuitError> {
-        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(self.k, envconfig);
+        todo!()
+        /*
+        let k = self.k;
+
+        let env = env_builder.create_env_without_value(k);
 
         let compiled_module = self.compile(&env, false, TraceBackend::Memory).unwrap();
 
         ZkWasmCircuit::new(
-            self.k,
+            k,
             Slice {
                 itable: compiled_module.tables.itable.clone(),
                 br_table: compiled_module.tables.br_table.clone(),
@@ -139,31 +144,21 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
                 is_last_slice,
             },
         )
+        */
     }
 
     /// Create a ZkWasm Loader
+    ///
     /// Arguments:
     /// - k: the size of circuit
-    /// - image: wasm binary
-    /// - phantom_functions: regular expressions of phantom function
-    pub fn new(k: u32, image: Vec<u8>, phantom_functions: Vec<String>) -> Result<Self> {
-        let mut module = wasmi::Module::from_buffer(&image)?;
-        if let Ok(parity_module) = module.module().clone().parse_names() {
-            module.module = parity_module;
-        } else {
-            warn!("Failed to parse name section of the wasm binary.");
-        }
-
+    /// - env: HostEnv for wasmi
+    pub fn new(k: u32, env: HostEnv) -> Result<Self> {
         let loader = Self {
             k,
             entry: ENTRY.to_string(),
-            module,
-            phantom_functions,
-            _mark: PhantomData,
+            env,
         };
 
-        #[cfg(not(test))]
-        loader.precheck()?;
         loader.init_env()?;
 
         Ok(loader)
@@ -174,50 +169,35 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         self.entry = entry;
     }
 
-    pub fn create_vkey(
+    pub fn create_vkey<E: MultiMillerLoop>(
         &self,
         params: &Params<E::G1Affine>,
         circuit: &ZkWasmCircuit<E::Scalar>,
     ) -> Result<VerifyingKey<E::G1Affine>> {
         Ok(keygen_vk(&params, circuit).unwrap())
     }
-
-    pub fn checksum(
-        &self,
-        params: &Params<E::G1Affine>,
-        compilation_table: &CompilationTable,
-    ) -> Result<Vec<E::G1Affine>> {
-        Ok(compilation_table.checksum(self.k, params))
-    }
 }
 
-impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E, T, EnvBuilder> {
+impl ZkWasmLoader {
     pub fn run(
-        &self,
-        arg: T,
-        config: EnvBuilder::HostConfig,
-        dryrun: bool,
-        backend: TraceBackend,
+        self,
+        compiled_module: CompiledImage<NotStartedModuleRef<'_>>,
+        monitor: &mut dyn WasmiMonitor,
     ) -> Result<ExecutionResult<RuntimeValue>> {
-        let (env, wasm_runtime_io) = EnvBuilder::create_env(self.k, arg, config);
-        let compiled_module = self.compile(&env, dryrun, backend)?;
-        let result = compiled_module.run(env, dryrun, wasm_runtime_io)?;
-        if !dryrun {
-            #[cfg(feature = "profile")]
-            result.tables.profile_tables();
-        }
-
-        Ok(result)
+        compiled_module.run(monitor, self.env)
     }
 
-    pub fn slice(
+    #[deprecated]
+    pub fn slice<E: MultiMillerLoop>(
         &self,
-        execution_result: ExecutionResult<RuntimeValue>,
+        _execution_result: ExecutionResult<RuntimeValue>,
     ) -> Result<Slices<E::Scalar>, BuildingCircuitError> {
-        Slices::new(self.k, execution_result.tables)
+        todo!()
+        // Slices::new(self.k, execution_result.tables)
     }
 
-    pub fn mock_test(
+    #[deprecated]
+    pub fn mock_test<E: MultiMillerLoop>(
         &self,
         circuit: &ZkWasmCircuit<E::Scalar>,
         instances: &Vec<E::Scalar>,
@@ -228,7 +208,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(())
     }
 
-    pub fn create_proof(
+    pub fn create_proof<E: MultiMillerLoop>(
         &self,
         params: &Params<E::G1Affine>,
         pk: &ProvingKey<E::G1Affine>,
@@ -255,7 +235,7 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(())
     }
 
-    pub fn verify_proof(
+    pub fn verify_proof<E: MultiMillerLoop>(
         &self,
         params: &Params<E::G1Affine>,
         vkey: &VerifyingKey<E::G1Affine>,
@@ -275,6 +255,15 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         .unwrap();
 
         Ok(())
+    }
+
+    /// Compute the checksum of the compiled wasm image.
+    pub fn checksum<C: CurveAffine>(
+        &self,
+        params: &Params<C>,
+        compilation_table: &CompilationTable,
+    ) -> Result<Vec<C>> {
+        Ok(compilation_table.checksum(self.k, params))
     }
 }
 

@@ -10,9 +10,13 @@ use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofLoadInfo;
 use circuits_batcher::proof::ProofPieceInfo;
 use console::style;
+use delphinus_zkwasm::loader::slice::Slices;
+use delphinus_zkwasm::loader::Module;
 use delphinus_zkwasm::loader::ZkWasmLoader;
-use delphinus_zkwasm::runtime::host::HostEnvArg;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::monitor::statistic_monitor::StatisticMonitor;
+use delphinus_zkwasm::runtime::monitor::table_monitor::TableMonitor;
 use halo2_proofs::pairing::bn256::Bn256;
 use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::plonk::CircuitData;
@@ -130,13 +134,13 @@ impl Config {
 }
 
 impl Config {
-    fn read_wasm_image(&self, wasm_image: &PathBuf) -> anyhow::Result<Vec<u8>> {
+    fn read_wasm_image(&self, wasm_image: &PathBuf) -> anyhow::Result<Module> {
         let mut buf = Vec::new();
         File::open(&wasm_image)?.read_to_end(&mut buf)?;
 
         self.image_consistent_check(&buf)?;
 
-        Ok(buf)
+        ZkWasmLoader::parse_module(&buf)
     }
 
     fn read_params(&self, params_dir: &PathBuf) -> anyhow::Result<Params<G1Affine>> {
@@ -174,87 +178,27 @@ impl Config {
         Ok(circuit_data)
     }
 
-    pub(crate) fn dry_run<EnvBuilder: HostEnvBuilder>(
+    pub(crate) fn dry_run(
         self,
+        env_builder: &Box<dyn HostEnvBuilder>,
         wasm_image: &PathBuf,
         output_dir: &PathBuf,
-        arg: EnvBuilder::Arg,
+        arg: ExecutionArg,
         context_output_filename: Option<String>,
     ) -> Result<()> {
-        let wasm_image = self.read_wasm_image(wasm_image)?;
+        let module = self.read_wasm_image(wasm_image)?;
 
-        let context_output = arg.get_context_output();
+        let env = env_builder.create_env(self.k, arg);
 
-        let loader = ZkWasmLoader::<Bn256, EnvBuilder::Arg, EnvBuilder>::new(
-            self.k,
-            wasm_image,
-            self.phantom_functions,
-        )?;
-
-        {
-            println!("{} Executing...", style("[1/2]").bold().dim(),);
-            let result = loader.run(
-                arg,
-                EnvBuilder::HostConfig::default(),
-                true,
-                TraceBackend::Memory,
-            )?;
-
-            println!("total guest instructions used {:?}", result.guest_statics);
-            println!("total host api used {:?}", result.host_statics);
-        };
-
-        {
-            if let Some(context_output_filename) = context_output_filename {
-                let context_output_path = output_dir.join(context_output_filename);
-
-                println!(
-                    "{} Write context output to file {:?}...",
-                    style("[2/2]").bold().dim(),
-                    context_output_path
-                );
-
-                context_output.write(&mut File::create(&context_output_path)?)?;
-            } else {
-                println!(
-                    "{} Context output is not specified. Skip writing context output...",
-                    style("[2/2]").bold().dim()
-                );
-            }
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn prove<EnvBuilder: HostEnvBuilder>(
-        self,
-        wasm_image: &PathBuf,
-        params_dir: &PathBuf,
-        output_dir: &PathBuf,
-        arg: EnvBuilder::Arg,
-        context_output_filename: Option<String>,
-        mock_test: bool,
-        backend: TraceBackend,
-    ) -> anyhow::Result<()> {
-        let mut cached_proving_key = None;
-
-        println!("{} Load image...", style("[1/8]").bold().dim(),);
-        let wasm_image = self.read_wasm_image(wasm_image)?;
-
-        println!("{} Load params...", style("[2/8]").bold().dim(),);
-        let params = self.read_params(params_dir)?;
-
-        let loader = ZkWasmLoader::<Bn256, EnvBuilder::Arg, EnvBuilder>::new(
-            self.k,
-            wasm_image,
-            self.phantom_functions.clone(),
-        )?;
-
-        let context_output = arg.get_context_output();
+        let mut monitor = StatisticMonitor::new(&self.phantom_functions, &env);
 
         let result = {
-            println!("{} Executing...", style("[3/8]").bold().dim(),);
-            let result = loader.run(arg, EnvBuilder::HostConfig::default(), false, backend)?;
+            let loader = ZkWasmLoader::new(self.k, env)?;
+
+            let runner = loader.compile(&module, &mut monitor)?;
+
+            println!("{} Executing...", style("[1/2]").bold().dim(),);
+            let result = loader.run(runner, &mut monitor)?;
 
             println!("total guest instructions used {:?}", result.guest_statics);
             println!("total host api used {:?}", result.host_statics);
@@ -268,11 +212,73 @@ impl Config {
 
                 println!(
                     "{} Write context output to file {:?}...",
+                    style("[2/2]").bold().dim(),
+                    context_output_path
+                );
+
+                result
+                    .context_outputs
+                    .write(&mut File::create(&context_output_path)?)?;
+            } else {
+                println!(
+                    "{} Context output is not specified. Skip writing context output...",
+                    style("[2/2]").bold().dim()
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn prove(
+        self,
+        env_builder: &Box<dyn HostEnvBuilder>,
+        wasm_image: &PathBuf,
+        params_dir: &PathBuf,
+        output_dir: &PathBuf,
+        arg: ExecutionArg,
+        context_output_filename: Option<String>,
+        mock_test: bool,
+        backend: TraceBackend,
+    ) -> anyhow::Result<()> {
+        let mut cached_proving_key = None;
+
+        println!("{} Load image...", style("[1/8]").bold().dim(),);
+        let module = self.read_wasm_image(wasm_image)?;
+
+        println!("{} Load params...", style("[2/8]").bold().dim(),);
+        let params = self.read_params(params_dir)?;
+
+        let env = env_builder.create_env(self.k, arg);
+
+        let mut monitor = TableMonitor::new(self.k, &self.phantom_functions, backend, &env);
+
+        let (result, tables) = {
+            println!("{} Executing...", style("[3/8]").bold().dim(),);
+
+            let loader = ZkWasmLoader::new(self.k, env)?;
+            let runner = loader.compile(&module, &mut monitor)?;
+            let result = loader.run(runner, &mut monitor)?;
+
+            println!("total guest instructions used {:?}", result.guest_statics);
+            println!("total host api used {:?}", result.host_statics);
+
+            (result, monitor.into_tables())
+        };
+
+        {
+            if let Some(context_output_filename) = context_output_filename {
+                let context_output_path = output_dir.join(context_output_filename);
+
+                println!(
+                    "{} Write context output to file {:?}...",
                     style("[4/8]").bold().dim(),
                     context_output_path
                 );
 
-                context_output.write(&mut File::create(&context_output_path)?)?;
+                result
+                    .context_outputs
+                    .write(&mut File::create(&context_output_path)?)?;
             } else {
                 println!(
                     "{} Context output is not specified. Skip writing context output...",
@@ -289,9 +295,7 @@ impl Config {
                 style("[5/8]").bold().dim(),
                 dir
             );
-            result
-                .tables
-                .write(&dir, |slice| name_of_etable_slice(&self.name, slice));
+            tables.write(&dir, |slice| name_of_etable_slice(&self.name, slice));
         }
 
         println!("{} Build circuit(s)...", style("[6/8]").bold().dim(),);
@@ -310,9 +314,12 @@ impl Config {
             circuits_batcher::args::HashType::Poseidon,
         );
 
-        let progress_bar = ProgressBar::new(result.tables.execution_tables.etable.len() as u64);
+        let progress_bar = ProgressBar::new(tables.execution_tables.etable.len() as u64);
 
-        let mut slices = loader.slice(result)?.into_iter().enumerate().peekable();
+        let mut slices = Slices::new(self.k, tables)?
+            .into_iter()
+            .enumerate()
+            .peekable();
         while let Some((index, circuit)) = slices.next() {
             let circuit = circuit?;
 
@@ -320,7 +327,7 @@ impl Config {
 
             if mock_test {
                 println!("mock test for slice {}...", index);
-                loader.mock_test(&circuit, &instances)?;
+                circuit.mock_test(instances.clone())?;
             }
 
             let mut cached_proving_key_or_read =
@@ -404,11 +411,7 @@ impl Config {
         Ok(())
     }
 
-    pub(crate) fn verify<EnvBuilder: HostEnvBuilder>(
-        self,
-        params_dir: &PathBuf,
-        output_dir: &PathBuf,
-    ) -> anyhow::Result<()> {
+    pub(crate) fn verify(self, params_dir: &PathBuf, output_dir: &PathBuf) -> anyhow::Result<()> {
         let mut proofs = {
             println!(
                 "{} Reading proofs from {:?}",

@@ -43,6 +43,8 @@ pub mod state;
 pub mod step;
 pub mod types;
 
+pub const MASK: bool = true;
+
 pub enum TraceBackend {
     File(Box<dyn Fn(usize, &EventTable) -> PathBuf>),
     Memory,

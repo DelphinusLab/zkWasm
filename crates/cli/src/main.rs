@@ -1,22 +1,19 @@
 #![deny(warnings)]
 
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use anyhow::Result;
 use app_builder::app;
 use command::Subcommands;
 use delphinus_host::StandardHostEnvBuilder;
-use delphinus_zkwasm::foreign::context::ContextOutput;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 
 use args::HostMode;
 use config::Config;
+use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use names::name_of_config;
 use names::name_of_etable_slice;
 use specs::args::parse_args;
@@ -52,14 +49,14 @@ fn main() -> Result<()> {
     let cli: ZkWasmCli = app.get_matches().into();
 
     match cli.subcommand {
-        Subcommands::Setup(arg) => match arg.host_mode {
-            HostMode::DEFAULT => {
-                arg.setup::<DefaultHostEnvBuilder>(&cli.name, &cli.params_dir)?;
-            }
-            HostMode::STANDARD => {
-                arg.setup::<StandardHostEnvBuilder>(&cli.name, &cli.params_dir)?;
-            }
-        },
+        Subcommands::Setup(arg) => {
+            let env_builder: Box<dyn HostEnvBuilder> = match arg.host_mode {
+                HostMode::DEFAULT => Box::new(DefaultHostEnvBuilder),
+                HostMode::STANDARD => Box::new(StandardHostEnvBuilder::default()),
+            };
+
+            arg.setup(&env_builder, &cli.name, &cli.params_dir)?;
+        }
         Subcommands::DryRun(arg) => {
             let config = Config::read(&mut fs::File::open(
                 cli.params_dir.join(&name_of_config(&cli.name)),
@@ -69,36 +66,22 @@ fn main() -> Result<()> {
             let private_inputs = parse_args(&arg.running_arg.private_inputs);
             let context_inputs = parse_args(&arg.running_arg.context_inputs);
 
-            match config.host_mode {
-                HostMode::DEFAULT => {
-                    config.dry_run::<DefaultHostEnvBuilder>(
-                        &arg.wasm_image,
-                        &arg.running_arg.output_dir,
-                        ExecutionArg {
-                            public_inputs,
-                            private_inputs,
-                            context_inputs,
-                            context_outputs: ContextOutput::default(),
-                        },
-                        arg.running_arg.context_output,
-                    )?;
-                }
-                HostMode::STANDARD => {
-                    config.dry_run::<StandardHostEnvBuilder>(
-                        &arg.wasm_image,
-                        &arg.running_arg.output_dir,
-                        delphinus_host::ExecutionArg {
-                            public_inputs,
-                            private_inputs,
-                            context_inputs,
-                            context_outputs: ContextOutput::default(),
-                            indexed_witness: Rc::new(RefCell::new(HashMap::new())),
-                            tree_db: None,
-                        },
-                        arg.running_arg.context_output,
-                    )?;
-                }
-            }
+            let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
+                HostMode::DEFAULT => Box::new(DefaultHostEnvBuilder),
+                HostMode::STANDARD => Box::new(StandardHostEnvBuilder::default()),
+            };
+
+            config.dry_run(
+                &env_builder,
+                &arg.wasm_image,
+                &arg.running_arg.output_dir,
+                ExecutionArg {
+                    public_inputs,
+                    private_inputs,
+                    context_inputs,
+                },
+                arg.running_arg.context_output,
+            )?;
         }
         Subcommands::Prove(arg) => {
             let trace_dir = arg.output_dir.clone().join("traces");
@@ -128,56 +111,32 @@ fn main() -> Result<()> {
                 TraceBackend::Memory
             };
 
-            match config.host_mode {
-                HostMode::DEFAULT => {
-                    config.prove::<DefaultHostEnvBuilder>(
-                        &arg.wasm_image,
-                        &cli.params_dir,
-                        &arg.output_dir,
-                        ExecutionArg {
-                            public_inputs,
-                            private_inputs,
-                            context_inputs,
-                            context_outputs: ContextOutput::default(),
-                        },
-                        arg.running_arg.context_output,
-                        arg.mock_test,
-                        backend,
-                    )?;
-                }
-                HostMode::STANDARD => {
-                    config.prove::<StandardHostEnvBuilder>(
-                        &arg.wasm_image,
-                        &cli.params_dir,
-                        &arg.output_dir,
-                        delphinus_host::ExecutionArg {
-                            public_inputs,
-                            private_inputs,
-                            context_inputs,
-                            context_outputs: ContextOutput::default(),
-                            indexed_witness: Rc::new(RefCell::new(HashMap::new())),
-                            tree_db: None,
-                        },
-                        arg.running_arg.context_output,
-                        arg.mock_test,
-                        backend,
-                    )?;
-                }
-            }
+            let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
+                HostMode::DEFAULT => Box::new(DefaultHostEnvBuilder),
+                HostMode::STANDARD => Box::new(StandardHostEnvBuilder::default()),
+            };
+
+            config.prove(
+                &env_builder,
+                &arg.wasm_image,
+                &cli.params_dir,
+                &arg.output_dir,
+                ExecutionArg {
+                    public_inputs,
+                    private_inputs,
+                    context_inputs,
+                },
+                arg.running_arg.context_output,
+                arg.mock_test,
+                backend,
+            )?;
         }
         Subcommands::Verify(arg) => {
             let config = Config::read(&mut fs::File::open(
                 cli.params_dir.join(&name_of_config(&cli.name)),
             )?)?;
 
-            match config.host_mode {
-                HostMode::DEFAULT => {
-                    config.verify::<StandardHostEnvBuilder>(&cli.params_dir, &arg.output_dir)?
-                }
-                HostMode::STANDARD => {
-                    config.verify::<StandardHostEnvBuilder>(&cli.params_dir, &arg.output_dir)?
-                }
-            }
+            config.verify(&cli.params_dir, &arg.output_dir)?;
         }
     }
 

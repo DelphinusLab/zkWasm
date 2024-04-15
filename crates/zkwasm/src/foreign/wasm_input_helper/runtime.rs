@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
@@ -9,29 +8,23 @@ use wasmi::tracer::Observer;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
 use crate::runtime::host::ForeignStatics;
-use crate::runtime::wasmi_interpreter::WasmRuntimeIO;
 
 use super::Op;
 
 pub struct Context {
     pub public_inputs: Vec<u64>,
     pub private_inputs: VecDeque<u64>,
-    pub instance: Rc<RefCell<Vec<u64>>>,
-    pub output: Rc<RefCell<Vec<u64>>>,
+    pub instance: Vec<u64>,
+    pub output: Vec<u64>,
 }
 
 impl Context {
-    pub fn new(
-        public_inputs: Vec<u64>,
-        private_inputs: Vec<u64>,
-        instance: Rc<RefCell<Vec<u64>>>,
-        output: Rc<RefCell<Vec<u64>>>,
-    ) -> Self {
+    pub fn new(public_inputs: Vec<u64>, private_inputs: Vec<u64>) -> Self {
         Context {
             public_inputs,
             private_inputs: private_inputs.into(),
-            instance,
-            output,
+            instance: vec![],
+            output: vec![],
         }
     }
 
@@ -50,16 +43,12 @@ impl Context {
     }
 
     fn push_public(&mut self, value: u64) {
-        let mut instance = self.instance.borrow_mut();
-        instance.push(value)
+        self.instance.push(value)
     }
 
     fn push_output(&mut self, value: u64) {
-        let mut instance = self.instance.borrow_mut();
-        instance.push(value);
-
-        let mut output = self.output.borrow_mut();
-        output.push(value);
+        self.instance.push(value);
+        self.output.push(value);
     }
 
     pub fn wasm_input(&mut self, arg: i32) -> u64 {
@@ -85,16 +74,21 @@ impl ForeignContext for Context {
     fn get_statics(&self) -> Option<ForeignStatics> {
         None
     }
+
+    fn expose_public_inputs_and_outputs(&self) -> Vec<u64> {
+        self.instance.clone()
+    }
+
+    fn expose_outputs(&self) -> Vec<u64> {
+        self.output.clone()
+    }
 }
 
 pub fn register_wasm_input_foreign(
     env: &mut HostEnv,
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
-) -> WasmRuntimeIO {
-    let public_inputs_and_outputs = Rc::new(RefCell::new(vec![]));
-    let outputs = Rc::new(RefCell::new(vec![]));
-
+) {
     let wasm_input = Rc::new(
         |_observer: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
             let context = context.downcast_mut::<Context>().unwrap();
@@ -119,12 +113,7 @@ pub fn register_wasm_input_foreign(
     env.internal_env.register_plugin(
         "wasm input plugin",
         HostPlugin::HostInput,
-        Box::new(Context::new(
-            public_inputs,
-            private_inputs,
-            public_inputs_and_outputs.clone(),
-            outputs.clone(),
-        )),
+        Box::new(Context::new(public_inputs, private_inputs)),
     );
 
     env.internal_env.register_function(
@@ -148,9 +137,4 @@ pub fn register_wasm_input_foreign(
         Op::WasmOutput as usize,
         wasm_output,
     );
-
-    WasmRuntimeIO {
-        public_inputs_and_outputs,
-        outputs,
-    }
 }

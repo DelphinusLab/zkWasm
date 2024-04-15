@@ -1,8 +1,6 @@
 use std::fs::File;
 use std::io;
 use std::io::Write;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 pub mod circuits;
 pub mod etable_op_configure;
@@ -14,15 +12,13 @@ enum Op {
 }
 
 #[derive(Clone, Default)]
-pub struct ContextOutput(pub Arc<Mutex<Vec<u64>>>);
+pub struct ContextOutput(pub Vec<u64>);
 
 impl ContextOutput {
     pub fn write(&self, fd: &mut File) -> io::Result<()> {
-        let context_output: &Vec<u64> = &self.0.lock().unwrap();
-
         fd.write_all("0x".as_bytes())?;
 
-        for value in context_output {
+        for value in &self.0 {
             let bytes = value.to_le_bytes();
             let s = hex::encode(bytes);
             fd.write_all(&s.as_bytes())?;

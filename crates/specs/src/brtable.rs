@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -35,15 +33,18 @@ pub struct ElemEntry {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub struct ElemTable(BTreeMap<(u32, u32), ElemEntry>);
+pub struct ElemTable(Vec<ElemEntry>);
 
 impl ElemTable {
-    pub fn insert(&mut self, entry: ElemEntry) {
-        self.0.insert((entry.table_idx, entry.offset), entry);
+    // pub fn insert(&mut self, entry: ElemEntry) {
+    //     self.0.insert((entry.table_idx, entry.offset), entry);
+    // }
+    pub fn new(entries: Vec<ElemEntry>) -> Self {
+        ElemTable(entries)
     }
 
-    pub fn entries(&self) -> Vec<ElemEntry> {
-        self.0.values().cloned().collect()
+    pub fn entries(&self) -> &Vec<ElemEntry> {
+        &self.0
     }
 }
 

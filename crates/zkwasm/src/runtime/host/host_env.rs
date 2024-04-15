@@ -2,11 +2,14 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+#[cfg(feature = "profile")]
 use std::time::Instant;
 
 use log::debug;
 use specs::host_function::HostFunctionDesc;
-use wasmi::tracer::Tracer;
+use wasmi::tracer::Observer;
+
 use wasmi::Externals;
 use wasmi::ModuleImportResolver;
 use wasmi::RuntimeArgs;
@@ -153,7 +156,7 @@ impl ModuleImportResolver for HostEnv {
 
 pub struct ExecEnv {
     pub host_env: HostEnv,
-    pub tracer: Rc<RefCell<Tracer>>,
+    pub observer: Rc<RefCell<Observer>>,
 }
 
 impl Externals for ExecEnv {
@@ -171,19 +174,24 @@ impl Externals for ExecEnv {
             .clone()
         {
             Some(HostFunction {
-                desc,
+                desc: _desc,
                 execution_env: HostFunctionExecutionEnv { ctx, cb },
             }) => {
                 let mut ctx = (*ctx).borrow_mut();
                 let ctx = ctx.as_mut();
 
+                #[cfg(feature = "profile")]
                 let start = Instant::now();
-                let r = cb(&self.tracer.borrow().observer, ctx, args);
+
+                let r = cb(&self.observer.borrow(), ctx, args);
+
+                #[cfg(feature = "profile")]
                 let duration = start.elapsed();
 
+                #[cfg(feature = "profile")]
                 self.host_env
                     .time_profile
-                    .entry(desc.name().to_string())
+                    .entry(_desc.name().to_string())
                     .and_modify(|d| *d += duration.as_millis())
                     .or_insert(duration.as_millis());
 

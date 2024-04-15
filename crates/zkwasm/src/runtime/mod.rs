@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use halo2_proofs::arithmetic::FieldExt;
 use specs::etable::EventTableEntry;
@@ -10,30 +8,32 @@ use specs::mtable::LocationType;
 use specs::mtable::MemoryTableEntry;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
-use specs::CompilationTable;
-use specs::Tables;
+
+use crate::foreign::context::ContextOutput;
 
 use self::host::ForeignStatics;
 use self::wasmi_interpreter::WasmiRuntime;
 
 pub mod host;
+pub mod monitor;
 pub mod state;
 pub mod wasmi_interpreter;
 
-pub struct CompiledImage<I, T> {
+pub struct CompiledImage<I> {
     pub entry: String,
-    pub tables: CompilationTable,
+    // pub tables: CompilationTable,
     pub instance: I,
-    pub tracer: Rc<RefCell<T>>,
+    // pub tracer: Rc<RefCell<T>>,
 }
 
 pub struct ExecutionResult<R> {
-    pub tables: Tables,
+    // pub tables: Tables,
     pub result: Option<R>,
     pub public_inputs_and_outputs: Vec<u64>,
     pub host_statics: HashMap<String, ForeignStatics>,
     pub guest_statics: usize, // total instructions used in guest circuits
     pub outputs: Vec<u64>,
+    pub context_outputs: ContextOutput,
 }
 
 impl<R> ExecutionResult<R> {

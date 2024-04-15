@@ -591,19 +591,24 @@ impl Into<OpcodeClassPlain> for &Opcode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InstructionTableEntry {
     pub fid: u32,
-    pub function_name: String,
+    // pub function_name: String,
     pub iid: u32,
     pub opcode: Opcode,
     pub encode: BigUint,
 }
 
 impl InstructionTableEntry {
-    pub fn new(fid: u32, function_name: String, iid: u32, opcode: Opcode) -> Self {
+    pub fn new(
+        fid: u32,
+        // function_name: String,
+        iid: u32,
+        opcode: Opcode,
+    ) -> Self {
         let encode = InstructionTableEntry::encode(fid, iid, &opcode);
 
         Self {
             fid,
-            function_name,
+            // function_name,
             iid,
             opcode,
             encode,
@@ -615,11 +620,12 @@ impl InstructionTableEntry {
     }
 }
 
+// br_table instructions make itable entry discontinuous
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct InstructionTableInternal(Vec<Vec<Option<InstructionTableEntry>>>);
 
 impl InstructionTableInternal {
-    pub fn push(&mut self, fid: u32, function_name: String, iid: u32, opcode: Opcode) {
+    pub fn push(&mut self, fid: u32, iid: u32, opcode: Opcode) {
         let fid = fid as usize;
         let iid = iid as usize;
 
@@ -631,10 +637,8 @@ impl InstructionTableInternal {
         }
 
         self.0[fid][iid] = Some(InstructionTableEntry::new(
-            fid as u32,
-            function_name,
-            iid as u32,
-            opcode,
+            fid as u32, // function_name,
+            iid as u32, opcode,
         ));
     }
 }
@@ -648,12 +652,12 @@ impl InstructionTable {
         Self(Arc::new(entries.0))
     }
 
-    pub fn get(&self, fid: u32, iid: u32) -> &Option<InstructionTableEntry> {
-        &self.0[fid as usize][iid as usize]
+    pub fn get(&self, fid: u32, iid: u32) -> &InstructionTableEntry {
+        &self.0[fid as usize][iid as usize].as_ref().unwrap()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &InstructionTableEntry> {
-        self.0.iter().flatten().filter_map(|e| e.as_ref())
+        self.0.iter().flatten().flatten().filter_map(|x| Some(x))
     }
 
     pub fn create_brtable(&self) -> BrTable {

@@ -1,101 +1,68 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::Arc;
-
 use anyhow::Result;
-use specs::host_function::HostFunctionDesc;
-use specs::itable::InstructionTable;
-use specs::jtable::StaticFrameEntry;
-use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
-use specs::state::InitializationState;
-use specs::CompilationTable;
-use specs::ExecutionTable;
-use specs::Tables;
-use specs::TraceBackend;
+use specs::host_function::HostPlugin;
+use wasmi::monitor::Monitor;
 use wasmi::ImportResolver;
 use wasmi::ModuleInstance;
 use wasmi::RuntimeValue;
-use wasmi::DEFAULT_VALUE_STACK_LIMIT;
+
+use crate::foreign::context::ContextOutput;
 
 use super::host::host_env::ExecEnv;
 use super::host::host_env::HostEnv;
+use super::monitor::WasmiMonitor;
 use super::CompiledImage;
 use super::ExecutionResult;
 
-pub struct WasmRuntimeIO {
-    pub public_inputs_and_outputs: Rc<RefCell<Vec<u64>>>,
-    pub outputs: Rc<RefCell<Vec<u64>>>,
-}
-
-impl WasmRuntimeIO {
-    pub fn empty() -> Self {
-        Self {
-            public_inputs_and_outputs: Rc::new(RefCell::new(vec![])),
-            outputs: Rc::new(RefCell::new(vec![])),
-        }
-    }
-}
-
 pub trait Execution<R> {
-    fn run(
-        self,
-        externals: HostEnv,
-        dryrun: bool,
-        wasm_io: WasmRuntimeIO,
-    ) -> Result<ExecutionResult<R>>;
+    fn run(self, monitor: &mut dyn WasmiMonitor, externals: HostEnv) -> Result<ExecutionResult<R>>;
 }
 
-impl Execution<RuntimeValue>
-    for CompiledImage<wasmi::NotStartedModuleRef<'_>, wasmi::tracer::Tracer>
-{
+impl Execution<RuntimeValue> for CompiledImage<wasmi::NotStartedModuleRef<'_>> {
     fn run(
         self,
+        monitor: &mut dyn WasmiMonitor,
         externals: HostEnv,
-        dryrun: bool,
-        wasm_io: WasmRuntimeIO,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         let mut exec_env = ExecEnv {
             host_env: externals,
-            tracer: self.tracer.clone(),
+            observer: monitor.expose_observer(),
         };
         let instance = self
             .instance
-            .run_start_tracer(&mut exec_env, self.tracer.clone())
+            .run_start_tracer(&mut exec_env, monitor)
             .unwrap();
 
-        let result =
-            instance.invoke_export_trace(&self.entry, &[], &mut exec_env, self.tracer.clone())?;
+        let result = instance.invoke_export_trace(&self.entry, &[], &mut exec_env, monitor)?;
 
         let host_statics = exec_env.host_env.external_env.get_statics();
-        // drop to decrease the reference counter of self.tracer
-        drop(exec_env);
-
-        let tracer = Rc::try_unwrap(self.tracer)
-            .unwrap_or_else(|_| panic!())
-            .into_inner();
-
-        let slices = tracer.etable.finalized();
-
-        let execution_tables = if !dryrun {
-            ExecutionTable {
-                etable: slices,
-                jtable: tracer.jtable.clone(),
-            }
-        } else {
-            ExecutionTable::default()
-        };
+        let public_inputs_and_outputs = exec_env
+            .host_env
+            .internal_env
+            .get_context_of_plugin(HostPlugin::HostInput)
+            .borrow()
+            .expose_public_inputs_and_outputs();
+        let outputs = exec_env
+            .host_env
+            .internal_env
+            .get_context_of_plugin(HostPlugin::HostInput)
+            .borrow()
+            .expose_outputs();
+        let context_outputs = ContextOutput(
+            exec_env
+                .host_env
+                .internal_env
+                .get_context_of_plugin(HostPlugin::Context)
+                .borrow()
+                .expose_context_outputs(),
+        );
 
         Ok(ExecutionResult {
-            tables: Tables {
-                compilation_tables: self.tables,
-                execution_tables,
-            },
             result,
             host_statics,
-            guest_statics: tracer.observer.counter,
-            public_inputs_and_outputs: wasm_io.public_inputs_and_outputs.borrow().clone(),
-            outputs: wasm_io.outputs.borrow().clone(),
+            guest_statics: monitor.expose_observer().borrow().counter,
+            public_inputs_and_outputs,
+            outputs,
+            context_outputs,
         })
     }
 }
@@ -108,124 +75,18 @@ impl WasmiRuntime {
     }
 
     pub fn compile<'a, I: ImportResolver>(
+        monitor: &mut dyn Monitor,
         module: &'a wasmi::Module,
         imports: &I,
-        host_plugin_lookup: &HashMap<usize, HostFunctionDesc>,
         entry: &str,
-        dry_run: bool,
-        phantom_functions: &Vec<String>,
-        backend: TraceBackend,
-        capacity: u32,
-    ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>, wasmi::tracer::Tracer>> {
-        let tracer = wasmi::tracer::Tracer::new(
-            host_plugin_lookup.clone(),
-            phantom_functions,
-            dry_run,
-            backend,
-            capacity,
-        );
-        let tracer = Rc::new(RefCell::new(tracer));
-
-        let instance = ModuleInstance::new(&module, imports, Some(tracer.clone()))
-            .expect("failed to instantiate wasm module");
-
-        let fid_of_entry = {
-            let idx_of_entry = instance.lookup_function_by_name(tracer.clone(), entry);
-
-            tracer
-                .clone()
-                .borrow_mut()
-                .static_jtable_entries
-                .push(StaticFrameEntry {
-                    enable: true,
-                    frame_id: 0,
-                    next_frame_id: 0,
-                    callee_fid: idx_of_entry,
-                    fid: 0,
-                    iid: 0,
-                });
-
-            tracer.as_ref().borrow_mut().static_jtable_entries.push(
-                if let Some(idx_of_start_function) = module.module().start_section() {
-                    StaticFrameEntry {
-                        enable: true,
-                        frame_id: 0,
-                        next_frame_id: 0,
-                        callee_fid: idx_of_start_function,
-                        fid: idx_of_entry,
-                        iid: 0,
-                    }
-                } else {
-                    StaticFrameEntry {
-                        enable: false,
-                        frame_id: 0,
-                        next_frame_id: 0,
-                        callee_fid: 0,
-                        fid: 0,
-                        iid: 0,
-                    }
-                },
-            );
-
-            if instance.has_start() {
-                module.module().start_section().unwrap()
-            } else {
-                idx_of_entry
-            }
-        };
-
-        let itable: InstructionTable = tracer.borrow().itable.clone().into();
-        // FIXME: avoid clone
-        let imtable = tracer.borrow().imtable.finalized();
-        let br_table = Arc::new(itable.create_brtable());
-        let elem_table = Arc::new(tracer.borrow().elem_table.clone());
-        let configure_table = Arc::new(tracer.borrow().configure_table.clone());
-        let static_jtable = Arc::new(
-            tracer
-                .borrow()
-                .static_jtable_entries
-                .clone()
-                .try_into()
-                .expect(&format!(
-                    "The number of static frame entries should be {}",
-                    STATIC_FRAME_ENTRY_NUMBER
-                )),
-        );
-        let initialization_state = Arc::new(InitializationState {
-            eid: 1,
-            fid: fid_of_entry,
-            iid: 0,
-            frame_id: 0,
-            sp: DEFAULT_VALUE_STACK_LIMIT as u32 - 1,
-
-            host_public_inputs: 1,
-            context_in_index: 1,
-            context_out_index: 1,
-            external_host_call_call_index: 1,
-
-            initial_memory_pages: configure_table.init_memory_pages,
-            maximal_memory_pages: configure_table.maximal_memory_pages,
-
-            #[cfg(feature = "continuation")]
-            jops: num_bigint::BigUint::from(0u64),
-
-            #[cfg(not(feature = "continuation"))]
-            _phantom: core::marker::PhantomData,
-        });
+    ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>>> {
+        let instance =
+            ModuleInstance::new(&module, imports).expect("failed to instantiate wasm module");
+        monitor.register_module(instance.loaded_module.module(), &instance.instance, entry)?;
 
         Ok(CompiledImage {
             entry: entry.to_owned(),
-            tables: CompilationTable {
-                itable: Arc::new(itable),
-                imtable: Arc::new(imtable),
-                br_table,
-                elem_table,
-                configure_table,
-                static_jtable,
-                initialization_state,
-            },
             instance,
-            tracer,
         })
     }
 }

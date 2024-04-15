@@ -5,12 +5,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use delphinus_zkwasm::foreign::context::runtime::register_context_foreign;
-use delphinus_zkwasm::foreign::context::ContextOutput;
 use delphinus_zkwasm::foreign::log_helper::register_log_foreign;
 use delphinus_zkwasm::foreign::require_helper::register_require_foreign;
 use delphinus_zkwasm::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
-use delphinus_zkwasm::runtime::host::HostEnvArg;
-use delphinus_zkwasm::runtime::wasmi_interpreter::WasmRuntimeIO;
+use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
@@ -20,44 +18,22 @@ use std::collections::HashMap;
 use zkwasm_host_circuits::host::db::TreeDB;
 use zkwasm_host_circuits::proof::OpType;
 
-pub struct ExecutionArg {
+pub struct StandardExecutionArg {
     /// Public inputs for `wasm_input(1)`
     pub public_inputs: Vec<u64>,
     /// Private inputs for `wasm_input(0)`
     pub private_inputs: Vec<u64>,
     /// Context inputs for `wasm_read_context()`
     pub context_inputs: Vec<u64>,
-    /// Context outputs for `wasm_write_context()`
-    pub context_outputs: ContextOutput,
     /// indexed witness context
     pub indexed_witness: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
     /// db src
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
 }
 
-impl HostEnvArg for ExecutionArg {
-    fn get_context_output(&self) -> ContextOutput {
-        self.context_outputs.clone()
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HostEnvConfig {
     pub ops: Vec<OpType>,
-}
-
-impl Default for HostEnvConfig {
-    fn default() -> Self {
-        HostEnvConfig {
-            ops: vec![
-                OpType::POSEIDONHASH,
-                OpType::MERKLE,
-                OpType::JUBJUBSUM,
-                OpType::KECCAKHASH,
-                OpType::BN256SUM,
-            ],
-        }
-    }
 }
 
 impl HostEnvConfig {
@@ -84,39 +60,67 @@ impl HostEnvConfig {
     }
 }
 
-pub struct StandardHostEnvBuilder;
+pub struct StandardHostEnvBuilder {
+    ops: Vec<OpType>,
+}
+
+impl Default for StandardHostEnvBuilder {
+    fn default() -> Self {
+        Self {
+            ops: vec![
+                OpType::POSEIDONHASH,
+                OpType::MERKLE,
+                OpType::JUBJUBSUM,
+                OpType::KECCAKHASH,
+                OpType::BN256SUM,
+            ],
+        }
+    }
+}
 
 impl HostEnvBuilder for StandardHostEnvBuilder {
-    type Arg = ExecutionArg;
-    type HostConfig = HostEnvConfig;
-
-    fn create_env_without_value(k: u32, envconfig: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
+    fn create_env_without_value(&self, k: u32) -> HostEnv {
         let mut env = HostEnv::new(k);
-        let wasm_runtime_io = register_wasm_input_foreign(&mut env, vec![], vec![]);
+        let host_env_config = HostEnvConfig {
+            ops: self.ops.clone(),
+        };
+        register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
-        register_context_foreign(&mut env, vec![], ContextOutput::default());
-        envconfig.register_ops(&mut env);
+        register_context_foreign(&mut env, vec![]);
         host::witness_helper::register_witness_foreign(
             &mut env,
             Rc::new(RefCell::new(HashMap::new())),
         );
+        host_env_config.register_ops(&mut env);
+
         env.finalize();
 
-        (env, wasm_runtime_io)
+        env
     }
 
-    fn create_env(k: u32, arg: Self::Arg, envconfig: Self::HostConfig) -> (HostEnv, WasmRuntimeIO) {
+    fn create_env(&self, k: u32, arg: ExecutionArg) -> HostEnv {
         let mut env = HostEnv::new(k);
-        let wasm_runtime_io =
-            register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);
+        let host_env_config = HostEnvConfig {
+            ops: self.ops.clone(),
+        };
+        let arg = StandardExecutionArg {
+            public_inputs: arg.public_inputs,
+            private_inputs: arg.private_inputs,
+            context_inputs: arg.context_inputs,
+            indexed_witness: Rc::new(RefCell::new(HashMap::new())),
+            tree_db: None,
+        };
+
+        register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
-        register_context_foreign(&mut env, arg.context_inputs, arg.context_outputs);
+        register_context_foreign(&mut env, arg.context_inputs);
         host::witness_helper::register_witness_foreign(&mut env, arg.indexed_witness);
-        envconfig.register_ops(&mut env);
+        host_env_config.register_ops(&mut env);
+
         env.finalize();
 
-        (env, wasm_runtime_io)
+        env
     }
 }

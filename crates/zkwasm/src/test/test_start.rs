@@ -28,6 +28,6 @@ mod tests {
 
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-        test_circuit_with_env(wasm, "zkmain".to_string(), vec![], vec![]).unwrap();
+        test_circuit_with_env(18, wasm, "zkmain".to_string(), vec![], vec![]).unwrap();
     }
 }

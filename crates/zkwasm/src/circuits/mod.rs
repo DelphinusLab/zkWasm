@@ -2,6 +2,7 @@ use crate::circuits::utils::Context;
 use crate::error::BuildingCircuitError;
 
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
@@ -88,6 +89,13 @@ impl<F: FieldExt> ZkWasmCircuit<F> {
             slice,
             _data: PhantomData,
         })
+    }
+
+    pub fn mock_test(&self, instances: Vec<F>) -> anyhow::Result<()> {
+        let prover = MockProver::run(self.k, self, vec![instances])?;
+        assert_eq!(prover.verify(), Ok(()));
+
+        Ok(())
     }
 }
 

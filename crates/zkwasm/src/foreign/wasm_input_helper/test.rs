@@ -19,7 +19,14 @@ mod tests {
         let private_inputs = vec![];
         let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
 
-        test_circuit_with_env(wasm, "zkwasm".to_string(), public_inputs, private_inputs).unwrap();
+        test_circuit_with_env(
+            18,
+            wasm,
+            "zkwasm".to_string(),
+            public_inputs,
+            private_inputs,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -50,6 +57,13 @@ mod tests {
         let private_inputs = vec![];
         let public_inputs = vec![1, 2];
 
-        test_circuit_with_env(wasm, "zkwasm".to_string(), public_inputs, private_inputs).unwrap();
+        test_circuit_with_env(
+            18,
+            wasm,
+            "zkwasm".to_string(),
+            public_inputs,
+            private_inputs,
+        )
+        .unwrap();
     }
 }

@@ -646,7 +646,6 @@ dependencies = [
  "sha2",
  "specs",
  "wabt",
- "wasmi",
 ]
 
 [[package]]
@@ -701,6 +700,7 @@ dependencies = [
  "parity-wasm",
  "rand",
  "rayon",
+ "regex",
  "rusty-fork",
  "serde",
  "serde_json",

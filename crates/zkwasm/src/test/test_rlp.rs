@@ -1,11 +1,6 @@
-use crate::foreign::context::ContextOutput;
-use crate::loader::ZkWasmLoader;
-use crate::runtime::host::default_env::DefaultHostEnvBuilder;
-use crate::runtime::host::default_env::ExecutionArg;
-
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::Bn256;
-use specs::TraceBackend;
+
+use super::test_circuit_with_env;
 
 const K: u32 = 20;
 
@@ -149,26 +144,7 @@ fn run_test() -> Result<()> {
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    let loader = ZkWasmLoader::<Bn256, ExecutionArg, DefaultHostEnvBuilder>::new(K, wasm, vec![])?;
-    let result = loader
-        .run(
-            ExecutionArg {
-                public_inputs,
-                private_inputs,
-                context_inputs: vec![],
-                context_outputs: ContextOutput::default(),
-            },
-            (),
-            false,
-            TraceBackend::Memory,
-        )
-        .unwrap();
-
-    let instances = result.public_inputs_and_outputs();
-
-    let slices = loader.slice(result)?.into_iter();
-
-    slices.mock_test_all(K, instances)?;
+    test_circuit_with_env(K, wasm, "zkmain".to_owned(), public_inputs, private_inputs)?;
 
     Ok(())
 }
