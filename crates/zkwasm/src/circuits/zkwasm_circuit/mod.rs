@@ -340,9 +340,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             let _layouter = layouter.clone();
             let _assigned_cells = assigned_cells.clone();
             s.spawn(move |_| {
-                let pre_image_table = self
-                    .slice
-                    .encode_pre_compilation_table_values(config.circuit_maximal_pages);
+                let pre_image_table = self.slice.encode_pre_compilation_table_values(config.k);
 
                 let cells = exec_with_profile!(
                     || "Assign pre image table chip",
@@ -358,9 +356,8 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             let _assigned_cells = assigned_cells.clone();
             let _memory_writing_table = memory_writing_table.clone();
             s.spawn(move |_| {
-                let post_image_table: ImageTableLayouter<F> = self
-                    .slice
-                    .encode_post_compilation_table_values(config.circuit_maximal_pages);
+                let post_image_table: ImageTableLayouter<F> =
+                    self.slice.encode_post_compilation_table_values(config.k);
 
                 let (rest_memory_writing_ops, memory_finalized_set) =
                     _memory_writing_table.count_rest_memory_finalize_ops();

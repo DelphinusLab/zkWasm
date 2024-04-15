@@ -5,29 +5,24 @@ use specs::CompilationTable;
 
 use crate::circuits::utils::image_table::encode_compilation_table_values;
 
-pub trait ImageCheckSum<Output> {
-    fn checksum(&self, page_capability: u32) -> Output;
+pub trait ImageCheckSum<C: CurveAffine, Output> {
+    fn checksum(&self, k: u32, params: &Params<C>) -> Output;
 }
 
-pub(crate) struct CompilationTableWithParams<'a, 'b, C: CurveAffine> {
-    pub(crate) table: &'a CompilationTable,
-    pub(crate) params: &'b Params<C>,
-}
-
-impl<'a, 'b, C: CurveAffine> ImageCheckSum<Vec<C>> for CompilationTableWithParams<'a, 'b, C> {
-    fn checksum(&self, page_capability: u32) -> Vec<C> {
+impl<C: CurveAffine> ImageCheckSum<C, Vec<C>> for CompilationTable {
+    fn checksum(&self, k: u32, params: &Params<C>) -> Vec<C> {
         let cells = encode_compilation_table_values(
-            &self.table.itable,
-            &self.table.br_table,
-            &self.table.elem_table,
-            &self.table.static_jtable,
-            &self.table.initialization_state,
-            &self.table.imtable,
-            page_capability,
+            k,
+            &self.itable,
+            &self.br_table,
+            &self.elem_table,
+            &self.static_jtable,
+            &self.initialization_state,
+            &self.imtable,
         )
         .plain();
 
-        let c = best_multiexp_gpu_cond(&cells[..], &self.params.get_g_lagrange()[0..cells.len()]);
+        let c = best_multiexp_gpu_cond(&cells[..], &params.get_g_lagrange()[0..cells.len()]);
         vec![c.into()]
     }
 }

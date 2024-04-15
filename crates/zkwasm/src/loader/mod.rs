@@ -16,6 +16,7 @@ use rand::rngs::OsRng;
 use specs::etable::EventTable;
 use specs::jtable::JumpTable;
 use specs::slice::Slice;
+use specs::CompilationTable;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -24,11 +25,9 @@ use wasmi::ImportsBuilder;
 use wasmi::NotStartedModuleRef;
 use wasmi::RuntimeValue;
 
-use crate::checksum::CompilationTableWithParams;
 use crate::checksum::ImageCheckSum;
 use crate::circuits::compute_slice_capability;
 use crate::circuits::config::init_zkwasm_runtime;
-use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::ZkWasmCircuit;
 use crate::error::BuildingCircuitError;
 use crate::loader::err::Error;
@@ -183,21 +182,12 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok(keygen_vk(&params, circuit).unwrap())
     }
 
-    pub fn checksum<'a>(
+    pub fn checksum(
         &self,
-        params: &'a Params<E::G1Affine>,
-        envconfig: EnvBuilder::HostConfig,
+        params: &Params<E::G1Affine>,
+        compilation_table: &CompilationTable,
     ) -> Result<Vec<E::G1Affine>> {
-        let (env, _wasm_runtime_io) = EnvBuilder::create_env_without_value(self.k, envconfig);
-
-        let compiled_module = self.compile(&env, false, TraceBackend::Memory)?;
-
-        let table_with_params = CompilationTableWithParams {
-            table: &compiled_module.tables,
-            params,
-        };
-
-        Ok(table_with_params.checksum(compute_maximal_pages(self.k)))
+        Ok(compilation_table.checksum(self.k, params))
     }
 }
 

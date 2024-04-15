@@ -15,6 +15,7 @@ use specs::slice::Slice;
 use specs::state::InitializationState;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
+use crate::circuits::image_table::compute_maximal_pages;
 use crate::circuits::image_table::PAGE_ENTRIES;
 use crate::circuits::jtable::STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY;
 use crate::circuits::utils::bn_to_field;
@@ -211,14 +212,16 @@ impl ImageTableAssigner {
 }
 
 pub(crate) fn encode_compilation_table_values<F: FieldExt>(
+    k: u32,
     itable: &InstructionTable,
     br_table: &BrTable,
     elem_table: &ElemTable,
     static_frame_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
     initialization_state: &InitializationState<u32>,
     init_memory_table: &InitMemoryTable,
-    page_capability: u32,
 ) -> ImageTableLayouter<F> {
+    let page_capability = compute_maximal_pages(k);
+
     let initialization_state_handler = |_| Ok(initialization_state.map(|v| F::from((*v) as u64)));
 
     let static_frame_entries_handler = |_| {
@@ -330,33 +333,33 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
 }
 
 pub(crate) trait EncodeImageTable<F: FieldExt> {
-    fn encode_pre_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F>;
+    fn encode_pre_compilation_table_values(&self, k: u32) -> ImageTableLayouter<F>;
 
-    fn encode_post_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F>;
+    fn encode_post_compilation_table_values(&self, k: u32) -> ImageTableLayouter<F>;
 }
 
 impl<F: FieldExt> EncodeImageTable<F> for Slice {
-    fn encode_pre_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F> {
+    fn encode_pre_compilation_table_values(&self, k: u32) -> ImageTableLayouter<F> {
         encode_compilation_table_values(
+            k,
             &self.itable,
             &self.br_table,
             &self.elem_table,
             &self.static_jtable,
             &self.initialization_state,
             &self.imtable,
-            page_capability,
         )
     }
 
-    fn encode_post_compilation_table_values(&self, page_capability: u32) -> ImageTableLayouter<F> {
+    fn encode_post_compilation_table_values(&self, k: u32) -> ImageTableLayouter<F> {
         encode_compilation_table_values(
+            k,
             &self.itable,
             &self.br_table,
             &self.elem_table,
             &self.static_jtable,
             &self.post_initialization_state,
             &self.post_imtable,
-            page_capability,
         )
     }
 }

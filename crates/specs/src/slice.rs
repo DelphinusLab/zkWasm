@@ -17,6 +17,7 @@ use crate::mtable::LocationType;
 use crate::mtable::MTable;
 use crate::mtable::MemoryTableEntry;
 use crate::state::InitializationState;
+use crate::CompilationTable;
 use crate::StaticFrameEntry;
 use crate::STATIC_FRAME_ENTRY_NUMBER;
 
@@ -40,6 +41,30 @@ pub struct Slice {
 }
 
 impl Slice {
+    pub fn from_compilation_table(
+        compilation_table: &CompilationTable,
+        is_last_slice: bool,
+    ) -> Self {
+        Slice {
+            itable: compilation_table.itable.clone(),
+            br_table: compilation_table.br_table.clone(),
+            elem_table: compilation_table.elem_table.clone(),
+            configure_table: compilation_table.configure_table.clone(),
+            static_jtable: compilation_table.static_jtable.clone(),
+
+            etable: EventTable::default().into(),
+            frame_table: JumpTable::default().into(),
+
+            imtable: compilation_table.imtable.clone(),
+            post_imtable: compilation_table.imtable.clone(),
+
+            initialization_state: compilation_table.initialization_state.clone(),
+            post_initialization_state: compilation_table.initialization_state.clone(),
+
+            is_last_slice,
+        }
+    }
+
     pub fn create_memory_table(
         &self,
         memory_event_of_step: fn(&EventTableEntry) -> Vec<MemoryTableEntry>,

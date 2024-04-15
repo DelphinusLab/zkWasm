@@ -9,6 +9,7 @@ use crate::config::CircuitDataMd5;
 use crate::TRIVIAL_WASM;
 use clap::Args;
 use console::style;
+use delphinus_zkwasm::circuits::ZkWasmCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::arithmetic::CurveAffine;
@@ -18,6 +19,9 @@ use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::CircuitData;
 use halo2_proofs::poly::commitment::Params;
+use specs::slice::Slice;
+use specs::CompilationTable;
+use specs::TraceBackend;
 
 use crate::args::HostMode;
 use crate::config::Config;
@@ -71,54 +75,37 @@ impl SetupArg {
         })
     }
 
-    #[cfg(feature = "continuation")]
-    pub(crate) fn setup_circuit_data<EnvBuilder: HostEnvBuilder>(
+    pub(crate) fn setup_circuit_data(
         &self,
         name: &str,
         params_dir: &PathBuf,
         params: &Params<G1Affine>,
-        loader: &ZkWasmLoader<Bn256, EnvBuilder::Arg, EnvBuilder>,
+        k: u32,
+        compilation_tables: &CompilationTable,
     ) -> anyhow::Result<CircuitDataConfig> {
-        let on_going_circuit =
-            loader.circuit_without_witness(EnvBuilder::HostConfig::default(), false)?;
-        let finalized_circuit =
-            loader.circuit_without_witness(EnvBuilder::HostConfig::default(), true)?;
+        let setup_circuit = |is_last_slice| -> anyhow::Result<CircuitDataMd5> {
+            let setup_circuit = ZkWasmCircuit::new(
+                k,
+                Slice::from_compilation_table(compilation_tables, is_last_slice),
+            )?;
 
-        let on_going_circuit = SetupArg::_setup_circuit_data(
-            params,
-            &on_going_circuit,
-            params_dir.join(name_of_circuit_data(name, false)),
-        )?;
-        let finalized_circuit = SetupArg::_setup_circuit_data(
-            params,
-            &finalized_circuit,
-            params_dir.join(name_of_circuit_data(name, true)),
-        )?;
+            SetupArg::_setup_circuit_data(
+                params,
+                &setup_circuit,
+                params_dir.join(name_of_circuit_data(name, is_last_slice)),
+            )
+        };
 
-        Ok(CircuitDataConfig {
-            on_going_circuit,
-            finalized_circuit,
-        })
-    }
+        #[cfg(feature = "continuation")]
+        return Ok(CircuitDataConfig {
+            on_going_circuit: setup_circuit(false)?,
+            finalized_circuit: setup_circuit(true)?,
+        });
 
-    #[cfg(not(feature = "continuation"))]
-    pub(crate) fn setup_circuit_data<EnvBuilder: HostEnvBuilder>(
-        &self,
-        name: &str,
-        params_dir: &PathBuf,
-        params: &Params<G1Affine>,
-        loader: &ZkWasmLoader<Bn256, EnvBuilder::Arg, EnvBuilder>,
-    ) -> anyhow::Result<CircuitDataConfig> {
-        let circuit = loader.circuit_without_witness(EnvBuilder::HostConfig::default(), true)?;
-
-        let circuit_data = SetupArg::_setup_circuit_data(
-            params,
-            &circuit,
-            params_dir.join(name_of_circuit_data(name, true)),
-        )?;
-        Ok(CircuitDataConfig {
-            finalized_circuit: circuit_data,
-        })
+        #[cfg(not(feature = "continuation"))]
+        return Ok(CircuitDataConfig {
+            finalized_circuit: setup_circuit(true)?,
+        });
     }
 
     pub(crate) fn setup<EnvBuilder: HostEnvBuilder>(
@@ -132,13 +119,14 @@ impl SetupArg {
             wabt::wat2wasm(&TRIVIAL_WASM).map_err(|err| anyhow::anyhow!(err)),
             |file| fs::read(file).map_err(|err| anyhow::anyhow!(err)),
         )?;
+        let wasm_image_md5 = md5::compute(&wasm_image);
 
         let params_path = params_dir.join(name_of_params(self.k));
         let params = {
             if params_path.exists() {
                 println!(
                     "{} Found existing params at {:?}. Using it instead of building a new one...",
-                    style("[1/4]").bold().dim(),
+                    style("[1/5]").bold().dim(),
                     params_path.canonicalize()?
                 );
 
@@ -146,7 +134,7 @@ impl SetupArg {
             } else {
                 println!(
                     "{} Building params for K = {}...",
-                    style("[1/4]").bold().dim(),
+                    style("[1/5]").bold().dim(),
                     self.k
                 );
                 let params = Params::<G1Affine>::unsafe_setup::<Bn256>(self.k);
@@ -158,23 +146,29 @@ impl SetupArg {
 
         let loader = ZkWasmLoader::<Bn256, _, EnvBuilder>::new(
             self.k,
-            wasm_image.clone(),
+            wasm_image,
             self.phantom_functions.clone(),
         )?;
 
-        println!("{} Building circuit data...", style("[2/4]").bold().dim(),);
-        let circuit_datas = self.setup_circuit_data(name, params_dir, &params, &loader)?;
+        println!("{} Compiling...", style("[2/5]").bold().dim());
+        let (env, _wasm_runtime_io) =
+            EnvBuilder::create_env_without_value(self.k, EnvBuilder::HostConfig::default());
+        let compilation_table = loader.compile(&env, false, TraceBackend::Memory)?.tables;
 
-        println!("{} Computing checksum...", style("[3/4]").bold().dim(),);
+        println!("{} Building circuit data...", style("[3/5]").bold().dim(),);
+        let circuit_datas =
+            self.setup_circuit_data(name, params_dir, &params, self.k, &compilation_table)?;
+
+        println!("{} Computing checksum...", style("[4/5]").bold().dim(),);
         let checksum = {
-            let checksum = loader.checksum(&params, EnvBuilder::HostConfig::default())?;
+            let checksum = loader.checksum(&params, &compilation_table)?;
             assert_eq!(checksum.len(), 1);
 
             (checksum[0].x.to_string(), checksum[0].y.to_string())
         };
 
         {
-            println!("{} Writing config...", style("[4/4]").bold().dim(),);
+            println!("{} Writing config...", style("[5/5]").bold().dim(),);
 
             let params_md5 = {
                 let mut buf = Vec::new();
@@ -198,7 +192,7 @@ impl SetupArg {
                 wasm_image_md5: if cfg!(feature = "uniform-circuit") {
                     None
                 } else {
-                    Some(format!("{:x}", md5::compute(&wasm_image)))
+                    Some(format!("{:x}", wasm_image_md5))
                 },
                 circuit_datas,
 
