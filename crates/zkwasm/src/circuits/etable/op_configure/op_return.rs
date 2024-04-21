@@ -6,18 +6,21 @@ use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::jtable::JumpTableConfig;
+use crate::circuits::jtable::JOPS_SEPARATE;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
 use crate::constant;
 use crate::constant_from;
+use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use num_bigint::ToBigUint;
+use num_traits::One;
 use specs::encode::frame_table::encode_frame_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
@@ -206,11 +209,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     }
 
     fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(self.jops()))
+        Some(constant_from_bn!(&self.jops()))
     }
 
-    fn jops(&self) -> u32 {
-        1
+    fn jops(&self) -> BigUint {
+        BigUint::one() << JOPS_SEPARATE
     }
 
     fn next_frame_id(

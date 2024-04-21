@@ -1,6 +1,9 @@
 use super::JumpTableConfig;
+use crate::circuits::jtable::JOPS_SEPARATE;
+use crate::circuits::utils::bn_to_field;
 use crate::circuits::Lookup;
 use crate::constant_from;
+use crate::constant_from_bn;
 use crate::fixed_curr;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
@@ -8,6 +11,8 @@ use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
+use num_bigint::BigUint;
+use num_traits::One;
 
 pub trait JTableConstraint<F: FieldExt> {
     fn configure(&self, meta: &mut ConstraintSystem<F>) {
@@ -43,7 +48,9 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("c3. jtable rest decrease", |meta| {
             vec![
-                (self.rest(meta) - self.next_rest(meta) - constant_from!(2)
+                (self.rest(meta)
+                    - self.next_rest(meta)
+                    - constant_from_bn!(&((BigUint::one() << JOPS_SEPARATE) + BigUint::one()))
                     + self.static_bit(meta))
                     * self.enable(meta)
                     * fixed_curr!(meta, self.sel),
