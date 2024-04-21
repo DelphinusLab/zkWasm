@@ -46,6 +46,7 @@ use crate::foreign::wasm_input_helper::etable_op_configure::ETableWasmInputHelpe
 use crate::foreign::EventTableForeignCallConfigBuilder;
 use crate::foreign::ForeignTableConfig;
 use crate::foreign::InternalHostPluginBuilder;
+use ark_std::Zero;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
@@ -54,6 +55,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
+use num_bigint::BigUint;
 use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
@@ -78,7 +80,7 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     ops: [AllocatedBitCell<F>; OP_CAPABILITY],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    rest_jops_cell: AllocatedCommonRangeCell<F>,
+    rest_jops_cell: AllocatedUnlimitedCell<F>,
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
@@ -131,8 +133,8 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn jops(&self) -> u32 {
-        0
+    fn jops(&self) -> BigUint {
+        BigUint::zero()
     }
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
@@ -230,7 +232,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let enabled_cell = allocator.alloc_bit_cell();
 
         let rest_mops_cell = allocator.alloc_common_range_cell();
-        let rest_jops_cell = allocator.alloc_common_range_cell();
+        let rest_jops_cell = allocator.alloc_unlimited_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
@@ -244,16 +246,28 @@ impl<F: FieldExt> EventTableConfig<F> {
         let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
 
         // We only need to enable equality for the cells of states
-        let used_common_range_cells_for_state = allocator
-            .free_cells
-            .get(&EventTableCellType::CommonRange)
-            .unwrap();
-        allocator.enable_equality(
-            meta,
-            &EventTableCellType::CommonRange,
-            used_common_range_cells_for_state.0
-                + (used_common_range_cells_for_state.1 != 0) as usize,
-        );
+        {
+            let used_common_range_cells_for_state = allocator
+                .free_cells
+                .get(&EventTableCellType::CommonRange)
+                .unwrap();
+            allocator.enable_equality(
+                meta,
+                &EventTableCellType::CommonRange,
+                used_common_range_cells_for_state.0
+                    + (used_common_range_cells_for_state.1 != 0) as usize,
+            );
+
+            let used_unlimited_cells_for_state = allocator
+                .free_cells
+                .get(&EventTableCellType::Unlimited)
+                .unwrap();
+            allocator.enable_equality(
+                meta,
+                &EventTableCellType::Unlimited,
+                used_unlimited_cells_for_state.0 + (used_unlimited_cells_for_state.1 != 0) as usize,
+            );
+        }
 
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();

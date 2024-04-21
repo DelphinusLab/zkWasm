@@ -1,7 +1,9 @@
+use ark_std::Zero;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
 use log::debug;
+use num_bigint::BigUint;
 use specs::configure_table::ConfigureTable;
 use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
@@ -34,14 +36,12 @@ impl<F: FieldExt> EventTableChip<F> {
         op_configs: &BTreeMap<OpcodeClassPlain, Rc<Box<dyn EventTableOpcodeConfig<F>>>>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
-    ) -> Vec<(u32, u32)> {
+    ) -> Vec<(u32, BigUint)> {
         let mut rest_ops = vec![];
 
-        event_table
-            .0
-            .iter()
-            .rev()
-            .fold((0, 0), |(rest_mops_sum, rest_jops_sum), entry| {
+        event_table.0.iter().rev().fold(
+            (0, BigUint::zero()),
+            |(rest_mops_sum, rest_jops_sum), entry| {
                 let instruction = entry.eentry.get_instruction(itable);
 
                 let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
@@ -51,10 +51,11 @@ impl<F: FieldExt> EventTableChip<F> {
                     rest_jops_sum + op_config.jops(),
                 );
 
-                rest_ops.push(acc);
+                rest_ops.push(acc.clone());
 
                 acc
-            });
+            },
+        );
 
         rest_ops.reverse();
 
@@ -96,7 +97,7 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         rest_mops: u32,
-        rest_jops: u32,
+        rest_jops: &BigUint,
     ) -> Result<(Cell, Cell), Error> {
         let rest_mops_cell = self
             .config
@@ -108,7 +109,7 @@ impl<F: FieldExt> EventTableChip<F> {
             .config
             .common_config
             .rest_jops_cell
-            .assign(ctx, F::from(rest_jops as u64))?;
+            .assign(ctx, bn_to_field(rest_jops))?;
 
         Ok((rest_mops_cell.cell(), rest_mops_jell.cell()))
     }
@@ -121,7 +122,7 @@ impl<F: FieldExt> EventTableChip<F> {
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
         fid_of_entry: u32,
-        rest_ops: Vec<(u32, u32)>,
+        rest_ops: Vec<(u32, BigUint)>,
     ) -> Result<(Cell, Cell, Cell), Error> {
         macro_rules! assign_advice {
             ($cell:ident, $value:expr) => {
@@ -258,7 +259,7 @@ impl<F: FieldExt> EventTableChip<F> {
 
             assign_advice!(enabled_cell, F::one());
             assign_advice!(rest_mops_cell, F::from(*rest_mops as u64));
-            assign_advice!(rest_jops_cell, F::from(*rest_jops as u64));
+            assign_advice!(rest_jops_cell, bn_to_field(rest_jops));
             assign_advice!(input_index_cell, F::from(host_public_inputs as u64));
             assign_advice!(context_input_index_cell, F::from(context_in_index as u64));
             assign_advice!(context_output_index_cell, F::from(context_out_index as u64));
@@ -352,7 +353,9 @@ impl<F: FieldExt> EventTableChip<F> {
         let (rest_mops_cell, rest_jops_cell) = self.assign_rest_ops_first_step(
             ctx,
             rest_ops.first().map_or(0u32, |(rest_mops, _)| *rest_mops),
-            rest_ops.first().map_or(0u32, |(_, rest_jops)| *rest_jops),
+            rest_ops
+                .first()
+                .map_or(&BigUint::zero(), |(_, rest_jops)| rest_jops),
         )?;
         ctx.reset();
 

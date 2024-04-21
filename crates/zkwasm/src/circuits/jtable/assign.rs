@@ -1,11 +1,14 @@
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Cell;
 use halo2_proofs::plonk::Error;
+use num_bigint::BigUint;
+use num_traits::One;
 use specs::jtable::JumpTable;
 use specs::jtable::StaticFrameEntry;
 
 use super::JtableOffset;
 use super::JumpTableChip;
+use super::JOPS_SEPARATE;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 
@@ -64,7 +67,7 @@ impl<F: FieldExt> JumpTableChip<F> {
     fn assign_static_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: &mut u64,
+        rest_jops: &mut BigUint,
         static_entries: &Vec<StaticFrameEntry>,
     ) -> Result<Vec<(Cell, Cell)>, Error> {
         let mut static_entries = static_entries.clone();
@@ -108,7 +111,7 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || "jtable rest",
                 self.config.data,
                 ctx.offset,
-                || Ok((*rest_jops).into()),
+                || Ok(bn_to_field(rest_jops)),
             )?;
             ctx.next();
 
@@ -126,7 +129,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             cells.push((enable_cell, entry_cell));
 
             if entry.enable {
-                *rest_jops -= 1;
+                *rest_jops -= BigUint::one() << JOPS_SEPARATE;
             }
         }
 
@@ -136,11 +139,11 @@ impl<F: FieldExt> JumpTableChip<F> {
     fn assign_jtable_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: &mut u64,
+        rest_jops: &mut BigUint,
         jtable: &JumpTable,
     ) -> Result<(), Error> {
         for entry in jtable.entries().iter() {
-            let rest_f = (*rest_jops).into();
+            let rest_f = bn_to_field(rest_jops);
             let entry_f = bn_to_field(&entry.encode());
 
             ctx.region.assign_advice(
@@ -167,7 +170,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            *rest_jops -= 2;
+            *rest_jops -= (BigUint::one() << JOPS_SEPARATE) + BigUint::one();
         }
 
         {
@@ -213,7 +216,9 @@ impl<F: FieldExt> JumpTableChip<F> {
         self.init(ctx)?;
         ctx.reset();
 
-        let mut rest_jops = jtable.entries().len() as u64 * 2 + static_entries.len() as u64;
+        let mut rest_jops = BigUint::one() * jtable.entries().len()
+            + (BigUint::one() << JOPS_SEPARATE)
+                * (BigUint::from((static_entries.len() + jtable.entries().len()) as u64));
 
         let frame_table_start_jump_cells =
             self.assign_static_entries(ctx, &mut rest_jops, static_entries)?;
