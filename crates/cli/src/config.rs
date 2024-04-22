@@ -236,6 +236,8 @@ impl Config {
         mock_test: bool,
         backend: TraceBackend,
     ) -> anyhow::Result<()> {
+        let mut cached_proving_key = None;
+
         println!("{} Load image...", style("[1/8]").bold().dim(),);
         let wasm_image = self.read_wasm_image(wasm_image)?;
 
@@ -321,28 +323,47 @@ impl Config {
                 loader.mock_test(&circuit, &instances)?;
             }
 
+            let mut cached_proving_key_or_read =
+                |file_name: &str, is_last_circuit, expected_md5| -> anyhow::Result<()> {
+                    if let Some((name, _)) = cached_proving_key.as_ref() {
+                        if name == file_name {
+                            return Ok(());
+                        }
+                    }
+
+                    let pk = self
+                        .read_circuit_data(
+                            &params_dir.join(name_of_circuit_data(&self.name, is_last_circuit)),
+                            expected_md5,
+                        )?
+                        .into_proving_key(&params);
+
+                    cached_proving_key = Some((file_name.to_string(), pk));
+
+                    Ok(())
+                };
+
             #[cfg(feature = "continuation")]
-            let proving_key = if _is_finalized_circuit {
-                self.read_circuit_data(
-                    &params_dir.join(name_of_circuit_data(&self.name, true)),
+            if _is_finalized_circuit {
+                cached_proving_key_or_read(
+                    &self.circuit_datas.finalized_circuit.circuit_data_md5,
+                    true,
                     &self.circuit_datas.finalized_circuit.circuit_data_md5,
                 )?
-                .into_proving_key(&params)
             } else {
-                self.read_circuit_data(
-                    &params_dir.join(name_of_circuit_data(&self.name, false)),
+                cached_proving_key_or_read(
+                    &self.circuit_datas.on_going_circuit.circuit_data_md5,
+                    false,
                     &self.circuit_datas.on_going_circuit.circuit_data_md5,
                 )?
-                .into_proving_key(&params)
             };
 
             #[cfg(not(feature = "continuation"))]
-            let proving_key = self
-                .read_circuit_data(
-                    &params_dir.join(name_of_circuit_data(&self.name, true)),
-                    &self.circuit_datas.finalized_circuit.circuit_data_md5,
-                )?
-                .into_proving_key(&params);
+            cached_proving_key_or_read(
+                &self.circuit_datas.finalized_circuit.circuit_data_md5,
+                true,
+                &self.circuit_datas.finalized_circuit.circuit_data_md5,
+            )?;
 
             let circuit_data_name = name_of_circuit_data(&self.name, _is_finalized_circuit);
 
@@ -358,7 +379,7 @@ impl Config {
                 &circuit,
                 &vec![instances.clone()],
                 &params,
-                &proving_key,
+                &cached_proving_key.as_ref().unwrap().1,
                 output_dir,
                 proof_load_info.hashtype,
                 OpenSchema::Shplonk,
