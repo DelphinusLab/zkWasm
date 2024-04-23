@@ -29,6 +29,7 @@ use wasmi::func::FuncInstanceInternal;
 
 use wasmi::isa::Instruction;
 use wasmi::isa::Keep;
+use wasmi::memory_units::Pages;
 use wasmi::module::eval_init_expr;
 use wasmi::monitor::Monitor;
 use wasmi::runner::from_value_internal_to_u64_with_typ;
@@ -598,6 +599,16 @@ impl Monitor for TablePlugin {
                     }
 
                     if self.phantom_helper.is_phantom_function(*index as u32) {
+                        if let Some(memory_ref) = function_context.memory() {
+                            let mut buf = memory_ref.buffer_cache.borrow_mut();
+
+                            if buf.is_none() {
+                                *buf = Some((
+                                    Pages(allocated_memory_pages as usize),
+                                    HashMap::default(),
+                                ));
+                            }
+                        }
                         self.phantom_helper.push_frame(value_stack.len() as u32);
                     }
                 }
@@ -609,9 +620,22 @@ impl Monitor for TablePlugin {
                     let wasm_input = self.phantom_helper.wasm_input.clone();
                     let signature = self.function_table[fid as usize].signature.clone();
                     if !self.phantom_helper.is_in_phantom_function() {
+                        let allocated_memory_pages =
+                            if let Some(memory_ref) = function_context.memory() {
+                                let mut buf = memory_ref.buffer_cache.borrow_mut();
+
+                                let pages = buf.as_ref().unwrap().0;
+                                *buf = None;
+                                memory_ref.shrink(pages).unwrap();
+
+                                pages.0
+                            } else {
+                                0
+                            };
+
                         self.fill_trace(
                             sp_before,
-                            allocated_memory_pages,
+                            allocated_memory_pages as u32,
                             fid,
                             &signature,
                             if let Keep::Single(t) = dropkeep.keep {
