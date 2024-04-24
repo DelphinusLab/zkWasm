@@ -540,9 +540,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 let mut i = 0;
                 self.memory_table_lookup_stack_read.assign(
                     ctx,
-                    entry.memory_rw_entires[i].start_eid,
+                    entry.memory_rw_entries[i].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[i].end_eid,
+                    entry.memory_rw_entries[i].end_eid,
                     step.current.sp + 1,
                     LocationType::Stack,
                     true,
@@ -552,9 +552,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 self.memory_table_lookup_heap_read1.assign(
                     ctx,
-                    entry.memory_rw_entires[i].start_eid,
+                    entry.memory_rw_entries[i].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[i].end_eid,
+                    entry.memory_rw_entries[i].end_eid,
                     effective_address >> 3,
                     LocationType::Heap,
                     false,
@@ -565,9 +565,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 if is_cross_block {
                     self.memory_table_lookup_heap_read2.assign(
                         ctx,
-                        entry.memory_rw_entires[i].start_eid,
+                        entry.memory_rw_entries[i].start_eid,
                         step.current.eid,
-                        entry.memory_rw_entires[i].end_eid,
+                        entry.memory_rw_entries[i].end_eid,
                         (effective_address >> 3) + 1,
                         LocationType::Heap,
                         false,
@@ -579,7 +579,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[i].end_eid,
+                    entry.memory_rw_entries[i].end_eid,
                     step.current.sp + 1,
                     LocationType::Stack,
                     vtype == VarType::I32,

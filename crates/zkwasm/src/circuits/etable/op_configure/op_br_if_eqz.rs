@@ -153,9 +153,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
 
                 self.memory_table_lookup_stack_read_cond.assign(
                     ctx,
-                    entry.memory_rw_entires[0].start_eid,
+                    entry.memory_rw_entries[0].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entries[0].end_eid,
                     step.current.sp + 1,
                     LocationType::Stack,
                     true,
@@ -172,9 +172,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                     if *condition == 0 {
                         self.memory_table_lookup_stack_read_return_value.assign(
                             ctx,
-                            entry.memory_rw_entires[1].start_eid,
+                            entry.memory_rw_entries[1].start_eid,
                             step.current.eid,
-                            entry.memory_rw_entires[1].end_eid,
+                            entry.memory_rw_entries[1].end_eid,
                             step.current.sp + 2,
                             LocationType::Stack,
                             VarType::from(keep[0]) == VarType::I32,
@@ -184,7 +184,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                         self.memory_table_lookup_stack_write_return_value.assign(
                             ctx,
                             step.current.eid,
-                            entry.memory_rw_entires[2].end_eid,
+                            entry.memory_rw_entries[2].end_eid,
                             step.current.sp + *drop + 2,
                             LocationType::Stack,
                             VarType::from(keep[0]) == VarType::I32,
