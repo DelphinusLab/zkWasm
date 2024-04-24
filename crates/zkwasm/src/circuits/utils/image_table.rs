@@ -83,7 +83,7 @@ pub fn image_table_offset_to_memory_location(offset: usize) -> (LocationType, u3
  */
 #[derive(Debug)]
 pub struct ImageTableLayouter<T> {
-    pub(crate) initialization_state: InitializationState<T>,
+    pub(crate) initialization_state: InitializationState<T, T>,
     pub(crate) static_frame_entries: [(T, T); STATIC_FRAME_ENTRY_NUMBER],
     pub(crate) instructions: Vec<T>,
     pub(crate) br_table_entires: Vec<T>,
@@ -110,7 +110,7 @@ impl ImageTableAssigner {
     pub fn new(instruction_number: usize, br_table_number: usize, pages_capability: u32) -> Self {
         let initialization_state_offset = 0;
         let static_frame_entries_offset =
-            initialization_state_offset + InitializationState::<u32>::field_count();
+            initialization_state_offset + InitializationState::<u32, BigUint>::field_count();
         let instruction_offset = static_frame_entries_offset + STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY;
         let br_table_offset = instruction_offset + instruction_number;
         let padding_offset = br_table_offset + br_table_number;
@@ -136,8 +136,8 @@ impl ImageTableAssigner {
 
     pub fn exec_initialization_state<T, Error>(
         &self,
-        mut initialization_state_handler: impl FnMut(usize) -> Result<InitializationState<T>, Error>,
-    ) -> Result<InitializationState<T>, Error> {
+        mut initialization_state_handler: impl FnMut(usize) -> Result<InitializationState<T, T>, Error>,
+    ) -> Result<InitializationState<T, T>, Error> {
         initialization_state_handler(self.initialization_state_offset)
     }
 
@@ -183,7 +183,7 @@ impl ImageTableAssigner {
 
     pub fn exec<T, Error>(
         &self,
-        initialization_state_handler: impl FnMut(usize) -> Result<InitializationState<T>, Error>,
+        initialization_state_handler: impl FnMut(usize) -> Result<InitializationState<T, T>, Error>,
         static_frame_entries_handler: impl FnMut(
             usize,
         )
@@ -217,12 +217,13 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
     br_table: &BrTable,
     elem_table: &ElemTable,
     static_frame_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
-    initialization_state: &InitializationState<u32>,
+    initialization_state: &InitializationState<u32, BigUint>,
     init_memory_table: &InitMemoryTable,
 ) -> ImageTableLayouter<F> {
     let page_capability = compute_maximal_pages(k);
 
-    let initialization_state_handler = |_| Ok(initialization_state.map(|v| F::from((*v) as u64)));
+    let initialization_state_handler =
+        |_| Ok(initialization_state.map(|v| F::from((*v) as u64), |v| bn_to_field(v)));
 
     let static_frame_entries_handler = |_| {
         let mut cells = vec![];

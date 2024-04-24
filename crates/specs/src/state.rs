@@ -1,9 +1,10 @@
+use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[cfg(feature = "continuation")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InitializationState<T> {
+pub struct InitializationState<T, U> {
     pub eid: T,
     pub fid: T,
     pub iid: T,
@@ -18,12 +19,12 @@ pub struct InitializationState<T> {
     pub initial_memory_pages: T,
     pub maximal_memory_pages: T,
 
-    pub jops: T,
+    pub jops: U,
 }
 
 #[cfg(not(feature = "continuation"))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InitializationState<T> {
+pub struct InitializationState<T, U> {
     pub eid: T,
     pub fid: T,
     pub iid: T,
@@ -37,9 +38,11 @@ pub struct InitializationState<T> {
 
     pub initial_memory_pages: T,
     pub maximal_memory_pages: T,
+
+    pub _phantom: std::marker::PhantomData<U>,
 }
 
-impl<T> InitializationState<T> {
+impl<T> InitializationState<T, T> {
     pub fn zip_for_each<U, E>(
         &self,
         other: &Self,
@@ -67,17 +70,9 @@ impl<T> InitializationState<T> {
 
         Ok(())
     }
-
-    pub fn field_count() -> usize {
-        if cfg!(feature = "continuation") {
-            12
-        } else {
-            11
-        }
-    }
 }
 
-impl Default for InitializationState<u32> {
+impl Default for InitializationState<u32, BigUint> {
     fn default() -> Self {
         Self {
             eid: Default::default(),
@@ -96,11 +91,14 @@ impl Default for InitializationState<u32> {
 
             #[cfg(feature = "continuation")]
             jops: Default::default(),
+
+            #[cfg(not(feature = "continuation"))]
+            _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<T: Clone> InitializationState<T> {
+impl<T: Clone> InitializationState<T, T> {
     pub fn plain(&self) -> Vec<T> {
         let mut v = vec![];
 
@@ -123,12 +121,26 @@ impl<T: Clone> InitializationState<T> {
 
         v
     }
+}
 
-    pub fn for_each<U>(&self, f: impl FnMut(&T) -> U) {
-        self.map(f);
+impl<T, U> InitializationState<T, U> {
+    pub fn field_count() -> usize {
+        if cfg!(feature = "continuation") {
+            12
+        } else {
+            11
+        }
     }
 
-    pub fn map<U>(&self, mut f: impl FnMut(&T) -> U) -> InitializationState<U> {
+    pub fn for_each<V>(&self, f: impl FnMut(&T) -> V, g: impl FnMut(&U) -> V) {
+        self.map(f, g);
+    }
+
+    pub fn map<V>(
+        &self,
+        mut f: impl FnMut(&T) -> V,
+        mut _g: impl FnMut(&U) -> V,
+    ) -> InitializationState<V, V> {
         InitializationState {
             eid: f(&self.eid),
             fid: f(&self.fid),
@@ -145,13 +157,16 @@ impl<T: Clone> InitializationState<T> {
             maximal_memory_pages: f(&self.maximal_memory_pages),
 
             #[cfg(feature = "continuation")]
-            jops: f(&self.jops),
+            jops: _g(&self.jops),
+
+            #[cfg(not(feature = "continuation"))]
+            _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<T, E> InitializationState<Result<T, E>> {
-    pub fn transpose(self) -> Result<InitializationState<T>, E> {
+impl<T, U, E> InitializationState<Result<T, E>, Result<U, E>> {
+    pub fn transpose(self) -> Result<InitializationState<T, U>, E> {
         Ok(InitializationState {
             eid: self.eid?,
             fid: self.fid?,
@@ -167,6 +182,9 @@ impl<T, E> InitializationState<Result<T, E>> {
 
             #[cfg(feature = "continuation")]
             jops: self.jops?,
+
+            #[cfg(not(feature = "continuation"))]
+            _phantom: std::marker::PhantomData,
         })
     }
 }

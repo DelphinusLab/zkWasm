@@ -183,9 +183,12 @@ impl<F: FieldExt> PostImageTableChip<F> {
                 let initialization_state_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
+                    let assign_handler =
+                        |field: &F| Ok(assign!(ctx, self.config.post_image_table, *field)?);
+
                     let initialization_state = post_image_table
                         .initialization_state
-                        .map(|field| Ok(assign!(ctx, self.config.post_image_table, *field)?));
+                        .map(assign_handler, assign_handler);
 
                     initialization_state.transpose()
                 };

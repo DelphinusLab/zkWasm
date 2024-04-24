@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use num_bigint::BigUint;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
@@ -34,8 +35,8 @@ pub struct Slice {
     pub imtable: Arc<InitMemoryTable>,
     pub post_imtable: Arc<InitMemoryTable>,
 
-    pub initialization_state: Arc<InitializationState<u32>>,
-    pub post_initialization_state: Arc<InitializationState<u32>>,
+    pub initialization_state: Arc<InitializationState<u32, BigUint>>,
+    pub post_initialization_state: Arc<InitializationState<u32, BigUint>>,
 
     pub is_last_slice: bool,
 }

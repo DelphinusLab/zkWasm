@@ -77,9 +77,11 @@ impl<F: FieldExt> ImageTableChip<F> {
                 let initialization_state_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
+                    let assign_handler = |field: &F| assign!(ctx, self.config.col, *field);
+
                     let initialization_state = image_table
                         .initialization_state
-                        .map(|field| assign!(ctx, self.config.col, *field));
+                        .map(assign_handler, assign_handler);
 
                     initialization_state.transpose()
                 };

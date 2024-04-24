@@ -207,7 +207,10 @@ impl WasmiRuntime {
             maximal_memory_pages: configure_table.maximal_memory_pages,
 
             #[cfg(feature = "continuation")]
-            jops: 0,
+            jops: num_bigint::BigUint::from(0u64),
+
+            #[cfg(not(feature = "continuation"))]
+            _phantom: core::marker::PhantomData,
         });
 
         Ok(CompiledImage {

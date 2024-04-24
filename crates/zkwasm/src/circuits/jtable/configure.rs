@@ -1,6 +1,9 @@
 use super::JumpTableConfig;
+use crate::circuits::jtable::encode_jops;
+use crate::circuits::utils::bn_to_field;
 use crate::circuits::Lookup;
 use crate::constant_from;
+use crate::constant_from_bn;
 use crate::fixed_curr;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Advice;
@@ -43,7 +46,7 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>) {
         meta.create_gate("c3. jtable rest decrease", |meta| {
             vec![
-                (self.rest(meta) - self.next_rest(meta) - constant_from!(2)
+                (self.rest(meta) - self.next_rest(meta) - constant_from_bn!(&encode_jops(1, 1))
                     + self.static_bit(meta))
                     * self.enable(meta)
                     * fixed_curr!(meta, self.sel),

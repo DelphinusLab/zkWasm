@@ -1,4 +1,5 @@
 use halo2_proofs::arithmetic::FieldExt;
+use num_bigint::BigUint;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
@@ -31,7 +32,7 @@ pub struct Slices<F: FieldExt> {
     frame_table: Arc<JumpTable>,
 
     imtable: Arc<InitMemoryTable>,
-    initialization_state: Arc<InitializationState<u32>>,
+    initialization_state: Arc<InitializationState<u32, BigUint>>,
     etables: VecDeque<EventTableBackend>,
 
     _marker: std::marker::PhantomData<F>,

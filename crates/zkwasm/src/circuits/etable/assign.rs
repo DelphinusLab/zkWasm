@@ -4,6 +4,7 @@ use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use log::debug;
+use num_bigint::BigUint;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
@@ -64,16 +65,18 @@ pub(in crate::circuits) struct EventTablePermutationCells<F: FieldExt> {
     pub(in crate::circuits) rest_mops: AssignedCell<F, F>,
     // rest_jops cell at first step
     pub(in crate::circuits) rest_jops: Option<AssignedCell<F, F>>,
-    pub(in crate::circuits) pre_initialization_state: InitializationState<AssignedCell<F, F>>,
-    pub(in crate::circuits) post_initialization_state: InitializationState<AssignedCell<F, F>>,
+    pub(in crate::circuits) pre_initialization_state:
+        InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>,
+    pub(in crate::circuits) post_initialization_state:
+        InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
     fn assign_step_state(
         &self,
         ctx: &mut Context<'_, F>,
-        state: &InitializationState<u32>,
-    ) -> Result<InitializationState<AssignedCell<F, F>>, Error> {
+        state: &InitializationState<u32, BigUint>,
+    ) -> Result<InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>, Error> {
         cfg_if::cfg_if! {
             if #[cfg(feature="continuation")] {
                 macro_rules! assign_u32_state {
@@ -96,6 +99,16 @@ impl<F: FieldExt> EventTableChip<F> {
                     .common_config
                     .$cell
                     .assign(ctx, F::from($value as u64))?
+            };
+        }
+
+        #[cfg(feature = "continuation")]
+        macro_rules! assign_biguint {
+            ($cell:ident, $value:expr) => {
+                self.config
+                    .common_config
+                    .$cell
+                    .assign(ctx, bn_to_field(&$value))?
             };
         }
 
@@ -122,7 +135,7 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_common_range_advice!(maximal_memory_pages_cell, state.maximal_memory_pages);
 
         #[cfg(feature = "continuation")]
-        let jops = assign_common_range_advice!(jops_cell, state.jops);
+        let jops = assign_biguint!(jops_cell, state.jops);
 
         ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
 
@@ -143,6 +156,9 @@ impl<F: FieldExt> EventTableChip<F> {
 
             #[cfg(feature = "continuation")]
             jops,
+
+            #[cfg(not(feature = "continuation"))]
+            _phantom: core::marker::PhantomData,
         })
     }
 
@@ -151,26 +167,25 @@ impl<F: FieldExt> EventTableChip<F> {
         op_configs: Arc<BTreeMap<OpcodeClassPlain, OpcodeConfig<F>>>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
-        _initialization_state: &InitializationState<u32>,
-    ) -> (u32, u32) {
-        let (rest_mops, _rest_jops) =
-            event_table
-                .0
-                .iter()
-                .fold((0, 0), |(rest_mops_sum, rest_jops_sum), entry| {
-                    let instruction = entry.eentry.get_instruction(itable);
+        _initialization_state: &InitializationState<u32, BigUint>,
+    ) -> (u32, BigUint) {
+        let (rest_mops, _rest_jops) = event_table.0.iter().fold(
+            (0, BigUint::from(0u64)),
+            |(rest_mops_sum, rest_jops_sum), entry| {
+                let instruction = entry.eentry.get_instruction(itable);
 
-                    let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
+                let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
 
-                    (
-                        rest_mops_sum + op_config.0.memory_writing_ops(&entry.eentry),
-                        rest_jops_sum + op_config.0.jops(),
-                    )
-                });
+                (
+                    rest_mops_sum + op_config.0.memory_writing_ops(&entry.eentry),
+                    rest_jops_sum + op_config.0.jops(),
+                )
+            },
+        );
 
         cfg_if::cfg_if! {
             if #[cfg(feature="continuation")] {
-                (rest_mops, _initialization_state.jops)
+                (rest_mops, _initialization_state.jops.clone())
             } else {
                 (rest_mops, _rest_jops)
             }
@@ -226,8 +241,8 @@ impl<F: FieldExt> EventTableChip<F> {
     fn assign_padding_and_post_initialization_state(
         &self,
         ctx: &mut Context<'_, F>,
-        initialization_state: &InitializationState<u32>,
-    ) -> Result<InitializationState<AssignedCell<F, F>>, Error> {
+        initialization_state: &InitializationState<u32, BigUint>,
+    ) -> Result<InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>, Error> {
         while ctx.offset < self.capability * EVENT_TABLE_ENTRY_ROWS as usize {
             self.assign_step_state(ctx, initialization_state)?;
         }
@@ -242,10 +257,10 @@ impl<F: FieldExt> EventTableChip<F> {
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        initialization_state: &InitializationState<u32>,
-        post_initialization_state: &InitializationState<u32>,
+        initialization_state: &InitializationState<u32, BigUint>,
+        post_initialization_state: &InitializationState<u32, BigUint>,
         rest_mops: u32,
-        jops: u32,
+        jops: BigUint,
     ) -> Result<(), Error> {
         macro_rules! assign_advice {
             ($ctx:expr, $cell:ident, $value:expr) => {
@@ -297,7 +312,7 @@ impl<F: FieldExt> EventTableChip<F> {
                         allocated_memory_pages: entry.eentry.allocated_memory_pages,
 
                         rest_mops,
-                        jops,
+                        jops: jops.clone(),
 
                         host_public_inputs,
                         context_in_index,
@@ -404,7 +419,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     itable_lookup_cell,
                     bn_to_field(&instruction.encode)
                 );
-                assign_advice!(&mut ctx, jops_cell, F::from(status[index].jops as u64));
+                assign_advice!(&mut ctx, jops_cell, bn_to_field(&status[index].jops));
 
                 {
                     let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
@@ -430,7 +445,10 @@ impl<F: FieldExt> EventTableChip<F> {
                         maximal_memory_pages: configure_table.maximal_memory_pages,
 
                         #[cfg(feature = "continuation")]
-                        jops: status[index].jops,
+                        jops: status[index].jops.clone(),
+
+                        #[cfg(not(feature = "continuation"))]
+                        _phantom: core::marker::PhantomData,
                     },
                 )
                 .unwrap();
@@ -445,8 +463,8 @@ impl<F: FieldExt> EventTableChip<F> {
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        initialization_state: &InitializationState<u32>,
-        post_initialization_state: &InitializationState<u32>,
+        initialization_state: &InitializationState<u32, BigUint>,
+        post_initialization_state: &InitializationState<u32, BigUint>,
         _is_last_slice: bool,
     ) -> Result<EventTablePermutationCells<F>, Error> {
         layouter.assign_region(

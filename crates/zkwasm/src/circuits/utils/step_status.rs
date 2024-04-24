@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use specs::configure_table::ConfigureTable;
 use specs::itable::InstructionTable;
 
@@ -11,7 +12,7 @@ pub struct Status<'a> {
     pub allocated_memory_pages: u32,
 
     pub rest_mops: u32,
-    pub jops: u32,
+    pub jops: BigUint,
 
     pub host_public_inputs: u32,
     pub context_in_index: u32,

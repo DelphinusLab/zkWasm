@@ -2,10 +2,12 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
+use num_bigint::BigUint;
 use specs::jtable::JumpTable;
 use specs::jtable::StaticFrameEntry;
 use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 
+use super::encode_jops;
 use super::JtableOffset;
 use super::JumpTableChip;
 use crate::circuits::utils::bn_to_field;
@@ -16,13 +18,13 @@ impl<F: FieldExt> JumpTableChip<F> {
     fn assign_first_rest_jops(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: u64,
+        rest_jops: BigUint,
     ) -> Result<AssignedCell<F, F>, Error> {
         let cell = ctx.region.assign_advice(
             || "jtable rest",
             self.config.data,
             JtableOffset::JtableOffsetRest as usize,
-            || Ok(F::from(rest_jops as u64)),
+            || Ok(bn_to_field(&rest_jops)),
         )?;
 
         Ok(cell)
@@ -57,7 +59,7 @@ impl<F: FieldExt> JumpTableChip<F> {
     fn assign_static_entries_and_first_rest_jops(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: &mut u64,
+        rest_jops: &mut BigUint,
         static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
     ) -> Result<[(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER], Error> {
         let mut cells = vec![];
@@ -82,7 +84,7 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || "jtable rest",
                 self.config.data,
                 ctx.offset,
-                || Ok((*rest_jops).into()),
+                || Ok(bn_to_field(rest_jops)),
             )?;
             ctx.next();
 
@@ -97,7 +99,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             cells.push((enable_cell, entry_cell));
 
             if entry.enable {
-                *rest_jops -= 1;
+                *rest_jops -= encode_jops(1, 0);
             }
         }
 
@@ -110,11 +112,11 @@ impl<F: FieldExt> JumpTableChip<F> {
     fn assign_jtable_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: &mut u64,
+        rest_jops: &mut BigUint,
         jtable: &JumpTable,
     ) -> Result<(), Error> {
         for entry in jtable.entries().iter() {
-            let rest_f = (*rest_jops).into();
+            let rest_f = bn_to_field(rest_jops);
             let entry_f = bn_to_field(&entry.encode());
 
             ctx.region.assign_advice(
@@ -141,7 +143,7 @@ impl<F: FieldExt> JumpTableChip<F> {
             )?;
             ctx.next();
 
-            *rest_jops -= 2;
+            *rest_jops -= encode_jops(1, 1);
         }
 
         {
@@ -194,10 +196,13 @@ impl<F: FieldExt> JumpTableChip<F> {
                 ctx.reset();
 
                 // non-static entry includes `call`` and `return`` op, static entry only includes `return` op
-                let mut rest_jops = jtable.entries().len() as u64 * 2
-                    + static_entries.iter().filter(|entry| entry.enable).count() as u64;
+                let mut rest_jops = encode_jops(
+                    jtable.entries().len() as u32
+                        + static_entries.iter().filter(|entry| entry.enable).count() as u32,
+                    jtable.entries().len() as u32,
+                );
 
-                let rest_jopss = self.assign_first_rest_jops(&mut ctx, rest_jops)?;
+                let rest_jopss = self.assign_first_rest_jops(&mut ctx, rest_jops.clone())?;
                 let cells_to_permutation = self.assign_static_entries_and_first_rest_jops(
                     &mut ctx,
                     &mut rest_jops,

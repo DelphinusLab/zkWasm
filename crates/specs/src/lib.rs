@@ -17,6 +17,7 @@ use itable::InstructionTable;
 use jtable::JumpTable;
 use jtable::StaticFrameEntry;
 use jtable::STATIC_FRAME_ENTRY_NUMBER;
+use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
 use state::InitializationState;
@@ -55,7 +56,7 @@ pub struct CompilationTable {
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
     pub static_jtable: Arc<[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER]>,
-    pub initialization_state: Arc<InitializationState<u32>>,
+    pub initialization_state: Arc<InitializationState<u32, BigUint>>,
 }
 
 #[derive(Default)]

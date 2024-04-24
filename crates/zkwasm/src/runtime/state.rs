@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use specs::configure_table::ConfigureTable;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
@@ -53,21 +54,21 @@ impl UpdateInitMemoryTable for InitMemoryTable {
     }
 }
 
-impl UpdateInitializationState for InitializationState<u32> {
+impl UpdateInitializationState for InitializationState<u32, BigUint> {
     fn update_initialization_state(
         &self,
         execution_table: &EventTable,
         configure_table: &ConfigureTable,
         // None indicates last slice
         next_event_entry: Option<&EventTableEntry>,
-    ) -> InitializationState<u32> {
+    ) -> InitializationState<u32, BigUint> {
         let mut host_public_inputs = self.host_public_inputs;
         let mut context_in_index = self.context_in_index;
         let mut context_out_index = self.context_out_index;
         let mut external_host_call_call_index = self.external_host_call_call_index;
 
         #[cfg(feature = "continuation")]
-        let mut jops = self.jops;
+        let mut jops = self.jops.clone();
 
         for entry in execution_table.entries() {
             match &entry.step_info {
@@ -93,10 +94,16 @@ impl UpdateInitializationState for InitializationState<u32> {
                     }
                 }
                 StepInfo::ExternalHostCall { .. } => external_host_call_call_index += 1,
-                StepInfo::Call { .. } | StepInfo::CallIndirect { .. } | StepInfo::Return { .. } => {
+                StepInfo::Call { .. } | StepInfo::CallIndirect { .. } => {
                     #[cfg(feature = "continuation")]
                     {
-                        jops += 1;
+                        jops += crate::circuits::jtable::encode_jops(0, 1);
+                    }
+                }
+                StepInfo::Return { .. } => {
+                    #[cfg(feature = "continuation")]
+                    {
+                        jops += crate::circuits::jtable::encode_jops(1, 0);
                     }
                 }
                 _ => (),
@@ -129,6 +136,9 @@ impl UpdateInitializationState for InitializationState<u32> {
 
                 #[cfg(feature = "continuation")]
                 jops,
+
+                #[cfg(not(feature = "continuation"))]
+                _phantom: std::marker::PhantomData,
             }
         } else {
             let next_entry = next_event_entry.unwrap();
@@ -150,6 +160,9 @@ impl UpdateInitializationState for InitializationState<u32> {
 
                 #[cfg(feature = "continuation")]
                 jops,
+
+                #[cfg(not(feature = "continuation"))]
+                _phantom: std::marker::PhantomData,
             }
         };
 

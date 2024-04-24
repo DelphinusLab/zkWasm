@@ -4,6 +4,8 @@ use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Fixed;
+use num_bigint::BigUint;
+use num_bigint::ToBigUint;
 use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use std::marker::PhantomData;
 
@@ -13,6 +15,13 @@ pub(crate) mod expression;
 
 // enable and data should be encoded in image table
 pub(crate) const STATIC_FRAME_ENTRY_IMAGE_TABLE_ENTRY: usize = STATIC_FRAME_ENTRY_NUMBER * 2;
+
+// high 128 bit counts 'return' instructions, low 128 bit counts 'call' instructions.
+pub(crate) const JOPS_SEPARATE: usize = 128;
+pub fn encode_jops(return_instructions: u32, call_instructions: u32) -> BigUint {
+    return_instructions.to_biguint().unwrap() << JOPS_SEPARATE
+        | call_instructions.to_biguint().unwrap()
+}
 
 pub enum JtableOffset {
     JtableOffsetEnable = 0,

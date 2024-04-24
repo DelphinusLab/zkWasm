@@ -4,13 +4,16 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
+use crate::circuits::jtable::encode_jops;
 use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::jtable::JumpTableConfig;
+use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
 use crate::constant;
 use crate::constant_from;
+use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
@@ -185,11 +188,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
     }
 
     fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1))
+        Some(constant_from_bn!(&self.jops()))
     }
 
-    fn jops(&self) -> u32 {
-        1
+    fn jops(&self) -> BigUint {
+        encode_jops(0, 1)
     }
 
     fn next_frame_id(
