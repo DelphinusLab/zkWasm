@@ -2,17 +2,10 @@ use anyhow::Result;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::keygen_vk;
-use halo2_proofs::plonk::verify_proof_with_shplonk;
-use halo2_proofs::plonk::SingleVerifier;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
-use halo2_proofs::poly::commitment::ParamsVerifier;
 use log::warn;
 use std::marker::PhantomData;
-
-use halo2aggregator_s::circuits::utils::load_or_create_proof;
-use halo2aggregator_s::circuits::utils::TranscriptHash;
-use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 
 use specs::ExecutionTable;
 use specs::Tables;
@@ -216,6 +209,12 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
         Ok((builder.build_circuit(), instance))
     }
 
+    pub fn init_env(&self) -> Result<()> {
+        init_zkwasm_runtime(self.k);
+
+        Ok(())
+    }
+
     pub fn mock_test(
         &self,
         circuit: &ZkWasmCircuit<E::Scalar>,
@@ -226,87 +225,26 @@ impl<E: MultiMillerLoop, T, EnvBuilder: HostEnvBuilder<Arg = T>> ZkWasmLoader<E,
 
         Ok(())
     }
-
-    pub fn create_proof(
-        &self,
-        params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
-        circuit: ZkWasmCircuit<E::Scalar>,
-        instances: &Vec<E::Scalar>,
-    ) -> Result<Vec<u8>> {
-        Ok(load_or_create_proof::<E, _>(
-            &params,
-            vkey,
-            circuit,
-            &[instances],
-            None,
-            TranscriptHash::Poseidon,
-            false,
-            true,
-        ))
-    }
-
-    pub fn init_env(&self) -> Result<()> {
-        init_zkwasm_runtime(self.k);
-
-        Ok(())
-    }
-
-    pub fn verify_proof(
-        &self,
-        params: &Params<E::G1Affine>,
-        vkey: VerifyingKey<E::G1Affine>,
-        instances: Vec<E::Scalar>,
-        proof: Vec<u8>,
-        #[cfg(feature = "uniform-circuit")] config: EnvBuilder::HostConfig,
-    ) -> Result<()> {
-        let params_verifier: ParamsVerifier<E> = params.verifier(instances.len()).unwrap();
-        let strategy = SingleVerifier::new(&params_verifier);
-
-        verify_proof_with_shplonk(
-            &params_verifier,
-            &vkey,
-            strategy,
-            &[&[&instances]],
-            &mut PoseidonRead::init(&proof[..]),
-        )
-        .unwrap();
-
-        #[cfg(feature = "uniform-circuit")]
-        {
-            use crate::circuits::image_table::IMAGE_COL_NAME;
-            use halo2_proofs::plonk::get_advice_commitments_from_transcript;
-
-            let img_col_idx = vkey
-                .cs
-                .named_advices
-                .iter()
-                .find(|(k, _)| k == IMAGE_COL_NAME)
-                .unwrap()
-                .1;
-            let img_col_commitment: Vec<E::G1Affine> =
-                get_advice_commitments_from_transcript::<E, _, _>(
-                    &vkey,
-                    &mut PoseidonRead::init(&proof[..]),
-                )
-                .unwrap();
-            let checksum = self.checksum(params, config)?;
-
-            assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
-        }
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use ark_std::end_timer;
     use ark_std::start_timer;
     use halo2_proofs::pairing::bn256::Bn256;
     use halo2_proofs::pairing::bn256::Fr;
     use halo2_proofs::pairing::bn256::G1Affine;
+    use halo2_proofs::plonk::create_proof;
+    use halo2_proofs::plonk::keygen_pk;
+    use halo2_proofs::plonk::ProvingKey;
+    use halo2_proofs::plonk::SingleVerifier;
+    use halo2_proofs::plonk::VerifyingKey;
     use halo2_proofs::poly::commitment::Params;
+    use halo2_proofs::poly::commitment::ParamsVerifier;
+    use halo2_proofs::transcript::Blake2bRead;
+    use halo2_proofs::transcript::Blake2bWrite;
+    use rand::rngs::OsRng;
     use std::fs::File;
     use std::io::Cursor;
     use std::io::Read;
@@ -319,6 +257,75 @@ mod tests {
     use super::ZkWasmLoader;
 
     impl ZkWasmLoader<Bn256, ExecutionArg, DefaultHostEnvBuilder> {
+        pub fn create_proof(
+            &self,
+            params: &Params<G1Affine>,
+            pk: &ProvingKey<G1Affine>,
+            circuit: ZkWasmCircuit<Fr>,
+            instances: &Vec<Fr>,
+        ) -> Result<Vec<u8>> {
+            let mut transcript = Blake2bWrite::init(vec![]);
+
+            create_proof(
+                params,
+                pk,
+                &[circuit],
+                &[&[&instances[..]]],
+                OsRng,
+                &mut transcript,
+            )?;
+
+            Ok(transcript.finalize())
+        }
+
+        pub fn verify_proof(
+            &self,
+            params: &Params<G1Affine>,
+            vkey: &VerifyingKey<G1Affine>,
+            instances: Vec<Fr>,
+            proof: Vec<u8>,
+            #[cfg(feature = "uniform-circuit")] config: EnvBuilder::HostConfig,
+        ) -> Result<()> {
+            use halo2_proofs::plonk::verify_proof;
+
+            let params_verifier: ParamsVerifier<Bn256> = params.verifier(instances.len()).unwrap();
+            let strategy = SingleVerifier::new(&params_verifier);
+
+            verify_proof(
+                &params_verifier,
+                &vkey,
+                strategy,
+                &[&[&instances]],
+                &mut Blake2bRead::init(&proof[..]),
+            )
+            .unwrap();
+
+            #[cfg(feature = "uniform-circuit")]
+            {
+                use crate::circuits::image_table::IMAGE_COL_NAME;
+                use halo2_proofs::plonk::get_advice_commitments_from_transcript;
+
+                let img_col_idx = vkey
+                    .cs
+                    .named_advices
+                    .iter()
+                    .find(|(k, _)| k == IMAGE_COL_NAME)
+                    .unwrap()
+                    .1;
+                let img_col_commitment: Vec<E::G1Affine> =
+                    get_advice_commitments_from_transcript::<E, _, _>(
+                        &vkey,
+                        &mut PoseidonRead::init(&proof[..]),
+                    )
+                    .unwrap();
+                let checksum = self.checksum(params, config)?;
+
+                assert!(vec![img_col_commitment[img_col_idx as usize]] == checksum)
+            }
+
+            Ok(())
+        }
+
         pub(crate) fn bench_test(&self, circuit: ZkWasmCircuit<Fr>, instances: Vec<Fr>) {
             fn prepare_param(k: u32) -> Params<G1Affine> {
                 let path = PathBuf::from(format!("test_param.{}.data", k));
@@ -344,11 +351,13 @@ mod tests {
 
             let params = prepare_param(self.k);
             let vkey = self.create_vkey(&params, ()).unwrap();
+            let pkey = keygen_pk(&params, vkey, &circuit).unwrap();
 
             let proof = self
-                .create_proof(&params, vkey.clone(), circuit, &instances)
+                .create_proof(&params, &pkey, circuit, &instances)
                 .unwrap();
-            self.verify_proof(&params, vkey, instances, proof).unwrap();
+            self.verify_proof(&params, pkey.get_vk(), instances, proof)
+                .unwrap();
         }
     }
 }

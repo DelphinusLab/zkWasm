@@ -566,7 +566,6 @@ dependencies = [
  "downcast-rs",
  "ff",
  "halo2_proofs",
- "halo2aggregator-s",
  "hex",
  "lazy_static",
  "log",
