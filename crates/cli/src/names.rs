@@ -30,12 +30,12 @@ pub(crate) fn name_of_witness(name: &str, index: usize) -> String {
 
 #[inline(always)]
 pub(crate) fn name_of_instance(name: &str, index: usize) -> String {
-    format!("{}.{}.instance.json", name, index)
+    format!("{}.{}.instance.data", name, index)
 }
 
 #[inline(always)]
 pub(crate) fn name_of_transcript(name: &str, index: usize) -> String {
-    format!("{}.{}.transcript.json", name, index)
+    format!("{}.{}.transcript.data", name, index)
 }
 
 #[inline(always)]
