@@ -29,7 +29,6 @@ sha2 = "0.10.6"
 poseidon = { git = "https://github.com/DelphinusLab/poseidon" }
 
 anyhow.workspace = true
-halo2aggregator-s.workspace = true
 halo2_proofs.workspace = true
 parity-wasm.workspace = true
 wasmi.workspace = true

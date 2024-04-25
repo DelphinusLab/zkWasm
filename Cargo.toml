@@ -6,7 +6,6 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = { version = "1.0.68", features = ["backtrace"] }
 cfg-if = "1.0.0"
-halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", features = ["unsafe"] }
 halo2_proofs = { git = "https://github.com/DelphinusLab/halo2-gpu-specific.git", default-features = true }
 parity-wasm = { version = "0.42.0", features = ["sign_ext"] }
 wasmi = { path = "third-party/wasmi" }
@@ -15,3 +14,4 @@ zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circ
 
 [profile.dev]
 opt-level = 3
+
