@@ -36,7 +36,6 @@ use wasmi::runner::from_value_internal_to_u64_with_typ;
 use wasmi::runner::FunctionContext;
 use wasmi::runner::InstructionOutcome;
 use wasmi::runner::ValueStack;
-use wasmi::tracer::FuncDesc;
 use wasmi::Error;
 use wasmi::FuncRef;
 use wasmi::RuntimeValue;
@@ -47,6 +46,7 @@ use crate::circuits::compute_slice_capability;
 
 use self::etable::ETable;
 use self::instruction::run_instruction_pre;
+use self::instruction::FuncDesc;
 use self::instruction::InstructionIntoOpcode;
 use self::instruction::PhantomFunction;
 use self::instruction::RunInstructionTracePre;

@@ -2,10 +2,10 @@ use std::rc::Rc;
 
 use specs::host_function::HostPlugin;
 use specs::types::ValueType;
-use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
+use crate::runtime::monitor::observer::Observer;
 
 pub mod etable_op_configure;
 

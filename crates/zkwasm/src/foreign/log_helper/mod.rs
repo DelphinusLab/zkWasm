@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
 use specs::external_host_call_table::ExternalHostCallSignature;
-use wasmi::tracer::Observer;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
+use crate::runtime::monitor::observer::Observer;
 use zkwasm_host_circuits::host::ForeignInst::Log;
 use zkwasm_host_circuits::host::ForeignInst::LogChar;
 

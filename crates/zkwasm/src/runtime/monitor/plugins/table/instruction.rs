@@ -13,6 +13,7 @@ use specs::mtable::MemoryReadSize;
 use specs::mtable::MemoryStoreSize;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
+use specs::types::FunctionType;
 use wasmi::isa;
 use wasmi::isa::DropKeep;
 use wasmi::isa::Instruction;
@@ -25,12 +26,17 @@ use wasmi::runner::FromValueInternal;
 use wasmi::runner::FunctionContext;
 use wasmi::runner::ValueInternal;
 use wasmi::runner::ValueStack;
-use wasmi::tracer::FuncDesc;
 use wasmi::ModuleRef;
 use wasmi::Signature;
 
 use super::TablePlugin;
 use super::DEFAULT_TABLE_INDEX;
+
+#[derive(Debug)]
+pub struct FuncDesc {
+    pub ftype: FunctionType,
+    pub signature: Signature,
+}
 
 pub struct PhantomFunction;
 

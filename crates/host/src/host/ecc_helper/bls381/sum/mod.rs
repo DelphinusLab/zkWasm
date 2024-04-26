@@ -4,7 +4,6 @@ use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bls12_381::G1Affine;
 use std::ops::Add;
 use std::rc::Rc;
-use wasmi::tracer::Observer;
 
 use super::bls381_fq_to_limbs;
 use super::fetch_g1;
@@ -59,7 +58,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blssum_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsSumContext>().unwrap();
                 if context.input_cursor == 16 {
                     let t: u64 = args.nth(0);
@@ -80,7 +79,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_blssum_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsSumContext>().unwrap();
                 context.result_limbs.clone().map_or_else(
                     || {

@@ -3175,7 +3175,6 @@ name = "wasmi"
 version = "0.11.0"
 dependencies = [
  "parity-wasm",
- "regex",
  "specs",
  "wasmi-validation",
  "wasmi_core",

@@ -8,10 +8,11 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 use specs::host_function::HostFunctionDesc;
 use std::cell::RefCell;
 use std::rc::Rc;
-use wasmi::tracer::Observer;
 use wasmi::RuntimeArgs;
 use wasmi::RuntimeValue;
 use wasmi::Signature;
+
+use super::monitor::observer::Observer;
 
 pub mod default_env;
 pub mod external_circuit_plugin;

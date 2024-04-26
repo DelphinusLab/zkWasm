@@ -8,7 +8,6 @@ use std::time::Instant;
 
 use log::debug;
 use specs::host_function::HostFunctionDesc;
-use wasmi::tracer::Observer;
 
 use wasmi::Externals;
 use wasmi::ModuleImportResolver;
@@ -17,6 +16,7 @@ use wasmi::RuntimeValue;
 use wasmi::Trap;
 
 use crate::runtime::host::HostFunctionExecutionEnv;
+use crate::runtime::monitor::observer::Observer;
 
 use super::external_circuit_plugin::ExternalCircuitEnv;
 use super::internal_circuit_plugin::InternalCircuitEnv;

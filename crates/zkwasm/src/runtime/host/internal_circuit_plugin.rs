@@ -3,11 +3,12 @@ use specs::host_function::Signature;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use wasmi::tracer::Observer;
 use wasmi::FuncInstance;
 use wasmi::ModuleImportResolver;
 use wasmi::RuntimeArgs;
 use wasmi::RuntimeValue;
+
+use crate::runtime::monitor::observer::Observer;
 
 use super::ForeignContext;
 use super::ForeignPlugin;

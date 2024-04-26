@@ -6,10 +6,10 @@ use wasmi::func::FuncInstanceInternal;
 use wasmi::isa::Keep;
 use wasmi::monitor::Monitor;
 use wasmi::runner::InstructionOutcome;
-use wasmi::tracer::Observer;
 use wasmi::FuncRef;
 
 use super::phantom::PhantomHelper;
+use crate::runtime::monitor::Observer;
 
 pub struct StatisticPlugin {
     phantom_helper: PhantomHelper,

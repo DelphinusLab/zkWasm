@@ -4,7 +4,6 @@ use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bn256::Fr;
 use std::cell::RefCell;
 use std::rc::Rc;
-use wasmi::tracer::Observer;
 use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::circuits::merkle::MerkleChip;
 use zkwasm_host_circuits::host::datahash as datahelper;
@@ -160,7 +159,7 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
         ExternalHostCallSignature::Argument,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
                 context.merkle_setroot(args.nth(0));
                 None
@@ -174,7 +173,7 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
         ExternalHostCallSignature::Return,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
                 Some(wasmi::RuntimeValue::I64(context.merkle_getroot() as i64))
             },
@@ -187,7 +186,7 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
         ExternalHostCallSignature::Argument,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
                 context.merkle_address(args.nth(0));
                 None
@@ -201,7 +200,7 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
         ExternalHostCallSignature::Argument,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
                 context.merkle_set(args.nth(0));
                 None
@@ -215,7 +214,7 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
         ExternalHostCallSignature::Return,
         foreign_merkle_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
                 let ret = Some(wasmi::RuntimeValue::I64(context.merkle_get() as i64));
                 ret

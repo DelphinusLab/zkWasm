@@ -3,7 +3,6 @@ use std::rc::Rc;
 use specs::host_function::HostPlugin;
 use specs::host_function::Signature;
 use specs::types::ValueType;
-use wasmi::tracer::Observer;
 use wasmi::RuntimeArgs;
 
 use crate::runtime::host::host_env::HostEnv;
@@ -60,7 +59,7 @@ pub fn register_context_foreign(env: &mut HostEnv, context_input: Vec<u64>) {
         HostPlugin::Context,
         Op::ReadContext as usize,
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, _args: RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, _args: RuntimeArgs| {
                 let context = context.downcast_mut::<Context>().unwrap();
 
                 Some(wasmi::RuntimeValue::I64(context.read_context() as i64))
@@ -77,7 +76,7 @@ pub fn register_context_foreign(env: &mut HostEnv, context_input: Vec<u64>) {
         HostPlugin::Context,
         Op::WriteContext as usize,
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: RuntimeArgs| {
                 let context = context.downcast_mut::<Context>().unwrap();
 
                 let value: i64 = args.nth(0);

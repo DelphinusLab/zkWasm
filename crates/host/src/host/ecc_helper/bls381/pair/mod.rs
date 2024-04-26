@@ -10,7 +10,6 @@ use halo2_proofs::pairing::bls12_381::G1Affine;
 use halo2_proofs::pairing::bls12_381::G2Affine;
 use halo2_proofs::pairing::bls12_381::Gt as Bls381Gt;
 use std::rc::Rc;
-use wasmi::tracer::Observer;
 use zkwasm_host_circuits::circuits::bls::Bls381PairChip;
 use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::host::ForeignInst;
@@ -77,7 +76,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsPairContext>().unwrap();
                 if context.input_cursor == 16 {
                     let t: u64 = args.nth(0);
@@ -97,7 +96,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Argument,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsPairContext>().unwrap();
                 if context.input_cursor == 32 {
                     let t: u64 = args.nth(0);
@@ -136,7 +135,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
         ExternalHostCallSignature::Return,
         foreign_blspair_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsPairContext>().unwrap();
                 let ret = Some(wasmi::RuntimeValue::I64(
                     context.result_limbs[context.result_cursor] as i64,

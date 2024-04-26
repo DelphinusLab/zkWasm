@@ -7,7 +7,6 @@ use wasmi::monitor::Monitor;
 use wasmi::runner::FunctionContext;
 use wasmi::runner::InstructionOutcome;
 use wasmi::runner::ValueStack;
-use wasmi::tracer::Observer;
 use wasmi::ModuleImportResolver;
 use wasmi::ModuleRef;
 use wasmi::RuntimeValue;
@@ -16,6 +15,7 @@ use wasmi::ValueType;
 
 use crate::runtime::host::host_env::HostEnv;
 
+use super::observer::Observer;
 use super::plugins::statistic::StatisticPlugin;
 use super::WasmiMonitor;
 

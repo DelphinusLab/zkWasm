@@ -2,7 +2,6 @@ use delphinus_zkwasm::runtime::host::ForeignContext;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use wasmi::tracer::Observer;
 
 use crate::HostEnv;
 use zkwasm_host_circuits::host::ForeignInst::WitnessIndexedInsert;
@@ -84,7 +83,7 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
         ExternalHostCallSignature::Argument,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 context.witness_insert(args.nth::<u64>(0) as u64);
                 None
@@ -98,7 +97,7 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
         ExternalHostCallSignature::Argument,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 context.witness_set_index(args.nth::<u64>(0) as u64);
                 None
@@ -112,7 +111,7 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
         ExternalHostCallSignature::Argument,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 context.witness_indexed_insert(args.nth::<u64>(0) as u64);
                 None
@@ -126,7 +125,7 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
         ExternalHostCallSignature::Argument,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 context.witness_indexed_push(args.nth::<u64>(0) as u64);
                 None
@@ -140,7 +139,7 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
         ExternalHostCallSignature::Return,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 Some(wasmi::RuntimeValue::I64(context.witness_pop() as i64))
             },
@@ -153,7 +152,7 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
         ExternalHostCallSignature::Return,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |_obs: &Observer, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<WitnessContext>().unwrap();
                 Some(wasmi::RuntimeValue::I64(
                     context.witness_indexed_pop() as i64
@@ -168,7 +167,7 @@ pub fn register_witness_foreign(env: &mut HostEnv, index_map: Rc<RefCell<HashMap
         ExternalHostCallSignature::Return,
         foreign_witness_plugin.clone(),
         Rc::new(
-            |obs: &Observer, _context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
+            |obs, _context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 Some(wasmi::RuntimeValue::I64(obs.counter as i64))
             },
         ),
