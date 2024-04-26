@@ -1,3 +1,5 @@
+use std::io::Read;
+use std::io::Write;
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -57,10 +59,18 @@ impl EventTable {
         Self(entries)
     }
 
-    pub fn from_json(path: &PathBuf) -> std::io::Result<Self> {
+    pub fn write(&self, path: &PathBuf) -> std::io::Result<()> {
+        let mut fd = std::fs::File::create(path)?;
+        fd.write(&bincode::serialize(self).unwrap())?;
+        Ok(())
+    }
+
+    pub fn read(path: &PathBuf) -> std::io::Result<Self> {
         let mut fd = std::fs::File::open(path)?;
-        let entries = serde_json::from_reader(&mut fd)?;
-        Ok(Self(entries))
+        let mut buf = Vec::new();
+        fd.read_to_end(&mut buf)?;
+        let etable = bincode::deserialize(&mut buf).unwrap();
+        Ok(etable)
     }
 
     pub fn unwrap(self) -> Vec<EventTableEntry> {
