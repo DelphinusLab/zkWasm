@@ -1,7 +1,6 @@
 #![deny(warnings)]
 
 use std::fs;
-use std::fs::File;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -102,8 +101,7 @@ fn main() -> Result<()> {
                         PathBuf::from(name_of_etable_slice(&cli.name, slice));
                     let path = trace_dir.join(&filename_of_etable_slice);
 
-                    let mut fd = File::create(&path).unwrap();
-                    serde_json::to_writer(&mut fd, etable).unwrap();
+                    etable.write(&path).unwrap();
 
                     path
                 }))

@@ -89,13 +89,15 @@ impl Tables {
             .for_each(|(slice, e)| match e {
                 EventTableBackend::Memory(etable) => {
                     external_host_call_table.extend(etable.filter_external_host_call_table().0);
-                    write_file(
-                        dir,
-                        &name_of_etable_slice(slice),
-                        &serde_json::to_string_pretty(etable).unwrap(),
-                    );
+
+                    let path = dir.join(name_of_etable_slice(slice));
+
+                    etable.write(&path).unwrap();
                 }
-                EventTableBackend::Json(_) => {}
+                EventTableBackend::Json(path) => {
+                    let etable = EventTable::read(&path).unwrap();
+                    external_host_call_table.extend(etable.filter_external_host_call_table().0);
+                }
             });
         let external_host_call_table = ExternalHostCallTable::new(external_host_call_table);
 

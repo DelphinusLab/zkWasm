@@ -40,5 +40,5 @@ pub(crate) fn name_of_transcript(name: &str, index: usize) -> String {
 
 #[inline(always)]
 pub(crate) fn name_of_etable_slice(name: &str, index: usize) -> String {
-    format!("{}.etable.{}.json", name, index)
+    format!("{}.etable.{}.data", name, index)
 }

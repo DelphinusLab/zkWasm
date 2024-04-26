@@ -29,8 +29,8 @@ impl ETable {
         let entries = std::mem::replace(&mut self.entries, empty);
 
         let event_table = match &self.backend {
-            TraceBackend::File(path_builder) => {
-                let path = path_builder(self.slices.len(), &EventTable::new(entries));
+            TraceBackend::File(write_file_fn) => {
+                let path = write_file_fn(self.slices.len(), &EventTable::new(entries));
 
                 EventTableBackend::Json(path)
             }
