@@ -556,9 +556,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 self.memory_table_lookup_stack_read_val.assign(
                     ctx,
-                    entry.memory_rw_entires[0].start_eid,
+                    entry.memory_rw_entries[0].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entries[0].end_eid,
                     step.current.sp + 1,
                     LocationType::Stack,
                     vtype == VarType::I32,
@@ -567,9 +567,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 self.memory_table_lookup_stack_read_pos.assign(
                     ctx,
-                    entry.memory_rw_entires[1].start_eid,
+                    entry.memory_rw_entries[1].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[1].end_eid,
+                    entry.memory_rw_entries[1].end_eid,
                     step.current.sp + 2,
                     LocationType::Stack,
                     true,
@@ -578,9 +578,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 self.memory_table_lookup_heap_read1.assign(
                     ctx,
-                    entry.memory_rw_entires[2].start_eid,
+                    entry.memory_rw_entries[2].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[2].end_eid,
+                    entry.memory_rw_entries[2].end_eid,
                     effective_address >> 3,
                     LocationType::Heap,
                     false,
@@ -590,7 +590,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.memory_table_lookup_heap_write1.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[3].end_eid,
+                    entry.memory_rw_entries[3].end_eid,
                     effective_address >> 3,
                     LocationType::Heap,
                     false,
@@ -600,9 +600,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 if is_cross_block {
                     self.memory_table_lookup_heap_read2.assign(
                         ctx,
-                        entry.memory_rw_entires[4].start_eid,
+                        entry.memory_rw_entries[4].start_eid,
                         step.current.eid,
-                        entry.memory_rw_entires[4].end_eid,
+                        entry.memory_rw_entries[4].end_eid,
                         (effective_address >> 3) + 1,
                         LocationType::Heap,
                         false,
@@ -612,7 +612,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     self.memory_table_lookup_heap_write2.assign(
                         ctx,
                         step.current.eid,
-                        entry.memory_rw_entires[5].end_eid,
+                        entry.memory_rw_entries[5].end_eid,
                         (effective_address >> 3) + 1,
                         LocationType::Heap,
                         false,

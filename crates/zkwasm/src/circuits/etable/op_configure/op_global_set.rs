@@ -95,9 +95,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig<F> {
 
                 self.memory_table_lookup_stack_read.assign(
                     ctx,
-                    entry.memory_rw_entires[0].start_eid,
+                    entry.memory_rw_entries[0].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entries[0].end_eid,
                     step.current.sp + 1,
                     LocationType::Stack,
                     *vtype == VarType::I32,
@@ -107,7 +107,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig<F> {
                 self.memory_table_lookup_global_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[1].end_eid,
+                    entry.memory_rw_entries[1].end_eid,
                     *idx,
                     LocationType::Global,
                     *vtype == VarType::I32,

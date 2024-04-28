@@ -116,7 +116,7 @@ pub struct MemoryRWEntry {
 #[derive(Debug)]
 pub struct EventTableEntryWithMemoryInfo {
     pub eentry: EventTableEntry,
-    pub memory_rw_entires: Vec<MemoryRWEntry>,
+    pub memory_rw_entries: Vec<MemoryRWEntry>,
 }
 
 #[derive(Debug)]
@@ -161,7 +161,7 @@ impl EventTableWithMemoryInfo {
                 .iter()
                 .map(|eentry| EventTableEntryWithMemoryInfo {
                     eentry: eentry.clone(),
-                    memory_rw_entires: memory_event_of_step(eentry, &mut 1)
+                    memory_rw_entries: memory_event_of_step(eentry, &mut 1)
                         .iter()
                         .map(|mentry| {
                             let (start_eid, end_eid) = lookup_mtable_eid((
