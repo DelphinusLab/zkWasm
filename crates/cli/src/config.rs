@@ -5,10 +5,12 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use circuits_batcher::args::HashType;
 use circuits_batcher::args::OpenSchema;
+use circuits_batcher::proof::ProofGenerationInfo;
 use circuits_batcher::proof::ProofInfo;
-use circuits_batcher::proof::ProofLoadInfo;
 use circuits_batcher::proof::ProofPieceInfo;
+use circuits_batcher::proof::Prover;
 use console::style;
 use delphinus_zkwasm::loader::slice::Slices;
 use delphinus_zkwasm::loader::Module;
@@ -308,11 +310,8 @@ impl Config {
 
         println!("{} Creating proof(s)...", style("[7/8]").bold().dim(),);
 
-        let mut proof_load_info = ProofLoadInfo::new(
-            &self.name,
-            self.k as usize,
-            circuits_batcher::args::HashType::Poseidon,
-        );
+        let mut proof_load_info =
+            ProofGenerationInfo::new(&self.name, self.k as usize, HashType::Poseidon);
 
         let progress_bar = ProgressBar::new(tables.execution_tables.etable.len() as u64);
 
@@ -382,15 +381,16 @@ impl Config {
                 transcript: name_of_transcript(&self.name, index),
             };
 
-            proof_piece_info.exec_create_proof_with_params::<Bn256, _>(
+            let proof = proof_piece_info.create_proof::<Bn256, _>(
                 &circuit,
                 &vec![instances.clone()],
                 &params,
                 &cached_proving_key.as_ref().unwrap().1,
-                output_dir,
                 proof_load_info.hashtype,
                 OpenSchema::Shplonk,
             );
+
+            proof_piece_info.save_proof_data(&vec![instances.clone()], &proof, &output_dir);
 
             proof_load_info.append_single_proof(proof_piece_info);
 
@@ -420,7 +420,7 @@ impl Config {
             );
 
             let proof_load_info =
-                ProofLoadInfo::load(&output_dir.join(&name_of_loadinfo(&self.name)));
+                ProofGenerationInfo::load(&output_dir.join(&name_of_loadinfo(&self.name)));
 
             let proofs: Vec<ProofInfo<Bn256>> =
                 ProofInfo::load_proof(&output_dir, &params_dir, &proof_load_info);
@@ -472,7 +472,9 @@ impl Config {
                 )?;
             };
 
-            proof.verify_proof(&params_verifier).unwrap();
+            proof
+                .verify_proof(&params_verifier, OpenSchema::Shplonk)
+                .unwrap();
 
             // TODO: handle checksum sanity check
             // #[cfg(feature = "uniform-circuit")]
