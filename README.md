@@ -62,7 +62,7 @@ with OPTIONS:
             Print help information
 
         --host <HOST_MODE>
-            Specify execution host envionment for the runtime [default: default] [possible values:
+            Specify execution host environment for the runtime [default: default] [possible values:
             default, standard]
 
     -k <K>

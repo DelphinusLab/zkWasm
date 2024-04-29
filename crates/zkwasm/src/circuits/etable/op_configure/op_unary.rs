@@ -299,7 +299,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                          * boundary: operand minus tail
                          *    i.e. 100 0000 0000
                          * aux2: make sure aux1(tail) is less than boundary
-                         *    bounary - aux1 - 1
+                         *    boundary - aux1 - 1
                          */
                         let boundary = max.checked_shr(1 + *result as u32).unwrap_or(0) as u64;
                         let tail = *operand ^ boundary;
