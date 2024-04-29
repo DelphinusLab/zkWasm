@@ -97,7 +97,7 @@ impl ModuleImportResolver for ExternalCircuitEnv {
                 ))
             } else {
                 Err(wasmi::Error::Instantiation(format!(
-                    "Export `{}` doesnt match expected type {:?}",
+                    "Export `{}` doesn't match expected type {:?}",
                     function_name, signature
                 )))
             }

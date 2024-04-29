@@ -149,7 +149,7 @@ fn setup_command() -> Command<'static> {
         )
         .arg(
             arg!(
-                --host <HOST_MODE> "Specify execution host envionment for the runtime"
+                --host <HOST_MODE> "Specify execution host environment for the runtime"
             )
             .default_value("default")
             .value_parser(value_parser!(HostMode))

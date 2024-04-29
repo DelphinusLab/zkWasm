@@ -3,10 +3,10 @@ use serde::Serialize;
 
 #[derive(clap::ArgEnum, Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub enum HostMode {
-    /// Trivial Wasm Host Evnironment
+    /// Trivial Wasm Host Environment
     #[default]
     DEFAULT,
 
-    /// Wasm Host Envionment with more Zk plugins
+    /// Wasm Host Environment with more Zk plugins
     STANDARD,
 }
