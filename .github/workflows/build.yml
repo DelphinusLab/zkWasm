@@ -20,7 +20,7 @@ jobs:
     - name: Code Style Check
       run: cargo fmt --check
     - name: Build
-      run: cargo build
+      run: cargo build && cargo clean
     - name: Build Playground
       working-directory: ./crates/playground
       run: cargo build --examples
