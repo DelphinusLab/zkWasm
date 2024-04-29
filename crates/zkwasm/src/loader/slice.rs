@@ -67,9 +67,10 @@ impl<F: FieldExt> Slices<F> {
         })
     }
 
-    pub fn mock_test_all(self, k: u32, instances: Vec<F>) -> anyhow::Result<()> {
+    pub fn mock_test_all(self, instances: Vec<F>) -> anyhow::Result<()> {
         use halo2_proofs::dev::MockProver;
 
+        let k = self.k;
         let mut iter = self.into_iter();
 
         while let Some(slice) = iter.next() {
