@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#27cb1544526c459a7e1cf671615a172c3d1ee411"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#060c8d7885c7459f91440c9d1b1f23b22bc3d473"
 dependencies = [
  "anyhow",
  "ark-std 0.4.0",
@@ -621,32 +621,6 @@ name = "data-encoding"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e962a19be5cfc3f3bf6dd8f61eb50107f356ad6270fbb3ed41476571db78be5"
-
-[[package]]
-name = "delphinus-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if 1.0.0",
- "circuits-batcher",
- "clap",
- "console",
- "delphinus-host",
- "delphinus-zkwasm",
- "env_logger",
- "halo2_proofs",
- "hex",
- "indicatif",
- "log",
- "md5",
- "poseidon",
- "serde",
- "serde_json",
- "sha2",
- "specs",
- "wabt",
-]
 
 [[package]]
 name = "delphinus-host"
@@ -1159,12 +1133,12 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git#747788c3331014d8854ed4746c51a1582e5271c1"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=1.0.0#35026092b90743d0e37689bd21444c250e64a9d4"
 dependencies = [
  "ark-std 0.4.0",
  "blake2b_simd",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.4.0)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f)",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1177,8 +1151,9 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.4.0#eef56995f5729083d54b89faa30d5f90277acc22"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f#3b8b424f009fd945fc982f530ed29b555f8002e6"
 dependencies = [
+ "ark-std 0.4.0",
  "halo2_proofs",
  "num-bigint",
  "num-integer",
@@ -1188,8 +1163,9 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.4.0#eef56995f5729083d54b89faa30d5f90277acc22"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f#3b8b424f009fd945fc982f530ed29b555f8002e6"
 dependencies = [
+ "ark-std 0.4.0",
  "halo2_proofs",
  "num-bigint",
  "num-integer",
@@ -2774,16 +2750,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "thread_local"
-version = "1.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b9ef9bad013ada3808854ceac7b46812a6465ba368859a37e2100283d2d719c"
-dependencies = [
- "cfg-if 1.0.0",
- "once_cell",
-]
-
-[[package]]
 name = "time"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3470,9 +3436,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "zkwasm-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if 1.0.0",
+ "circuits-batcher",
+ "clap",
+ "console",
+ "delphinus-host",
+ "delphinus-zkwasm",
+ "env_logger",
+ "halo2_proofs",
+ "hex",
+ "indicatif",
+ "log",
+ "md5",
+ "poseidon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specs",
+ "wabt",
+]
+
+[[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git#2d3910151f8cc0c1a4e6d227b0ef53328de883da"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git#924a0088929e4aa323827e74ae2bfe45fdf1c5b9"
 dependencies = [
  "ark-std 0.3.0",
  "cfg-if 1.0.0",
@@ -3480,7 +3472,7 @@ dependencies = [
  "clap",
  "ff",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.4.0)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f)",
  "hex",
  "itertools",
  "lazy_static",
@@ -3501,7 +3493,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+ssh://git@github.com/xgaozoyoe/zkWasm-prover.git#4e37b117d4976f2261b00de1cc72f864e5a933b9"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#5f352e1852cc27af47378c4a355d36d000edecb1"
 dependencies = [
  "ark-std 0.4.0",
  "cc",
@@ -3514,5 +3506,4 @@ dependencies = [
  "libc",
  "rand",
  "rayon",
- "thread_local",
 ]

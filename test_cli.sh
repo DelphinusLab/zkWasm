@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CLI=./target/release/delphinus-cli
+CLI=./target/release/zkwasm-cli
 
 set -e
 set -x
