@@ -61,7 +61,7 @@ impl EventTable {
 
     pub fn write(&self, path: &PathBuf) -> std::io::Result<()> {
         let mut fd = std::fs::File::create(path)?;
-        fd.write(&bincode::serialize(self).unwrap())?;
+        fd.write_all(&bincode::serialize(self).unwrap())?;
         Ok(())
     }
 
