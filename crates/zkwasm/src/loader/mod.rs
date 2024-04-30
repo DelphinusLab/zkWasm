@@ -28,8 +28,6 @@ use crate::circuits::ZkWasmCircuit;
 use crate::error::BuildingCircuitError;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
-#[cfg(feature = "profile")]
-use crate::profile::Profiler;
 
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::monitor::WasmiMonitor;
