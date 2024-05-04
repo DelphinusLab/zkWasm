@@ -1,7 +1,7 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use num_bigint::BigUint;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
@@ -12,31 +12,64 @@ use crate::etable::EventTable;
 use crate::etable::EventTableEntry;
 use crate::imtable::InitMemoryTable;
 use crate::itable::InstructionTable;
-use crate::jtable::JumpTable;
+use crate::jtable::CalledFrameTable;
+use crate::jtable::FrameTable;
+use crate::jtable::InheritedFrameTable;
 use crate::mtable::AccessType;
 use crate::mtable::LocationType;
 use crate::mtable::MTable;
 use crate::mtable::MemoryTableEntry;
 use crate::state::InitializationState;
 use crate::CompilationTable;
-use crate::StaticFrameEntry;
-use crate::STATIC_FRAME_ENTRY_NUMBER;
+
+#[derive(Debug)]
+pub struct FrameTableSlice {
+    pub inherited: Arc<InheritedFrameTable>,
+    pub called: CalledFrameTable,
+}
+
+impl From<FrameTable> for FrameTableSlice {
+    fn from(frame_table: FrameTable) -> Self {
+        FrameTableSlice {
+            inherited: Arc::new((*frame_table.inherited).clone().try_into().unwrap()),
+            called: frame_table.called,
+        }
+    }
+}
+
+impl FrameTableSlice {
+    pub fn build_returned_lookup_mapping(&self) -> HashMap<(u32, u32), bool> {
+        let mut lookup_table = HashMap::new();
+        for entry in self.called.iter() {
+            lookup_table.insert((entry.0.frame_id, entry.0.callee_fid), entry.0.returned);
+        }
+        for entry in self.inherited.0.iter() {
+            lookup_table.insert(
+                (entry.internal.frame_id, entry.internal.callee_fid),
+                entry.internal.returned,
+            );
+        }
+
+        lookup_table
+    }
+}
 
 pub struct Slice {
     pub itable: Arc<InstructionTable>,
     pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
-    pub static_jtable: Arc<[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER]>,
+    pub initial_frame_table: Arc<InheritedFrameTable>,
 
     pub etable: Arc<EventTable>,
-    pub frame_table: Arc<JumpTable>,
+    pub frame_table: Arc<FrameTableSlice>,
+    pub post_inherited_frame_table: Arc<InheritedFrameTable>,
 
     pub imtable: Arc<InitMemoryTable>,
     pub post_imtable: Arc<InitMemoryTable>,
 
-    pub initialization_state: Arc<InitializationState<u32, BigUint>>,
-    pub post_initialization_state: Arc<InitializationState<u32, BigUint>>,
+    pub initialization_state: Arc<InitializationState<u32>>,
+    pub post_initialization_state: Arc<InitializationState<u32>>,
 
     pub is_last_slice: bool,
 }
@@ -51,10 +84,14 @@ impl Slice {
             br_table: compilation_table.br_table.clone(),
             elem_table: compilation_table.elem_table.clone(),
             configure_table: compilation_table.configure_table.clone(),
-            static_jtable: compilation_table.static_jtable.clone(),
+            initial_frame_table: compilation_table.initial_frame_table.clone(),
 
             etable: EventTable::default().into(),
-            frame_table: JumpTable::default().into(),
+            frame_table: Arc::new(FrameTableSlice {
+                inherited: compilation_table.initial_frame_table.clone(),
+                called: CalledFrameTable::default(),
+            }),
+            post_inherited_frame_table: compilation_table.initial_frame_table.clone(),
 
             imtable: compilation_table.imtable.clone(),
             post_imtable: compilation_table.imtable.clone(),

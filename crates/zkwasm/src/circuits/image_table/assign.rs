@@ -5,7 +5,7 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
-use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
+use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
 
 use super::ImageTableChip;
 use crate::circuits::utils::image_table::ImageTableAssigner;
@@ -77,31 +77,25 @@ impl<F: FieldExt> ImageTableChip<F> {
                 let initialization_state_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
-                    let assign_handler = |field: &F| assign!(ctx, self.config.col, *field);
-
                     let initialization_state = image_table
                         .initialization_state
-                        .map(assign_handler, assign_handler);
+                        .map(|field: &F| assign!(ctx, self.config.col, *field));
 
                     initialization_state.transpose()
                 };
 
-                let static_frame_entries_handler = |base_offset| {
+                let inherited_frame_entries_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
-                    let mut cells = vec![];
+                    let mut cells = Vec::with_capacity(INHERITED_FRAME_TABLE_ENTRIES);
 
-                    for (enable, entry) in &image_table.static_frame_entries {
-                        let enable = assign!(ctx, self.config.col, *enable)?;
+                    for entry in image_table.inherited_frame_entries.iter() {
                         let entry = assign!(ctx, self.config.col, *entry)?;
 
-                        cells.push((enable, entry));
+                        cells.push(entry);
                     }
 
-                    Ok(cells.try_into().expect(&format!(
-                        "The number of static frame entries should be {}",
-                        STATIC_FRAME_ENTRY_NUMBER
-                    )))
+                    Ok(cells.try_into().unwrap())
                 };
 
                 let instruction_handler = |base_offset| {
@@ -145,7 +139,7 @@ impl<F: FieldExt> ImageTableChip<F> {
 
                 let result = image_table_assigner.exec(
                     initialization_state_handler,
-                    static_frame_entries_handler,
+                    inherited_frame_entries_handler,
                     instruction_handler,
                     br_table_handler,
                     padding_handler,
@@ -154,7 +148,7 @@ impl<F: FieldExt> ImageTableChip<F> {
 
                 Ok(ImageTableLayouter {
                     initialization_state: result.initialization_state,
-                    static_frame_entries: result.static_frame_entries,
+                    inherited_frame_entries: result.inherited_frame_entries,
                     instructions: result.instructions,
                     br_table_entires: result.br_table_entires,
                     padding_entires: result.padding_entires,

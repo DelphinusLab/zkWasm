@@ -1,4 +1,5 @@
-use num_bigint::BigUint;
+use std::collections::HashMap;
+
 use specs::configure_table::ConfigureTable;
 use specs::itable::InstructionTable;
 
@@ -12,7 +13,8 @@ pub struct Status<'a> {
     pub allocated_memory_pages: u32,
 
     pub rest_mops: u32,
-    pub jops: BigUint,
+    pub rest_call_ops: u32,
+    pub rest_return_ops: u32,
 
     pub host_public_inputs: u32,
     pub context_in_index: u32,
@@ -22,8 +24,9 @@ pub struct Status<'a> {
     pub itable: &'a InstructionTable,
 }
 
-pub struct StepStatus<'a, 'b> {
+pub struct StepStatus<'a, 'b, 'c> {
     pub current: &'a Status<'b>,
     pub next: &'a Status<'b>,
     pub configure_table: &'b ConfigureTable,
+    pub frame_table_returned_lookup: &'c HashMap<(u32, u32), bool>,
 }

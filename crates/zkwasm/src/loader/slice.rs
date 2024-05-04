@@ -1,17 +1,15 @@
 use halo2_proofs::arithmetic::FieldExt;
-use num_bigint::BigUint;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
 use specs::etable::EventTable;
-use specs::etable::EventTableBackend;
 use specs::imtable::InitMemoryTable;
 use specs::itable::InstructionTable;
-use specs::jtable::JumpTable;
-use specs::jtable::StaticFrameEntry;
-use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
+use specs::jtable::FrameTable;
+use specs::jtable::InheritedFrameTable;
 use specs::slice::Slice;
 use specs::state::InitializationState;
+use specs::TableBackend;
 use specs::Tables;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -28,12 +26,12 @@ pub struct Slices<F: FieldExt> {
     br_table: Arc<BrTable>,
     elem_table: Arc<ElemTable>,
     configure_table: Arc<ConfigureTable>,
-    static_jtable: Arc<[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER]>,
-    frame_table: Arc<JumpTable>,
+    initial_frame_table: Arc<InheritedFrameTable>,
+    frame_table: VecDeque<TableBackend<FrameTable>>,
 
     imtable: Arc<InitMemoryTable>,
-    initialization_state: Arc<InitializationState<u32, BigUint>>,
-    etables: VecDeque<EventTableBackend>,
+    initialization_state: Arc<InitializationState<u32>>,
+    etables: VecDeque<TableBackend<EventTable>>,
 
     _marker: std::marker::PhantomData<F>,
 }
@@ -55,8 +53,9 @@ impl<F: FieldExt> Slices<F> {
             br_table: tables.compilation_tables.br_table,
             elem_table: tables.compilation_tables.elem_table,
             configure_table: tables.compilation_tables.configure_table,
-            static_jtable: tables.compilation_tables.static_jtable,
-            frame_table: Arc::new(tables.execution_tables.jtable),
+            initial_frame_table: tables.compilation_tables.initial_frame_table,
+
+            frame_table: tables.execution_tables.frame_table.into(),
 
             imtable: tables.compilation_tables.imtable,
             initialization_state: tables.compilation_tables.initialization_state,
@@ -74,8 +73,16 @@ impl<F: FieldExt> Slices<F> {
         let mut iter = self.into_iter();
 
         while let Some(slice) = iter.next() {
-            let prover = MockProver::run(k, &slice?, vec![instances.clone()])?;
-            assert_eq!(prover.verify(), Ok(()));
+            match slice? {
+                ZkWasmCircuit::Ongoing(circuit) => {
+                    let prover = MockProver::run(k, &circuit, vec![instances.clone()])?;
+                    assert_eq!(prover.verify(), Ok(()));
+                }
+                ZkWasmCircuit::LastSliceCircuit(circuit) => {
+                    let prover = MockProver::run(k, &circuit, vec![instances.clone()])?;
+                    assert_eq!(prover.verify(), Ok(()));
+                }
+            }
         }
 
         Ok(())
@@ -91,16 +98,16 @@ impl<F: FieldExt> Iterator for Slices<F> {
         }
 
         let etable = match self.etables.pop_front().unwrap() {
-            EventTableBackend::Memory(etable) => etable,
-            EventTableBackend::Json(path) => EventTable::read(&path).unwrap(),
+            TableBackend::Memory(etable) => etable,
+            TableBackend::Json(path) => EventTable::read(&path).unwrap(),
         };
 
         let post_imtable = Arc::new(self.imtable.update_init_memory_table(&etable));
         let post_initialization_state = Arc::new({
             let next_event_entry = if let Some(next_event_table) = self.etables.front() {
                 match next_event_table {
-                    EventTableBackend::Memory(etable) => etable.entries().first().cloned(),
-                    EventTableBackend::Json(path) => {
+                    TableBackend::Memory(etable) => etable.entries().first().cloned(),
+                    TableBackend::Json(path) => {
                         let etable = EventTable::read(&path).unwrap();
                         etable.entries().first().cloned()
                     }
@@ -116,13 +123,33 @@ impl<F: FieldExt> Iterator for Slices<F> {
             )
         });
 
+        let frame_table = match self.frame_table.pop_front().unwrap() {
+            TableBackend::Memory(frame_table) => frame_table,
+            TableBackend::Json(path) => FrameTable::read(&path).unwrap(),
+        }
+        .into();
+
+        let post_inherited_frame_table = self.frame_table.front().map_or(
+            Arc::new(InheritedFrameTable::default()),
+            |frame_table| {
+                let post_inherited_frame_table = match frame_table {
+                    TableBackend::Memory(frame_table) => frame_table.inherited.clone(),
+                    TableBackend::Json(path) => FrameTable::read(&path).unwrap().inherited,
+                };
+
+                Arc::new((*post_inherited_frame_table).clone().try_into().unwrap())
+            },
+        );
+
         let slice = Slice {
             itable: self.itable.clone(),
             br_table: self.br_table.clone(),
             elem_table: self.elem_table.clone(),
             configure_table: self.configure_table.clone(),
-            static_jtable: self.static_jtable.clone(),
-            frame_table: self.frame_table.clone(),
+            initial_frame_table: self.initial_frame_table.clone(),
+
+            frame_table: Arc::new(frame_table),
+            post_inherited_frame_table,
 
             imtable: self.imtable.clone(),
             post_imtable: post_imtable.clone(),

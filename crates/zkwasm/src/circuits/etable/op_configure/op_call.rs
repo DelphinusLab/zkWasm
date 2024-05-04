@@ -4,7 +4,6 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::jtable::encode_jops;
 use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::utils::bn_to_field;
@@ -12,17 +11,16 @@ use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
 use crate::constant_from;
-use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
 use specs::encode::frame_table::encode_frame_table_entry;
 use specs::encode::opcode::encode_call;
 use specs::step::StepInfo;
 
 pub struct CallConfig<F: FieldExt> {
+    is_returned_cell: AllocatedCell<F>,
     index_cell: AllocatedCommonRangeCell<F>,
     frame_table_lookup: AllocatedJumpTableLookupCell<F>,
 }
@@ -60,6 +58,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
         ));
 
         Box::new(CallConfig {
+            is_returned_cell: common_config.jtable_lookup_cell.returned,
             index_cell,
             frame_table_lookup,
         })
@@ -90,6 +89,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig<F> {
                         (step.current.iid + 1).into(),
                     )),
                 )?;
+                self.is_returned_cell.assign(
+                    ctx,
+                    (*step
+                        .frame_table_returned_lookup
+                        .get(&(step.current.eid, *index))
+                        .unwrap())
+                    .into(),
+                )?;
+
                 Ok(())
             }
 
@@ -97,12 +105,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallConfig<F> {
         }
     }
 
-    fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from_bn!(&self.jops()))
+    fn call_ops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(self.call_ops() as u64))
     }
 
-    fn jops(&self) -> BigUint {
-        encode_jops(0, 1)
+    fn call_ops(&self) -> u32 {
+        1
     }
 
     fn next_frame_id(

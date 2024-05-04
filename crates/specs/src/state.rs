@@ -1,10 +1,8 @@
-use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[cfg(feature = "continuation")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InitializationState<T, U> {
+pub struct InitializationState<T> {
     pub eid: T,
     pub fid: T,
     pub iid: T,
@@ -18,31 +16,13 @@ pub struct InitializationState<T, U> {
 
     pub initial_memory_pages: T,
     pub maximal_memory_pages: T,
-
-    pub jops: U,
 }
 
-#[cfg(not(feature = "continuation"))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InitializationState<T, U> {
-    pub eid: T,
-    pub fid: T,
-    pub iid: T,
-    pub frame_id: T,
-    pub sp: T,
+impl<T> InitializationState<T> {
+    pub fn field_count() -> usize {
+        11
+    }
 
-    pub host_public_inputs: T,
-    pub context_in_index: T,
-    pub context_out_index: T,
-    pub external_host_call_call_index: T,
-
-    pub initial_memory_pages: T,
-    pub maximal_memory_pages: T,
-
-    pub _phantom: std::marker::PhantomData<U>,
-}
-
-impl<T> InitializationState<T, T> {
     pub fn zip_for_each<U, E>(
         &self,
         other: &Self,
@@ -65,14 +45,33 @@ impl<T> InitializationState<T, T> {
         closure(&self.initial_memory_pages, &other.initial_memory_pages)?;
         closure(&self.maximal_memory_pages, &other.maximal_memory_pages)?;
 
-        #[cfg(feature = "continuation")]
-        closure(&self.jops, &other.jops)?;
-
         Ok(())
+    }
+
+    pub fn for_each<U>(&self, f: impl FnMut(&T) -> U) {
+        self.map(f);
+    }
+
+    pub fn map<U>(&self, mut f: impl FnMut(&T) -> U) -> InitializationState<U> {
+        InitializationState {
+            eid: f(&self.eid),
+            fid: f(&self.fid),
+            iid: f(&self.iid),
+            frame_id: f(&self.frame_id),
+            sp: f(&self.sp),
+
+            host_public_inputs: f(&self.host_public_inputs),
+            context_in_index: f(&self.context_in_index),
+            context_out_index: f(&self.context_out_index),
+            external_host_call_call_index: f(&self.external_host_call_call_index),
+
+            initial_memory_pages: f(&self.initial_memory_pages),
+            maximal_memory_pages: f(&self.maximal_memory_pages),
+        }
     }
 }
 
-impl Default for InitializationState<u32, BigUint> {
+impl Default for InitializationState<u32> {
     fn default() -> Self {
         Self {
             eid: Default::default(),
@@ -88,17 +87,11 @@ impl Default for InitializationState<u32, BigUint> {
 
             initial_memory_pages: Default::default(),
             maximal_memory_pages: Default::default(),
-
-            #[cfg(feature = "continuation")]
-            jops: Default::default(),
-
-            #[cfg(not(feature = "continuation"))]
-            _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<T: Clone> InitializationState<T, T> {
+impl<T: Clone> InitializationState<T> {
     pub fn plain(&self) -> Vec<T> {
         let mut v = vec![];
 
@@ -116,57 +109,12 @@ impl<T: Clone> InitializationState<T, T> {
         v.push(self.initial_memory_pages.clone());
         v.push(self.maximal_memory_pages.clone());
 
-        #[cfg(feature = "continuation")]
-        v.push(self.jops.clone());
-
         v
     }
 }
 
-impl<T, U> InitializationState<T, U> {
-    pub fn field_count() -> usize {
-        if cfg!(feature = "continuation") {
-            12
-        } else {
-            11
-        }
-    }
-
-    pub fn for_each<V>(&self, f: impl FnMut(&T) -> V, g: impl FnMut(&U) -> V) {
-        self.map(f, g);
-    }
-
-    pub fn map<V>(
-        &self,
-        mut f: impl FnMut(&T) -> V,
-        mut _g: impl FnMut(&U) -> V,
-    ) -> InitializationState<V, V> {
-        InitializationState {
-            eid: f(&self.eid),
-            fid: f(&self.fid),
-            iid: f(&self.iid),
-            frame_id: f(&self.frame_id),
-            sp: f(&self.sp),
-
-            host_public_inputs: f(&self.host_public_inputs),
-            context_in_index: f(&self.context_in_index),
-            context_out_index: f(&self.context_out_index),
-            external_host_call_call_index: f(&self.external_host_call_call_index),
-
-            initial_memory_pages: f(&self.initial_memory_pages),
-            maximal_memory_pages: f(&self.maximal_memory_pages),
-
-            #[cfg(feature = "continuation")]
-            jops: _g(&self.jops),
-
-            #[cfg(not(feature = "continuation"))]
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<T, U, E> InitializationState<Result<T, E>, Result<U, E>> {
-    pub fn transpose(self) -> Result<InitializationState<T, U>, E> {
+impl<T, E> InitializationState<Result<T, E>> {
+    pub fn transpose(self) -> Result<InitializationState<T>, E> {
         Ok(InitializationState {
             eid: self.eid?,
             fid: self.fid?,
@@ -179,12 +127,6 @@ impl<T, U, E> InitializationState<Result<T, E>, Result<U, E>> {
             external_host_call_call_index: self.external_host_call_call_index?,
             initial_memory_pages: self.initial_memory_pages?,
             maximal_memory_pages: self.maximal_memory_pages?,
-
-            #[cfg(feature = "continuation")]
-            jops: self.jops?,
-
-            #[cfg(not(feature = "continuation"))]
-            _phantom: std::marker::PhantomData,
         })
     }
 }

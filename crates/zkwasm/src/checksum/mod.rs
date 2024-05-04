@@ -16,7 +16,7 @@ impl<C: CurveAffine> ImageCheckSum<C, Vec<C>> for CompilationTable {
             &self.itable,
             &self.br_table,
             &self.elem_table,
-            &self.static_jtable,
+            &self.initial_frame_table,
             &self.initialization_state,
             &self.imtable,
         )

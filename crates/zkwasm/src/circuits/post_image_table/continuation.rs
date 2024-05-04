@@ -16,10 +16,10 @@ use halo2_proofs::plonk::Fixed;
 use num_bigint::BigUint;
 use specs::encode::init_memory_table::encode_init_memory_table_address;
 use specs::encode::init_memory_table::MEMORY_ADDRESS_OFFSET;
-use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::mtable::LocationType;
 
 use crate::circuits::image_table::ImageTableConfig;
+use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::image_table::image_table_offset_to_memory_location;
@@ -88,10 +88,12 @@ macro_rules! assign {
 #[derive(Clone)]
 pub(in crate::circuits) struct PostImageTableConfig<F: FieldExt> {
     memory_addr_sel: Column<Fixed>,
+    inherited_frame_table_sel: Column<Fixed>,
     post_image_table: Column<Advice>,
     update: Column<Advice>,
     rest_memory_finalized_count: Column<Advice>,
     memory_finalized_lookup_encode: Column<Advice>,
+    inherited_frame_entries_lookup_encode: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -100,6 +102,7 @@ impl<F: FieldExt> PostImageTableConfig<F> {
         meta: &mut ConstraintSystem<F>,
         memory_addr_sel: Option<Column<Fixed>>,
         memory_table: &MemoryTableConfig<F>,
+        frame_table: &JumpTableConfig<F>,
         pre_image_table: &ImageTableConfig<F>,
     ) -> Self {
         let memory_addr_sel = memory_addr_sel.unwrap();
@@ -107,6 +110,8 @@ impl<F: FieldExt> PostImageTableConfig<F> {
         let rest_memory_finalized_count = meta.advice_column();
         let post_image_table = meta.named_advice_column(POST_IMAGE_TABLE.to_owned());
         let memory_finalized_lookup_encode = meta.advice_column();
+        let inherited_frame_entries_lookup_encode = meta.advice_column();
+        let inherited_frame_table_sel = meta.fixed_column();
 
         meta.enable_equality(rest_memory_finalized_count);
         meta.enable_equality(post_image_table);
@@ -139,18 +144,39 @@ impl<F: FieldExt> PostImageTableConfig<F> {
             ]
         });
 
+        meta.create_gate("post image table: inherited frame entries encode", |meta| {
+            vec![
+                fixed_curr!(meta, inherited_frame_table_sel)
+                    * (curr!(meta, inherited_frame_entries_lookup_encode)
+                        - curr!(meta, post_image_table)),
+            ]
+        });
+
         memory_table.configure_in_post_init_memory_table(
             meta,
             "post image table: lookup updating value",
             |meta| curr!(meta, memory_finalized_lookup_encode),
         );
 
+        frame_table.configure_in_event_table(
+            meta,
+            "post image table: extract unreturned frame table entries",
+            |meta| {
+                (
+                    constant_from!(0),
+                    curr!(meta, inherited_frame_entries_lookup_encode),
+                )
+            },
+        );
+
         Self {
             memory_addr_sel,
+            inherited_frame_table_sel,
             post_image_table,
             update,
             rest_memory_finalized_count,
             memory_finalized_lookup_encode,
+            inherited_frame_entries_lookup_encode,
             _mark: PhantomData,
         }
     }
@@ -183,32 +209,41 @@ impl<F: FieldExt> PostImageTableChip<F> {
                 let initialization_state_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
-                    let assign_handler =
-                        |field: &F| Ok(assign!(ctx, self.config.post_image_table, *field)?);
-
                     let initialization_state = post_image_table
                         .initialization_state
-                        .map(assign_handler, assign_handler);
+                        .map(|field: &F| Ok(assign!(ctx, self.config.post_image_table, *field)?));
 
                     initialization_state.transpose()
                 };
 
                 let static_frame_entries_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
+                    let mut offset = base_offset;
 
                     let mut cells = vec![];
 
-                    for (enable, entry) in &post_image_table.static_frame_entries {
-                        let enable = assign!(ctx, self.config.post_image_table, *enable)?;
+                    for entry in post_image_table.inherited_frame_entries.iter() {
+                        region.assign_fixed(
+                            || "post image table: inherited frame table",
+                            self.config.inherited_frame_table_sel,
+                            offset,
+                            || Ok(F::one()),
+                        )?;
+
+                        region.assign_advice(
+                            || "post image table: inherited frame table encode",
+                            self.config.inherited_frame_entries_lookup_encode,
+                            offset,
+                            || Ok(*entry),
+                        )?;
+
                         let entry = assign!(ctx, self.config.post_image_table, *entry)?;
 
-                        cells.push((enable, entry));
+                        cells.push(entry);
+                        offset += 1;
                     }
 
-                    Ok(cells.try_into().expect(&format!(
-                        "The number of static frame entries should be {}",
-                        STATIC_FRAME_ENTRY_NUMBER
-                    )))
+                    Ok(cells.try_into().unwrap())
                 };
 
                 let instruction_handler = |base_offset| {

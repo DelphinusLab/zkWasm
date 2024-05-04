@@ -11,15 +11,10 @@ use brtable::BrTable;
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
 use etable::EventTable;
-use etable::EventTableBackend;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
-use jtable::JumpTable;
-use jtable::StaticFrameEntry;
-use jtable::STATIC_FRAME_ENTRY_NUMBER;
-use num_bigint::BigUint;
-use serde::Deserialize;
-use serde::Serialize;
+use jtable::FrameTable;
+use jtable::InheritedFrameTable;
 use state::InitializationState;
 
 use crate::external_host_call_table::ExternalHostCallTable;
@@ -43,28 +38,34 @@ pub mod state;
 pub mod step;
 pub mod types;
 
-pub const MASK: bool = true;
-
 pub enum TraceBackend {
-    File(Box<dyn Fn(usize, &EventTable) -> PathBuf>),
+    File {
+        event_table_writer: Box<dyn Fn(usize, &EventTable) -> PathBuf>,
+        frame_table_writer: Box<dyn Fn(usize, &FrameTable) -> PathBuf>,
+    },
     Memory,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum TableBackend<Table> {
+    Memory(Table),
+    Json(PathBuf),
+}
+
+#[derive(Debug)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: Arc<InitMemoryTable>,
     pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
-    pub static_jtable: Arc<[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER]>,
-    pub initialization_state: Arc<InitializationState<u32, BigUint>>,
+    pub initial_frame_table: Arc<InheritedFrameTable>,
+    pub initialization_state: Arc<InitializationState<u32>>,
 }
 
 #[derive(Default)]
 pub struct ExecutionTable {
-    pub etable: Vec<EventTableBackend>,
-    pub jtable: JumpTable,
+    pub etable: Vec<TableBackend<EventTable>>,
+    pub frame_table: Vec<TableBackend<FrameTable>>,
 }
 
 pub struct Tables {
@@ -73,7 +74,12 @@ pub struct Tables {
 }
 
 impl Tables {
-    pub fn write(&self, dir: &PathBuf, name_of_etable_slice: impl Fn(usize) -> String) {
+    pub fn write(
+        &self,
+        dir: &PathBuf,
+        name_of_etable_slice: impl Fn(usize) -> String,
+        name_of_frame_table_slice: impl Fn(usize) -> String,
+    ) {
         fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
             let folder = folder.join(filename);
             let mut fd = File::create(folder.as_path()).unwrap();
@@ -87,14 +93,14 @@ impl Tables {
             .iter()
             .enumerate()
             .for_each(|(slice, e)| match e {
-                EventTableBackend::Memory(etable) => {
+                TableBackend::Memory(etable) => {
                     external_host_call_table.extend(etable.filter_external_host_call_table().0);
 
                     let path = dir.join(name_of_etable_slice(slice));
 
                     etable.write(&path).unwrap();
                 }
-                EventTableBackend::Json(path) => {
+                TableBackend::Json(path) => {
                     let etable = EventTable::read(&path).unwrap();
                     external_host_call_table.extend(etable.filter_external_host_call_table().0);
                 }
@@ -106,11 +112,19 @@ impl Tables {
             "itable.json",
             &serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap(),
         );
-        write_file(
-            dir,
-            "jtable.json",
-            &serde_json::to_string_pretty(&self.execution_tables.jtable).unwrap(),
-        );
+        self.execution_tables
+            .frame_table
+            .iter()
+            .enumerate()
+            .for_each(|(slice, frame_table)| {
+                if let TableBackend::Memory(frame_table) = frame_table {
+                    write_file(
+                        dir,
+                        &name_of_frame_table_slice(slice),
+                        &serde_json::to_string_pretty(frame_table).unwrap(),
+                    );
+                }
+            });
         write_file(
             dir,
             "external_host_table.json",

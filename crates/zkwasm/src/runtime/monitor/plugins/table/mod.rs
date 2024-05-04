@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use parity_wasm::elements::External;
@@ -11,10 +12,6 @@ use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
-use specs::jtable::JumpTable;
-use specs::jtable::JumpTableEntry;
-use specs::jtable::StaticFrameEntry;
-use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::state::InitializationState;
@@ -45,6 +42,7 @@ use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 use crate::circuits::compute_slice_capability;
 
 use self::etable::ETable;
+use self::frame_table::FrameTable;
 use self::instruction::run_instruction_pre;
 use self::instruction::FuncDesc;
 use self::instruction::InstructionIntoOpcode;
@@ -54,12 +52,15 @@ use self::instruction::RunInstructionTracePre;
 use super::phantom::PhantomHelper;
 
 mod etable;
+mod frame_table;
 mod instruction;
 
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
 pub struct TablePlugin {
+    capacity: u32,
+
     phantom_helper: PhantomHelper,
 
     host_function_desc: HashMap<usize, HostFunctionDesc>,
@@ -69,11 +70,10 @@ pub struct TablePlugin {
     elements: Vec<ElemEntry>,
     configure_table: ConfigureTable,
     init_memory_table: Vec<InitMemoryTableEntry>,
-    static_frame_table: Vec<StaticFrameEntry>,
     start_fid: Option<u32>,
 
     etable: ETable,
-    frame_table: JumpTable,
+    frame_table: FrameTable,
     last_jump_eid: Vec<u32>,
 
     module_ref: Option<wasmi::ModuleRef>,
@@ -86,9 +86,14 @@ impl TablePlugin {
         host_function_desc: HashMap<usize, HostFunctionDesc>,
         phantom_regex: &Vec<String>,
         wasm_input: FuncRef,
-        backend: TraceBackend,
+        trace_backend: TraceBackend,
     ) -> Self {
+        let capacity = compute_slice_capability(k);
+        let trace_backend = Rc::new(trace_backend);
+
         Self {
+            capacity,
+
             host_function_desc,
 
             phantom_helper: PhantomHelper::new(phantom_regex, wasm_input),
@@ -98,12 +103,11 @@ impl TablePlugin {
             configure_table: ConfigureTable::default(),
             init_memory_table: vec![],
             function_table: vec![],
-            static_frame_table: vec![],
             start_fid: None,
 
             last_jump_eid: vec![],
-            etable: ETable::new(compute_slice_capability(k), backend),
-            frame_table: JumpTable::default(),
+            etable: ETable::new(capacity, trace_backend.clone()),
+            frame_table: FrameTable::new(trace_backend),
 
             module_ref: None,
             unresolved_event: None,
@@ -116,10 +120,6 @@ impl TablePlugin {
         let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(ElemTable::new(self.elements.clone()));
         let configure_table = Arc::new(self.configure_table.clone());
-        let static_jtable = Arc::new(self.static_frame_table.clone().try_into().expect(&format!(
-            "The number of static frame entries should be {}",
-            STATIC_FRAME_ENTRY_NUMBER
-        )));
         let initialization_state = Arc::new(InitializationState {
             eid: 1,
             fid: self.start_fid.unwrap(),
@@ -134,12 +134,6 @@ impl TablePlugin {
 
             initial_memory_pages: configure_table.init_memory_pages,
             maximal_memory_pages: configure_table.maximal_memory_pages,
-
-            #[cfg(feature = "continuation")]
-            jops: num_bigint::BigUint::from(0u64),
-
-            #[cfg(not(feature = "continuation"))]
-            _phantom: core::marker::PhantomData,
         });
 
         CompilationTable {
@@ -148,7 +142,7 @@ impl TablePlugin {
             br_table,
             elem_table,
             configure_table,
-            static_jtable,
+            initial_frame_table: Arc::new(self.frame_table.build_initial_frame_table()),
             initialization_state,
         }
     }
@@ -158,26 +152,65 @@ impl TablePlugin {
             compilation_tables: self.into_compilation_table(),
             execution_tables: ExecutionTable {
                 etable: self.etable.finalized(),
-                jtable: self.frame_table,
+                frame_table: self.frame_table.finalized(),
             },
         }
     }
 }
 
 impl TablePlugin {
-    fn push_frame(&mut self, eid: u32, last_jump_eid: u32, callee_fid: u32, fid: u32, iid: u32) {
-        self.frame_table.push(JumpTableEntry {
-            eid,
-            last_jump_eid,
-            callee_fid,
+    fn push_event(
+        &mut self,
+        fid: u32,
+        iid: u32,
+        sp: u32,
+        allocated_memory_pages: u32,
+        last_jump_eid: u32,
+        step_info: StepInfo,
+    ) {
+        if self.etable.entries().len() == self.capacity as usize {
+            self.etable.flush();
+            self.frame_table.flush();
+        }
+
+        self.etable.push(
             fid,
             iid,
-        });
+            sp,
+            allocated_memory_pages,
+            last_jump_eid,
+            step_info,
+        )
+    }
 
-        self.last_jump_eid.push(eid);
+    fn push_frame(
+        &mut self,
+        frame_id: u32,
+        next_frame_id: u32,
+        callee_fid: u32,
+        fid: u32,
+        iid: u32,
+    ) {
+        self.frame_table
+            .push(frame_id, next_frame_id, callee_fid, fid, iid);
+
+        self.last_jump_eid.push(frame_id);
+    }
+
+    fn push_static_frame(
+        &mut self,
+        frame_id: u32,
+        next_frame_id: u32,
+        callee_fid: u32,
+        fid: u32,
+        iid: u32,
+    ) {
+        self.frame_table
+            .push_static_entry(frame_id, next_frame_id, callee_fid, fid, iid);
     }
 
     fn pop_frame(&mut self) {
+        self.frame_table.pop();
         self.last_jump_eid.pop();
     }
 
@@ -204,7 +237,7 @@ impl TablePlugin {
         };
 
         if has_return_value {
-            self.etable.push(
+            self.push_event(
                 fid,
                 iid,
                 current_sp,
@@ -215,7 +248,7 @@ impl TablePlugin {
 
             iid += 1;
 
-            self.etable.push(
+            self.push_event(
                 fid,
                 iid,
                 current_sp + 1,
@@ -238,7 +271,7 @@ impl TablePlugin {
             iid += 1;
 
             if callee_sig.return_type() != Some(wasmi::ValueType::I64) {
-                self.etable.push(
+                self.push_event(
                     fid,
                     iid,
                     current_sp + 1,
@@ -254,7 +287,7 @@ impl TablePlugin {
             }
         }
 
-        self.etable.push(
+        self.push_event(
             fid,
             iid,
             current_sp + has_return_value as u32,
@@ -295,36 +328,13 @@ impl Monitor for TablePlugin {
                 _ => unreachable!(),
             };
 
-            self.static_frame_table.push(StaticFrameEntry {
-                enable: true,
-                frame_id: 0,
-                next_frame_id: 0,
-                callee_fid: *zkmain_idx as u32,
-                fid: 0,
-                iid: 0,
-            });
+            self.push_static_frame(0, 0, *zkmain_idx as u32, 0, 0);
 
             if let Some(start_idx) = module.start_section() {
-                self.static_frame_table.push(StaticFrameEntry {
-                    enable: true,
-                    frame_id: 0,
-                    next_frame_id: 0,
-                    callee_fid: start_idx,
-                    fid: *zkmain_idx as u32,
-                    iid: 0,
-                });
+                self.push_static_frame(0, 0, start_idx, *zkmain_idx as u32, 0);
 
                 self.start_fid = Some(start_idx);
             } else {
-                self.static_frame_table.push(StaticFrameEntry {
-                    enable: false,
-                    frame_id: 0,
-                    next_frame_id: 0,
-                    callee_fid: 0,
-                    fid: 0,
-                    iid: 0,
-                });
-
                 self.start_fid = Some(*zkmain_idx as u32);
             }
         }
@@ -573,7 +583,7 @@ impl Monitor for TablePlugin {
                 instruction,
             );
 
-            self.etable.push(
+            self.push_event(
                 fid,
                 iid,
                 sp,

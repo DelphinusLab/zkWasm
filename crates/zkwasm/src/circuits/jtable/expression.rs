@@ -1,7 +1,7 @@
-use super::JtableOffset;
 use super::JumpTableConfig;
+use crate::curr;
 use crate::fixed_curr;
-use crate::nextn;
+use crate::next;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
@@ -9,27 +9,35 @@ use specs::encode::frame_table::encode_frame_table_entry;
 
 impl<F: FieldExt> JumpTableConfig<F> {
     pub(super) fn enable(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JtableOffset::JtableOffsetEnable as i32)
+        curr!(meta, self.enable)
     }
 
-    pub(super) fn rest(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JtableOffset::JtableOffsetRest as i32)
+    pub(super) fn rest_call_ops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        curr!(meta, self.call_ops)
     }
 
-    pub(super) fn next_rest(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(
-            meta,
-            self.data,
-            JtableOffset::JtableOffsetRest as i32 + JtableOffset::JtableOffsetMax as i32
-        )
+    pub(super) fn next_rest_call_ops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        next!(meta, self.call_ops)
     }
 
-    pub(super) fn entry(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        nextn!(meta, self.data, JtableOffset::JtableOffsetEntry as i32)
+    pub(super) fn rest_return_ops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        curr!(meta, self.return_ops)
     }
 
-    pub(super) fn static_bit(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
-        fixed_curr!(meta, self.static_bit)
+    pub(super) fn next_rest_return_ops(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        next!(meta, self.return_ops)
+    }
+
+    pub(super) fn returned(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        curr!(meta, self.returned)
+    }
+
+    pub(super) fn encode(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        curr!(meta, self.encode)
+    }
+
+    pub(super) fn inherited_bit(&self, meta: &mut VirtualCells<F>) -> Expression<F> {
+        fixed_curr!(meta, self.inherited)
     }
 }
 

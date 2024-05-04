@@ -91,11 +91,18 @@ impl SetupArg {
                 Slice::from_compilation_table(compilation_tables, is_last_slice),
             )?;
 
-            SetupArg::_setup_circuit_data(
-                params,
-                &setup_circuit,
-                params_dir.join(name_of_circuit_data(name, is_last_slice)),
-            )
+            match setup_circuit {
+                ZkWasmCircuit::Ongoing(circuit) => SetupArg::_setup_circuit_data(
+                    params,
+                    &circuit,
+                    params_dir.join(name_of_circuit_data(name, is_last_slice)),
+                ),
+                ZkWasmCircuit::LastSliceCircuit(circuit) => SetupArg::_setup_circuit_data(
+                    params,
+                    &circuit,
+                    params_dir.join(name_of_circuit_data(name, is_last_slice)),
+                ),
+            }
         };
 
         #[cfg(feature = "continuation")]

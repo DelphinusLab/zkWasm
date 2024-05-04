@@ -2,8 +2,9 @@ use num_bigint::BigUint;
 use num_bigint::ToBigUint;
 
 use crate::encode::COMMON_RANGE_OFFSET;
-use crate::jtable::JumpTableEntry;
-use crate::jtable::StaticFrameEntry;
+use crate::jtable::CalledFrameTableEntry;
+use crate::jtable::FrameTableEntryInternal;
+use crate::jtable::InheritedFrameTableEntry;
 
 use super::FromBn;
 
@@ -27,7 +28,7 @@ pub fn encode_frame_table_entry<T: FromBn>(
         + iid
 }
 
-impl StaticFrameEntry {
+impl FrameTableEntryInternal {
     pub fn encode(&self) -> BigUint {
         encode_frame_table_entry(
             self.frame_id.to_biguint().unwrap(),
@@ -39,14 +40,14 @@ impl StaticFrameEntry {
     }
 }
 
-impl JumpTableEntry {
+impl CalledFrameTableEntry {
     pub fn encode(&self) -> BigUint {
-        encode_frame_table_entry(
-            self.eid.to_biguint().unwrap(),
-            self.last_jump_eid.to_biguint().unwrap(),
-            self.callee_fid.to_biguint().unwrap(),
-            self.fid.to_biguint().unwrap(),
-            self.iid.to_biguint().unwrap(),
-        )
+        self.0.encode()
+    }
+}
+
+impl InheritedFrameTableEntry {
+    pub fn encode(&self) -> BigUint {
+        self.internal.encode()
     }
 }
