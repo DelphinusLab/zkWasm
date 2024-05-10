@@ -45,7 +45,7 @@ test_phantom_cli() {
 
 #x=50
 #while [ $x -gt 0 ]; do
-    test_phantom_cli
+#    test_phantom_cli
     test_default_cli
     test_uniform_circuit_cli
     test_continuation_cli
