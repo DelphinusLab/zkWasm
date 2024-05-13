@@ -86,7 +86,7 @@ with OPTIONS:
 ```
         --ctxin <CONTEXT_INPUT>
             Context inputs with format value:type where type=i64|bytes|bytes-packed, values can be
-            seperated by `,` or multiple occurrence of `--ctxin`
+            separated by `,` or multiple occurrence of `--ctxin`
 
         --ctxout [<CONTEXT_OUTPUT>...]
             Path to context output
@@ -106,11 +106,11 @@ with OPTIONS:
 
         --private <PRIVATE_INPUT>
             Private inputs with format value:type where type=i64|bytes|bytes-packed, values can be
-            seperated by `,` or multiple occurrence of `--private`
+            separated by `,` or multiple occurrence of `--private`
 
         --public <PUBLIC_INPUT>
             Public inputs with format value:type where type=i64|bytes|bytes-packed, values can be
-            seperated by `,` or multiple occurrence of `--public`
+            separated by `,` or multiple occurrence of `--public`
 
         --wasm <WASM>
             Path to the Wasm image
