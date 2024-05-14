@@ -1,5 +1,6 @@
 #![deny(warnings)]
 
+pub mod context;
 pub mod host;
 use std::cell::RefCell;
 use std::rc::Rc;
