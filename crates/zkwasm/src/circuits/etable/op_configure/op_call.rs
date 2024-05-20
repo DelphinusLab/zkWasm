@@ -20,6 +20,7 @@ use specs::encode::opcode::encode_call;
 use specs::step::StepInfo;
 
 pub struct CallConfig<F: FieldExt> {
+    // indicates if the calling returned in current slice.
     is_returned_cell: AllocatedCell<F>,
     index_cell: AllocatedCommonRangeCell<F>,
     frame_table_lookup: AllocatedJumpTableLookupCell<F>,
