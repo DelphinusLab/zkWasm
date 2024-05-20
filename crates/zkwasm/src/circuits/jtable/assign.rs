@@ -46,6 +46,7 @@ impl<F: FieldExt> JumpTableChip<F> {
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
         let capability = self.max_available_rows;
 
+        assert_eq!(ctx.offset, 0);
         assert_eq!(INHERITED_FRAME_TABLE_ENTRIES, DEFAULT_CALL_STACK_LIMIT);
         assert!(INHERITED_FRAME_TABLE_ENTRIES < capability);
 
