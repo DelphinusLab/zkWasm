@@ -206,7 +206,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
                     initialization_state.transpose()
                 };
 
-                let static_frame_entries_handler = |base_offset| {
+                let inherited_frame_entries_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
                     let mut offset = base_offset;
 
@@ -391,7 +391,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
 
                 let layouter = image_table_assigner.exec(
                     initialization_state_handler,
-                    static_frame_entries_handler,
+                    inherited_frame_entries_handler,
                     instruction_handler,
                     br_table_handler,
                     padding_handler,
