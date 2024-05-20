@@ -26,10 +26,7 @@ pub struct FrameTableEntryInternal {
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-pub struct InheritedFrameTableEntry {
-    pub enable: bool,
-    pub internal: FrameTableEntryInternal,
-}
+pub struct InheritedFrameTableEntry(pub Option<FrameTableEntryInternal>);
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InheritedFrameEntries(Vec<InheritedFrameTableEntry>);
@@ -101,6 +98,10 @@ impl CalledFrameTable {
 
     pub fn into_inner(self) -> Vec<CalledFrameTableEntry> {
         self.0
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 

@@ -140,11 +140,11 @@ impl<F: FieldExt> JumpTableChip<F> {
         let mut cells = vec![];
 
         for entry in inherited_table.0.iter() {
-            ctx.region.assign_advice(
-                || "frame table: enable",
-                self.config.enable,
+            let entry_cell = ctx.region.assign_advice(
+                || "frame table: encode",
+                self.config.encode,
                 ctx.offset,
-                || Ok(if entry.enable { F::one() } else { F::zero() }),
+                || Ok(bn_to_field(&entry.encode())),
             )?;
 
             ctx.region.assign_advice(
@@ -161,25 +161,27 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || Ok(F::from(*rest_return_ops as u64)),
             )?;
 
-            let entry_cell = ctx.region.assign_advice(
-                || "frame table: encode",
-                self.config.encode,
-                ctx.offset,
-                || Ok(bn_to_field(&entry.encode())),
-            )?;
-
-            if entry.internal.returned {
+            if let Some(entry) = entry.0.as_ref() {
                 ctx.region.assign_advice(
-                    || "frame table: returned",
-                    self.config.returned,
+                    || "frame table: enable",
+                    self.config.enable,
                     ctx.offset,
                     || Ok(F::one()),
                 )?;
+
+                if entry.returned {
+                    ctx.region.assign_advice(
+                        || "frame table: returned",
+                        self.config.returned,
+                        ctx.offset,
+                        || Ok(F::one()),
+                    )?;
+
+                    *rest_return_ops -= 1;
+                }
             }
 
             cells.push(entry_cell);
-
-            *rest_return_ops -= entry.internal.returned as u32;
 
             ctx.next();
         }
@@ -233,10 +235,11 @@ impl<F: FieldExt> JumpTableChip<F> {
                     ctx.offset,
                     || Ok(F::one()),
                 )?;
+
+                *rest_return_ops -= 1 as u32;
             }
 
             *rest_call_ops -= 1;
-            *rest_return_ops -= entry.0.returned as u32;
 
             ctx.next();
         }
@@ -245,14 +248,14 @@ impl<F: FieldExt> JumpTableChip<F> {
     }
 
     fn compute_call_ops(&self, frame_table: &FrameTableSlice) -> u32 {
-        frame_table.called.iter().count() as u32
+        frame_table.called.len() as u32
     }
 
     fn compute_returned_ops(&self, frame_table: &FrameTableSlice) -> u32 {
         frame_table
             .inherited
             .iter()
-            .filter(|e| e.internal.returned)
+            .filter(|e| e.0.as_ref().map_or(false, |entry| entry.returned))
             .count() as u32
             + frame_table.called.iter().filter(|e| e.0.returned).count() as u32
     }

@@ -44,10 +44,9 @@ impl FrameTableSlice {
             lookup_table.insert((entry.0.frame_id, entry.0.callee_fid), entry.0.returned);
         }
         for entry in self.inherited.0.iter() {
-            lookup_table.insert(
-                (entry.internal.frame_id, entry.internal.callee_fid),
-                entry.internal.returned,
-            );
+            if let Some(entry) = entry.0.as_ref() {
+                lookup_table.insert((entry.frame_id, entry.callee_fid), entry.returned);
+            }
         }
 
         lookup_table

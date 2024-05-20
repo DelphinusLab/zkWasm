@@ -39,17 +39,14 @@ impl Into<InheritedFrameTableEntry> for &FrameTableEntry {
     fn into(self) -> InheritedFrameTableEntry {
         assert!(self.inherited);
 
-        InheritedFrameTableEntry {
-            enable: true,
-            internal: FrameTableEntryInternal {
-                frame_id: self.frame_id,
-                next_frame_id: self.next_frame_id,
-                callee_fid: self.callee_fid,
-                fid: self.fid,
-                iid: self.iid,
-                returned: self.returned,
-            },
-        }
+        InheritedFrameTableEntry(Some(FrameTableEntryInternal {
+            frame_id: self.frame_id,
+            next_frame_id: self.next_frame_id,
+            callee_fid: self.callee_fid,
+            fid: self.fid,
+            iid: self.iid,
+            returned: self.returned,
+        }))
     }
 }
 
@@ -179,16 +176,15 @@ impl FrameTable {
     pub(super) fn build_initial_frame_table(&self) -> InheritedFrameTable {
         self.initial_frame_entries
             .iter()
-            .map(|entry| InheritedFrameTableEntry {
-                enable: true,
-                internal: FrameTableEntryInternal {
+            .map(|entry| {
+                InheritedFrameTableEntry(Some(FrameTableEntryInternal {
                     frame_id: entry.frame_id,
                     next_frame_id: entry.next_frame_id,
                     callee_fid: entry.callee_fid,
                     fid: entry.fid,
                     iid: entry.iid,
                     returned: false,
-                },
+                }))
             })
             .collect::<Vec<_>>()
             .try_into()
