@@ -63,9 +63,9 @@ use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    58
+    56
 } else {
-    51
+    49
 };
 
 // Reserve a few rows to keep usable rows away from blind rows.

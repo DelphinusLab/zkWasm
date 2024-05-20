@@ -93,7 +93,6 @@ pub(in crate::circuits) struct PostImageTableConfig<F: FieldExt> {
     update: Column<Advice>,
     rest_memory_finalized_count: Column<Advice>,
     memory_finalized_lookup_encode: Column<Advice>,
-    inherited_frame_entries_lookup_encode: Column<Advice>,
     _mark: PhantomData<F>,
 }
 
@@ -110,7 +109,6 @@ impl<F: FieldExt> PostImageTableConfig<F> {
         let rest_memory_finalized_count = meta.advice_column();
         let post_image_table = meta.named_advice_column(POST_IMAGE_TABLE.to_owned());
         let memory_finalized_lookup_encode = meta.advice_column();
-        let inherited_frame_entries_lookup_encode = meta.advice_column();
         let inherited_frame_table_sel = meta.fixed_column();
 
         meta.enable_equality(rest_memory_finalized_count);
@@ -144,14 +142,6 @@ impl<F: FieldExt> PostImageTableConfig<F> {
             ]
         });
 
-        meta.create_gate("post image table: inherited frame entries encode", |meta| {
-            vec![
-                fixed_curr!(meta, inherited_frame_table_sel)
-                    * (curr!(meta, inherited_frame_entries_lookup_encode)
-                        - curr!(meta, post_image_table)),
-            ]
-        });
-
         memory_table.configure_in_post_init_memory_table(
             meta,
             "post image table: lookup updating value",
@@ -163,8 +153,9 @@ impl<F: FieldExt> PostImageTableConfig<F> {
             "post image table: extract unreturned frame table entries",
             |meta| {
                 (
+                    fixed_curr!(meta, inherited_frame_table_sel),
                     constant_from!(0),
-                    curr!(meta, inherited_frame_entries_lookup_encode),
+                    curr!(meta, post_image_table) * fixed_curr!(meta, inherited_frame_table_sel),
                 )
             },
         );
@@ -176,7 +167,6 @@ impl<F: FieldExt> PostImageTableConfig<F> {
             update,
             rest_memory_finalized_count,
             memory_finalized_lookup_encode,
-            inherited_frame_entries_lookup_encode,
             _mark: PhantomData,
         }
     }
@@ -228,13 +218,6 @@ impl<F: FieldExt> PostImageTableChip<F> {
                             self.config.inherited_frame_table_sel,
                             offset,
                             || Ok(F::one()),
-                        )?;
-
-                        region.assign_advice(
-                            || "post image table: inherited frame table encode",
-                            self.config.inherited_frame_entries_lookup_encode,
-                            offset,
-                            || Ok(*entry),
                         )?;
 
                         let entry = assign!(ctx, self.config.post_image_table, *entry)?;

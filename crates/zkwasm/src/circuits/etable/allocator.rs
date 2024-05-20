@@ -62,13 +62,6 @@ impl_cell!(AllocatedU8Cell);
 impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedUnlimitedCell);
-impl_cell!(AllocatedJumpTableLookupCell);
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct AllocatedJumpTableLookupCell<F: FieldExt> {
-    pub(crate) cell: AllocatedCell<F>,
-    pub(crate) returned: AllocatedCell<F>,
-}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedMemoryTableLookupReadCell<F: FieldExt> {
@@ -160,8 +153,6 @@ pub(crate) enum EventTableCellType {
     CommonRange,
     Unlimited,
     MTableLookup,
-    JTableLookup,
-    JTableLookupReturned,
 }
 
 const BIT_COLUMNS: usize = 12;
@@ -182,7 +173,6 @@ const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
     8
 };
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
-const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
 
 #[derive(Clone, Copy)]
 pub(crate) struct AllocatedBitTableLookupCells<F: FieldExt> {
@@ -430,20 +420,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .collect(),
         );
         all_cols.insert(
-            EventTableCellType::JTableLookup,
-            [0; JUMP_TABLE_LOOKUP_COLUMNS]
-                .map(|_| vec![cols.next().unwrap()])
-                .into_iter()
-                .collect(),
-        );
-        all_cols.insert(
-            EventTableCellType::JTableLookupReturned,
-            [0; JUMP_TABLE_LOOKUP_COLUMNS]
-                .map(|_| vec![cols.next().unwrap()])
-                .into_iter()
-                .collect(),
-        );
-        all_cols.insert(
             EventTableCellType::MTableLookup,
             [0; MEMORY_TABLE_LOOKUP_COLUMNS]
                 .map(|_| {
@@ -476,8 +452,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (EventTableCellType::CommonRange, (0, 0)),
                     (EventTableCellType::Unlimited, (0, 0)),
                     (EventTableCellType::MTableLookup, (0, 0)),
-                    (EventTableCellType::JTableLookup, (0, 0)),
-                    (EventTableCellType::JTableLookupReturned, (0, 0)),
                 ]
                 .into_iter(),
             ),
@@ -565,13 +539,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(crate) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell {
             cell: self.alloc(&EventTableCellType::Unlimited),
-        }
-    }
-
-    pub(crate) fn alloc_jump_table_lookup_cell(&mut self) -> AllocatedJumpTableLookupCell<F> {
-        AllocatedJumpTableLookupCell {
-            cell: self.alloc(&EventTableCellType::JTableLookup),
-            returned: self.alloc(&EventTableCellType::JTableLookupReturned),
         }
     }
 

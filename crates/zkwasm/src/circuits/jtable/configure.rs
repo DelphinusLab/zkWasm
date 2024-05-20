@@ -102,14 +102,15 @@ impl<F: FieldExt> JumpTableConfig<F> {
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>),
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>, Expression<F>),
     ) {
         meta.lookup_any(key, |meta| {
-            let (is_returned_or_call, encode) = expr(meta);
+            let (sel, is_returned_or_call, encode) = expr(meta);
 
             vec![
+                (sel, fixed_curr!(meta, self.sel)),
                 (is_returned_or_call, self.returned(meta)),
-                (encode, self.encode(meta) * fixed_curr!(meta, self.sel)),
+                (encode, self.encode(meta)),
             ]
         });
     }
