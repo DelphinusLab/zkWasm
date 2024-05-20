@@ -83,8 +83,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     ops: [AllocatedBitCell<F>; OP_CAPABILITY],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    rest_call_ops_cell: AllocatedCommonRangeCell<F>,
-    rest_return_ops_cell: AllocatedCommonRangeCell<F>,
+    rest_call_ops_cell: AllocatedUnlimitedCell<F>,
+    rest_return_ops_cell: AllocatedUnlimitedCell<F>,
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
@@ -248,8 +248,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let enabled_cell = allocator.alloc_bit_cell();
 
         let rest_mops_cell = allocator.alloc_common_range_cell();
-        let rest_call_ops_cell = allocator.alloc_common_range_cell();
-        let rest_return_ops_cell = allocator.alloc_common_range_cell();
+        let rest_call_ops_cell = allocator.alloc_unlimited_cell();
+        let rest_return_ops_cell = allocator.alloc_unlimited_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
@@ -272,6 +272,16 @@ impl<F: FieldExt> EventTableConfig<F> {
             &EventTableCellType::CommonRange,
             used_common_range_cells_for_state.0
                 + (used_common_range_cells_for_state.1 != 0) as usize,
+        );
+
+        let used_unlimited_cells_for_state = allocator
+            .free_cells
+            .get(&EventTableCellType::Unlimited)
+            .unwrap();
+        allocator.enable_equality(
+            meta,
+            &EventTableCellType::Unlimited,
+            used_unlimited_cells_for_state.0 + (used_unlimited_cells_for_state.1 != 0) as usize,
         );
 
         let itable_lookup_cell = allocator.alloc_unlimited_cell();

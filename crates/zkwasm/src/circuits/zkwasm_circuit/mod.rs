@@ -63,7 +63,7 @@ use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    59
+    58
 } else {
     51
 };
