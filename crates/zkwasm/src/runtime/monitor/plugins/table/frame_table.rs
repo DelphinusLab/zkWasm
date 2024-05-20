@@ -56,7 +56,10 @@ impl Into<InheritedFrameTableEntry> for &FrameTableEntry {
 pub(super) struct FrameTable {
     initial_frame_entries: Vec<FrameTableEntry>,
     slices: Vec<TableBackend<specs::jtable::FrameTable>>,
-    current: Vec<FrameTableEntry>,
+
+    current_unreturned: Vec<FrameTableEntry>,
+    current_returned: Vec<FrameTableEntry>,
+
     backend: Rc<TraceBackend>,
 }
 
@@ -65,7 +68,10 @@ impl FrameTable {
         Self {
             initial_frame_entries: Vec::new(),
             slices: Vec::new(),
-            current: Vec::new(),
+
+            current_unreturned: Vec::new(),
+            current_returned: Vec::new(),
+
             backend,
         }
     }
@@ -78,7 +84,7 @@ impl FrameTable {
         fid: u32,
         iid: u32,
     ) {
-        self.current.push(FrameTableEntry {
+        self.current_unreturned.push(FrameTableEntry {
             frame_id,
             next_frame_id,
             callee_fid,
@@ -107,29 +113,34 @@ impl FrameTable {
             returned: false,
         };
 
-        self.current.push(entry.clone());
+        self.current_unreturned.push(entry.clone());
         self.initial_frame_entries.push(entry);
     }
 
     // Prepare for the next slice. This will remove all the entries that are returned
     pub(super) fn flush(&mut self) {
         let frame_table = {
-            let frame_table = specs::jtable::FrameTable {
-                inherited: Arc::new(
-                    self.current
-                        .iter()
-                        .filter(|entry| entry.inherited)
-                        .map(Into::into)
-                        .collect::<Vec<InheritedFrameTableEntry>>()
-                        .into(),
-                ),
-                called: CalledFrameTable::new(
-                    self.current
-                        .iter()
-                        .filter(|entry| !entry.inherited)
-                        .map(Into::into)
-                        .collect(),
-                ),
+            let frame_table = {
+                let inherited = self
+                    .current_returned
+                    .iter()
+                    .chain(self.current_unreturned.iter())
+                    .filter(|entry| entry.inherited)
+                    .map(Into::into)
+                    .collect::<Vec<InheritedFrameTableEntry>>();
+
+                let called = self
+                    .current_returned
+                    .iter()
+                    .chain(self.current_unreturned.iter())
+                    .filter(|entry| !entry.inherited)
+                    .map(Into::into)
+                    .collect::<Vec<CalledFrameTableEntry>>();
+
+                specs::jtable::FrameTable {
+                    inherited: Arc::new(inherited.into()),
+                    called: CalledFrameTable::new(called),
+                }
             };
 
             match self.backend.as_ref() {
@@ -142,24 +153,25 @@ impl FrameTable {
 
         self.slices.push(frame_table);
 
-        self.current.retain(|entry| !entry.returned);
-        for entry in self.current.iter_mut() {
+        self.current_returned.clear();
+        for entry in self.current_unreturned.iter_mut() {
             entry.inherited = true;
         }
     }
 
     pub(super) fn pop(&mut self) {
-        // get the last frame entry which returned is false.
-        // TODO: add a cursor instead of finding
-        let last = self.current.iter_mut().rev().find(|entry| !entry.returned);
-
-        last.unwrap().returned = true;
+        let mut entry = self.current_unreturned.pop().unwrap();
+        entry.returned = true;
+        self.current_returned.push(entry);
     }
 
     pub(super) fn finalized(mut self) -> Vec<TableBackend<specs::jtable::FrameTable>> {
         self.flush();
 
-        assert!(self.current.is_empty(), "all frames should be returned");
+        assert!(
+            self.current_unreturned.is_empty(),
+            "all frames should be returned"
+        );
 
         self.slices
     }
