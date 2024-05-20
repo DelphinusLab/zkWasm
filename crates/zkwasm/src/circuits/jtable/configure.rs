@@ -8,7 +8,7 @@ use halo2_proofs::plonk::VirtualCells;
 
 pub trait JTableConstraint<F: FieldExt> {
     fn configure(&self, meta: &mut ConstraintSystem<F>, is_last_slice: bool) {
-        self.enable_is_bit(meta);
+        self.enable_returned_are_bit(meta);
         self.enable_permutation(meta);
         self.configure_rest_jops_decrease(meta);
         self.disabled_block_should_be_end(meta, is_last_slice);
@@ -16,7 +16,7 @@ pub trait JTableConstraint<F: FieldExt> {
     }
 
     fn enable_permutation(&self, meta: &mut ConstraintSystem<F>);
-    fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>);
+    fn enable_returned_are_bit(&self, meta: &mut ConstraintSystem<F>);
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>);
     fn disabled_block_should_be_end(&self, meta: &mut ConstraintSystem<F>, is_last_slice: bool);
     fn disabled_block_has_no_entry_value(&self, meta: &mut ConstraintSystem<F>);
@@ -30,11 +30,14 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
         meta.enable_equality(self.enable);
     }
 
-    fn enable_is_bit(&self, meta: &mut ConstraintSystem<F>) {
-        meta.create_gate("enable is bit", |meta| {
+    fn enable_returned_are_bit(&self, meta: &mut ConstraintSystem<F>) {
+        meta.create_gate("enable and returned are bit", |meta| {
             vec![
                 self.enable(meta)
                     * (self.enable(meta) - constant_from!(1))
+                    * fixed_curr!(meta, self.sel),
+                self.returned(meta)
+                    * (self.returned(meta) - constant_from!(1))
                     * fixed_curr!(meta, self.sel),
             ]
         });
@@ -45,18 +48,10 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
             vec![
                 (self.rest_return_ops(meta)
                     - self.next_rest_return_ops(meta)
-                    - self.returned(meta))
-                    * self.enable(meta)
+                    - self.returned(meta) * self.enable(meta))
                     * fixed_curr!(meta, self.sel),
-                (self.rest_call_ops(meta) - self.next_rest_call_ops(meta) - constant_from!(1)
-                    + self.inherited_bit(meta))
-                    * self.enable(meta)
-                    * fixed_curr!(meta, self.sel),
-                (self.rest_return_ops(meta) - self.next_rest_return_ops(meta))
-                    * (self.enable(meta) - constant_from!(1))
-                    * fixed_curr!(meta, self.sel),
-                (self.rest_call_ops(meta) - self.next_rest_call_ops(meta))
-                    * (self.enable(meta) - constant_from!(1))
+                (self.rest_call_ops(meta) - self.next_rest_call_ops(meta) - self.enable(meta)
+                    + self.inherited_bit(meta) * self.enable(meta))
                     * fixed_curr!(meta, self.sel),
             ]
         });
@@ -93,7 +88,6 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
                 (constant_from!(1) - self.enable(meta))
                     * self.encode(meta)
                     * fixed_curr!(meta, self.sel),
-                // TODO: necessary?
                 (constant_from!(1) - self.enable(meta))
                     * (self.returned(meta))
                     * fixed_curr!(meta, self.sel),
