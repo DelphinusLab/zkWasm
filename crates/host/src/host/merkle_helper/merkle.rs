@@ -4,7 +4,6 @@ use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
 use halo2_proofs::pairing::bn256::Fr;
 use std::cell::RefCell;
-use std::io::Write;
 use std::rc::Rc;
 use wasmi::tracer::Observer;
 use zkwasm_host_circuits::circuits::host::HostOpSelector;
@@ -20,7 +19,6 @@ use zkwasm_host_circuits::host::ForeignInst::MerkleSet;
 use zkwasm_host_circuits::host::ForeignInst::MerkleSetRoot;
 use zkwasm_host_circuits::host::Reduce;
 use zkwasm_host_circuits::host::ReduceRule;
-use zkwasm_host_circuits::proof::write_merkle_proof;
 
 const MERKLE_TREE_HEIGHT: usize = 32;
 
@@ -35,7 +33,6 @@ pub struct MerkleContext {
     pub mongo_merkle: Option<merklehelper::MongoMerkle<MERKLE_TREE_HEIGHT>>,
     pub mongo_datahash: datahelper::MongoDataHash,
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
-    pub proof_recorder: Option<Rc<RefCell<dyn Write>>>,
     pub used_round: usize,
 }
 
@@ -44,10 +41,7 @@ fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
 }
 
 impl MerkleContext {
-    pub fn new(
-        tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
-        proof_recorder: Option<Rc<RefCell<dyn Write>>>,
-    ) -> Self {
+    pub fn new(tree_db: Option<Rc<RefCell<dyn TreeDB>>>) -> Self {
         MerkleContext {
             set_root: new_reduce(vec![ReduceRule::Bytes(vec![], 4)]),
             get_root: new_reduce(vec![ReduceRule::Bytes(vec![], 4)]),
@@ -59,7 +53,6 @@ impl MerkleContext {
             mongo_merkle: None,
             mongo_datahash: datahelper::MongoDataHash::construct([0; 32], tree_db.clone()),
             tree_db,
-            proof_recorder,
             used_round: 0,
         }
     }
@@ -119,13 +112,8 @@ impl MerkleContext {
                 .as_mut()
                 .expect("merkle db not initialized");
             let hash = self.set.rules[0].bytes_value().unwrap();
-            let proof = mt
-                .update_leaf_data_with_proof(index, &hash)
+            mt.update_leaf_data_with_proof(index, &hash)
                 .expect("Unexpected failure: update leaf with proof fail");
-            self.proof_recorder.as_mut().map(|v| {
-                let mut writer = v.borrow_mut();
-                write_merkle_proof(&mut *writer, proof);
-            });
         }
     }
 
@@ -136,15 +124,9 @@ impl MerkleContext {
             .mongo_merkle
             .as_ref()
             .expect("merkle db not initialized");
-        let (leaf, proof) = mt
+        let (leaf, _) = mt
             .get_leaf_with_proof(index)
             .expect("Unexpected failure: get leaf fail");
-
-        self.proof_recorder.as_mut().map(|v| {
-            let mut writer = v.borrow_mut();
-            write_merkle_proof(&mut *writer, proof);
-        });
-
         let values = leaf.data_as_u64();
         if self.data_cursor == 0 {
             self.data = values;
@@ -167,15 +149,10 @@ impl ForeignContext for MerkleContext {
 }
 
 use specs::external_host_call_table::ExternalHostCallSignature;
-pub fn register_merkle_foreign(
-    env: &mut HostEnv,
-    tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
-    proof_recorder: Option<Rc<RefCell<dyn Write>>>,
-) {
-    let foreign_merkle_plugin = env.external_env.register_plugin(
-        "foreign_merkle",
-        Box::new(MerkleContext::new(tree_db, proof_recorder)),
-    );
+pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
+    let foreign_merkle_plugin = env
+        .external_env
+        .register_plugin("foreign_merkle", Box::new(MerkleContext::new(tree_db)));
 
     env.external_env.register_function(
         "merkle_setroot",

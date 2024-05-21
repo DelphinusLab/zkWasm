@@ -202,7 +202,6 @@ pub trait AppBuilder: CommandBuilder {
                                 context_outputs: context_output.clone(),
                                 indexed_witness: Rc::new(RefCell::new(HashMap::new())),
                                 tree_db: None,
-                                merkle_proof_recorder: None,
                             },
                             HostEnvConfig::default(),
                         )?;
@@ -256,7 +255,6 @@ pub trait AppBuilder: CommandBuilder {
                                 context_outputs: context_out.clone(),
                                 indexed_witness: Rc::new(RefCell::new(HashMap::new())),
                                 tree_db: None,
-                                merkle_proof_recorder: None,
                             },
                             HostEnvConfig::default(),
                         )?;
