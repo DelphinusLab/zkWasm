@@ -36,6 +36,13 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
     }
 
     fn configure_rest_jops_decrease(&self, meta: &mut ConstraintSystem<F>) {
+        /*
+         * Why we do not need `enable == 1 -> encode != 0`.
+         *   If enable == 1 but encode == 0, it means the number of ops may greater than the number of encoding. However
+         *   - If the number of ops is not correct, the equality between etable and frame table will fail.
+         *   - If the number of ops is correct, encode == 0 implies an entry is missing and etable cannot
+         *     lookup the correct entry in frame table.
+         */
         meta.create_gate("c3. jtable rest decrease", |meta| {
             vec![
                 (self.rest_return_ops(meta)
