@@ -11,18 +11,21 @@ mod assign;
 mod configure;
 pub(crate) mod expression;
 
+#[repr(i32)]
+pub(self) enum FrameTableValueOffset {
+    Enable,
+    Returned,
+    Encode,
+    CallOps,
+    ReturnOps,
+    Max,
+}
+
 #[derive(Clone)]
 pub struct JumpTableConfig<F: FieldExt> {
     sel: Column<Fixed>,
-
     inherited: Column<Fixed>,
-
-    enable: Column<Advice>,
-    returned: Column<Advice>,
-    encode: Column<Advice>,
-
-    call_ops: Column<Advice>,
-    return_ops: Column<Advice>,
+    value: Column<Advice>,
     _m: PhantomData<F>,
 }
 
