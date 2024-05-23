@@ -46,7 +46,7 @@ pub fn test_circuit_with_env(
     let execution_result = loader.run(runner, &mut monitor)?;
     let instances: Vec<Fr> = execution_result.public_inputs_and_outputs();
 
-    Slices::new(k, monitor.into_tables())?.mock_test_all(k, instances)?;
+    Slices::new(k, monitor.into_tables())?.mock_test_all(instances)?;
 
     Ok(())
 }

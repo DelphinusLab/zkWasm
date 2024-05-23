@@ -1,6 +1,5 @@
 use specs::external_host_call_table::ExternalHostCallSignature;
 use std::rc::Rc;
-use wasmi::tracer::Observer;
 
 use crate::circuits::config::MIN_K;
 use crate::runtime::host::host_env::HostEnv;
