@@ -347,11 +347,19 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
         sel: Column<Fixed>,
+        (l_0, l_active, l_active_last): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, sel, rtable, mtable, cols);
+        let mut allocator = Self::_new(
+            meta,
+            sel,
+            (l_0, l_active, l_active_last),
+            rtable,
+            mtable,
+            cols,
+        );
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
@@ -371,6 +379,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     fn _new(
         meta: &mut ConstraintSystem<F>,
         sel: Column<Fixed>,
+        (l_0, l_active, l_active_last): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
@@ -386,14 +395,14 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         all_cols.insert(
             EventTableCellType::U8,
             [0; U8_COLUMNS]
-                .map(|_| vec![U8Column::configure(meta, cols, rtable, |_| constant_from!(1)).col])
+                .map(|_| vec![U8Column::configure(meta, (l_0, l_active, l_active_last)).col])
                 .into_iter()
                 .collect(),
         );
         all_cols.insert(
             EventTableCellType::U16,
             [0; U16_COLUMNS]
-                .map(|_| vec![U16Column::configure(meta, cols, rtable, |_| constant_from!(1)).col])
+                .map(|_| vec![U16Column::configure(meta, (l_0, l_active, l_active_last)).col])
                 .into_iter()
                 .collect(),
         );

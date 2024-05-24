@@ -667,14 +667,14 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "ec-gpu"
 version = "0.2.0"
-source = "git+https://github.com/lanbones/ec-gpu#165d1dd6215f6fd1dd85c83cf430ff511a03a00a"
+source = "git+https://github.com/lanbones/ec-gpu#36b9abf8611347e2fe44f21a2f3607eba3aed71d"
 
 [[package]]
 name = "ec-gpu-gen"
 version = "0.4.0"
-source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#5481be558da026bb9bddcd5807f973f6b1a8346e"
+source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#aedc591657644f047f25a2e089f0b489eba0bf38"
 dependencies = [
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "bitvec",
  "crossbeam-channel",
  "ec-gpu",
@@ -982,7 +982,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#9a81f601607bdc3ff3360a9ad66885c9796f487b"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#fe464bd14d7d1155964d39a029c9903b453aeac8"
 dependencies = [
  "ark-std 0.4.0",
  "blake2b_simd",
@@ -2300,10 +2300,12 @@ dependencies = [
  "hex",
  "lazy_static",
  "num-bigint",
+ "num-traits",
  "parity-wasm",
  "rayon",
  "serde",
  "serde_json",
+ "static_assertions",
  "strum",
  "strum_macros",
 ]
