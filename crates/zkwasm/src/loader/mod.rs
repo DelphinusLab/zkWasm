@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ff::PrimeField;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::dev::MockProver;
@@ -212,7 +213,11 @@ impl ZkWasmLoader {
         pk: &ProvingKey<E::G1Affine>,
         circuit: &ZkWasmCircuit<E::Scalar>,
         instances: &Vec<E::Scalar>,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Vec<u8>>
+    where
+        <<E::G1Affine as CurveAffine>::ScalarExt as PrimeField>::Repr:
+            std::hash::Hash + std::cmp::Eq,
+    {
         let mut transcript = Blake2bWrite::init(vec![]);
 
         create_proof(

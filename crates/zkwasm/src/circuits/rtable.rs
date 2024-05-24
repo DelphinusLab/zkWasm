@@ -50,11 +50,6 @@ struct OpTable {
 pub struct RangeTableConfig<F: FieldExt> {
     // [0 .. common_range())
     common_range_col: TableColumn,
-    // [0 .. 65536)
-    u16_col: TableColumn,
-    // [0 .. 256)
-    u8_col: TableColumn,
-
     op_table: OpTable,
 
     _mark: PhantomData<F>,
@@ -71,8 +66,6 @@ impl<F: FieldExt> RangeTableConfig<F> {
 
         RangeTableConfig {
             common_range_col: meta.lookup_table_column(),
-            u16_col: meta.lookup_table_column(),
-            u8_col: u8_col_multiset,
             op_table: OpTable {
                 op: meta.lookup_table_column(),
                 left: u8_col_multiset,
@@ -90,24 +83,6 @@ impl<F: FieldExt> RangeTableConfig<F> {
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
     ) {
         meta.lookup(key, |meta| vec![(expr(meta), self.common_range_col)]);
-    }
-
-    pub fn configure_in_u16_range(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-    ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u16_col)]);
-    }
-
-    pub fn configure_in_u8_range(
-        &self,
-        meta: &mut ConstraintSystem<F>,
-        key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
-    ) {
-        meta.lookup(key, |meta| vec![(expr(meta), self.u8_col)]);
     }
 
     pub fn configure_in_op_table(
@@ -168,21 +143,6 @@ impl<F: FieldExt> RangeTableChip<F> {
                         || "range table",
                         self.config.common_range_col,
                         i as usize,
-                        || Ok(F::from(i as u64)),
-                    )?;
-                }
-                Ok(())
-            },
-        )?;
-
-        layouter.assign_table(
-            || "u16 range table",
-            |table| {
-                for i in 0..(1 << 16) {
-                    table.assign_cell(
-                        || "range table",
-                        self.config.u16_col,
-                        i,
                         || Ok(F::from(i as u64)),
                     )?;
                 }

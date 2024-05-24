@@ -360,12 +360,22 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         meta: &mut ConstraintSystem<F>,
         k: u32,
         sel: Column<Fixed>,
+        (l_0, l_active, l_last_above): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         jtable: &JumpTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, k, sel, rtable, mtable, jtable, cols);
+        let mut allocator = Self::_new(
+            meta,
+            k,
+            sel,
+            (l_0, l_active, l_last_above),
+            rtable,
+            mtable,
+            jtable,
+            cols,
+        );
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
@@ -386,6 +396,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         meta: &mut ConstraintSystem<F>,
         k: u32,
         sel: Column<Fixed>,
+        (l_0, l_active, l_last_above): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         jtable: &JumpTableConfig<F>,
@@ -402,14 +413,14 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         all_cols.insert(
             EventTableCellType::U8,
             [0; U8_COLUMNS]
-                .map(|_| vec![U8Column::configure(meta, cols, rtable, |_| constant_from!(1)).col])
+                .map(|_| vec![U8Column::configure(meta, (l_0, l_active, l_last_above)).col])
                 .into_iter()
                 .collect(),
         );
         all_cols.insert(
             EventTableCellType::U16,
             [0; U16_COLUMNS]
-                .map(|_| vec![U16Column::configure(meta, cols, rtable, |_| constant_from!(1)).col])
+                .map(|_| vec![U16Column::configure(meta, (l_0, l_active, l_last_above)).col])
                 .into_iter()
                 .collect(),
         );

@@ -70,13 +70,21 @@ impl<F: FieldExt> MemoryTableConfig<F> {
     pub(crate) fn configure(
         meta: &mut ConstraintSystem<F>,
         k: u32,
+        (l_0, l_active, l_last_above): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
         image_table: &ImageTableConfig<F>,
     ) -> Self {
         let entry_sel = meta.fixed_column();
 
-        let mut allocator = MemoryTableCellAllocator::new(meta, k, entry_sel, rtable, cols);
+        let mut allocator = MemoryTableCellAllocator::new(
+            meta,
+            k,
+            entry_sel,
+            (l_0, l_active, l_last_above),
+            rtable,
+            cols,
+        );
         allocator.enable_equality(meta, &MemoryTableCellType::CommonRange);
 
         let enabled_cell = allocator.alloc_bit_cell();

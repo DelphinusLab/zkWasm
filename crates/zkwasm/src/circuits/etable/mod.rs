@@ -226,6 +226,7 @@ impl<F: FieldExt> EventTableConfig<F> {
     pub(crate) fn configure(
         meta: &mut ConstraintSystem<F>,
         k: u32,
+        (l_0, l_active, l_last_above): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         cols: &mut (impl Iterator<Item = Column<Advice>> + Clone),
         rtable: &RangeTableConfig<F>,
         image_table: &ImageTableConfig<F>,
@@ -237,8 +238,16 @@ impl<F: FieldExt> EventTableConfig<F> {
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
-        let mut allocator =
-            EventTableCellAllocator::new(meta, k, step_sel, rtable, mtable, jtable, cols);
+        let mut allocator = EventTableCellAllocator::new(
+            meta,
+            k,
+            step_sel,
+            (l_0, l_active, l_last_above),
+            rtable,
+            mtable,
+            jtable,
+            cols,
+        );
 
         let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();

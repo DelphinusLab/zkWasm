@@ -60,14 +60,14 @@ use super::image_table::ImageTableConfig;
 use super::post_image_table::PostImageTableConfig;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    58
+    42
 } else {
-    50
+    41
 };
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
-pub(crate) const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
+pub(crate) const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE + (1 << 16);
 
 #[derive(Default, Clone)]
 struct AssignedCells<F: FieldExt> {
@@ -84,6 +84,7 @@ struct AssignedCells<F: FieldExt> {
 
 #[derive(Clone)]
 pub struct ZkWasmCircuitConfig<F: FieldExt> {
+    shufle_range_check_helper: (Column<Fixed>, Column<Fixed>, Column<Fixed>),
     rtable: RangeTableConfig<F>,
     image_table: ImageTableConfig<F>,
     post_image_table: PostImageTableConfig<F>,
@@ -98,6 +99,7 @@ pub struct ZkWasmCircuitConfig<F: FieldExt> {
 
     max_available_rows: usize,
     circuit_maximal_pages: u32,
+    l_last: usize,
 
     k: u32,
 }
@@ -145,6 +147,12 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
             meta.enable_equality(constants);
         }
 
+        let (l_0, l_active, l_last_above) = (
+            meta.fixed_column(),
+            meta.fixed_column(),
+            meta.fixed_column(),
+        );
+
         let memory_addr_sel = if cfg!(feature = "continuation") {
             Some(meta.fixed_column())
         } else {
@@ -157,7 +165,14 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
         let rtable = RangeTableConfig::configure(meta);
         let image_table = ImageTableConfig::configure(meta, memory_addr_sel);
-        let mtable = MemoryTableConfig::configure(meta, k, &mut cols, &rtable, &image_table);
+        let mtable = MemoryTableConfig::configure(
+            meta,
+            k,
+            (l_0, l_active, l_last_above),
+            &mut cols,
+            &rtable,
+            &image_table,
+        );
         let post_image_table =
             PostImageTableConfig::configure(meta, memory_addr_sel, &mtable, &image_table);
         let jtable = JumpTableConfig::configure(meta, &mut cols);
@@ -183,6 +198,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         let etable = EventTableConfig::configure(
             meta,
             k,
+            (l_0, l_active, l_last_above),
             &mut cols,
             &rtable,
             &image_table,
@@ -205,6 +221,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         );
 
         Self::Config {
+            shufle_range_check_helper: (l_0, l_active, l_last_above),
             rtable,
             image_table,
             post_image_table,
@@ -218,6 +235,7 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
 
             max_available_rows,
             circuit_maximal_pages,
+            l_last: (1 << k) - (meta.blinding_factors() + 1),
 
             k,
         }
@@ -266,6 +284,44 @@ impl<F: FieldExt> Circuit<F> for ZkWasmCircuit<F> {
         rayon::scope(move |s| {
             let memory_writing_table = Arc::new(memory_writing_table);
             let etable = Arc::new(etable);
+
+            let _layouter = layouter.clone();
+            s.spawn(move |_| {
+                let (l_0, l_active, l_last_above) = config.shufle_range_check_helper;
+
+                _layouter
+                    .assign_region(
+                        || "range check sel helper",
+                        |region| {
+                            region
+                                .assign_fixed(|| "l_0", l_0, 0, || Ok(F::one()))
+                                .unwrap();
+
+                            region
+                                .assign_fixed(
+                                    || "l_last_above",
+                                    l_last_above,
+                                    config.l_last - 1,
+                                    || Ok(F::one()),
+                                )
+                                .unwrap();
+
+                            for offset in 0..config.l_last {
+                                region
+                                    .assign_fixed(
+                                        || "l_last_above",
+                                        l_active,
+                                        offset,
+                                        || Ok(F::one()),
+                                    )
+                                    .unwrap();
+                            }
+
+                            Ok(())
+                        },
+                    )
+                    .unwrap();
+            });
 
             let _layouter = layouter.clone();
             s.spawn(move |_| {
