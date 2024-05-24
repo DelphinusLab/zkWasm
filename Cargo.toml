@@ -19,3 +19,14 @@ poseidon = { git = "https://github.com/DelphinusLab/poseidon" }
 [profile.dev]
 opt-level = 3
 
+[patch."https://github.com/DelphinusLab/halo2-gpu-specific.git"]
+halo2_proofs = { path = "../shuffle/halo2-gpu-specific/halo2_proofs" }
+
+[patch."https://github.com/DelphinusLab/zkWasm-prover.git"]
+zkwasm-prover = { path = "../shuffle/zkWasm-prover" }
+
+[patch."https://github.com/DelphinusLab/halo2aggregator-s.git"]
+halo2aggregator-s = { path = "../shuffle/halo2aggregator-s" }
+
+[patch."https://github.com/DelphinusLab/continuation-batcher.git"]
+circuits-batcher = { path = "../shuffle/continuation-batcher" }
