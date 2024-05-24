@@ -5,7 +5,7 @@ CLI=./target/release/zkwasm-cli
 set -e
 set -x
 
-CUDA="--features cuda"
+CUDA="--features perf"
 
 test_default_cli() {
     cargo build --release $CUDA
@@ -46,8 +46,8 @@ test_phantom_cli() {
 #x=50
 #while [ $x -gt 0 ]; do
 #    test_phantom_cli
-    test_default_cli
-    test_uniform_circuit_cli
+#    test_default_cli
+#    test_uniform_circuit_cli
     test_continuation_cli
 #    x=$(($x-1))
 #done
