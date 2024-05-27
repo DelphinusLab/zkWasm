@@ -371,40 +371,41 @@ macro_rules! impl_zkwasm_circuit {
                     let _layouter = layouter.clone();
                     let _assigned_cells = assigned_cells.clone();
                     s.spawn(move |_| {
-                        let pre_image_table =
-                            self.slice.encode_pre_compilation_table_values(config.k);
+                        exec_with_profile!(|| "Assign pre image table chip", {
+                            let pre_image_table =
+                                self.slice.encode_pre_compilation_table_values(config.k);
 
-                        let cells = exec_with_profile!(
-                            || "Assign pre image table chip",
-                            image_chip
+                            let cells = image_chip
                                 .assign(_layouter, &image_table_assigner, pre_image_table)
-                                .unwrap()
-                        );
+                                .unwrap();
 
-                        *_assigned_cells.pre_image_table_cells.lock().unwrap() = Some(cells);
+                            *_assigned_cells.pre_image_table_cells.lock().unwrap() = Some(cells);
+                        });
                     });
 
                     let _layouter = layouter.clone();
                     let _assigned_cells = assigned_cells.clone();
                     let _memory_writing_table = memory_writing_table.clone();
                     s.spawn(move |_| {
-                        let post_image_table: ImageTableLayouter<F> =
-                            self.slice.encode_post_compilation_table_values(config.k);
+                        exec_with_profile!(|| "Assign post image table chip", {
+                            let post_image_table: ImageTableLayouter<F> =
+                                self.slice.encode_post_compilation_table_values(config.k);
 
-                        let (rest_memory_writing_ops, memory_finalized_set) =
-                            _memory_writing_table.count_rest_memory_finalize_ops();
+                            let (rest_memory_writing_ops, memory_finalized_set) =
+                                _memory_writing_table.count_rest_memory_finalize_ops();
 
-                        let cells = post_image_chip
-                            .assign(
-                                _layouter,
-                                &image_table_assigner,
-                                post_image_table,
-                                rest_memory_writing_ops,
-                                memory_finalized_set,
-                            )
-                            .unwrap();
+                            let cells = post_image_chip
+                                .assign(
+                                    _layouter,
+                                    &image_table_assigner,
+                                    post_image_table,
+                                    rest_memory_writing_ops,
+                                    memory_finalized_set,
+                                )
+                                .unwrap();
 
-                        *_assigned_cells.post_image_table_cells.lock().unwrap() = Some(cells);
+                            *_assigned_cells.post_image_table_cells.lock().unwrap() = Some(cells);
+                        });
                     });
 
                     let _layouter = layouter.clone();
