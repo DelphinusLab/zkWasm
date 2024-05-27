@@ -1,7 +1,7 @@
 use specs::host_function::HostPlugin;
 use specs::host_function::Signature;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 use wasmi::tracer::Observer;
 use wasmi::FuncInstance;
@@ -21,16 +21,16 @@ pub(super) struct ForeignOp {
 }
 
 pub struct InternalCircuitEnv {
-    pub(super) plugins: HashMap<HostPlugin, ForeignPlugin>,
-    pub(super) functions: HashMap<String, ForeignOp>,
+    pub(super) plugins: BTreeMap<HostPlugin, ForeignPlugin>,
+    pub(super) functions: BTreeMap<String, ForeignOp>,
     finalized: Rc<RefCell<bool>>,
 }
 
 impl InternalCircuitEnv {
     pub(super) fn new(finalized: Rc<RefCell<bool>>) -> Self {
         Self {
-            plugins: HashMap::new(),
-            functions: HashMap::new(),
+            plugins: BTreeMap::new(),
+            functions: BTreeMap::new(),
             finalized,
         }
     }
