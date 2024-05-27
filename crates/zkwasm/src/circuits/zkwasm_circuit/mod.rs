@@ -243,7 +243,7 @@ macro_rules! impl_zkwasm_circuit {
                 config: Self::Config,
                 layouter: impl Layouter<F>,
             ) -> Result<(), Error> {
-                let assign_timer = start_timer!(|| "Assign");
+                let timer = start_timer!(|| "Prepare assignment");
 
                 let rchip = RangeTableChip::new(config.rtable);
                 let image_chip = ImageTableChip::new(config.image_table);
@@ -263,16 +263,23 @@ macro_rules! impl_zkwasm_circuit {
                 );
                 let context_chip = ContextContHelperTableChip::new(config.context_helper_table);
 
-                let image_table_assigner = ImageTableAssigner::new(
-                    // Add one for default lookup value
-                    self.slice.itable.len() + 1,
-                    self.slice.br_table.entries().len() + self.slice.elem_table.entries().len() + 1,
-                    config.circuit_maximal_pages,
-                );
+                let image_table_assigner = exec_with_profile!(|| "Prepare image table assigner", {
+                    ImageTableAssigner::new(
+                        // Add one for default lookup value
+                        self.slice.itable.len() + 1,
+                        self.slice.br_table.entries().len()
+                            + self.slice.elem_table.entries().len()
+                            + 1,
+                        config.circuit_maximal_pages,
+                    )
+                });
 
-                let memory_writing_table: MemoryWritingTable = MemoryWritingTable::from(
-                    config.k,
-                    self.slice.create_memory_table(memory_event_of_step),
+                let memory_writing_table: MemoryWritingTable = exec_with_profile!(
+                    || "Prepare mtable",
+                    MemoryWritingTable::from(
+                        config.k,
+                        self.slice.create_memory_table(memory_event_of_step),
+                    )
                 );
 
                 let etable = exec_with_profile!(
@@ -284,7 +291,9 @@ macro_rules! impl_zkwasm_circuit {
 
                 let layouter_cloned = layouter.clone();
                 let assigned_cells_cloned = assigned_cells.clone();
+                end_timer!(timer);
 
+                let timer = start_timer!(|| "Assign");
                 rayon::scope(move |s| {
                     let memory_writing_table = Arc::new(memory_writing_table);
                     let etable = Arc::new(etable);
@@ -451,6 +460,7 @@ macro_rules! impl_zkwasm_circuit {
                         });
                     });
                 });
+                end_timer!(timer);
 
                 macro_rules! into_inner {
                     ($arc:ident) => {
@@ -472,6 +482,7 @@ macro_rules! impl_zkwasm_circuit {
                 /*
                  * Permutation between chips
                  */
+                let timer = start_timer!(|| "permutation");
                 layouter_cloned.assign_region(
                     || "permutation between tables",
                     |region| {
@@ -557,8 +568,7 @@ macro_rules! impl_zkwasm_circuit {
                         Ok(())
                     },
                 )?;
-
-                end_timer!(assign_timer);
+                end_timer!(timer);
 
                 Ok(())
             }

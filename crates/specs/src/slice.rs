@@ -114,6 +114,7 @@ impl Slice {
             .collect::<Vec<Vec<_>>>()
             .concat();
 
+        // Use a set to deduplicate
         let mut set = HashSet::<MemoryTableEntry>::default();
 
         memory_entries.iter().for_each(|entry| {
@@ -145,7 +146,7 @@ impl Slice {
 
         memory_entries.append(&mut set.into_iter().collect());
 
-        memory_entries.sort_by_key(|item| (item.ltype, item.offset, item.eid));
+        memory_entries.sort_unstable_by_key(|item| (item.ltype, item.offset, item.eid));
 
         MTable::new(memory_entries)
     }
