@@ -19,14 +19,22 @@ poseidon = { git = "https://github.com/DelphinusLab/poseidon" }
 [profile.dev]
 opt-level = 3
 
+# origin/range_check_shuffle_new
+# 3cea7f1f67818ef12aaaef5a9fe1cf6ffb783cef
 [patch."https://github.com/DelphinusLab/halo2-gpu-specific.git"]
 halo2_proofs = { path = "../shuffle/halo2-gpu-specific/halo2_proofs" }
 
+# https://github.com/mooreland/zkWasm-prover.git origin/add_shuffle
+# 690a1384c338acc8a27bf681020beecf29a3903b
 [patch."https://github.com/DelphinusLab/zkWasm-prover.git"]
 zkwasm-prover = { path = "../shuffle/zkWasm-prover" }
 
+# origin/range_check_shuffle
+# 843f63129279d86918ea7760b994076c3106a1b7
 [patch."https://github.com/DelphinusLab/halo2aggregator-s.git"]
 halo2aggregator-s = { path = "../shuffle/halo2aggregator-s" }
 
+# origin/range_check_shuffle
+# 110c6994409693ecfa7c6b154809958999c0b708
 [patch."https://github.com/DelphinusLab/continuation-batcher.git"]
 circuits-batcher = { path = "../shuffle/continuation-batcher" }

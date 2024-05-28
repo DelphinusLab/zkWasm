@@ -1,5 +1,4 @@
 use anyhow::Result;
-use ff::PrimeField;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::poly::commitment::Params;
