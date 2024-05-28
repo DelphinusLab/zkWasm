@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
@@ -6,8 +8,8 @@ use halo2_proofs::plonk::Error;
 use log::debug;
 use num_bigint::BigUint;
 use rayon::iter::IndexedParallelIterator;
-use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
+use rayon::prelude::ParallelSlice;
 use specs::encode::init_memory_table::encode_init_memory_table_address;
 use specs::encode::init_memory_table::encode_init_memory_table_entry;
 use specs::encode::init_memory_table::MEMORY_ADDRESS_OFFSET;
@@ -237,93 +239,117 @@ impl<F: FieldExt> MemoryTableChip<F> {
             status
         };
 
-        mtable.0.par_iter().enumerate().for_each(|(index, entry)| {
-            let mut ctx = Context::new(region);
+        const THREAD: usize = 8;
+        let chunk_size = if mtable.0.len() == 0 {
+            1
+        } else {
+            (mtable.0.len() + THREAD - 1) / THREAD
+        };
 
-            ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize * index);
+        mtable
+            .0
+            .par_chunks(chunk_size)
+            .enumerate()
+            .for_each(|(chunk_index, entries)| {
+                let mut ctx = Context::new(region);
+                ctx.offset = (chunk_index * chunk_size) * MEMORY_TABLE_ENTRY_ROWS as usize;
+                let mut invert_cache: HashMap<u64, F> = HashMap::default();
 
-            assign_bit!(&mut ctx, enabled_cell);
+                for (index, entry) in entries.iter().enumerate() {
+                    let index = chunk_index * chunk_size + index;
 
-            match entry.entry.ltype {
-                LocationType::Stack => assign_bit!(&mut ctx, is_stack_cell),
-                LocationType::Heap => assign_bit!(&mut ctx, is_heap_cell),
-                LocationType::Global => assign_bit!(&mut ctx, is_global_cell),
-            };
+                    assign_bit!(&mut ctx, enabled_cell);
 
-            assign_bit_if!(&mut ctx, entry.entry.is_mutable, is_mutable);
+                    match entry.entry.ltype {
+                        LocationType::Stack => assign_bit!(&mut ctx, is_stack_cell),
+                        LocationType::Heap => assign_bit!(&mut ctx, is_heap_cell),
+                        LocationType::Global => assign_bit!(&mut ctx, is_global_cell),
+                    };
 
-            match entry.entry.vtype {
-                VarType::I32 => assign_bit!(&mut ctx, is_i32_cell),
-                VarType::I64 => assign_bit!(&mut ctx, is_i64_cell),
-            };
+                    assign_bit_if!(&mut ctx, entry.entry.is_mutable, is_mutable);
 
-            assign_bit_if!(&mut ctx, entry.entry.atype.is_init(), is_init_cell);
+                    match entry.entry.vtype {
+                        VarType::I32 => assign_bit!(&mut ctx, is_i32_cell),
+                        VarType::I64 => assign_bit!(&mut ctx, is_i64_cell),
+                    };
 
-            assign_u32_state!(&mut ctx, start_eid_cell, entry.entry.eid);
-            assign_u32_state!(&mut ctx, end_eid_cell, entry.end_eid);
-            assign_u32_state!(&mut ctx, eid_diff_cell, entry.end_eid - entry.entry.eid - 1);
-            assign_advice!(&mut ctx, init_encode_cell, status[index].init_encode);
-            assign_advice!(&mut ctx, rest_mops_cell, F::from(status[index].rest_mops));
-            assign_advice!(&mut ctx, offset_cell, entry.entry.offset);
-            assign_advice!(&mut ctx, value, entry.entry.value);
+                    assign_bit_if!(&mut ctx, entry.entry.atype.is_init(), is_init_cell);
 
-            let offset_diff = F::from(status[index].offset_diff as u64);
-            let offset_diff_inv = offset_diff.invert().unwrap_or(F::zero());
-            let offset_diff_inv_helper = offset_diff * offset_diff_inv;
-            assign_bit_if!(
-                &mut ctx,
-                status[index].is_next_same_ltype_cell,
-                is_next_same_ltype_cell
-            );
-            assign_bit_if!(
-                &mut ctx,
-                status[index].is_next_same_offset_cell,
-                is_next_same_offset_cell
-            );
-            assign_advice!(&mut ctx, offset_diff_cell, status[index].offset_diff);
-            assign_advice!(&mut ctx, offset_diff_inv_cell, offset_diff_inv);
-            assign_advice!(
-                &mut ctx,
-                offset_diff_inv_helper_cell,
-                offset_diff_inv_helper
-            );
+                    assign_u32_state!(&mut ctx, start_eid_cell, entry.entry.eid);
+                    assign_u32_state!(&mut ctx, end_eid_cell, entry.end_eid);
+                    assign_u32_state!(&mut ctx, eid_diff_cell, entry.end_eid - entry.entry.eid - 1);
+                    assign_advice!(&mut ctx, init_encode_cell, status[index].init_encode);
+                    assign_advice!(&mut ctx, rest_mops_cell, F::from(status[index].rest_mops));
+                    assign_advice!(&mut ctx, offset_cell, entry.entry.offset);
+                    assign_advice!(&mut ctx, value, entry.entry.value);
 
-            #[cfg(feature = "continuation")]
-            {
-                assign_advice!(
-                    &mut ctx,
-                    rest_memory_finalize_ops_cell,
-                    F::from(status[index]._rest_memory_finalize_ops as u64)
-                );
-
-                assign_advice!(
-                    &mut ctx,
-                    address_encode_cell,
-                    bn_to_field(&encode_init_memory_table_address(
-                        (entry.entry.ltype as u64).into(),
-                        entry.entry.offset.into()
-                    ))
-                );
-
-                if let Some(post_init_encode) = status[index]._post_init_encode_cell {
-                    assign_advice!(&mut ctx, post_init_encode_cell, post_init_encode);
-                }
-            }
-
-            assign_advice!(
-                &mut ctx,
-                encode_cell,
-                bn_to_field(&encode_memory_table_entry(
-                    entry.entry.offset.into(),
-                    (entry.entry.ltype as u64).into(),
-                    if VarType::I32 == entry.entry.vtype {
-                        1u64.into()
+                    let offset_diff = F::from(status[index].offset_diff as u64);
+                    let offset_diff_inv = invert_cache
+                        .entry(status[index].offset_diff as u64)
+                        .or_insert_with(|| offset_diff.invert().unwrap_or(F::zero()));
+                    let offset_diff_inv_helper = if status[index].offset_diff == 0 {
+                        F::zero()
                     } else {
-                        0u64.into()
+                        F::one()
+                    };
+
+                    assign_bit_if!(
+                        &mut ctx,
+                        status[index].is_next_same_ltype_cell,
+                        is_next_same_ltype_cell
+                    );
+                    assign_bit_if!(
+                        &mut ctx,
+                        status[index].is_next_same_offset_cell,
+                        is_next_same_offset_cell
+                    );
+                    assign_advice!(&mut ctx, offset_diff_cell, status[index].offset_diff);
+                    assign_advice!(&mut ctx, offset_diff_inv_cell, *offset_diff_inv);
+                    assign_advice!(
+                        &mut ctx,
+                        offset_diff_inv_helper_cell,
+                        offset_diff_inv_helper
+                    );
+
+                    #[cfg(feature = "continuation")]
+                    {
+                        assign_advice!(
+                            &mut ctx,
+                            rest_memory_finalize_ops_cell,
+                            F::from(status[index]._rest_memory_finalize_ops as u64)
+                        );
+
+                        assign_advice!(
+                            &mut ctx,
+                            address_encode_cell,
+                            bn_to_field(&encode_init_memory_table_address(
+                                (entry.entry.ltype as u64).into(),
+                                entry.entry.offset.into()
+                            ))
+                        );
+
+                        if let Some(post_init_encode) = status[index]._post_init_encode_cell {
+                            assign_advice!(&mut ctx, post_init_encode_cell, post_init_encode);
+                        }
                     }
-                ))
-            );
-        });
+
+                    assign_advice!(
+                        &mut ctx,
+                        encode_cell,
+                        bn_to_field(&encode_memory_table_entry(
+                            entry.entry.offset.into(),
+                            (entry.entry.ltype as u64).into(),
+                            if VarType::I32 == entry.entry.vtype {
+                                1u64.into()
+                            } else {
+                                0u64.into()
+                            }
+                        ))
+                    );
+
+                    ctx.step(MEMORY_TABLE_ENTRY_ROWS as usize);
+                }
+            });
 
         Ok(())
     }
