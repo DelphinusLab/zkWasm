@@ -1,8 +1,9 @@
 use anyhow::Error;
 use halo2_proofs::arithmetic::FieldExt;
 use num_bigint::BigUint;
-use rayon::iter::IntoParallelIterator;
+use num_traits::Zero;
 use rayon::iter::ParallelIterator;
+use rayon::prelude::ParallelSlice;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::encode::image_table::ImageTableEncoder;
@@ -295,33 +296,43 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
         {
             let address = &cells;
 
-            (0..layouter.len()).into_par_iter().for_each(|pos| {
-                let (ltype, offset) = layouter.memory_location_from_offset(pos);
+            const THREADS: usize = 4;
+            let chunk_size = (layouter.len() + THREADS - 1) / THREADS;
 
-                let entry = if let Some(entry) = init_memory_table.try_find(ltype, offset) {
-                    bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(entry.encode()))
-                } else if ltype == LocationType::Heap {
-                    let entry = InitMemoryTableEntry {
-                        ltype,
-                        is_mutable: true,
-                        offset,
-                        vtype: VarType::I64,
-                        value: 0,
-                        eid: 0,
-                    };
+            (0..layouter.len())
+                .collect::<Vec<_>>()
+                .par_chunks(chunk_size)
+                .for_each(|chunk| {
+                    for pos in chunk {
+                        let (ltype, offset) = layouter.memory_location_from_offset(*pos);
 
-                    bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(entry.encode()))
-                } else {
-                    bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)))
-                };
+                        let entry = if let Some(entry) = init_memory_table.try_find(ltype, offset) {
+                            ImageTableEncoder::InitMemory.encode(entry.encode())
+                        } else if ltype == LocationType::Heap {
+                            let entry = InitMemoryTableEntry {
+                                ltype,
+                                is_mutable: true,
+                                offset,
+                                vtype: VarType::I64,
+                                value: 0,
+                                eid: 0,
+                            };
 
-                let addr = address.as_ptr();
-                unsafe {
-                    let addr = addr as *mut F;
+                            ImageTableEncoder::InitMemory.encode(entry.encode())
+                        } else {
+                            ImageTableEncoder::InitMemory.encode(BigUint::zero())
+                        };
 
-                    *addr.offset((pos + 1) as isize) = entry;
-                }
-            });
+                        let entry = bn_to_field::<F>(&entry);
+
+                        let addr = address.as_ptr();
+                        unsafe {
+                            let addr = addr as *mut F;
+
+                            *addr.offset((pos + 1) as isize) = entry;
+                        }
+                    }
+                });
         }
 
         Ok(cells)
