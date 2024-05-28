@@ -13,12 +13,12 @@ pub(crate) mod expression;
 
 #[repr(i32)]
 pub(self) enum FrameTableValueOffset {
-    Enable,
-    Returned,
-    Encode,
-    CallOps,
-    ReturnOps,
-    Max,
+    Enable = 0,
+    Returned = 1,
+    Encode = 2,
+    CallOps = 3,
+    ReturnOps = 4,
+    Max = 5,
 }
 
 #[derive(Clone)]

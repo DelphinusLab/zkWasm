@@ -81,7 +81,7 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
         meta.create_gate("c6. jtable entry is zero on disabled", |meta| {
             vec![
                 (constant_from!(1) - self.enable(meta)) * self.encode(meta) * self.sel(meta),
-                (constant_from!(1) - self.enable(meta)) * (self.returned(meta)) * self.sel(meta),
+                (constant_from!(1) - self.enable(meta)) * self.returned(meta) * self.sel(meta),
             ]
         });
     }
