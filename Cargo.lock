@@ -623,7 +623,7 @@ name = "delphinus-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "circuits-batcher",
  "clap",
  "delphinus-host",
@@ -646,7 +646,7 @@ name = "delphinus-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "bitvec",
  "delphinus-zkwasm",
  "downcast-rs",
@@ -678,7 +678,7 @@ name = "delphinus-zkwasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "bitvec",
  "cfg-if 1.0.0",
  "downcast-rs",
