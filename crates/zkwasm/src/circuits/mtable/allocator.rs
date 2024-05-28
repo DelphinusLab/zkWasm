@@ -10,7 +10,6 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 
 use crate::circuits::cell::*;
-use crate::circuits::config::common_range_max;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::utils::bit::BitColumn;
 use crate::circuits::utils::common_range::CommonRangeColumn;
@@ -83,7 +82,6 @@ const U64_CELLS: usize = 1;
 
 #[derive(Debug, Clone)]
 pub(super) struct MemoryTableCellAllocator<F: FieldExt> {
-    k: u32,
     all_cols: BTreeMap<MemoryTableCellType, Vec<Column<Advice>>>,
     free_cells: BTreeMap<MemoryTableCellType, (usize, u32)>,
     free_u32_cells: Vec<AllocatedU32Cell<F>>,
@@ -153,12 +151,11 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
 
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
-        k: u32,
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, k, sel.clone(), rtable, cols);
+        let mut allocator = Self::_new(meta, sel.clone(), rtable, cols);
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
@@ -172,7 +169,6 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
 
     fn _new(
         meta: &mut ConstraintSystem<F>,
-        k: u32,
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
@@ -209,7 +205,6 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
                 .collect(),
         );
         Self {
-            k,
             all_cols,
             free_cells: BTreeMap::from_iter(
                 vec![
@@ -252,7 +247,6 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
     pub(super) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
         AllocatedCommonRangeCell {
             cell: self.alloc(&MemoryTableCellType::CommonRange),
-            upper_bound: F::from(common_range_max(self.k) as u64),
         }
     }
 

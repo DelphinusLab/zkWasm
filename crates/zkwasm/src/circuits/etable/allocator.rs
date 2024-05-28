@@ -2,7 +2,6 @@ use super::AllocatedU32StateCell;
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::bit_table::BitTableOp;
 use crate::circuits::cell::*;
-use crate::circuits::config::common_range_max;
 use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::traits::ConfigureLookupTable;
@@ -269,7 +268,6 @@ impl AllocatorFreeCellsProfiler {
 
 #[derive(Debug, Clone)]
 pub(crate) struct EventTableCellAllocator<F: FieldExt> {
-    k: u32,
     pub(crate) free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     all_cols: BTreeMap<EventTableCellType, Vec<Vec<Column<Advice>>>>,
     free_u32_cells: Vec<AllocatedU32Cell<F>>,
@@ -348,13 +346,12 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
-        k: u32,
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, k, sel, rtable, mtable, cols);
+        let mut allocator = Self::_new(meta, sel, rtable, mtable, cols);
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
@@ -373,7 +370,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     fn _new(
         meta: &mut ConstraintSystem<F>,
-        k: u32,
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
@@ -442,7 +438,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         );
 
         Self {
-            k,
             all_cols,
             free_cells: BTreeMap::from_iter(
                 vec![
@@ -510,7 +505,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(crate) fn alloc_common_range_cell(&mut self) -> AllocatedCommonRangeCell<F> {
         AllocatedCommonRangeCell {
             cell: self.alloc(&EventTableCellType::CommonRange),
-            upper_bound: F::from(common_range_max(self.k) as u64),
         }
     }
 

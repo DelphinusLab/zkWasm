@@ -124,13 +124,6 @@ macro_rules! define_cell {
                 ctx: &mut Context<'_, F>,
                 value: F,
             ) -> Result<AssignedCell<F, F>, Error> {
-                assert!(
-                    value <= $limit,
-                    "assigned value {:?} exceeds the limit {:?}",
-                    value,
-                    $limit
-                );
-
                 self.cell.assign(ctx, value)
             }
         }
@@ -145,7 +138,6 @@ define_cell!(AllocatedUnlimitedCell, -F::one());
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedCommonRangeCell<F: FieldExt> {
     pub(crate) cell: AllocatedCell<F>,
-    pub(crate) upper_bound: F,
 }
 
 impl<F: FieldExt> CellExpression<F> for AllocatedCommonRangeCell<F> {
@@ -154,13 +146,6 @@ impl<F: FieldExt> CellExpression<F> for AllocatedCommonRangeCell<F> {
     }
 
     fn assign(&self, ctx: &mut Context<'_, F>, value: F) -> Result<AssignedCell<F, F>, Error> {
-        assert!(
-            value <= self.upper_bound,
-            "assigned value {:?} exceeds the limit {:?}",
-            value,
-            self.upper_bound
-        );
-
         self.cell.assign(ctx, value)
     }
 }

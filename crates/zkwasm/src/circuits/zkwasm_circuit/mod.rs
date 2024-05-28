@@ -166,8 +166,7 @@ macro_rules! impl_zkwasm_circuit {
 
                 let rtable = RangeTableConfig::configure(meta);
                 let image_table = ImageTableConfig::configure(meta, memory_addr_sel);
-                let mtable =
-                    MemoryTableConfig::configure(meta, k, &mut cols, &rtable, &image_table);
+                let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
                 let frame_table = JumpTableConfig::configure(meta, $last_slice);
                 let post_image_table = PostImageTableConfig::configure(
                     meta,
@@ -197,7 +196,6 @@ macro_rules! impl_zkwasm_circuit {
 
                 let etable = EventTableConfig::configure(
                     meta,
-                    k,
                     &mut cols,
                     &rtable,
                     &image_table,
