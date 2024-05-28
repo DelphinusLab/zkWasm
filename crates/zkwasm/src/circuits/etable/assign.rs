@@ -5,8 +5,8 @@ use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use log::debug;
 use rayon::iter::IndexedParallelIterator;
-use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
+use rayon::prelude::ParallelSlice;
 use specs::configure_table::ConfigureTable;
 use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
@@ -384,77 +384,85 @@ impl<F: FieldExt> EventTableChip<F> {
             status
         };
 
+        const THREAD: usize = 16;
+        let chunk_size = (event_table.0.len() + THREAD - 1) / THREAD;
+
         event_table
             .0
-            .par_iter()
+            .par_chunks(chunk_size)
             .enumerate()
-            .for_each(|(index, entry)| {
+            .for_each(|(chunk_index, entries)| {
                 let mut ctx = Context::new(region);
-                ctx.step((EVENT_TABLE_ENTRY_ROWS as usize * index) as usize);
+                ctx.offset = (chunk_size * chunk_index) * (EVENT_TABLE_ENTRY_ROWS as usize);
 
-                let instruction = entry.eentry.get_instruction(itable);
+                for (index, entry) in entries.iter().enumerate() {
+                    let index = chunk_index * chunk_size + index;
 
-                let step_status = StepStatus {
-                    current: &status[index],
-                    next: &status[index + 1],
-                    configure_table,
-                    frame_table_returned_lookup: &frame_table_returned_lookup,
-                };
+                    let instruction = entry.eentry.get_instruction(itable);
 
-                {
-                    let class: OpcodeClassPlain = (&instruction.opcode).into();
+                    let step_status = StepStatus {
+                        current: &status[index],
+                        next: &status[index + 1],
+                        configure_table,
+                        frame_table_returned_lookup: &frame_table_returned_lookup,
+                    };
 
-                    let op = self.config.common_config.ops[class.index()];
-                    assign_advice_cell!(&mut ctx, op, F::one());
+                    {
+                        let class: OpcodeClassPlain = (&instruction.opcode).into();
+
+                        let op = self.config.common_config.ops[class.index()];
+                        assign_advice_cell!(&mut ctx, op, F::one());
+                    }
+
+                    assign_advice!(&mut ctx, enabled_cell, F::one());
+                    assign_advice!(
+                        &mut ctx,
+                        rest_mops_cell,
+                        F::from(status[index].rest_mops as u64)
+                    );
+                    assign_advice!(
+                        &mut ctx,
+                        itable_lookup_cell,
+                        bn_to_field(&instruction.encode)
+                    );
+                    assign_advice!(
+                        &mut ctx,
+                        rest_call_ops_cell,
+                        F::from(status[index].rest_call_ops as u64)
+                    );
+                    assign_advice!(
+                        &mut ctx,
+                        rest_return_ops_cell,
+                        F::from(status[index].rest_return_ops as u64)
+                    );
+
+                    {
+                        let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
+                        op_config.0.assign(&mut ctx, &step_status, &entry).unwrap();
+                    }
+
+                    // Be careful, the function will step context.
+                    self.assign_step_state(
+                        &mut ctx,
+                        &InitializationState {
+                            eid: entry.eentry.eid,
+                            fid: entry.eentry.fid,
+                            iid: entry.eentry.iid,
+                            sp: entry.eentry.sp,
+                            frame_id: entry.eentry.last_jump_eid,
+
+                            host_public_inputs: status[index].host_public_inputs,
+                            context_in_index: status[index].context_in_index,
+                            context_out_index: status[index].context_out_index,
+                            external_host_call_call_index: status[index]
+                                .external_host_call_call_index,
+
+                            initial_memory_pages: entry.eentry.allocated_memory_pages,
+                            maximal_memory_pages: configure_table.maximal_memory_pages,
+                        },
+                    )
+                    .unwrap();
                 }
-
-                assign_advice!(&mut ctx, enabled_cell, F::one());
-                assign_advice!(
-                    &mut ctx,
-                    rest_mops_cell,
-                    F::from(status[index].rest_mops as u64)
-                );
-                assign_advice!(
-                    &mut ctx,
-                    itable_lookup_cell,
-                    bn_to_field(&instruction.encode)
-                );
-                assign_advice!(
-                    &mut ctx,
-                    rest_call_ops_cell,
-                    F::from(status[index].rest_call_ops as u64)
-                );
-                assign_advice!(
-                    &mut ctx,
-                    rest_return_ops_cell,
-                    F::from(status[index].rest_return_ops as u64)
-                );
-
-                {
-                    let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
-                    op_config.0.assign(&mut ctx, &step_status, &entry).unwrap();
-                }
-
-                // Be careful, the function will step context.
-                self.assign_step_state(
-                    &mut ctx,
-                    &InitializationState {
-                        eid: entry.eentry.eid,
-                        fid: entry.eentry.fid,
-                        iid: entry.eentry.iid,
-                        sp: entry.eentry.sp,
-                        frame_id: entry.eentry.last_jump_eid,
-
-                        host_public_inputs: status[index].host_public_inputs,
-                        context_in_index: status[index].context_in_index,
-                        context_out_index: status[index].context_out_index,
-                        external_host_call_call_index: status[index].external_host_call_call_index,
-
-                        initial_memory_pages: entry.eentry.allocated_memory_pages,
-                        maximal_memory_pages: configure_table.maximal_memory_pages,
-                    },
-                )
-                .unwrap();
             });
 
         Ok(())
