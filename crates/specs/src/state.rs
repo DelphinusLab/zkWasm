@@ -19,6 +19,7 @@ pub struct InitializationState<T> {
 }
 
 impl<T> InitializationState<T> {
+    // TODO: try to remove the magic number
     pub fn field_count() -> usize {
         11
     }

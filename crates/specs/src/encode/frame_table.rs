@@ -48,6 +48,10 @@ impl CalledFrameTableEntry {
 
 impl InheritedFrameTableEntry {
     pub fn encode(&self) -> BigUint {
-        self.internal.encode()
+        if let Some(entry) = self.0 {
+            entry.encode()
+        } else {
+            FrameTableEntryInternal::default().encode()
+        }
     }
 }

@@ -34,8 +34,8 @@ pub struct ReturnConfig<F: FieldExt> {
     is_i32: AllocatedBitCell<F>,
     value: AllocatedU64Cell<F>,
     // always assign to one to support sliced frame table lookup
-    is_returned_cell: AllocatedCell<F>,
-    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
+    is_returned_cell: AllocatedBitCell<F>,
+    frame_table_lookup: AllocatedUnlimitedCell<F>,
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
@@ -60,7 +60,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         let frame_id_cell = common_config.frame_id_cell;
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
-        let is_returned_cell = common_config.jtable_lookup_cell.returned;
+        let is_returned_cell = common_config.is_returned_cell;
 
         let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
             "op_return stack read",

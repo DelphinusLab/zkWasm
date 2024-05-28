@@ -10,6 +10,7 @@ use wasmi::DEFAULT_CALL_STACK_LIMIT;
 
 use super::FrameEtablePermutationCells;
 use super::JumpTableChip;
+use crate::circuits::jtable::FrameTableValueOffset;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 
@@ -25,15 +26,15 @@ impl<F: FieldExt> JumpTableChip<F> {
 
         let assigned_rest_call_cell = ctx.region.assign_advice(
             || "frame table: rest call ops",
-            self.config.call_ops,
-            ctx.offset,
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::CallOps as usize,
             || Ok(F::from(rest_call_ops as u64)),
         )?;
 
         let assigned_rest_return_cell = ctx.region.assign_advice(
             || "frame table: rest return ops",
-            self.config.return_ops,
-            ctx.offset,
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::ReturnOps as usize,
             || Ok(F::from(rest_return_ops as u64)),
         )?;
 
@@ -44,8 +45,9 @@ impl<F: FieldExt> JumpTableChip<F> {
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        let capability = self.max_available_rows;
+        let capability = self.max_available_rows / FrameTableValueOffset::Max as usize;
 
+        assert_eq!(ctx.offset, 0);
         assert_eq!(INHERITED_FRAME_TABLE_ENTRIES, DEFAULT_CALL_STACK_LIMIT);
         assert!(INHERITED_FRAME_TABLE_ENTRIES < capability);
 
@@ -69,20 +71,20 @@ impl<F: FieldExt> JumpTableChip<F> {
             if i == capability - 1 {
                 ctx.region.assign_advice_from_constant(
                     || "frame table: entry terminate",
-                    self.config.call_ops,
-                    ctx.offset,
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::CallOps as usize,
                     F::zero(),
                 )?;
 
                 ctx.region.assign_advice_from_constant(
                     || "frame table: entry terminate",
-                    self.config.return_ops,
-                    ctx.offset,
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::ReturnOps as usize,
                     F::zero(),
                 )?;
             }
 
-            ctx.next();
+            ctx.step(FrameTableValueOffset::Max as usize);
         }
 
         ctx.region.assign_fixed(
@@ -94,36 +96,36 @@ impl<F: FieldExt> JumpTableChip<F> {
 
         ctx.region.assign_advice(
             || "frame table: disabled row",
-            self.config.enable,
-            ctx.offset,
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::Enable as usize,
             || Ok(F::zero()),
         )?;
 
         ctx.region.assign_advice(
             || "frame table: disabled row",
-            self.config.returned,
-            ctx.offset,
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::Returned as usize,
             || Ok(F::zero()),
         )?;
 
         ctx.region.assign_advice(
             || "frame table: disabled row",
-            self.config.encode,
-            ctx.offset,
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::Encode as usize,
             || Ok(F::zero()),
         )?;
 
         ctx.region.assign_advice(
             || "frame table: disabled row",
-            self.config.call_ops,
-            ctx.offset,
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::CallOps as usize,
             || Ok(F::zero()),
         )?;
 
         ctx.region.assign_advice(
             || "frame table: disabled row",
-            self.config.return_ops,
-            ctx.offset,
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::ReturnOps as usize,
             || Ok(F::zero()),
         )?;
 
@@ -140,48 +142,50 @@ impl<F: FieldExt> JumpTableChip<F> {
         let mut cells = vec![];
 
         for entry in inherited_table.0.iter() {
-            ctx.region.assign_advice(
-                || "frame table: enable",
-                self.config.enable,
-                ctx.offset,
-                || Ok(if entry.enable { F::one() } else { F::zero() }),
+            let entry_cell = ctx.region.assign_advice(
+                || "frame table: encode",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::Encode as usize,
+                || Ok(bn_to_field(&entry.encode())),
             )?;
 
             ctx.region.assign_advice(
                 || "frame table: rest call ops",
-                self.config.call_ops,
-                ctx.offset,
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::CallOps as usize,
                 || Ok(F::from(*rest_call_ops as u64)),
             )?;
 
             ctx.region.assign_advice(
                 || "frame table: rest return ops",
-                self.config.return_ops,
-                ctx.offset,
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::ReturnOps as usize,
                 || Ok(F::from(*rest_return_ops as u64)),
             )?;
 
-            let entry_cell = ctx.region.assign_advice(
-                || "frame table: encode",
-                self.config.encode,
-                ctx.offset,
-                || Ok(bn_to_field(&entry.encode())),
-            )?;
-
-            if entry.internal.returned {
+            if let Some(entry) = entry.0.as_ref() {
                 ctx.region.assign_advice(
-                    || "frame table: returned",
-                    self.config.returned,
-                    ctx.offset,
+                    || "frame table: enable",
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::Enable as usize,
                     || Ok(F::one()),
                 )?;
+
+                if entry.returned {
+                    ctx.region.assign_advice(
+                        || "frame table: returned",
+                        self.config.value,
+                        ctx.offset + FrameTableValueOffset::Returned as usize,
+                        || Ok(F::one()),
+                    )?;
+
+                    *rest_return_ops -= 1;
+                }
             }
 
             cells.push(entry_cell);
 
-            *rest_return_ops -= entry.internal.returned as u32;
-
-            ctx.next();
+            ctx.step(FrameTableValueOffset::Max as usize);
         }
 
         Ok(cells.try_into().expect(&format!(
@@ -200,59 +204,60 @@ impl<F: FieldExt> JumpTableChip<F> {
         for entry in frame_table.iter() {
             ctx.region.assign_advice(
                 || "frame table: enable",
-                self.config.enable,
-                ctx.offset,
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::Enable as usize,
                 || Ok(F::one()),
             )?;
 
             ctx.region.assign_advice(
                 || "frame table: encode",
-                self.config.encode,
-                ctx.offset,
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::Encode as usize,
                 || Ok(bn_to_field(&entry.encode())),
             )?;
 
             ctx.region.assign_advice(
                 || "frame table: rest call ops",
-                self.config.call_ops,
-                ctx.offset,
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::CallOps as usize,
                 || Ok(F::from(*rest_call_ops as u64)),
             )?;
 
             ctx.region.assign_advice(
                 || "frame table: entry",
-                self.config.return_ops,
-                ctx.offset,
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::ReturnOps as usize,
                 || Ok(F::from(*rest_return_ops as u64)),
             )?;
 
             if entry.0.returned {
                 ctx.region.assign_advice(
                     || "frame table: returned",
-                    self.config.returned,
-                    ctx.offset,
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::Returned as usize,
                     || Ok(F::one()),
                 )?;
+
+                *rest_return_ops -= 1 as u32;
             }
 
             *rest_call_ops -= 1;
-            *rest_return_ops -= entry.0.returned as u32;
 
-            ctx.next();
+            ctx.step(FrameTableValueOffset::Max as usize);
         }
 
         Ok(())
     }
 
     fn compute_call_ops(&self, frame_table: &FrameTableSlice) -> u32 {
-        frame_table.called.iter().count() as u32
+        frame_table.called.len() as u32
     }
 
     fn compute_returned_ops(&self, frame_table: &FrameTableSlice) -> u32 {
         frame_table
             .inherited
             .iter()
-            .filter(|e| e.internal.returned)
+            .filter(|e| e.0.as_ref().map_or(false, |entry| entry.returned))
             .count() as u32
             + frame_table.called.iter().filter(|e| e.0.returned).count() as u32
     }

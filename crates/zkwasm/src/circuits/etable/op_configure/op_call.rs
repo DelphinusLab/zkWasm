@@ -20,9 +20,10 @@ use specs::encode::opcode::encode_call;
 use specs::step::StepInfo;
 
 pub struct CallConfig<F: FieldExt> {
-    is_returned_cell: AllocatedCell<F>,
+    // indicates if the calling returned in current slice.
+    is_returned_cell: AllocatedBitCell<F>,
     index_cell: AllocatedCommonRangeCell<F>,
-    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
+    frame_table_lookup: AllocatedUnlimitedCell<F>,
 }
 
 pub struct CallConfigBuilder {}
@@ -58,7 +59,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
         ));
 
         Box::new(CallConfig {
-            is_returned_cell: common_config.jtable_lookup_cell.returned,
+            is_returned_cell: common_config.is_returned_cell,
             index_cell,
             frame_table_lookup,
         })

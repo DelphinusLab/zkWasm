@@ -83,8 +83,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     ops: [AllocatedBitCell<F>; OP_CAPABILITY],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    rest_call_ops_cell: AllocatedCommonRangeCell<F>,
-    rest_return_ops_cell: AllocatedCommonRangeCell<F>,
+    rest_call_ops_cell: AllocatedUnlimitedCell<F>,
+    rest_return_ops_cell: AllocatedUnlimitedCell<F>,
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
@@ -99,7 +99,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
-    jtable_lookup_cell: AllocatedJumpTableLookupCell<F>,
+    jtable_lookup_cell: AllocatedUnlimitedCell<F>,
+    is_returned_cell: AllocatedBitCell<F>,
 
     pow_table_lookup_modulus_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_power_cell: AllocatedUnlimitedCell<F>,
@@ -248,8 +249,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         let enabled_cell = allocator.alloc_bit_cell();
 
         let rest_mops_cell = allocator.alloc_common_range_cell();
-        let rest_call_ops_cell = allocator.alloc_common_range_cell();
-        let rest_return_ops_cell = allocator.alloc_common_range_cell();
+        let rest_call_ops_cell = allocator.alloc_unlimited_cell();
+        let rest_return_ops_cell = allocator.alloc_unlimited_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
@@ -274,9 +275,20 @@ impl<F: FieldExt> EventTableConfig<F> {
                 + (used_common_range_cells_for_state.1 != 0) as usize,
         );
 
+        let used_unlimited_cells_for_state = allocator
+            .free_cells
+            .get(&EventTableCellType::Unlimited)
+            .unwrap();
+        allocator.enable_equality(
+            meta,
+            &EventTableCellType::Unlimited,
+            used_unlimited_cells_for_state.0 + (used_unlimited_cells_for_state.1 != 0) as usize,
+        );
+
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
-        let jtable_lookup_cell = allocator.alloc_jump_table_lookup_cell();
+        let jtable_lookup_cell = allocator.alloc_unlimited_cell();
+        let is_returned_cell = allocator.alloc_bit_cell();
         let pow_table_lookup_modulus_cell = allocator.alloc_unlimited_cell();
         let pow_table_lookup_power_cell = allocator.alloc_unlimited_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
@@ -306,6 +318,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             itable_lookup_cell,
             brtable_lookup_cell,
             jtable_lookup_cell,
+            is_returned_cell,
             pow_table_lookup_modulus_cell,
             pow_table_lookup_power_cell,
             bit_table_lookup_cells,
@@ -623,8 +636,9 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         jtable.configure_in_event_table(meta, "c8c. jtable_lookup in jtable", |meta| {
             (
-                common_config.jtable_lookup_cell.returned.curr_expr(meta),
-                common_config.jtable_lookup_cell.cell.curr_expr(meta),
+                fixed_curr!(meta, step_sel),
+                common_config.is_returned_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
+                common_config.jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
             )
         });
 

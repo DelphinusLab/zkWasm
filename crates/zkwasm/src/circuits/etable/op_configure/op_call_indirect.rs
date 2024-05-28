@@ -23,7 +23,7 @@ use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 pub struct CallIndirectConfig<F: FieldExt> {
-    is_returned_cell: AllocatedCell<F>,
+    is_returned_cell: AllocatedBitCell<F>,
 
     type_index: AllocatedCommonRangeCell<F>,
     func_index: AllocatedCommonRangeCell<F>,
@@ -32,7 +32,7 @@ pub struct CallIndirectConfig<F: FieldExt> {
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     elem_lookup: AllocatedUnlimitedCell<F>,
-    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
+    frame_table_lookup: AllocatedUnlimitedCell<F>,
 }
 
 pub struct CallIndirectConfigBuilder {}
@@ -108,7 +108,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
         ));
 
         Box::new(CallIndirectConfig {
-            is_returned_cell: common_config.jtable_lookup_cell.returned,
+            is_returned_cell: common_config.is_returned_cell,
             type_index,
             func_index,
             offset,

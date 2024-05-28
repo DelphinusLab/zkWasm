@@ -63,9 +63,9 @@ use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    59
+    56
 } else {
-    51
+    49
 };
 
 // Reserve a few rows to keep usable rows away from blind rows.
@@ -81,7 +81,7 @@ struct AssignedCells<F: FieldExt> {
     rest_memory_finalize_ops_cell: Arc<Mutex<Option<Option<AssignedCell<F, F>>>>>,
     etable_cells: Arc<Mutex<Option<EventTablePermutationCells<F>>>>,
     rest_ops_cell_in_frame_table: Arc<Mutex<Option<FrameEtablePermutationCells<F>>>>,
-    static_frame_entry_in_frame_table:
+    inherited_frame_entry_in_frame_table:
         Arc<Mutex<Option<Box<[AssignedCell<F, F>; INHERITED_FRAME_TABLE_ENTRIES]>>>>,
 }
 
@@ -402,16 +402,16 @@ macro_rules! impl_zkwasm_circuit {
                     let _assigned_cells = assigned_cells.clone();
                     s.spawn(move |_| {
                         exec_with_profile!(|| "Assign frame table", {
-                            let (rest_ops_cell, static_frame_entry_cells) = frame_table_chip
+                            let (rest_ops_cell, inherited_frame_entry_cells) = frame_table_chip
                                 .assign(_layouter, &self.slice.frame_table)
                                 .unwrap();
 
                             *_assigned_cells.rest_ops_cell_in_frame_table.lock().unwrap() =
                                 Some(rest_ops_cell);
                             *_assigned_cells
-                                .static_frame_entry_in_frame_table
+                                .inherited_frame_entry_in_frame_table
                                 .lock()
-                                .unwrap() = Some(static_frame_entry_cells);
+                                .unwrap() = Some(inherited_frame_entry_cells);
                         });
                     });
 
@@ -462,7 +462,7 @@ macro_rules! impl_zkwasm_circuit {
                     };
                 }
 
-                into_inner!(static_frame_entry_in_frame_table);
+                into_inner!(inherited_frame_entry_in_frame_table);
                 into_inner!(etable_cells);
                 into_inner!(mtable_rest_mops);
                 into_inner!(rest_memory_finalize_ops_cell);
@@ -475,9 +475,9 @@ macro_rules! impl_zkwasm_circuit {
                 layouter_cloned.assign_region(
                     || "permutation between tables",
                     |region| {
-                        // 1. static frame entries
+                        // 1. inherited frame entries
                         // 1.1. between frame table and pre image table
-                        for (left, right) in static_frame_entry_in_frame_table
+                        for (left, right) in inherited_frame_entry_in_frame_table
                             .iter()
                             .zip(pre_image_table_cells.inherited_frame_entries.iter())
                         {
