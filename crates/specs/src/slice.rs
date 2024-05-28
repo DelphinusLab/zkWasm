@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
+use rayon::prelude::ParallelSliceMut;
 
 use crate::brtable::BrTable;
 use crate::brtable::ElemTable;
@@ -146,7 +147,7 @@ impl Slice {
 
         memory_entries.append(&mut set.into_iter().collect());
 
-        memory_entries.sort_unstable_by_key(|item| (item.ltype, item.offset, item.eid));
+        memory_entries.par_sort_unstable_by_key(|item| (item.ltype, item.offset, item.eid));
 
         MTable::new(memory_entries)
     }
