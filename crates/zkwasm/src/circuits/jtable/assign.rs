@@ -2,188 +2,274 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
-use num_bigint::BigUint;
-use specs::jtable::JumpTable;
-use specs::jtable::StaticFrameEntry;
-use specs::jtable::STATIC_FRAME_ENTRY_NUMBER;
+use specs::jtable::CalledFrameTable;
+use specs::jtable::InheritedFrameTable;
+use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
+use specs::slice::FrameTableSlice;
+use wasmi::DEFAULT_CALL_STACK_LIMIT;
 
-use super::encode_jops;
-use super::JtableOffset;
+use super::FrameEtablePermutationCells;
 use super::JumpTableChip;
+use crate::circuits::jtable::FrameTableValueOffset;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::Context;
 
 impl<F: FieldExt> JumpTableChip<F> {
-    /// Frame Table Constraint 1. The etable and jtable must have the same jops count."
+    /// Frame Table Constraint 1. The etable and frame table: must have the same jops count."
     fn assign_first_rest_jops(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: BigUint,
-    ) -> Result<AssignedCell<F, F>, Error> {
-        let cell = ctx.region.assign_advice(
-            || "jtable rest",
-            self.config.data,
-            JtableOffset::JtableOffsetRest as usize,
-            || Ok(bn_to_field(&rest_jops)),
+        rest_call_ops: u32,
+        rest_return_ops: u32,
+    ) -> Result<FrameEtablePermutationCells<F>, Error> {
+        assert_eq!(ctx.offset, 0);
+
+        let assigned_rest_call_cell = ctx.region.assign_advice(
+            || "frame table: rest call ops",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::CallOps as usize,
+            || Ok(F::from(rest_call_ops as u64)),
         )?;
 
-        Ok(cell)
+        let assigned_rest_return_cell = ctx.region.assign_advice(
+            || "frame table: rest return ops",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::ReturnOps as usize,
+            || Ok(F::from(rest_return_ops as u64)),
+        )?;
+
+        Ok(FrameEtablePermutationCells {
+            rest_call_ops: assigned_rest_call_cell,
+            rest_return_ops: assigned_rest_return_cell,
+        })
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
-        let capability = self.max_available_rows / JtableOffset::JtableOffsetMax as usize;
+        let capability = self.max_available_rows / FrameTableValueOffset::Max as usize;
+
+        assert_eq!(ctx.offset, 0);
+        assert_eq!(INHERITED_FRAME_TABLE_ENTRIES, DEFAULT_CALL_STACK_LIMIT);
+        assert!(INHERITED_FRAME_TABLE_ENTRIES < capability);
 
         for i in 0..capability {
             ctx.region.assign_fixed(
-                || "jtable sel",
+                || "frame table: sel",
                 self.config.sel,
                 ctx.offset,
                 || Ok(F::one()),
             )?;
 
+            if i < INHERITED_FRAME_TABLE_ENTRIES {
+                ctx.region.assign_fixed(
+                    || "frame table: inherited",
+                    self.config.inherited,
+                    ctx.offset,
+                    || Ok(F::one()),
+                )?;
+            }
+
             if i == capability - 1 {
                 ctx.region.assign_advice_from_constant(
-                    || "jtable entry terminate",
-                    self.config.data,
-                    ctx.offset + JtableOffset::JtableOffsetRest as usize,
+                    || "frame table: entry terminate",
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::CallOps as usize,
+                    F::zero(),
+                )?;
+
+                ctx.region.assign_advice_from_constant(
+                    || "frame table: entry terminate",
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::ReturnOps as usize,
                     F::zero(),
                 )?;
             }
 
-            ctx.step(JtableOffset::JtableOffsetMax as usize);
+            ctx.step(FrameTableValueOffset::Max as usize);
         }
+
+        ctx.region.assign_fixed(
+            || "frame table: inherited",
+            self.config.inherited,
+            ctx.offset,
+            || Ok(F::zero()),
+        )?;
+
+        ctx.region.assign_advice(
+            || "frame table: disabled row",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::Enable as usize,
+            || Ok(F::zero()),
+        )?;
+
+        ctx.region.assign_advice(
+            || "frame table: disabled row",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::Returned as usize,
+            || Ok(F::zero()),
+        )?;
+
+        ctx.region.assign_advice(
+            || "frame table: disabled row",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::Encode as usize,
+            || Ok(F::zero()),
+        )?;
+
+        ctx.region.assign_advice(
+            || "frame table: disabled row",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::CallOps as usize,
+            || Ok(F::zero()),
+        )?;
+
+        ctx.region.assign_advice(
+            || "frame table: disabled row",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::ReturnOps as usize,
+            || Ok(F::zero()),
+        )?;
 
         Ok(())
     }
 
-    fn assign_static_entries_and_first_rest_jops(
+    fn assign_inherited_entries_and_first_rest_jops(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: &mut BigUint,
-        static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
-    ) -> Result<[(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER], Error> {
+        rest_call_ops: &mut u32,
+        rest_return_ops: &mut u32,
+        inherited_table: &InheritedFrameTable,
+    ) -> Result<Box<[AssignedCell<F, F>; INHERITED_FRAME_TABLE_ENTRIES]>, Error> {
         let mut cells = vec![];
 
-        for entry in static_entries {
-            ctx.region.assign_fixed(
-                || "jtable start entries",
-                self.config.static_bit,
-                ctx.offset,
-                || Ok(F::one()),
-            )?;
-
-            let enable_cell = ctx.region.assign_advice(
-                || "jtable enable",
-                self.config.data,
-                ctx.offset,
-                || Ok(F::from(entry.enable as u64)),
-            )?;
-            ctx.next();
-
-            ctx.region.assign_advice(
-                || "jtable rest",
-                self.config.data,
-                ctx.offset,
-                || Ok(bn_to_field(rest_jops)),
-            )?;
-            ctx.next();
-
+        for entry in inherited_table.0.iter() {
             let entry_cell = ctx.region.assign_advice(
-                || "jtable entry",
-                self.config.data,
-                ctx.offset,
+                || "frame table: encode",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::Encode as usize,
                 || Ok(bn_to_field(&entry.encode())),
             )?;
-            ctx.next();
 
-            cells.push((enable_cell, entry_cell));
+            ctx.region.assign_advice(
+                || "frame table: rest call ops",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::CallOps as usize,
+                || Ok(F::from(*rest_call_ops as u64)),
+            )?;
 
-            if entry.enable {
-                *rest_jops -= encode_jops(1, 0);
+            ctx.region.assign_advice(
+                || "frame table: rest return ops",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::ReturnOps as usize,
+                || Ok(F::from(*rest_return_ops as u64)),
+            )?;
+
+            if let Some(entry) = entry.0.as_ref() {
+                ctx.region.assign_advice(
+                    || "frame table: enable",
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::Enable as usize,
+                    || Ok(F::one()),
+                )?;
+
+                if entry.returned {
+                    ctx.region.assign_advice(
+                        || "frame table: returned",
+                        self.config.value,
+                        ctx.offset + FrameTableValueOffset::Returned as usize,
+                        || Ok(F::one()),
+                    )?;
+
+                    *rest_return_ops -= 1;
+                }
             }
+
+            cells.push(entry_cell);
+
+            ctx.step(FrameTableValueOffset::Max as usize);
         }
 
         Ok(cells.try_into().expect(&format!(
-            "The number of static frame entries should be {}",
-            STATIC_FRAME_ENTRY_NUMBER
+            "The number of inherited frame entries should be {}",
+            INHERITED_FRAME_TABLE_ENTRIES
         )))
     }
 
-    fn assign_jtable_entries(
+    fn assign_frame_table_entries(
         &self,
         ctx: &mut Context<'_, F>,
-        rest_jops: &mut BigUint,
-        jtable: &JumpTable,
+        rest_call_ops: &mut u32,
+        rest_return_ops: &mut u32,
+        frame_table: &CalledFrameTable,
     ) -> Result<(), Error> {
-        for entry in jtable.entries().iter() {
-            let rest_f = bn_to_field(rest_jops);
-            let entry_f = bn_to_field(&entry.encode());
-
+        for entry in frame_table.iter() {
             ctx.region.assign_advice(
-                || "jtable enable",
-                self.config.data,
-                ctx.offset,
+                || "frame table: enable",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::Enable as usize,
                 || Ok(F::one()),
             )?;
-            ctx.next();
 
             ctx.region.assign_advice(
-                || "jtable rest",
-                self.config.data,
-                ctx.offset,
-                || Ok(rest_f),
+                || "frame table: encode",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::Encode as usize,
+                || Ok(bn_to_field(&entry.encode())),
             )?;
-            ctx.next();
 
             ctx.region.assign_advice(
-                || "jtable entry",
-                self.config.data,
-                ctx.offset,
-                || Ok(entry_f),
+                || "frame table: rest call ops",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::CallOps as usize,
+                || Ok(F::from(*rest_call_ops as u64)),
             )?;
-            ctx.next();
-
-            *rest_jops -= encode_jops(1, 1);
-        }
-
-        {
-            ctx.region.assign_advice(
-                || "jtable enable",
-                self.config.data,
-                ctx.offset,
-                || Ok(F::zero()),
-            )?;
-            ctx.next();
 
             ctx.region.assign_advice(
-                || "jtable rest",
-                self.config.data,
-                ctx.offset,
-                || Ok(F::zero()),
+                || "frame table: entry",
+                self.config.value,
+                ctx.offset + FrameTableValueOffset::ReturnOps as usize,
+                || Ok(F::from(*rest_return_ops as u64)),
             )?;
-            ctx.next();
 
-            ctx.region.assign_advice(
-                || "jtable entry",
-                self.config.data,
-                ctx.offset,
-                || Ok(F::zero()),
-            )?;
-            ctx.next();
+            if entry.0.returned {
+                ctx.region.assign_advice(
+                    || "frame table: returned",
+                    self.config.value,
+                    ctx.offset + FrameTableValueOffset::Returned as usize,
+                    || Ok(F::one()),
+                )?;
+
+                *rest_return_ops -= 1 as u32;
+            }
+
+            *rest_call_ops -= 1;
+
+            ctx.step(FrameTableValueOffset::Max as usize);
         }
 
         Ok(())
     }
 
-    pub fn assign(
+    fn compute_call_ops(&self, frame_table: &FrameTableSlice) -> u32 {
+        frame_table.called.len() as u32
+    }
+
+    fn compute_returned_ops(&self, frame_table: &FrameTableSlice) -> u32 {
+        frame_table
+            .inherited
+            .iter()
+            .filter(|e| e.0.as_ref().map_or(false, |entry| entry.returned))
+            .count() as u32
+            + frame_table.called.iter().filter(|e| e.0.returned).count() as u32
+    }
+
+    pub(crate) fn assign(
         &self,
         layouter: impl Layouter<F>,
-        static_entries: &[StaticFrameEntry; STATIC_FRAME_ENTRY_NUMBER],
-        jtable: &JumpTable,
+        frame_table: &FrameTableSlice,
     ) -> Result<
         (
-            AssignedCell<F, F>,
-            [(AssignedCell<F, F>, AssignedCell<F, F>); STATIC_FRAME_ENTRY_NUMBER],
+            FrameEtablePermutationCells<F>,
+            Box<[AssignedCell<F, F>; INHERITED_FRAME_TABLE_ENTRIES]>,
         ),
         Error,
     > {
@@ -195,22 +281,26 @@ impl<F: FieldExt> JumpTableChip<F> {
                 self.init(&mut ctx)?;
                 ctx.reset();
 
-                // non-static entry includes `call`` and `return`` op, static entry only includes `return` op
-                let mut rest_jops = encode_jops(
-                    jtable.entries().len() as u32
-                        + static_entries.iter().filter(|entry| entry.enable).count() as u32,
-                    jtable.entries().len() as u32,
-                );
+                let mut rest_call_ops = self.compute_call_ops(frame_table);
+                let mut rest_return_ops = self.compute_returned_ops(frame_table);
 
-                let rest_jopss = self.assign_first_rest_jops(&mut ctx, rest_jops.clone())?;
-                let cells_to_permutation = self.assign_static_entries_and_first_rest_jops(
+                let frame_etable_permutation_cells =
+                    self.assign_first_rest_jops(&mut ctx, rest_call_ops, rest_return_ops)?;
+                let inherited_cells = self.assign_inherited_entries_and_first_rest_jops(
                     &mut ctx,
-                    &mut rest_jops,
-                    static_entries,
+                    &mut rest_call_ops,
+                    &mut rest_return_ops,
+                    &frame_table.inherited,
                 )?;
-                self.assign_jtable_entries(&mut ctx, &mut rest_jops, jtable)?;
 
-                Ok((rest_jopss, cells_to_permutation))
+                self.assign_frame_table_entries(
+                    &mut ctx,
+                    &mut rest_call_ops,
+                    &mut rest_return_ops,
+                    &frame_table.called,
+                )?;
+
+                Ok((frame_etable_permutation_cells, inherited_cells))
             },
         )
     }

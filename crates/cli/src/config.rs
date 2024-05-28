@@ -12,6 +12,7 @@ use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofPieceInfo;
 use circuits_batcher::proof::Prover;
 use console::style;
+use delphinus_zkwasm::circuits::ZkWasmCircuit;
 use delphinus_zkwasm::loader::slice::Slices;
 use delphinus_zkwasm::loader::Module;
 use delphinus_zkwasm::loader::ZkWasmLoader;
@@ -31,6 +32,7 @@ use specs::TraceBackend;
 use crate::args::HostMode;
 use crate::names::name_of_circuit_data;
 use crate::names::name_of_etable_slice;
+use crate::names::name_of_frame_table_slice;
 use crate::names::name_of_instance;
 use crate::names::name_of_loadinfo;
 use crate::names::name_of_params;
@@ -241,7 +243,7 @@ impl Config {
         arg: ExecutionArg,
         context_output_filename: Option<String>,
         mock_test: bool,
-        backend: TraceBackend,
+        table_backend: TraceBackend,
     ) -> anyhow::Result<()> {
         let mut cached_proving_key = None;
 
@@ -253,7 +255,7 @@ impl Config {
 
         let env = env_builder.create_env(self.k, arg);
 
-        let mut monitor = TableMonitor::new(self.k, &self.phantom_functions, backend, &env);
+        let mut monitor = TableMonitor::new(self.k, &self.phantom_functions, table_backend, &env);
 
         let (result, tables) = {
             println!("{} Executing...", style("[3/8]").bold().dim(),);
@@ -297,7 +299,11 @@ impl Config {
                 style("[5/8]").bold().dim(),
                 dir
             );
-            tables.write(&dir, |slice| name_of_etable_slice(&self.name, slice));
+            tables.write(
+                &dir,
+                |slice| name_of_etable_slice(&self.name, slice),
+                |slice| name_of_frame_table_slice(&self.name, slice),
+            );
         }
 
         println!("{} Build circuit(s)...", style("[6/8]").bold().dim(),);
@@ -381,14 +387,25 @@ impl Config {
                 transcript: name_of_transcript(&self.name, index),
             };
 
-            let proof = proof_piece_info.create_proof::<Bn256, _>(
-                &circuit,
-                &vec![instances.clone()],
-                &params,
-                &cached_proving_key.as_ref().unwrap().1,
-                proof_load_info.hashtype,
-                OpenSchema::Shplonk,
-            );
+            let proof = match circuit {
+                ZkWasmCircuit::Ongoing(circuit) => proof_piece_info.create_proof::<Bn256, _>(
+                    &circuit,
+                    &vec![instances.clone()],
+                    &params,
+                    &cached_proving_key.as_ref().unwrap().1,
+                    proof_load_info.hashtype,
+                    OpenSchema::Shplonk,
+                ),
+                ZkWasmCircuit::LastSliceCircuit(circuit) => proof_piece_info
+                    .create_proof::<Bn256, _>(
+                        &circuit,
+                        &vec![instances.clone()],
+                        &params,
+                        &cached_proving_key.as_ref().unwrap().1,
+                        proof_load_info.hashtype,
+                        OpenSchema::Shplonk,
+                    ),
+            };
 
             proof_piece_info.save_proof_data(&vec![instances.clone()], &proof, &output_dir);
 

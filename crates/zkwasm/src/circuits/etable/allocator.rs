@@ -4,7 +4,6 @@ use crate::circuits::bit_table::BitTableOp;
 use crate::circuits::cell::*;
 use crate::circuits::config::common_range_max;
 use crate::circuits::etable::ConstraintBuilder;
-use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::utils::bit::BitColumn;
@@ -12,7 +11,6 @@ use crate::circuits::utils::common_range::CommonRangeColumn;
 use crate::circuits::utils::u16::U16Column;
 use crate::circuits::utils::u8::U8Column;
 use crate::circuits::Context;
-use crate::circuits::Lookup;
 use crate::constant_from;
 use crate::curr;
 use crate::fixed_curr;
@@ -64,12 +62,6 @@ impl_cell!(AllocatedU8Cell);
 impl_cell!(AllocatedU16Cell);
 impl_cell!(AllocatedCommonRangeCell);
 impl_cell!(AllocatedUnlimitedCell);
-impl_cell!(AllocatedJumpTableLookupCell);
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct AllocatedJumpTableLookupCell<F: FieldExt> {
-    pub(crate) cell: AllocatedCell<F>,
-}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AllocatedMemoryTableLookupReadCell<F: FieldExt> {
@@ -161,7 +153,6 @@ pub(crate) enum EventTableCellType {
     CommonRange,
     Unlimited,
     MTableLookup,
-    JTableLookup,
 }
 
 const BIT_COLUMNS: usize = 12;
@@ -179,10 +170,9 @@ const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else
 const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
     10
 } else {
-    7
+    8
 };
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
-const JUMP_TABLE_LOOKUP_COLUMNS: usize = 1;
 
 #[derive(Clone, Copy)]
 pub(crate) struct AllocatedBitTableLookupCells<F: FieldExt> {
@@ -362,10 +352,9 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
-        jtable: &JumpTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, k, sel, rtable, mtable, jtable, cols);
+        let mut allocator = Self::_new(meta, k, sel, rtable, mtable, cols);
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
@@ -388,7 +377,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         sel: Column<Fixed>,
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
-        jtable: &JumpTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut all_cols = BTreeMap::new();
@@ -432,19 +420,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .collect(),
         );
         all_cols.insert(
-            EventTableCellType::JTableLookup,
-            [0; JUMP_TABLE_LOOKUP_COLUMNS]
-                .map(|_| {
-                    let col = cols.next().unwrap();
-                    jtable.configure_in_table(meta, "c8c. jtable_lookup in jtable", |meta| {
-                        curr!(meta, col)
-                    });
-                    vec![col]
-                })
-                .into_iter()
-                .collect(),
-        );
-        all_cols.insert(
             EventTableCellType::MTableLookup,
             [0; MEMORY_TABLE_LOOKUP_COLUMNS]
                 .map(|_| {
@@ -477,7 +452,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (EventTableCellType::CommonRange, (0, 0)),
                     (EventTableCellType::Unlimited, (0, 0)),
                     (EventTableCellType::MTableLookup, (0, 0)),
-                    (EventTableCellType::JTableLookup, (0, 0)),
                 ]
                 .into_iter(),
             ),
@@ -565,12 +539,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     pub(crate) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell {
             cell: self.alloc(&EventTableCellType::Unlimited),
-        }
-    }
-
-    pub(crate) fn alloc_jump_table_lookup_cell(&mut self) -> AllocatedJumpTableLookupCell<F> {
-        AllocatedJumpTableLookupCell {
-            cell: self.alloc(&EventTableCellType::JTableLookup),
         }
     }
 

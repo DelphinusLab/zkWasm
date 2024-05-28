@@ -1,20 +1,22 @@
+use std::rc::Rc;
+
 use specs::etable::EventTable;
-use specs::etable::EventTableBackend;
 use specs::etable::EventTableEntry;
 use specs::step::StepInfo;
+use specs::TableBackend;
 use specs::TraceBackend;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 pub(super) struct ETable {
     pub(crate) eid: u32,
-    slices: Vec<EventTableBackend>,
+    slices: Vec<TableBackend<EventTable>>,
     entries: Vec<EventTableEntry>,
     capacity: u32,
-    backend: TraceBackend,
+    backend: Rc<TraceBackend>,
 }
 
 impl ETable {
-    pub(crate) fn new(capacity: u32, backend: TraceBackend) -> Self {
+    pub(crate) fn new(capacity: u32, backend: Rc<TraceBackend>) -> Self {
         Self {
             eid: 0,
             slices: Vec::default(),
@@ -24,17 +26,18 @@ impl ETable {
         }
     }
 
-    fn flush(&mut self) {
+    pub(crate) fn flush(&mut self) {
         let empty = Vec::with_capacity(self.capacity as usize);
         let entries = std::mem::replace(&mut self.entries, empty);
 
-        let event_table = match &self.backend {
-            TraceBackend::File(write_file_fn) => {
-                let path = write_file_fn(self.slices.len(), &EventTable::new(entries));
-
-                EventTableBackend::Json(path)
-            }
-            TraceBackend::Memory => EventTableBackend::Memory(EventTable::new(entries)),
+        let event_table = match self.backend.as_ref() {
+            TraceBackend::File {
+                event_table_writer, ..
+            } => TableBackend::Json(event_table_writer(
+                self.slices.len(),
+                &EventTable::new(entries),
+            )),
+            TraceBackend::Memory => TableBackend::Memory(EventTable::new(entries)),
         };
 
         self.slices.push(event_table);
@@ -49,10 +52,6 @@ impl ETable {
         last_jump_eid: u32,
         step_info: StepInfo,
     ) {
-        if self.entries.len() == self.capacity as usize {
-            self.flush();
-        }
-
         self.eid += 1;
 
         let sp = (DEFAULT_VALUE_STACK_LIMIT as u32)
@@ -82,7 +81,7 @@ impl ETable {
         &mut self.entries
     }
 
-    pub fn finalized(mut self) -> Vec<EventTableBackend> {
+    pub fn finalized(mut self) -> Vec<TableBackend<EventTable>> {
         self.flush();
 
         self.slices

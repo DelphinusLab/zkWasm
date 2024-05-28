@@ -15,7 +15,10 @@ use config::Config;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use names::name_of_config;
 use names::name_of_etable_slice;
+use names::name_of_frame_table_slice;
 use specs::args::parse_args;
+use specs::etable::EventTable;
+use specs::jtable::FrameTable;
 use specs::TraceBackend;
 
 mod app_builder;
@@ -94,17 +97,41 @@ fn main() -> Result<()> {
             let private_inputs = parse_args(&arg.running_arg.private_inputs);
             let context_inputs = parse_args(&arg.running_arg.context_inputs);
 
-            let file_backend = arg.file_backend;
-            let backend = if file_backend {
-                TraceBackend::File(Box::new(move |slice, etable| {
-                    let filename_of_etable_slice =
-                        PathBuf::from(name_of_etable_slice(&cli.name, slice));
-                    let path = trace_dir.join(&filename_of_etable_slice);
+            let trace_backend: TraceBackend = if arg.file_backend {
+                let event_table_writer = {
+                    let name = cli.name.clone();
+                    let trace_dir = trace_dir.clone();
 
-                    etable.write(&path).unwrap();
+                    Box::new(move |slice, etable: &EventTable| {
+                        let filename_of_etable_slice =
+                            PathBuf::from(name_of_etable_slice(&name, slice));
+                        let path = trace_dir.join(&filename_of_etable_slice);
 
-                    path
-                }))
+                        etable.write(&path).unwrap();
+
+                        path
+                    })
+                };
+
+                let frame_table_writer = {
+                    let name = cli.name.clone();
+                    let trace_dir = trace_dir.clone();
+
+                    Box::new(move |slice, frame_table: &FrameTable| {
+                        let filename_of_frame_table_slice =
+                            PathBuf::from(name_of_frame_table_slice(&name, slice));
+                        let path = trace_dir.join(&filename_of_frame_table_slice);
+
+                        frame_table.write(&path).unwrap();
+
+                        path
+                    })
+                };
+
+                TraceBackend::File {
+                    event_table_writer,
+                    frame_table_writer,
+                }
             } else {
                 TraceBackend::Memory
             };
@@ -126,7 +153,7 @@ fn main() -> Result<()> {
                 },
                 arg.running_arg.context_output,
                 arg.mock_test,
-                backend,
+                trace_backend,
             )?;
         }
         Subcommands::Verify(arg) => {

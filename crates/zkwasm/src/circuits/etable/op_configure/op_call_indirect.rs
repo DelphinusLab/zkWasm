@@ -4,16 +4,13 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::jtable::encode_jops;
 use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::jtable::JumpTableConfig;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
 use crate::constant;
 use crate::constant_from;
-use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
@@ -26,6 +23,8 @@ use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 pub struct CallIndirectConfig<F: FieldExt> {
+    is_returned_cell: AllocatedBitCell<F>,
+
     type_index: AllocatedCommonRangeCell<F>,
     func_index: AllocatedCommonRangeCell<F>,
     offset: AllocatedCommonRangeCell<F>,
@@ -33,7 +32,7 @@ pub struct CallIndirectConfig<F: FieldExt> {
 
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     elem_lookup: AllocatedUnlimitedCell<F>,
-    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
+    frame_table_lookup: AllocatedUnlimitedCell<F>,
 }
 
 pub struct CallIndirectConfigBuilder {}
@@ -109,6 +108,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
         ));
 
         Box::new(CallIndirectConfig {
+            is_returned_cell: common_config.is_returned_cell,
             type_index,
             func_index,
             offset,
@@ -176,6 +176,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                     ),
                 )?;
 
+                self.is_returned_cell.assign(
+                    ctx,
+                    (*step
+                        .frame_table_returned_lookup
+                        .get(&(step.current.eid, *func_index))
+                        .unwrap())
+                    .into(),
+                )?;
+
                 Ok(())
             }
 
@@ -187,12 +196,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
         Some(constant!(F::one()))
     }
 
-    fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from_bn!(&self.jops()))
+    fn call_ops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(self.call_ops() as u64))
     }
 
-    fn jops(&self) -> BigUint {
-        encode_jops(0, 1)
+    fn call_ops(&self) -> u32 {
+        1
     }
 
     fn next_frame_id(

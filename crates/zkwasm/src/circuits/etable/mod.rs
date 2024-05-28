@@ -54,8 +54,6 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
-use num_traits::Zero;
 use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
@@ -85,8 +83,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     ops: [AllocatedBitCell<F>; OP_CAPABILITY],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
-    // If continuation is enabled, it's an incremental counter; otherwise, it's decremental.
-    jops_cell: AllocatedUnlimitedCell<F>,
+    rest_call_ops_cell: AllocatedUnlimitedCell<F>,
+    rest_return_ops_cell: AllocatedUnlimitedCell<F>,
     pub(crate) input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
@@ -101,7 +99,9 @@ pub struct EventTableCommonConfig<F: FieldExt> {
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
-    jtable_lookup_cell: AllocatedJumpTableLookupCell<F>,
+    jtable_lookup_cell: AllocatedUnlimitedCell<F>,
+    is_returned_cell: AllocatedBitCell<F>,
+
     pow_table_lookup_modulus_cell: AllocatedUnlimitedCell<F>,
     pow_table_lookup_power_cell: AllocatedUnlimitedCell<F>,
     bit_table_lookup_cells: AllocatedBitTableLookupCells<F>,
@@ -136,11 +136,17 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     ) -> Option<Expression<F>> {
         None
     }
-    fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+    fn call_ops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
     }
-    fn jops(&self) -> BigUint {
-        BigUint::zero()
+    fn call_ops(&self) -> u32 {
+        0
+    }
+    fn return_ops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        None
+    }
+    fn return_ops(&self) -> u32 {
+        0
     }
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         None
@@ -237,14 +243,14 @@ impl<F: FieldExt> EventTableConfig<F> {
     ) -> EventTableConfig<F> {
         let step_sel = meta.fixed_column();
 
-        let mut allocator =
-            EventTableCellAllocator::new(meta, k, step_sel, rtable, mtable, jtable, cols);
+        let mut allocator = EventTableCellAllocator::new(meta, k, step_sel, rtable, mtable, cols);
 
         let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();
 
         let rest_mops_cell = allocator.alloc_common_range_cell();
-        let jops_cell = allocator.alloc_unlimited_cell();
+        let rest_call_ops_cell = allocator.alloc_unlimited_cell();
+        let rest_return_ops_cell = allocator.alloc_unlimited_cell();
         let input_index_cell = allocator.alloc_common_range_cell();
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
@@ -268,6 +274,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             used_common_range_cells_for_state.0
                 + (used_common_range_cells_for_state.1 != 0) as usize,
         );
+
         let used_unlimited_cells_for_state = allocator
             .free_cells
             .get(&EventTableCellType::Unlimited)
@@ -280,7 +287,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
-        let jtable_lookup_cell = allocator.alloc_jump_table_lookup_cell();
+        let jtable_lookup_cell = allocator.alloc_unlimited_cell();
+        let is_returned_cell = allocator.alloc_bit_cell();
         let pow_table_lookup_modulus_cell = allocator.alloc_unlimited_cell();
         let pow_table_lookup_power_cell = allocator.alloc_unlimited_cell();
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
@@ -294,7 +302,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             enabled_cell,
             ops,
             rest_mops_cell,
-            jops_cell,
+            rest_call_ops_cell,
+            rest_return_ops_cell,
             input_index_cell,
             context_input_index_cell,
             context_output_index_cell,
@@ -309,6 +318,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             itable_lookup_cell,
             brtable_lookup_cell,
             jtable_lookup_cell,
+            is_returned_cell,
             pow_table_lookup_modulus_cell,
             pow_table_lookup_power_cell,
             bit_table_lookup_cells,
@@ -471,17 +481,21 @@ impl<F: FieldExt> EventTableConfig<F> {
             )]
         });
 
-        meta.create_gate("c5b. jops change(increase if continuation)", |meta| {
-            vec![sum_ops_expr_with_init(
-                if cfg!(feature = "continuation") {
-                    jops_cell.curr_expr(meta) - jops_cell.next_expr(meta)
-                } else {
-                    jops_cell.next_expr(meta) - jops_cell.curr_expr(meta)
-                },
-                meta,
-                &|meta, config: &OpcodeConfig<F>| config.0.jops_expr(meta),
-                None,
-            )]
+        meta.create_gate("c5b. rest jops change", |meta| {
+            vec![
+                sum_ops_expr_with_init(
+                    rest_call_ops_cell.next_expr(meta) - rest_call_ops_cell.curr_expr(meta),
+                    meta,
+                    &|meta, config: &OpcodeConfig<F>| config.0.call_ops_expr(meta),
+                    None,
+                ),
+                sum_ops_expr_with_init(
+                    rest_return_ops_cell.next_expr(meta) - rest_return_ops_cell.curr_expr(meta),
+                    meta,
+                    &|meta, config: &OpcodeConfig<F>| config.0.return_ops_expr(meta),
+                    None,
+                ),
+            ]
         });
 
         meta.create_gate("c5c. input_index change", |meta| {
@@ -618,6 +632,14 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         image_table.br_table_lookup(meta, "c8b. brtable_lookup in brtable", |meta| {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
+        });
+
+        jtable.configure_in_event_table(meta, "c8c. jtable_lookup in jtable", |meta| {
+            (
+                fixed_curr!(meta, step_sel),
+                common_config.is_returned_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
+                common_config.jtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),
+            )
         });
 
         rtable.configure_in_pow_set(

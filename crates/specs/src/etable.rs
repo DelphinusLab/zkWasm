@@ -10,6 +10,8 @@ use crate::itable::InstructionTable;
 use crate::itable::InstructionTableEntry;
 use crate::step::StepInfo;
 
+const JSON: bool = false;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventTableEntry {
     pub eid: u32,
@@ -61,7 +63,12 @@ impl EventTable {
 
     pub fn write(&self, path: &PathBuf) -> std::io::Result<()> {
         let mut fd = std::fs::File::create(path)?;
-        fd.write_all(&bincode::serialize(self).unwrap())?;
+
+        if JSON {
+            fd.write_all(&serde_json::to_string_pretty(self).unwrap().as_bytes())?;
+        } else {
+            fd.write_all(&bincode::serialize(self).unwrap())?;
+        }
         Ok(())
     }
 
@@ -69,8 +76,12 @@ impl EventTable {
         let mut fd = std::fs::File::open(path)?;
         let mut buf = Vec::new();
         fd.read_to_end(&mut buf)?;
-        let etable = bincode::deserialize(&mut buf).unwrap();
-        Ok(etable)
+
+        if JSON {
+            Ok(serde_json::from_slice(&buf).unwrap())
+        } else {
+            Ok(bincode::deserialize(&mut buf).unwrap())
+        }
     }
 
     pub fn unwrap(self) -> Vec<EventTableEntry> {
@@ -95,9 +106,4 @@ impl EventTable {
             })
             .collect::<Vec<_>>()
     }
-}
-
-pub enum EventTableBackend {
-    Memory(EventTable),
-    Json(PathBuf),
 }

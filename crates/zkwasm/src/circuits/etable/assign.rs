@@ -4,13 +4,13 @@ use halo2_proofs::circuit::Layouter;
 use halo2_proofs::circuit::Region;
 use halo2_proofs::plonk::Error;
 use log::debug;
-use num_bigint::BigUint;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use specs::configure_table::ConfigureTable;
 use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
+use specs::slice::FrameTableSlice;
 use specs::state::InitializationState;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -19,6 +19,7 @@ use super::EventTableChip;
 use super::OpcodeConfig;
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::cell::CellExpression;
+use crate::circuits::jtable::FrameEtablePermutationCells;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
@@ -64,19 +65,17 @@ use crate::circuits::utils::Context;
 pub(in crate::circuits) struct EventTablePermutationCells<F: FieldExt> {
     pub(in crate::circuits) rest_mops: AssignedCell<F, F>,
     // rest_jops cell at first step
-    pub(in crate::circuits) rest_jops: Option<AssignedCell<F, F>>,
-    pub(in crate::circuits) pre_initialization_state:
-        InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>,
-    pub(in crate::circuits) post_initialization_state:
-        InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>,
+    pub(in crate::circuits) rest_jops: FrameEtablePermutationCells<F>,
+    pub(in crate::circuits) pre_initialization_state: InitializationState<AssignedCell<F, F>>,
+    pub(in crate::circuits) post_initialization_state: InitializationState<AssignedCell<F, F>>,
 }
 
 impl<F: FieldExt> EventTableChip<F> {
     fn assign_step_state(
         &self,
         ctx: &mut Context<'_, F>,
-        state: &InitializationState<u32, BigUint>,
-    ) -> Result<InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>, Error> {
+        state: &InitializationState<u32>,
+    ) -> Result<InitializationState<AssignedCell<F, F>>, Error> {
         cfg_if::cfg_if! {
             if #[cfg(feature="continuation")] {
                 macro_rules! assign_u32_state {
@@ -102,16 +101,6 @@ impl<F: FieldExt> EventTableChip<F> {
             };
         }
 
-        #[cfg(feature = "continuation")]
-        macro_rules! assign_biguint {
-            ($cell:ident, $value:expr) => {
-                self.config
-                    .common_config
-                    .$cell
-                    .assign(ctx, bn_to_field(&$value))?
-            };
-        }
-
         let eid = assign_u32_state!(eid_cell, state.eid);
         let fid = assign_common_range_advice!(fid_cell, state.fid);
         let iid = assign_common_range_advice!(iid_cell, state.iid);
@@ -134,9 +123,6 @@ impl<F: FieldExt> EventTableChip<F> {
         let maximal_memory_pages =
             assign_common_range_advice!(maximal_memory_pages_cell, state.maximal_memory_pages);
 
-        #[cfg(feature = "continuation")]
-        let jops = assign_biguint!(jops_cell, state.jops);
-
         ctx.step(EVENT_TABLE_ENTRY_ROWS as usize);
 
         Ok(InitializationState {
@@ -153,12 +139,6 @@ impl<F: FieldExt> EventTableChip<F> {
 
             initial_memory_pages,
             maximal_memory_pages,
-
-            #[cfg(feature = "continuation")]
-            jops,
-
-            #[cfg(not(feature = "continuation"))]
-            _phantom: core::marker::PhantomData,
         })
     }
 
@@ -167,29 +147,23 @@ impl<F: FieldExt> EventTableChip<F> {
         op_configs: Arc<BTreeMap<OpcodeClassPlain, OpcodeConfig<F>>>,
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
-        _initialization_state: &InitializationState<u32, BigUint>,
-    ) -> (u32, BigUint) {
-        let (rest_mops, _rest_jops) = event_table.0.iter().fold(
-            (0, BigUint::from(0u64)),
-            |(rest_mops_sum, rest_jops_sum), entry| {
+    ) -> (u32, u32, u32) {
+        let (rest_mops, rest_call_ops, rest_return_ops) = event_table.0.iter().fold(
+            (0, 0, 0),
+            |(rest_mops_sum, rest_call_ops_sum, rest_return_ops_sum), entry| {
                 let instruction = entry.eentry.get_instruction(itable);
 
                 let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
 
                 (
                     rest_mops_sum + op_config.0.memory_writing_ops(&entry.eentry),
-                    rest_jops_sum + op_config.0.jops(),
+                    rest_call_ops_sum + op_config.0.call_ops(),
+                    rest_return_ops_sum + op_config.0.return_ops(),
                 )
             },
         );
 
-        cfg_if::cfg_if! {
-            if #[cfg(feature="continuation")] {
-                (rest_mops, _initialization_state.jops.clone())
-            } else {
-                (rest_mops, _rest_jops)
-            }
-        }
+        (rest_mops, rest_call_ops, rest_return_ops)
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
@@ -211,10 +185,16 @@ impl<F: FieldExt> EventTableChip<F> {
             F::zero(),
         )?;
 
-        #[cfg(not(feature = "continuation"))]
         ctx.region.assign_advice_from_constant(
-            || "etable: rest jops terminates",
-            self.config.common_config.jops_cell.cell.col,
+            || "etable: rest call ops terminates",
+            self.config.common_config.rest_call_ops_cell.cell.col,
+            ctx.offset,
+            F::zero(),
+        )?;
+
+        ctx.region.assign_advice_from_constant(
+            || "etable: rest return ops terminates",
+            self.config.common_config.rest_return_ops_cell.cell.col,
             ctx.offset,
             F::zero(),
         )?;
@@ -226,23 +206,38 @@ impl<F: FieldExt> EventTableChip<F> {
     fn assign_rest_ops_first_step(
         &self,
         ctx: &mut Context<'_, F>,
-    ) -> Result<(AssignedCell<F, F>, AssignedCell<F, F>), Error> {
+    ) -> Result<(AssignedCell<F, F>, FrameEtablePermutationCells<F>), Error> {
         let rest_mops_cell = self
             .config
             .common_config
             .rest_mops_cell
             .assign(ctx, F::zero())?;
 
-        let rest_jops_cell = self.config.common_config.jops_cell.assign(ctx, F::zero())?;
+        let rest_call_ops_cell = self
+            .config
+            .common_config
+            .rest_call_ops_cell
+            .assign(ctx, F::zero())?;
+        let rest_return_ops_cell = self
+            .config
+            .common_config
+            .rest_return_ops_cell
+            .assign(ctx, F::zero())?;
 
-        Ok((rest_mops_cell, rest_jops_cell))
+        Ok((
+            rest_mops_cell,
+            FrameEtablePermutationCells {
+                rest_call_ops: rest_call_ops_cell,
+                rest_return_ops: rest_return_ops_cell,
+            },
+        ))
     }
 
     fn assign_padding_and_post_initialization_state(
         &self,
         ctx: &mut Context<'_, F>,
-        initialization_state: &InitializationState<u32, BigUint>,
-    ) -> Result<InitializationState<AssignedCell<F, F>, AssignedCell<F, F>>, Error> {
+        initialization_state: &InitializationState<u32>,
+    ) -> Result<InitializationState<AssignedCell<F, F>>, Error> {
         while ctx.offset < self.capability * EVENT_TABLE_ENTRY_ROWS as usize {
             self.assign_step_state(ctx, initialization_state)?;
         }
@@ -257,10 +252,12 @@ impl<F: FieldExt> EventTableChip<F> {
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        initialization_state: &InitializationState<u32, BigUint>,
-        post_initialization_state: &InitializationState<u32, BigUint>,
+        frame_table: &FrameTableSlice,
+        initialization_state: &InitializationState<u32>,
+        post_initialization_state: &InitializationState<u32>,
         rest_mops: u32,
-        jops: BigUint,
+        rest_call_ops: u32,
+        rest_return_ops: u32,
     ) -> Result<(), Error> {
         macro_rules! assign_advice {
             ($ctx:expr, $cell:ident, $value:expr) => {
@@ -285,6 +282,8 @@ impl<F: FieldExt> EventTableChip<F> {
             return Ok(());
         }
 
+        let frame_table_returned_lookup = frame_table.build_returned_lookup_mapping();
+
         let status = {
             let mut host_public_inputs = initialization_state.host_public_inputs;
             let mut context_in_index = initialization_state.context_in_index;
@@ -293,7 +292,8 @@ impl<F: FieldExt> EventTableChip<F> {
                 initialization_state.external_host_call_call_index;
 
             let mut rest_mops = rest_mops;
-            let mut jops = jops;
+            let mut rest_call_ops = rest_call_ops;
+            let mut rest_return_ops = rest_return_ops;
 
             let mut status = event_table
                 .0
@@ -312,7 +312,8 @@ impl<F: FieldExt> EventTableChip<F> {
                         allocated_memory_pages: entry.eentry.allocated_memory_pages,
 
                         rest_mops,
-                        jops: jops.clone(),
+                        rest_call_ops,
+                        rest_return_ops,
 
                         host_public_inputs,
                         context_in_index,
@@ -336,11 +337,8 @@ impl<F: FieldExt> EventTableChip<F> {
                     }
 
                     rest_mops -= op_config.0.memory_writing_ops(&entry.eentry);
-                    if cfg!(feature = "continuation") {
-                        jops += op_config.0.jops()
-                    } else {
-                        jops -= op_config.0.jops()
-                    }
+                    rest_call_ops -= op_config.0.call_ops();
+                    rest_return_ops -= op_config.0.return_ops();
 
                     status
                 })
@@ -375,7 +373,8 @@ impl<F: FieldExt> EventTableChip<F> {
                     .external_host_call_call_index,
 
                 rest_mops,
-                jops,
+                rest_call_ops,
+                rest_return_ops,
 
                 itable,
             };
@@ -399,6 +398,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     current: &status[index],
                     next: &status[index + 1],
                     configure_table,
+                    frame_table_returned_lookup: &frame_table_returned_lookup,
                 };
 
                 {
@@ -419,7 +419,16 @@ impl<F: FieldExt> EventTableChip<F> {
                     itable_lookup_cell,
                     bn_to_field(&instruction.encode)
                 );
-                assign_advice!(&mut ctx, jops_cell, bn_to_field(&status[index].jops));
+                assign_advice!(
+                    &mut ctx,
+                    rest_call_ops_cell,
+                    F::from(status[index].rest_call_ops as u64)
+                );
+                assign_advice!(
+                    &mut ctx,
+                    rest_return_ops_cell,
+                    F::from(status[index].rest_return_ops as u64)
+                );
 
                 {
                     let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
@@ -443,12 +452,6 @@ impl<F: FieldExt> EventTableChip<F> {
 
                         initial_memory_pages: entry.eentry.allocated_memory_pages,
                         maximal_memory_pages: configure_table.maximal_memory_pages,
-
-                        #[cfg(feature = "continuation")]
-                        jops: status[index].jops.clone(),
-
-                        #[cfg(not(feature = "continuation"))]
-                        _phantom: core::marker::PhantomData,
                     },
                 )
                 .unwrap();
@@ -463,8 +466,9 @@ impl<F: FieldExt> EventTableChip<F> {
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        initialization_state: &InitializationState<u32, BigUint>,
-        post_initialization_state: &InitializationState<u32, BigUint>,
+        frame_table: &FrameTableSlice,
+        initialization_state: &InitializationState<u32>,
+        post_initialization_state: &InitializationState<u32>,
         _is_last_slice: bool,
     ) -> Result<EventTablePermutationCells<F>, Error> {
         layouter.assign_region(
@@ -483,13 +487,13 @@ impl<F: FieldExt> EventTableChip<F> {
                     self.assign_step_state(&mut ctx, initialization_state)?;
                 ctx.reset();
 
-                let (rest_mops_cell, _jops_cell) = self.assign_rest_ops_first_step(&mut ctx)?;
+                let (rest_mops_cell, rest_frame_table_cells) =
+                    self.assign_rest_ops_first_step(&mut ctx)?;
 
-                let (rest_mops, jops) = self.compute_rest_mops_and_jops(
+                let (rest_mops, rest_call_ops, rest_return_ops) = self.compute_rest_mops_and_jops(
                     self.config.op_configs.clone(),
                     itable,
                     event_table,
-                    initialization_state,
                 );
 
                 self.assign_entries(
@@ -498,10 +502,12 @@ impl<F: FieldExt> EventTableChip<F> {
                     itable,
                     event_table,
                     configure_table,
+                    frame_table,
                     &initialization_state,
                     post_initialization_state,
                     rest_mops,
-                    jops,
+                    rest_call_ops,
+                    rest_return_ops,
                 )?;
                 ctx.step(EVENT_TABLE_ENTRY_ROWS as usize * event_table.0.len());
 
@@ -511,23 +517,12 @@ impl<F: FieldExt> EventTableChip<F> {
                         &post_initialization_state,
                     )?;
 
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "continuation")] {
-                        Ok(EventTablePermutationCells {
-                            rest_mops: rest_mops_cell,
-                            rest_jops: None,
-                            pre_initialization_state,
-                            post_initialization_state: post_initialization_state_cells,
-                        })
-                    } else {
-                        Ok(EventTablePermutationCells {
-                            rest_mops: rest_mops_cell,
-                            rest_jops: Some(_jops_cell),
-                            pre_initialization_state,
-                            post_initialization_state: post_initialization_state_cells,
-                        })
-                    }
-                }
+                Ok(EventTablePermutationCells {
+                    rest_mops: rest_mops_cell,
+                    rest_jops: rest_frame_table_cells,
+                    pre_initialization_state,
+                    post_initialization_state: post_initialization_state_cells,
+                })
             },
         )
     }

@@ -15,6 +15,8 @@ use crate::circuits::mtable::MemoryTableConfig;
 use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::image_table::ImageTableLayouter;
 
+use super::jtable::JumpTableConfig;
+
 #[derive(Clone)]
 pub(in crate::circuits) struct PostImageTableConfig<F: FieldExt> {
     _mark: PhantomData<F>,
@@ -25,6 +27,7 @@ impl<F: FieldExt> PostImageTableConfig<F> {
         _meta: &mut ConstraintSystem<F>,
         _memory_addr_sel: Option<Column<Fixed>>,
         _memory_table: &MemoryTableConfig<F>,
+        _frame_table: &JumpTableConfig<F>,
         _pre_image_table: &ImageTableConfig<F>,
     ) -> Self {
         Self { _mark: PhantomData }

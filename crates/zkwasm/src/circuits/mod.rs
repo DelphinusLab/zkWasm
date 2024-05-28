@@ -44,13 +44,13 @@ pub(crate) fn compute_slice_capability(k: u32) -> u32 {
     ((1 << k) - RESERVE_ROWS as u32 - 1024) / EVENT_TABLE_ENTRY_ROWS as u32
 }
 
-pub struct ZkWasmCircuit<F: FieldExt> {
+pub struct OngoingCircuit<F: FieldExt> {
     pub k: u32,
     pub slice: Slice,
     _data: PhantomData<F>,
 }
 
-impl<F: FieldExt> ZkWasmCircuit<F> {
+impl<F: FieldExt> OngoingCircuit<F> {
     pub fn new(k: u32, slice: Slice) -> Result<Self, BuildingCircuitError> {
         {
             // entries is empty when called by without_witness
@@ -84,16 +84,88 @@ impl<F: FieldExt> ZkWasmCircuit<F> {
             }
         }
 
-        Ok(ZkWasmCircuit {
+        Ok(OngoingCircuit {
             k,
             slice,
             _data: PhantomData,
         })
     }
+}
+
+pub struct LastSliceCircuit<F: FieldExt> {
+    pub k: u32,
+    pub slice: Slice,
+    _data: PhantomData<F>,
+}
+
+impl<F: FieldExt> LastSliceCircuit<F> {
+    pub fn new(k: u32, slice: Slice) -> Result<Self, BuildingCircuitError> {
+        {
+            // entries is empty when called by without_witness
+            let allocated_memory_pages = slice
+                .etable
+                .entries()
+                .last()
+                .map(|entry| entry.allocated_memory_pages);
+            let maximal_pages = compute_maximal_pages(k);
+            if let Some(allocated_memory_pages) = allocated_memory_pages {
+                if allocated_memory_pages > maximal_pages {
+                    return Err(BuildingCircuitError::PagesExceedLimit(
+                        allocated_memory_pages,
+                        maximal_pages,
+                        k,
+                    ));
+                }
+            }
+        }
+
+        {
+            let etable_entires = slice.etable.entries().len() as u32;
+            let etable_capacity = compute_slice_capability(k);
+
+            if etable_entires > etable_capacity {
+                return Err(BuildingCircuitError::EtableEntriesExceedLimit(
+                    etable_entires as u32,
+                    etable_capacity as u32,
+                    k,
+                ));
+            }
+        }
+
+        Ok(LastSliceCircuit {
+            k,
+            slice,
+            _data: PhantomData,
+        })
+    }
+}
+pub enum ZkWasmCircuit<F: FieldExt> {
+    Ongoing(OngoingCircuit<F>),
+    LastSliceCircuit(LastSliceCircuit<F>),
+}
+
+impl<F: FieldExt> ZkWasmCircuit<F> {
+    pub fn new(k: u32, slice: Slice) -> Result<Self, BuildingCircuitError> {
+        if slice.is_last_slice {
+            Ok(ZkWasmCircuit::LastSliceCircuit(LastSliceCircuit::new(
+                k, slice,
+            )?))
+        } else {
+            Ok(ZkWasmCircuit::Ongoing(OngoingCircuit::new(k, slice)?))
+        }
+    }
 
     pub fn mock_test(&self, instances: Vec<F>) -> anyhow::Result<()> {
-        let prover = MockProver::run(self.k, self, vec![instances])?;
-        assert_eq!(prover.verify(), Ok(()));
+        match self {
+            ZkWasmCircuit::Ongoing(circuit) => {
+                let prover = MockProver::run(circuit.k, circuit, vec![instances])?;
+                assert_eq!(prover.verify(), Ok(()));
+            }
+            ZkWasmCircuit::LastSliceCircuit(circuit) => {
+                let prover = MockProver::run(circuit.k, circuit, vec![instances])?;
+                assert_eq!(prover.verify(), Ok(()));
+            }
+        }
 
         Ok(())
     }

@@ -4,7 +4,6 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::jtable::encode_jops;
 use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::utils::bn_to_field;
@@ -13,7 +12,6 @@ use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
 use crate::constant;
 use crate::constant_from;
-use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
@@ -35,7 +33,9 @@ pub struct ReturnConfig<F: FieldExt> {
     drop: AllocatedCommonRangeCell<F>,
     is_i32: AllocatedBitCell<F>,
     value: AllocatedU64Cell<F>,
-    frame_table_lookup: AllocatedJumpTableLookupCell<F>,
+    // always assign to one to support sliced frame table lookup
+    is_returned_cell: AllocatedBitCell<F>,
+    frame_table_lookup: AllocatedUnlimitedCell<F>,
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
@@ -60,6 +60,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
         let frame_id_cell = common_config.frame_id_cell;
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
+        let is_returned_cell = common_config.is_returned_cell;
 
         let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
             "op_return stack read",
@@ -98,12 +99,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
             }),
         ));
 
+        constraint_builder.constraints.push((
+            "return: returned bit",
+            Box::new(move |meta| vec![is_returned_cell.expr(meta) - constant_from!(1)]),
+        ));
+
         Box::new(ReturnConfig {
             keep,
             drop,
             is_i32,
             value,
             frame_table_lookup,
+            is_returned_cell,
             memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
         })
@@ -179,6 +186,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                         step.next.iid.to_biguint().unwrap(),
                     ),
                 )?;
+
+                self.is_returned_cell.assign(ctx, 1.into())?;
+
                 Ok(())
             }
             _ => unreachable!(),
@@ -207,12 +217,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
         }
     }
 
-    fn jops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from_bn!(&self.jops()))
+    fn return_ops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant_from!(self.return_ops() as u64))
     }
 
-    fn jops(&self) -> BigUint {
-        encode_jops(1, 0)
+    fn return_ops(&self) -> u32 {
+        1
     }
 
     fn next_frame_id(
