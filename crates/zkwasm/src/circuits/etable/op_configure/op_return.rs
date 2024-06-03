@@ -131,7 +131,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {

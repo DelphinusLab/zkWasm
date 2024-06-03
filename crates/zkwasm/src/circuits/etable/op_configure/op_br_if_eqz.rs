@@ -136,7 +136,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -193,8 +193,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                     }
                 }
 
-                self.cond_inv_cell
-                    .assign(ctx, F::from(cond).invert().unwrap_or(F::zero()))?;
+                if cond != 0 {
+                    self.cond_inv_cell
+                        .assign(ctx, step.field_helper.invert(cond))?;
+                }
                 self.cond_is_zero_cell
                     .assign(ctx, if cond == 0 { F::one() } else { F::zero() })?;
                 self.cond_is_not_zero_cell

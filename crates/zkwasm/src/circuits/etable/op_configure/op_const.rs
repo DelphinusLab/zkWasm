@@ -73,7 +73,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -94,7 +94,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConstConfig<F> {
             }
             StepInfo::I64Const { value } => {
                 self.value.assign(ctx, *value as u64)?;
-                self.is_i32.assign(ctx, F::zero())?;
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,

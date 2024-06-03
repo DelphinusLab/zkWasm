@@ -30,10 +30,6 @@ impl InitMemoryTable {
         Self(map)
     }
 
-    pub fn entries(&self) -> &HashMap<(LocationType, u32), InitMemoryTableEntry> {
-        &self.0
-    }
-
     pub fn to_string(&self) -> String {
         serde_json::to_string(&self.0).unwrap()
     }

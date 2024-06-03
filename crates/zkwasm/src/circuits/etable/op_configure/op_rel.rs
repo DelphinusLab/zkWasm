@@ -333,7 +333,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         let (class, var_type, lhs, rhs, value, diff) = match entry.eentry.step_info {
@@ -413,8 +413,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
             .assign(ctx, rhs.into(), var_type == VarType::I32, op_is_sign)?;
         self.diff.assign(ctx, diff.into())?;
 
-        self.diff_inv
-            .assign(ctx, F::from(diff).invert().unwrap_or(F::zero()))?;
+        if diff != 0 {
+            self.diff_inv.assign(ctx, step.field_helper.invert(diff))?;
+        }
         {
             self.res_is_eq.assign_bool(ctx, lhs == rhs)?;
             self.res_is_gt.assign_bool(ctx, lhs > rhs)?;

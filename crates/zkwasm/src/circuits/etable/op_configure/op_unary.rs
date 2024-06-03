@@ -239,7 +239,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -251,8 +251,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
             } => {
                 self.is_i32.assign_bool(ctx, *vtype == VarType::I32)?;
 
-                self.operand_inv
-                    .assign(ctx, F::from(*operand).invert().unwrap_or(F::zero()))?;
+                if *operand != 0 {
+                    self.operand_inv
+                        .assign(ctx, step.field_helper.invert(*operand))?;
+                }
                 self.operand_is_zero.assign_bool(ctx, *operand == 0)?;
 
                 let (bits, max) = if *vtype == VarType::I32 {

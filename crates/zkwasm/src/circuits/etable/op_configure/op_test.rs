@@ -108,7 +108,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -120,8 +120,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
                 self.is_i32_cell.assign_u32(ctx, *vtype as u32)?;
 
                 self.value_cell.assign(ctx, *value)?;
-                self.value_inv_cell
-                    .assign(ctx, F::from(*value).invert().unwrap_or(F::zero()))?;
+                if *value != 0 {
+                    self.value_inv_cell
+                        .assign(ctx, step.field_helper.invert(*value))?;
+                }
                 self.res_cell.assign_u32(ctx, *result as u32)?;
 
                 self.memory_table_lookup_stack_read.assign(

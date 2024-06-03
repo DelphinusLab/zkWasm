@@ -144,7 +144,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -158,8 +158,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
                 self.val1.assign(ctx, *val1)?;
                 self.val2.assign(ctx, *val2)?;
                 self.cond.assign(ctx, *cond)?;
-                self.cond_inv
-                    .assign(ctx, F::from(*cond).invert().unwrap_or(F::zero()))?;
+                if *cond != 0 {
+                    self.cond_inv.assign(ctx, step.field_helper.invert(*cond))?;
+                }
                 self.res.assign(ctx, *result)?;
                 self.is_i32.assign_bool(ctx, *vtype == VarType::I32)?;
 

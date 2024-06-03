@@ -344,7 +344,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         let (class, left, right, value, power, is_eight_bytes, _is_sign) =

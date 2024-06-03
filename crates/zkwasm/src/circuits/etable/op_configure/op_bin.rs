@@ -380,7 +380,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         let (class, var_type, shift, left, right, value) = match &entry.eentry.step_info {

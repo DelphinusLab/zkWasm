@@ -21,6 +21,7 @@ use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::cell::CellExpression;
 use crate::circuits::jtable::FrameEtablePermutationCells;
 use crate::circuits::utils::bn_to_field;
+use crate::circuits::utils::step_status::FieldHelper;
 use crate::circuits::utils::step_status::Status;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
@@ -395,16 +396,19 @@ impl<F: FieldExt> EventTableChip<F> {
                 let mut ctx = Context::new(region);
                 ctx.offset = (chunk_size * chunk_index) * (EVENT_TABLE_ENTRY_ROWS as usize);
 
+                let mut field_helper = FieldHelper::default();
+
                 for (index, entry) in entries.iter().enumerate() {
                     let index = chunk_index * chunk_size + index;
 
                     let instruction = entry.eentry.get_instruction(itable);
 
-                    let step_status = StepStatus {
+                    let mut step_status = StepStatus {
                         current: &status[index],
                         next: &status[index + 1],
                         configure_table,
                         frame_table_returned_lookup: &frame_table_returned_lookup,
+                        field_helper: &mut field_helper,
                     };
 
                     {
@@ -438,7 +442,10 @@ impl<F: FieldExt> EventTableChip<F> {
 
                     {
                         let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
-                        op_config.0.assign(&mut ctx, &step_status, &entry).unwrap();
+                        op_config
+                            .0
+                            .assign(&mut ctx, &mut step_status, &entry)
+                            .unwrap();
                     }
 
                     // Be careful, the function will step context.

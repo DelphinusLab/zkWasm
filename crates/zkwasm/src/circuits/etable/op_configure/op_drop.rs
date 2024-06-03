@@ -40,7 +40,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for DropConfig {
     fn assign(
         &self,
         _: &mut Context<'_, F>,
-        _: &StepStatus,
+        _: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {

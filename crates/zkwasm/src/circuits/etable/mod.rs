@@ -121,7 +121,7 @@ pub trait EventTableOpcodeConfig<F: FieldExt> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error>;
     fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
