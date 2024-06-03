@@ -26,6 +26,7 @@ console = "0.15.8"
 cfg-if.workspace = true
 circuits-batcher.workspace = true
 poseidon.workspace = true
+mimalloc = "0.1.42"
 
 [features]
 default = []

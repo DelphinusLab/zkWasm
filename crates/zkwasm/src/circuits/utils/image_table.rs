@@ -7,6 +7,7 @@ use rayon::prelude::ParallelSlice;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::encode::image_table::ImageTableEncoder;
+use specs::encode::init_memory_table::init_memory_table_entry_encode_update_offset;
 use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
@@ -49,7 +50,8 @@ impl InitMemoryLayouter {
         }
 
         offset -= GLOBAL_CAPABILITY;
-        return (LocationType::Heap, offset as u32);
+
+        (LocationType::Heap, offset as u32)
     }
 }
 
@@ -296,34 +298,56 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
         {
             let address = &cells;
 
-            const THREADS: usize = 4;
+            const THREADS: usize = 6;
             let chunk_size = (layouter.len() + THREADS - 1) / THREADS;
+            let default_memory_entry = bn_to_field::<F>(
+                &ImageTableEncoder::InitMemory.encode(
+                    InitMemoryTableEntry {
+                        ltype: LocationType::Heap,
+                        is_mutable: true,
+                        offset: 0,
+                        vtype: VarType::I64,
+                        value: 0,
+                        eid: 0,
+                    }
+                    .encode(),
+                ),
+            );
 
             (0..layouter.len())
                 .collect::<Vec<_>>()
                 .par_chunks(chunk_size)
                 .for_each(|chunk| {
+                    let mut empty_entry = None;
+
                     for pos in chunk {
                         let (ltype, offset) = layouter.memory_location_from_offset(*pos);
 
                         let entry = if let Some(entry) = init_memory_table.try_find(ltype, offset) {
-                            ImageTableEncoder::InitMemory.encode(entry.encode())
+                            bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(entry.encode()))
                         } else if ltype == LocationType::Heap {
-                            let entry = InitMemoryTableEntry {
-                                ltype,
-                                is_mutable: true,
-                                offset,
-                                vtype: VarType::I64,
-                                value: 0,
-                                eid: 0,
-                            };
+                            // let entry = InitMemoryTableEntry {
+                            //     ltype,
+                            //     is_mutable: true,
+                            //     offset,
+                            //     vtype: VarType::I64,
+                            //     value: 0,
+                            //     eid: 0,
+                            // };
 
-                            ImageTableEncoder::InitMemory.encode(entry.encode())
+                            //   bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(entry.encode()))
+                            //bn_to_field::<F>(&entry.encode())
+                            init_memory_table_entry_encode_update_offset(
+                                default_memory_entry,
+                                || F::from(offset as u64),
+                            )
                         } else {
-                            ImageTableEncoder::InitMemory.encode(BigUint::zero())
+                            *empty_entry.get_or_insert_with(|| {
+                                bn_to_field::<F>(
+                                    &ImageTableEncoder::InitMemory.encode(BigUint::zero()),
+                                )
+                            })
                         };
-
-                        let entry = bn_to_field::<F>(&entry);
 
                         let addr = address.as_ptr();
                         unsafe {

@@ -15,9 +15,11 @@ strum_macros = "0.24.1"
 bincode.workspace = true
 cfg-if.workspace = true
 halo2_proofs.workspace = true
-parity-wasm.workspace = true
 hex = "0.4.3"
+num-traits.workspace = true
+parity-wasm.workspace = true
 rayon.workspace = true
+static_assertions.workspace = true
 
 [features]
 default = []
