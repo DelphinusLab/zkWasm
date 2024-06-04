@@ -40,7 +40,7 @@ impl From<FrameTable> for FrameTableSlice {
 
 impl FrameTableSlice {
     pub fn build_returned_lookup_mapping(&self) -> HashMap<(u32, u32), bool> {
-        let mut lookup_table = HashMap::new();
+        let mut lookup_table = HashMap::with_capacity(self.called.len() + self.inherited.0.len());
         for entry in self.called.iter() {
             lookup_table.insert((entry.0.frame_id, entry.0.callee_fid), entry.0.returned);
         }

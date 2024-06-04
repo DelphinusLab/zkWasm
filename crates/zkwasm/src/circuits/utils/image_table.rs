@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Error;
 use halo2_proofs::arithmetic::FieldExt;
 use num_bigint::BigUint;
@@ -324,8 +326,12 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
                         let (ltype, offset) = layouter.memory_location_from_offset(*pos);
 
                         let entry = if let Some(entry) = init_memory_table.try_find(ltype, offset) {
-                            bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(entry.encode()))
+                            Cow::Owned(bn_to_field::<F>(
+                                &ImageTableEncoder::InitMemory.encode(entry.encode()),
+                            ))
                         } else if ltype == LocationType::Heap {
+                            // Perf: Use default entry to enhance performance.
+                            // Original code:
                             // let entry = InitMemoryTableEntry {
                             //     ltype,
                             //     is_mutable: true,
@@ -336,24 +342,24 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
                             // };
 
                             //   bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(entry.encode()))
-                            //bn_to_field::<F>(&entry.encode())
-                            init_memory_table_entry_encode_update_offset(
+
+                            Cow::Owned(init_memory_table_entry_encode_update_offset(
                                 default_memory_entry,
                                 || F::from(offset as u64),
-                            )
+                            ))
                         } else {
-                            *empty_entry.get_or_insert_with(|| {
+                            Cow::Borrowed(empty_entry.get_or_insert_with(|| {
                                 bn_to_field::<F>(
                                     &ImageTableEncoder::InitMemory.encode(BigUint::zero()),
                                 )
-                            })
+                            }))
                         };
 
                         let addr = address.as_ptr();
                         unsafe {
                             let addr = addr as *mut F;
 
-                            *addr.offset((pos + 1) as isize) = entry;
+                            *addr.offset((pos + 1) as isize) = *entry;
                         }
                     }
                 });
