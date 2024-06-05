@@ -13,7 +13,6 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use args::HostMode;
 use config::Config;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
-use mimalloc::MiMalloc;
 use names::name_of_config;
 use names::name_of_etable_slice;
 use names::name_of_frame_table_slice;
@@ -21,9 +20,6 @@ use specs::args::parse_args;
 use specs::etable::EventTable;
 use specs::jtable::FrameTable;
 use specs::TraceBackend;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 mod app_builder;
 mod args;
