@@ -16,6 +16,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use num_traits::One;
 use specs::encode::br_table::encode_elem_entry;
 use specs::encode::frame_table::encode_frame_table_entry;
 use specs::encode::opcode::encode_call_indirect;
@@ -188,8 +189,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
         Some(constant_from!(1))
     }
 
-    fn jops(&self) -> u32 {
-        1
+    fn jops(&self) -> BigUint {
+        BigUint::one()
     }
 
     fn next_frame_id(

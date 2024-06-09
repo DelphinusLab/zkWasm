@@ -154,14 +154,14 @@ pub trait AppBuilder: CommandBuilder {
                     wasm_binary,
                     (),
                     phantom_functions,
-                    &output_dir,
+                    &param_dir,
                 ),
                 HostMode::STANDARD => exec_image_checksum::<StandardEnvBuilder>(
                     zkwasm_k,
                     wasm_binary,
                     HostEnvConfig::default(),
                     phantom_functions,
-                    &output_dir,
+                    &param_dir,
                 ),
             },
 
