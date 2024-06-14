@@ -2572,10 +2572,12 @@ dependencies = [
  "hex",
  "lazy_static",
  "num-bigint",
+ "num-traits",
  "parity-wasm",
  "rayon",
  "serde",
  "serde_json",
+ "static_assertions",
  "strum",
  "strum_macros",
 ]

@@ -1,3 +1,5 @@
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use serde::Serialize;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
@@ -6,7 +8,7 @@ use specs::mtable::LocationType;
 use specs::mtable::MTable;
 use specs::mtable::MemoryTableEntry;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::io::Write;
@@ -101,8 +103,8 @@ impl MemoryWritingTable {
 
 impl MemoryWritingTable {
     // (location, offset) |-> Vec<(start_eid, end_eid)>
-    fn build_lookup_mapping(&self) -> BTreeMap<(LocationType, u32), Vec<(u32, u32)>> {
-        let mut mapping = BTreeMap::<_, Vec<(u32, u32)>>::new();
+    fn build_lookup_mapping(&self) -> HashMap<(LocationType, u32), Vec<(u32, u32)>> {
+        let mut mapping = HashMap::new();
 
         for entry in &self.0 {
             let ltype = entry.entry.ltype;
@@ -110,11 +112,10 @@ impl MemoryWritingTable {
             let start_eid = entry.entry.eid;
             let end_eid = entry.end_eid;
 
-            if let Some(entries) = mapping.get_mut(&(ltype, offset)) {
-                entries.push((start_eid, end_eid));
-            } else {
-                mapping.insert((ltype, offset), vec![(start_eid, end_eid)]);
-            }
+            mapping
+                .entry((ltype, offset))
+                .and_modify(|v: &mut Vec<(u32, u32)>| v.push((start_eid, end_eid)))
+                .or_insert(vec![(start_eid, end_eid)]);
         }
 
         mapping
@@ -190,7 +191,7 @@ impl EventTableWithMemoryInfo {
         EventTableWithMemoryInfo(
             event_table
                 .entries()
-                .iter()
+                .par_iter()
                 .map(|eentry| EventTableEntryWithMemoryInfo {
                     eentry: eentry.clone(),
                     memory_rw_entires: memory_event_of_step(eentry)

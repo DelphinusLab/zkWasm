@@ -13,7 +13,6 @@ hex = "0.4.3"
 log = "0.4.17"
 num-integer = "0.1"
 num-bigint = { version = "0.4", features = ["rand"] }
-num-traits = "0.2.15"
 wabt = "0.10.0"
 lazy_static = "1.4.0"
 rand = "0.8.4"
@@ -28,6 +27,7 @@ sha2 = "0.10.6"
 anyhow.workspace = true
 cfg-if.workspace = true
 halo2_proofs.workspace = true
+num-traits.workspace = true
 parity-wasm.workspace = true
 rayon.workspace = true
 regex.workspace = true

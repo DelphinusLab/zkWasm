@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::mtable::LocationType;
 use crate::mtable::VarType;
@@ -16,22 +16,18 @@ pub struct InitMemoryTableEntry {
     pub eid: u32,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct InitMemoryTable(pub BTreeMap<(LocationType, u32), InitMemoryTableEntry>);
+#[derive(Default, Debug)]
+pub struct InitMemoryTable(pub HashMap<(LocationType, u32), InitMemoryTableEntry>);
 
 impl InitMemoryTable {
     pub fn new(entries: Vec<InitMemoryTableEntry>) -> Self {
-        let mut map = BTreeMap::new();
+        let mut map = HashMap::new();
 
         entries.into_iter().for_each(|entry| {
             map.insert((entry.ltype, entry.offset), entry);
         });
 
         Self(map)
-    }
-
-    pub fn entries(&self) -> &BTreeMap<(LocationType, u32), InitMemoryTableEntry> {
-        &self.0
     }
 
     pub fn to_string(&self) -> String {

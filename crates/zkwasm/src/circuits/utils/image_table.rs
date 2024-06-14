@@ -1,9 +1,15 @@
+use std::borrow::Cow;
+
 use anyhow::Error;
 use halo2_proofs::arithmetic::FieldExt;
 use num_bigint::BigUint;
+use num_traits::Zero;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::ParallelSlice;
 use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::encode::image_table::ImageTableEncoder;
+use specs::encode::init_memory_table::init_memory_table_entry_encode_update_offset;
 use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
@@ -28,18 +34,26 @@ pub(crate) struct InitMemoryLayouter {
 }
 
 impl InitMemoryLayouter {
-    fn for_each(self, mut f: impl FnMut((LocationType, u32))) {
-        for offset in 0..STACK_CAPABILITY {
-            f((LocationType::Stack, offset as u32))
+    fn len(&self) -> usize {
+        STACK_CAPABILITY + GLOBAL_CAPABILITY + (self.pages * PAGE_ENTRIES) as usize
+    }
+
+    fn memory_location_from_offset(&self, offset: usize) -> (LocationType, u32) {
+        let mut offset = offset;
+
+        if offset < STACK_CAPABILITY {
+            return (LocationType::Stack, offset as u32);
         }
 
-        for offset in 0..GLOBAL_CAPABILITY {
-            f((LocationType::Global, offset as u32))
+        offset -= STACK_CAPABILITY;
+
+        if offset < GLOBAL_CAPABILITY {
+            return (LocationType::Global, offset as u32);
         }
 
-        for offset in 0..(self.pages * PAGE_ENTRIES) {
-            f((LocationType::Heap, offset))
-        }
+        offset -= GLOBAL_CAPABILITY;
+
+        (LocationType::Heap, offset as u32)
     }
 }
 
@@ -272,40 +286,84 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
     let padding_handler = |start, end| Ok(vec![F::zero(); end - start]);
 
     let init_memory_entries_handler = |_| {
-        let mut cells = vec![];
-
-        cells.push(bn_to_field(
-            &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
-        ));
-
         let layouter = InitMemoryLayouter {
             pages: page_capability,
         };
 
-        layouter.for_each(|(ltype, offset)| {
-            if let Some(entry) = init_memory_table.try_find(ltype, offset) {
-                cells.push(bn_to_field::<F>(
-                    &ImageTableEncoder::InitMemory.encode(entry.encode()),
-                ));
-            } else if ltype == LocationType::Heap {
-                let entry = InitMemoryTableEntry {
-                    ltype,
-                    is_mutable: true,
-                    offset,
-                    vtype: VarType::I64,
-                    value: 0,
-                    eid: 0,
-                };
+        // The first entry is a default entry.
+        let mut cells = Vec::with_capacity(layouter.len() + 1);
+        cells.push(bn_to_field(
+            &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
+        ));
+        unsafe { cells.set_len(layouter.len() + 1) };
 
-                cells.push(bn_to_field::<F>(
-                    &ImageTableEncoder::InitMemory.encode(entry.encode()),
-                ));
-            } else {
-                cells.push(bn_to_field::<F>(
-                    &ImageTableEncoder::InitMemory.encode(BigUint::from(0u64)),
-                ));
-            }
-        });
+        {
+            let address = &cells;
+
+            const THREADS: usize = 6;
+            let chunk_size = (layouter.len() + THREADS - 1) / THREADS;
+            let default_memory_entry = bn_to_field::<F>(
+                &ImageTableEncoder::InitMemory.encode(
+                    InitMemoryTableEntry {
+                        ltype: LocationType::Heap,
+                        is_mutable: true,
+                        offset: 0,
+                        vtype: VarType::I64,
+                        value: 0,
+                        eid: 0,
+                    }
+                    .encode(),
+                ),
+            );
+
+            (0..layouter.len())
+                .collect::<Vec<_>>()
+                .par_chunks(chunk_size)
+                .for_each(|chunk| {
+                    let mut empty_entry = None;
+
+                    for pos in chunk {
+                        let (ltype, offset) = layouter.memory_location_from_offset(*pos);
+
+                        let entry = if let Some(entry) = init_memory_table.try_find(ltype, offset) {
+                            Cow::Owned(bn_to_field::<F>(
+                                &ImageTableEncoder::InitMemory.encode(entry.encode()),
+                            ))
+                        } else if ltype == LocationType::Heap {
+                            // Perf: Use default entry to enhance performance.
+                            // Original code:
+                            // let entry = InitMemoryTableEntry {
+                            //     ltype,
+                            //     is_mutable: true,
+                            //     offset,
+                            //     vtype: VarType::I64,
+                            //     value: 0,
+                            //     eid: 0,
+                            // };
+
+                            //   bn_to_field::<F>(&ImageTableEncoder::InitMemory.encode(entry.encode()))
+
+                            Cow::Owned(init_memory_table_entry_encode_update_offset(
+                                default_memory_entry,
+                                || F::from(offset as u64),
+                            ))
+                        } else {
+                            Cow::Borrowed(empty_entry.get_or_insert_with(|| {
+                                bn_to_field::<F>(
+                                    &ImageTableEncoder::InitMemory.encode(BigUint::zero()),
+                                )
+                            }))
+                        };
+
+                        let addr = address.as_ptr();
+                        unsafe {
+                            let addr = addr as *mut F;
+
+                            *addr.offset((pos + 1) as isize) = *entry;
+                        }
+                    }
+                });
+        }
 
         Ok(cells)
     };

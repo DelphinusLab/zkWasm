@@ -94,7 +94,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableRequireHelperTableConfig<F
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &StepStatus,
+        step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -102,8 +102,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableRequireHelperTableConfig<F
                 let cond = args[0];
 
                 self.cond.assign(ctx, cond)?;
-                self.cond_inv
-                    .assign(ctx, F::from(cond).invert().unwrap_or(F::zero()))?;
+                if cond != 0 {
+                    self.cond_inv.assign(ctx, step.field_helper.invert(cond))?;
+                }
+
                 self.memory_table_lookup_read_stack.assign(
                     ctx,
                     entry.memory_rw_entires[0].start_eid,

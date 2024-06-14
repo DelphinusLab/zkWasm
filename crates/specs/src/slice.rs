@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
+use rayon::prelude::ParallelSliceMut;
 
 use crate::brtable::BrTable;
 use crate::brtable::ElemTable;
@@ -39,7 +40,7 @@ impl From<FrameTable> for FrameTableSlice {
 
 impl FrameTableSlice {
     pub fn build_returned_lookup_mapping(&self) -> HashMap<(u32, u32), bool> {
-        let mut lookup_table = HashMap::new();
+        let mut lookup_table = HashMap::with_capacity(self.called.len() + self.inherited.0.len());
         for entry in self.called.iter() {
             lookup_table.insert((entry.0.frame_id, entry.0.callee_fid), entry.0.returned);
         }
@@ -114,6 +115,7 @@ impl Slice {
             .collect::<Vec<Vec<_>>>()
             .concat();
 
+        // Use a set to deduplicate
         let mut set = HashSet::<MemoryTableEntry>::default();
 
         memory_entries.iter().for_each(|entry| {
@@ -145,7 +147,7 @@ impl Slice {
 
         memory_entries.append(&mut set.into_iter().collect());
 
-        memory_entries.sort_by_key(|item| (item.ltype, item.offset, item.eid));
+        memory_entries.par_sort_unstable_by_key(|item| (item.ltype, item.offset, item.eid));
 
         MTable::new(memory_entries)
     }

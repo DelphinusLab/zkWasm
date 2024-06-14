@@ -166,8 +166,7 @@ macro_rules! impl_zkwasm_circuit {
 
                 let rtable = RangeTableConfig::configure(meta);
                 let image_table = ImageTableConfig::configure(meta, memory_addr_sel);
-                let mtable =
-                    MemoryTableConfig::configure(meta, k, &mut cols, &rtable, &image_table);
+                let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
                 let frame_table = JumpTableConfig::configure(meta, $last_slice);
                 let post_image_table = PostImageTableConfig::configure(
                     meta,
@@ -197,7 +196,6 @@ macro_rules! impl_zkwasm_circuit {
 
                 let etable = EventTableConfig::configure(
                     meta,
-                    k,
                     &mut cols,
                     &rtable,
                     &image_table,
@@ -243,7 +241,7 @@ macro_rules! impl_zkwasm_circuit {
                 config: Self::Config,
                 layouter: impl Layouter<F>,
             ) -> Result<(), Error> {
-                let assign_timer = start_timer!(|| "Assign");
+                let timer = start_timer!(|| "Prepare assignment");
 
                 let rchip = RangeTableChip::new(config.rtable);
                 let image_chip = ImageTableChip::new(config.image_table);
@@ -263,16 +261,23 @@ macro_rules! impl_zkwasm_circuit {
                 );
                 let context_chip = ContextContHelperTableChip::new(config.context_helper_table);
 
-                let image_table_assigner = ImageTableAssigner::new(
-                    // Add one for default lookup value
-                    self.slice.itable.len() + 1,
-                    self.slice.br_table.entries().len() + self.slice.elem_table.entries().len() + 1,
-                    config.circuit_maximal_pages,
-                );
+                let image_table_assigner = exec_with_profile!(|| "Prepare image table assigner", {
+                    ImageTableAssigner::new(
+                        // Add one for default lookup value
+                        self.slice.itable.len() + 1,
+                        self.slice.br_table.entries().len()
+                            + self.slice.elem_table.entries().len()
+                            + 1,
+                        config.circuit_maximal_pages,
+                    )
+                });
 
-                let memory_writing_table: MemoryWritingTable = MemoryWritingTable::from(
-                    config.k,
-                    self.slice.create_memory_table(memory_event_of_step),
+                let memory_writing_table: MemoryWritingTable = exec_with_profile!(
+                    || "Prepare mtable",
+                    MemoryWritingTable::from(
+                        config.k,
+                        self.slice.create_memory_table(memory_event_of_step),
+                    )
                 );
 
                 let etable = exec_with_profile!(
@@ -284,7 +289,9 @@ macro_rules! impl_zkwasm_circuit {
 
                 let layouter_cloned = layouter.clone();
                 let assigned_cells_cloned = assigned_cells.clone();
+                end_timer!(timer);
 
+                let timer = start_timer!(|| "Assign");
                 rayon::scope(move |s| {
                     let memory_writing_table = Arc::new(memory_writing_table);
                     let etable = Arc::new(etable);
@@ -362,40 +369,41 @@ macro_rules! impl_zkwasm_circuit {
                     let _layouter = layouter.clone();
                     let _assigned_cells = assigned_cells.clone();
                     s.spawn(move |_| {
-                        let pre_image_table =
-                            self.slice.encode_pre_compilation_table_values(config.k);
+                        exec_with_profile!(|| "Assign pre image table chip", {
+                            let pre_image_table =
+                                self.slice.encode_pre_compilation_table_values(config.k);
 
-                        let cells = exec_with_profile!(
-                            || "Assign pre image table chip",
-                            image_chip
+                            let cells = image_chip
                                 .assign(_layouter, &image_table_assigner, pre_image_table)
-                                .unwrap()
-                        );
+                                .unwrap();
 
-                        *_assigned_cells.pre_image_table_cells.lock().unwrap() = Some(cells);
+                            *_assigned_cells.pre_image_table_cells.lock().unwrap() = Some(cells);
+                        });
                     });
 
                     let _layouter = layouter.clone();
                     let _assigned_cells = assigned_cells.clone();
                     let _memory_writing_table = memory_writing_table.clone();
                     s.spawn(move |_| {
-                        let post_image_table: ImageTableLayouter<F> =
-                            self.slice.encode_post_compilation_table_values(config.k);
+                        exec_with_profile!(|| "Assign post image table chip", {
+                            let post_image_table: ImageTableLayouter<F> =
+                                self.slice.encode_post_compilation_table_values(config.k);
 
-                        let (rest_memory_writing_ops, memory_finalized_set) =
-                            _memory_writing_table.count_rest_memory_finalize_ops();
+                            let (rest_memory_writing_ops, memory_finalized_set) =
+                                _memory_writing_table.count_rest_memory_finalize_ops();
 
-                        let cells = post_image_chip
-                            .assign(
-                                _layouter,
-                                &image_table_assigner,
-                                post_image_table,
-                                rest_memory_writing_ops,
-                                memory_finalized_set,
-                            )
-                            .unwrap();
+                            let cells = post_image_chip
+                                .assign(
+                                    _layouter,
+                                    &image_table_assigner,
+                                    post_image_table,
+                                    rest_memory_writing_ops,
+                                    memory_finalized_set,
+                                )
+                                .unwrap();
 
-                        *_assigned_cells.post_image_table_cells.lock().unwrap() = Some(cells);
+                            *_assigned_cells.post_image_table_cells.lock().unwrap() = Some(cells);
+                        });
                     });
 
                     let _layouter = layouter.clone();
@@ -451,6 +459,7 @@ macro_rules! impl_zkwasm_circuit {
                         });
                     });
                 });
+                end_timer!(timer);
 
                 macro_rules! into_inner {
                     ($arc:ident) => {
@@ -472,6 +481,7 @@ macro_rules! impl_zkwasm_circuit {
                 /*
                  * Permutation between chips
                  */
+                let timer = start_timer!(|| "permutation");
                 layouter_cloned.assign_region(
                     || "permutation between tables",
                     |region| {
@@ -557,8 +567,7 @@ macro_rules! impl_zkwasm_circuit {
                         Ok(())
                     },
                 )?;
-
-                end_timer!(assign_timer);
+                end_timer!(timer);
 
                 Ok(())
             }

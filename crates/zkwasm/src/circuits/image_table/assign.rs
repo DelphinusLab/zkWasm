@@ -1,10 +1,10 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
+use rayon::iter::IndexedParallelIterator;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::ParallelSlice;
 use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
 
 use super::ImageTableChip;
@@ -16,19 +16,16 @@ cfg_if::cfg_if! {
     if #[cfg(feature="uniform-circuit")] {
         macro_rules! assign_option {
             ($ctx:expr, $col: expr, $v: expr) => {{
-                let offset = $ctx.borrow().offset;
-
                 let cell = $ctx
-                    .borrow_mut()
                     .region
                     .assign_advice(
                         || "pre image table",
                         $col,
-                        offset,
+                        $ctx.offset,
                         || $v,
-                    )?;
+                    ).unwrap();
 
-                $ctx.borrow_mut().next();
+                $ctx.next();
 
                 Ok::<_, Error>(cell)
             }};
@@ -36,19 +33,16 @@ cfg_if::cfg_if! {
     } else {
         macro_rules! assign_option {
             ($ctx:expr, $col: expr, $v: expr) => {{
-                let offset = $ctx.borrow().offset;
-
                 let cell = $ctx
-                    .borrow_mut()
                     .region
                     .assign_fixed(
                         || "pre image table",
                         $col,
-                        offset,
+                        $ctx.offset,
                         || $v,
-                    )?;
+                    ).unwrap();
 
-                $ctx.borrow_mut().next();
+                $ctx.next();
 
                 Ok::<_, Error>(cell)
             }};
@@ -72,10 +66,9 @@ impl<F: FieldExt> ImageTableChip<F> {
         layouter.assign_region(
             || "pre image table",
             |region| {
-                let ctx = Rc::new(RefCell::new(Context::new(region)));
-
                 let initialization_state_handler = |base_offset| {
-                    ctx.borrow_mut().offset = base_offset;
+                    let mut ctx = Context::new(region);
+                    ctx.offset = base_offset;
 
                     let initialization_state = image_table
                         .initialization_state
@@ -85,7 +78,8 @@ impl<F: FieldExt> ImageTableChip<F> {
                 };
 
                 let inherited_frame_entries_handler = |base_offset| {
-                    ctx.borrow_mut().offset = base_offset;
+                    let mut ctx = Context::new(region);
+                    ctx.offset = base_offset;
 
                     let mut cells = Vec::with_capacity(INHERITED_FRAME_TABLE_ENTRIES);
 
@@ -99,7 +93,8 @@ impl<F: FieldExt> ImageTableChip<F> {
                 };
 
                 let instruction_handler = |base_offset| {
-                    ctx.borrow_mut().offset = base_offset;
+                    let mut ctx = Context::new(region);
+                    ctx.offset = base_offset;
 
                     image_table
                         .instructions
@@ -109,7 +104,8 @@ impl<F: FieldExt> ImageTableChip<F> {
                 };
 
                 let br_table_handler = |base_offset| {
-                    ctx.borrow_mut().offset = base_offset;
+                    let mut ctx = Context::new(region);
+                    ctx.offset = base_offset;
 
                     image_table
                         .br_table_entires
@@ -119,7 +115,8 @@ impl<F: FieldExt> ImageTableChip<F> {
                 };
 
                 let padding_handler = |start_offset, end_offset| {
-                    ctx.borrow_mut().offset = start_offset;
+                    let mut ctx = Context::new(region);
+                    ctx.offset = start_offset;
 
                     (start_offset..end_offset)
                         .map(|_| assign!(ctx, self.config.col, F::zero()))
@@ -127,14 +124,40 @@ impl<F: FieldExt> ImageTableChip<F> {
                 };
 
                 let init_memory_handler = |base_offset| {
-                    // start from 'base_offset" because 'encode_compilation_table_values' have inserted an empty at the beginning.
-                    ctx.borrow_mut().offset = base_offset;
+                    const THREAD: usize = 4;
+                    let chunk_size = if image_table.init_memory_entries.len() == 0 {
+                        1
+                    } else {
+                        (image_table.init_memory_entries.len() + THREAD - 1) / THREAD
+                    };
+
+                    let mut cells = Vec::with_capacity(image_table.init_memory_entries.len());
+                    unsafe {
+                        cells.set_len(image_table.init_memory_entries.len());
+                    }
+                    let cells_ref = &cells;
 
                     image_table
                         .init_memory_entries
-                        .iter()
-                        .map(|entry| assign!(ctx, self.config.col, *entry))
-                        .collect::<Result<Vec<_>, Error>>()
+                        .par_chunks(chunk_size)
+                        .enumerate()
+                        .for_each(|(chunk_index, entries)| {
+                            let mut ctx = Context::new(region);
+                            // start from 'base_offset" because 'encode_compilation_table_values' have inserted an empty at the beginning.
+                            ctx.offset = base_offset + chunk_index * chunk_size;
+
+                            entries.iter().enumerate().for_each(|(index, entry)| {
+                                let cell = assign!(ctx, self.config.col, *entry).unwrap();
+
+                                let cells = cells_ref.as_ptr();
+                                unsafe {
+                                    let cells = cells as *mut AssignedCell<F, F>;
+                                    cells.add(chunk_index * chunk_size + index).write(cell);
+                                }
+                            });
+                        });
+
+                    Ok(cells)
                 };
 
                 let result = image_table_assigner.exec(

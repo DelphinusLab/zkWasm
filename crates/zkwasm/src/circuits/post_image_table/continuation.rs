@@ -14,6 +14,10 @@ use halo2_proofs::plonk::ConstraintSystem;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Fixed;
 use num_bigint::BigUint;
+use rayon::iter::IndexedParallelIterator;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use specs::encode::init_memory_table::encode_init_memory_table_address;
 use specs::encode::init_memory_table::MEMORY_ADDRESS_OFFSET;
 use specs::mtable::LocationType;
@@ -328,8 +332,8 @@ impl<F: FieldExt> PostImageTableChip<F> {
                             Some(rest_memory_finalized_count_cell);
                     }
 
-                    let entries = {
-                        // start from 'base_offset" because 'encode_compilation_table_values' have inserted an empty at the beginning.
+                    let rest_memory_writing_ops = {
+                        // start from 'base_offset" instead of 'base_offset + 1' because 'encode_compilation_table_values' have inserted an empty at the beginning.
                         let mut offset = base_offset;
 
                         let mut rest_memory_writing_ops =
@@ -338,15 +342,40 @@ impl<F: FieldExt> PostImageTableChip<F> {
                         post_image_table
                             .init_memory_entries
                             .iter()
-                            .map(|post| {
-                                let entry = ctx.borrow_mut().region.assign_advice(
+                            .map(|_| {
+                                let v = rest_memory_writing_ops;
+
+                                if memory_finalized_set
+                                    .contains(&image_table_offset_to_memory_location(offset))
+                                {
+                                    rest_memory_writing_ops = rest_memory_writing_ops - F::one();
+                                }
+
+                                offset += 1;
+
+                                v
+                            })
+                            .collect::<Vec<_>>()
+                    };
+
+                    let entries = {
+                        post_image_table
+                            .init_memory_entries
+                            .par_iter()
+                            .zip(rest_memory_writing_ops.into_par_iter())
+                            .enumerate()
+                            .map(|(offset, (post, rest_memory_writing_ops))| {
+                                // start from 'base_offset" instead of 'base_offset + 1' because 'encode_compilation_table_values' have inserted an empty at the beginning.
+                                let offset = base_offset + offset;
+
+                                let entry = region.assign_advice(
                                     || "post image table: init memory",
                                     self.config.post_image_table,
                                     offset,
                                     || Ok(*post),
                                 )?;
 
-                                ctx.borrow_mut().region.assign_advice(
+                                region.assign_advice(
                                     || "post image table: updated memory count",
                                     self.config.rest_memory_finalized_count,
                                     offset,
@@ -356,7 +385,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
                                 let position = image_table_offset_to_memory_location(offset);
 
                                 if memory_finalized_set.contains(&position) {
-                                    ctx.borrow_mut().region.assign_advice(
+                                    region.assign_advice(
                                         || "post image table: init memory",
                                         self.config.update,
                                         offset,
@@ -369,17 +398,13 @@ impl<F: FieldExt> PostImageTableChip<F> {
                                             position.1.into(),
                                         ) * MEMORY_ADDRESS_OFFSET;
 
-                                    ctx.borrow_mut().region.assign_advice(
+                                    region.assign_advice(
                                         || "post image table: init memory lookup",
                                         self.config.memory_finalized_lookup_encode,
                                         offset,
                                         || Ok(bn_to_field::<F>(&address) + *post),
                                     )?;
-
-                                    rest_memory_writing_ops = rest_memory_writing_ops - F::one();
                                 }
-
-                                offset += 1;
 
                                 Ok(entry)
                             })
