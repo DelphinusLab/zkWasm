@@ -63,14 +63,15 @@ use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    56
+    40
 } else {
-    49
+    40
 };
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.
-pub(crate) const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE;
+// Reserve (1 << 16) / 2 to allow u16 range checking based on shuffle with step 2.
+pub(crate) const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE + (1 << 15);
 
 #[derive(Default, Clone)]
 struct AssignedCells<F: FieldExt> {
@@ -87,6 +88,7 @@ struct AssignedCells<F: FieldExt> {
 
 #[derive(Clone)]
 pub struct ZkWasmCircuitConfig<F: FieldExt> {
+    shuffle_range_check_helper: (Column<Fixed>, Column<Fixed>, Column<Fixed>),
     rtable: RangeTableConfig<F>,
     image_table: ImageTableConfig<F>,
     post_image_table: PostImageTableConfig<F>,
@@ -101,6 +103,7 @@ pub struct ZkWasmCircuitConfig<F: FieldExt> {
 
     max_available_rows: usize,
     circuit_maximal_pages: u32,
+    l_last: usize,
 
     k: u32,
 }
@@ -154,6 +157,12 @@ macro_rules! impl_zkwasm_circuit {
                     meta.enable_equality(constants);
                 }
 
+                let (l_0, l_active, l_active_last) = (
+                    meta.fixed_column(),
+                    meta.fixed_column(),
+                    meta.fixed_column(),
+                );
+
                 let memory_addr_sel = if cfg!(feature = "continuation") {
                     Some(meta.fixed_column())
                 } else {
@@ -166,7 +175,13 @@ macro_rules! impl_zkwasm_circuit {
 
                 let rtable = RangeTableConfig::configure(meta);
                 let image_table = ImageTableConfig::configure(meta, memory_addr_sel);
-                let mtable = MemoryTableConfig::configure(meta, &mut cols, &rtable, &image_table);
+                let mtable = MemoryTableConfig::configure(
+                    meta,
+                    (l_0, l_active, l_active_last),
+                    &mut cols,
+                    &rtable,
+                    &image_table,
+                );
                 let frame_table = JumpTableConfig::configure(meta, $last_slice);
                 let post_image_table = PostImageTableConfig::configure(
                     meta,
@@ -196,6 +211,7 @@ macro_rules! impl_zkwasm_circuit {
 
                 let etable = EventTableConfig::configure(
                     meta,
+                    (l_0, l_active, l_active_last),
                     &mut cols,
                     &rtable,
                     &image_table,
@@ -218,6 +234,7 @@ macro_rules! impl_zkwasm_circuit {
                 );
 
                 Self::Config {
+                    shuffle_range_check_helper: (l_0, l_active, l_active_last),
                     rtable,
                     image_table,
                     post_image_table,
@@ -231,6 +248,7 @@ macro_rules! impl_zkwasm_circuit {
 
                     max_available_rows,
                     circuit_maximal_pages,
+                    l_last: (1 << k) - (meta.blinding_factors() + 1),
 
                     k,
                 }
@@ -298,10 +316,44 @@ macro_rules! impl_zkwasm_circuit {
 
                     let _layouter = layouter.clone();
                     s.spawn(move |_| {
-                        exec_with_profile!(
-                            || "Init range chip",
+                        exec_with_profile!(|| "Init range chip", {
+                            let (l_0, l_active, l_active_last) = config.shuffle_range_check_helper;
+
+                            _layouter
+                                .assign_region(
+                                    || "range check sel helper",
+                                    |region| {
+                                        region
+                                            .assign_fixed(|| "l_0", l_0, 0, || Ok(F::one()))
+                                            .unwrap();
+
+                                        region
+                                            .assign_fixed(
+                                                || "l_active_last",
+                                                l_active_last,
+                                                config.l_last - 1,
+                                                || Ok(F::one()),
+                                            )
+                                            .unwrap();
+
+                                        for offset in 0..config.l_last {
+                                            region
+                                                .assign_fixed(
+                                                    || "l_active_last",
+                                                    l_active,
+                                                    offset,
+                                                    || Ok(F::one()),
+                                                )
+                                                .unwrap();
+                                        }
+
+                                        Ok(())
+                                    },
+                                )
+                                .unwrap();
+
                             rchip.init(_layouter, config.k).unwrap()
-                        );
+                        });
                     });
 
                     let _layouter = layouter.clone();
