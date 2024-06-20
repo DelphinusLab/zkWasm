@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#060c8d7885c7459f91440c9d1b1f23b22bc3d473"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#12cefe8364f44c89afeb1f28fae701aeb90d06a0"
 dependencies = [
  "anyhow",
  "ark-std 0.4.0",
@@ -767,14 +767,14 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "ec-gpu"
 version = "0.2.0"
-source = "git+https://github.com/lanbones/ec-gpu#165d1dd6215f6fd1dd85c83cf430ff511a03a00a"
+source = "git+https://github.com/lanbones/ec-gpu#36b9abf8611347e2fe44f21a2f3607eba3aed71d"
 
 [[package]]
 name = "ec-gpu-gen"
 version = "0.4.0"
-source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#5481be558da026bb9bddcd5807f973f6b1a8346e"
+source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#aedc591657644f047f25a2e089f0b489eba0bf38"
 dependencies = [
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "bitvec",
  "crossbeam-channel",
  "ec-gpu",
@@ -1104,7 +1104,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#9a81f601607bdc3ff3360a9ad66885c9796f487b"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#fe464bd14d7d1155964d39a029c9903b453aeac8"
 dependencies = [
  "ark-std 0.4.0",
  "blake2b_simd",
@@ -1132,13 +1132,13 @@ dependencies = [
 
 [[package]]
 name = "halo2aggregator-s"
-version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=1.0.0#35026092b90743d0e37689bd21444c250e64a9d4"
+version = "1.0.2"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=1.0.3#79bb1d5c491af63052c292713aa27e54a9432203"
 dependencies = [
  "ark-std 0.4.0",
  "blake2b_simd",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.8)",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1163,7 +1163,7 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f#3b8b424f009fd945fc982f530ed29b555f8002e6"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.8#ddad2af04c28c33c2aa1192f4529d59abdf624b8"
 dependencies = [
  "ark-std 0.4.0",
  "halo2_proofs",
@@ -1998,7 +1998,7 @@ checksum = "7170ef9988bc169ba16dd36a7fa041e5c4cbeb6a35b76d4c03daded371eae7c0"
 [[package]]
 name = "poseidon"
 version = "0.2.0"
-source = "git+https://github.com/DelphinusLab/poseidon#58835e054512ad7833df6d20479e9e0e034a073b"
+source = "git+https://github.com/DelphinusLab/poseidon#162fc28c2c1fa361d0851a1f50c3e9c2c65c0042"
 dependencies = [
  "halo2_proofs",
  "subtle",
@@ -3495,7 +3495,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#5f352e1852cc27af47378c4a355d36d000edecb1"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#d7244c637ca7d64afee4e66caea6f0cf4ccc6cc5"
 dependencies = [
  "ark-std 0.4.0",
  "cc",
