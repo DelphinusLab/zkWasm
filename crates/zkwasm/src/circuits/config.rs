@@ -3,7 +3,7 @@ use std::sync::Mutex;
 pub const POW_TABLE_POWER_START: u64 = 128;
 
 pub const MIN_K: u32 = 18;
-const MAX_K: u32 = 25;
+const MAX_K: u32 = 22;
 
 lazy_static! {
     static ref ZKWASM_K: Mutex<Option<u32>> = Mutex::new(None);

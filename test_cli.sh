@@ -28,7 +28,7 @@ test_uniform_circuit_cli() {
 test_continuation_cli() {
     cargo build --release --features continuation $CUDA
     rm -rf params/*.data params/*.config output
-    $CLI --params ./params fibonacci setup -k 22
+    $CLI --params ./params fibonacci setup
     $CLI --params ./params fibonacci dry-run --wasm crates/zkwasm/wasm/fibonacci.wasm --public 25:i64 --output ./output
     $CLI --params ./params fibonacci prove --wasm crates/zkwasm/wasm/fibonacci.wasm --public 25:i64 --output ./output
     $CLI --params ./params fibonacci verify --output ./output
