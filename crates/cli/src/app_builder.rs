@@ -139,12 +139,8 @@ fn setup_command() -> Command<'static> {
         .about("Setup a new zkWasm circuit for provided Wasm image")
         .arg(
             arg!(-k <K> "Size of the circuit.")
-                .default_value(if cfg!(feature = "continuation") {
-                    "22"
-                } else {
-                    "18"
-                })
-                .value_parser(value_parser!(u32).range(18..))
+                .default_value("22")
+                .value_parser(value_parser!(u32).range(18..23))
                 .required(false),
         )
         .arg(
