@@ -55,7 +55,7 @@ impl ArgBuilder<PathBuf> for OutputDirArg {
 struct PublicInputsArg;
 impl ArgBuilder<Vec<String>> for PublicInputsArg {
     fn builder() -> Arg<'static> {
-        arg!(--public <PUBLIC_INPUT> ... "Public inputs with format value:type where type=i64|bytes|bytes-packed, values can be seperated by `,` or multiple occurrence of `--public`")
+        arg!(--public <PUBLIC_INPUT> ... "Public inputs with format value:type where type=i64|bytes|bytes-packed, values can be separated by `,` or multiple occurrence of `--public`")
      .takes_value(true).value_delimiter(',').required(false)
     }
 
@@ -71,7 +71,7 @@ impl ArgBuilder<Vec<String>> for PublicInputsArg {
 struct PrivateInputsArg;
 impl ArgBuilder<Vec<String>> for PrivateInputsArg {
     fn builder() -> Arg<'static> {
-        arg!(--private <PRIVATE_INPUT> ... "Private inputs with format value:type where type=i64|bytes|bytes-packed, values can be seperated by `,` or multiple occurrence of `--private`")
+        arg!(--private <PRIVATE_INPUT> ... "Private inputs with format value:type where type=i64|bytes|bytes-packed, values can be separated by `,` or multiple occurrence of `--private`")
        .takes_value(true).value_delimiter(',').required(false)
     }
 
@@ -87,7 +87,7 @@ impl ArgBuilder<Vec<String>> for PrivateInputsArg {
 struct ContextInputsArg;
 impl ArgBuilder<Vec<String>> for ContextInputsArg {
     fn builder() -> Arg<'static> {
-        arg!(--ctxin <CONTEXT_INPUT> ... "Context inputs with format value:type where type=i64|bytes|bytes-packed, values can be seperated by `,` or multiple occurrence of `--ctxin`")
+        arg!(--ctxin <CONTEXT_INPUT> ... "Context inputs with format value:type where type=i64|bytes|bytes-packed, values can be separated by `,` or multiple occurrence of `--ctxin`")
        .takes_value(true).value_delimiter(',').required(false)
     }
 
