@@ -24,6 +24,7 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::mtable::LocationType;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
@@ -34,11 +35,11 @@ pub(super) trait EventTableCellExpression<F: FieldExt> {
 
 impl<F: FieldExt> EventTableCellExpression<F> for AllocatedCell<F> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot + EVENT_TABLE_ENTRY_ROWS as i32)
+        nextn!(meta, self.col, self.rot + EVENT_TABLE_ENTRY_ROWS)
     }
 
     fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot - EVENT_TABLE_ENTRY_ROWS as i32)
+        nextn!(meta, self.col, self.rot - EVENT_TABLE_ENTRY_ROWS)
     }
 }
 
@@ -220,11 +221,13 @@ impl AllocatorFreeCellsProfiler {
         for (t, (i, j)) in allocator.free_cells.iter() {
             let v = self.free_cells.get_mut(t).unwrap();
 
-            if *i > v.0 {
-                v.0 = *i;
-                v.1 = *j;
-            } else if *i == v.0 {
-                v.1 = u32::max(v.1, *j);
+            match i.cmp(&v.0) {
+                Ordering::Greater => {
+                    v.0 = *i;
+                    v.1 = *j;
+                }
+                Ordering::Equal => v.1 = u32::max(v.1, *j),
+                Ordering::Less => (),
             }
         }
 
@@ -307,7 +310,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             let init = u32_cell.curr_expr(meta);
             vec![
                 (0..2)
-                    .into_iter()
                     .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
                     .fold(init, |acc, x| acc - x)
                     * enable(meta),
@@ -332,7 +334,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             let init = u64_cell.curr_expr(meta);
             vec![
                 (0..4)
-                    .into_iter()
                     .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
                     .fold(init, |acc, x| acc - x)
                     * enable(meta),
@@ -364,6 +365,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
         }
+        #[allow(clippy::reversed_empty_ranges)]
         for _ in 0..U32_PERMUTATION_CELLS {
             let cell =
                 allocator.prepare_alloc_u32_permutation_cell(meta, |meta| fixed_curr!(meta, sel));

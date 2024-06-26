@@ -94,23 +94,19 @@ impl Default for InitializationState<u32> {
 
 impl<T: Clone> InitializationState<T> {
     pub fn plain(&self) -> Vec<T> {
-        let mut v = vec![];
-
-        v.push(self.eid.clone());
-        v.push(self.fid.clone());
-        v.push(self.iid.clone());
-        v.push(self.frame_id.clone());
-        v.push(self.sp.clone());
-
-        v.push(self.host_public_inputs.clone());
-        v.push(self.context_in_index.clone());
-        v.push(self.context_out_index.clone());
-        v.push(self.external_host_call_call_index.clone());
-
-        v.push(self.initial_memory_pages.clone());
-        v.push(self.maximal_memory_pages.clone());
-
-        v
+        vec![
+            self.eid.clone(),
+            self.fid.clone(),
+            self.iid.clone(),
+            self.frame_id.clone(),
+            self.sp.clone(),
+            self.host_public_inputs.clone(),
+            self.context_in_index.clone(),
+            self.context_out_index.clone(),
+            self.external_host_call_call_index.clone(),
+            self.initial_memory_pages.clone(),
+            self.maximal_memory_pages.clone(),
+        ]
     }
 }
 

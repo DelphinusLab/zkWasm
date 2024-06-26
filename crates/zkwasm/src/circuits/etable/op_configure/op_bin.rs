@@ -415,10 +415,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             _ => unreachable!(),
         };
 
-        self.lhs
-            .assign(ctx, left.into(), var_type == VarType::I32)?;
-        self.rhs
-            .assign(ctx, right.into(), var_type == VarType::I32)?;
+        self.lhs.assign(ctx, left, var_type == VarType::I32)?;
+        self.rhs.assign(ctx, right, var_type == VarType::I32)?;
 
         let (normalized_lhs, normalized_rhs) = if var_type == VarType::I32 {
             let normalized_lhs = if left >> 31 == 1 {
@@ -434,12 +432,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             (normalized_lhs, normalized_rhs)
         } else {
             let normalized_lhs = if left >> 63 == 1 {
-                u64::MAX as u64 - left + 1
+                u64::MAX - left + 1
             } else {
                 left
             };
             let normalized_rhs = if right >> 63 == 1 {
-                u64::MAX as u64 - right + 1
+                u64::MAX - right + 1
             } else {
                 right
             };
@@ -545,11 +543,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             _ => {}
         }
 
-        match var_type {
-            VarType::I32 => {
-                self.is_i32.assign(ctx, F::one())?;
-            }
-            _ => {}
+        if var_type == VarType::I32 {
+            self.is_i32.assign(ctx, F::one())?;
         };
 
         self.memory_table_lookup_stack_read_rhs.assign(

@@ -398,7 +398,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             BigUint::from(1u64) << 32usize
         };
 
-        self.lhs.assign(ctx, left.into(), !is_eight_bytes)?;
+        self.lhs.assign(ctx, left, !is_eight_bytes)?;
         self.rhs.assign(ctx, right)?;
         self.rhs_round
             .assign(ctx, F::from((right & 0xffff) / size))?;

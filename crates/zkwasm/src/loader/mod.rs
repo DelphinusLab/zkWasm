@@ -75,7 +75,7 @@ impl ZkWasmLoader {
             Ok(())
         }
 
-        let mut module = Module::from_buffer(&image)?;
+        let mut module = Module::from_buffer(image)?;
         if let Ok(parity_module) = module.module().clone().parse_names() {
             module.module = parity_module;
         } else {

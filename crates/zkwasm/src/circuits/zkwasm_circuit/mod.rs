@@ -62,11 +62,7 @@ use super::post_image_table::PostImageTableConfig;
 use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
-pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    40
-} else {
-    40
-};
+pub const VAR_COLUMNS: usize = 40;
 
 // Reserve 128 rows(greater than step size of all tables) to keep usable rows away from
 //   blind rows and range checking rows.

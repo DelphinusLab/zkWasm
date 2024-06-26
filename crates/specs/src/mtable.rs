@@ -92,6 +92,15 @@ impl From<crate::types::ValueType> for VarType {
     }
 }
 
+impl From<&crate::types::ValueType> for VarType {
+    fn from(v: &crate::types::ValueType) -> Self {
+        match v {
+            crate::types::ValueType::I32 => Self::I32,
+            crate::types::ValueType::I64 => Self::I64,
+        }
+    }
+}
+
 impl MemoryReadSize {
     pub fn byte_size(&self) -> u32 {
         match self {
@@ -106,17 +115,14 @@ impl MemoryReadSize {
     }
 
     pub fn is_sign(&self) -> bool {
-        match self {
-            MemoryReadSize::U8
-            | MemoryReadSize::U16
-            | MemoryReadSize::U32
-            | MemoryReadSize::I64 => false,
-            _ => true,
-        }
+        !matches!(
+            self,
+            MemoryReadSize::U8 | MemoryReadSize::U16 | MemoryReadSize::U32 | MemoryReadSize::I64
+        )
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Clone, Hash, Eq, PartialEq)]
 pub struct MemoryTableEntry {
     pub eid: u32,
     pub offset: u32,
@@ -128,23 +134,14 @@ pub struct MemoryTableEntry {
 }
 
 impl MemoryTableEntry {
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
-
     pub fn is_same_location(&self, other: &MemoryTableEntry) -> bool {
         self.offset == other.offset && self.ltype == other.ltype
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct MTable(Vec<MemoryTableEntry>);
 
 impl MTable {
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
-
     pub fn entries(&self) -> &Vec<MemoryTableEntry> {
         &self.0
     }

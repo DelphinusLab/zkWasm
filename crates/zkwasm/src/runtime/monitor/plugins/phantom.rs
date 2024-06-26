@@ -15,7 +15,7 @@ pub struct PhantomHelper {
 }
 
 impl PhantomHelper {
-    pub fn new(phantom_regex: &Vec<String>, wasm_input: FuncRef) -> Self {
+    pub fn new(phantom_regex: &[String], wasm_input: FuncRef) -> Self {
         Self {
             phantom_regex: phantom_regex
                 .iter()
@@ -30,7 +30,7 @@ impl PhantomHelper {
     }
 
     pub(in crate::runtime::monitor) fn is_in_phantom_function(&self) -> bool {
-        self.frame.len() > 0
+        !self.frame.is_empty()
     }
 
     pub(in crate::runtime::monitor) fn is_phantom_function(&self, func_index: u32) -> bool {

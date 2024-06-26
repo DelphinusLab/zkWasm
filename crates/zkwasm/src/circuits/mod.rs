@@ -77,8 +77,8 @@ impl<F: FieldExt> OngoingCircuit<F> {
 
             if etable_entires > etable_capacity {
                 return Err(BuildingCircuitError::EtableEntriesExceedLimit(
-                    etable_entires as u32,
-                    etable_capacity as u32,
+                    etable_entires,
+                    etable_capacity,
                     k,
                 ));
             }
@@ -125,8 +125,8 @@ impl<F: FieldExt> LastSliceCircuit<F> {
 
             if etable_entires > etable_capacity {
                 return Err(BuildingCircuitError::EtableEntriesExceedLimit(
-                    etable_entires as u32,
-                    etable_capacity as u32,
+                    etable_entires,
+                    etable_capacity,
                     k,
                 ));
             }

@@ -215,65 +215,65 @@ pub(crate) fn app() -> App<'static> {
         .subcommand_required(true)
 }
 
-impl Into<SetupArg> for &ArgMatches {
-    fn into(self) -> SetupArg {
+impl From<&ArgMatches> for SetupArg {
+    fn from(val: &ArgMatches) -> Self {
         SetupArg {
-            k: *self.get_one::<u32>("K").unwrap(),
-            host_mode: *self.get_one::<HostMode>("host").unwrap(),
-            phantom_functions: self
+            k: *val.get_one::<u32>("K").unwrap(),
+            host_mode: *val.get_one::<HostMode>("host").unwrap(),
+            phantom_functions: val
                 .get_many::<String>("phantom")
                 .unwrap_or_default()
                 .map(|v| v.to_string())
                 .collect::<Vec<_>>(),
-            wasm_image: WasmImageArg::parse(self),
+            wasm_image: WasmImageArg::parse(val),
         }
     }
 }
 
-impl Into<RunningArg> for &ArgMatches {
-    fn into(self) -> RunningArg {
+impl From<&ArgMatches> for RunningArg {
+    fn from(val: &ArgMatches) -> Self {
         RunningArg {
-            output_dir: OutputDirArg::parse(self),
-            public_inputs: PublicInputsArg::parse(self),
-            private_inputs: PrivateInputsArg::parse(self),
-            context_inputs: ContextInputsArg::parse(self),
-            context_output: ContextOutputArg::parse(self),
+            output_dir: OutputDirArg::parse(val),
+            public_inputs: PublicInputsArg::parse(val),
+            private_inputs: PrivateInputsArg::parse(val),
+            context_inputs: ContextInputsArg::parse(val),
+            context_output: ContextOutputArg::parse(val),
         }
     }
 }
 
-impl Into<DryRunArg> for &ArgMatches {
-    fn into(self) -> DryRunArg {
+impl From<&ArgMatches> for DryRunArg {
+    fn from(val: &ArgMatches) -> Self {
         DryRunArg {
-            wasm_image: WasmImageArg::parse(self).unwrap(),
-            running_arg: self.into(),
+            wasm_image: WasmImageArg::parse(val).unwrap(),
+            running_arg: val.into(),
         }
     }
 }
 
-impl Into<ProveArg> for &ArgMatches {
-    fn into(self) -> ProveArg {
+impl From<&ArgMatches> for ProveArg {
+    fn from(val: &ArgMatches) -> Self {
         ProveArg {
-            wasm_image: WasmImageArg::parse(self).unwrap(),
-            output_dir: OutputDirArg::parse(self),
-            running_arg: self.into(),
-            mock_test: MockTestArg::parse(self),
-            file_backend: FileBackendArg::parse(self),
+            wasm_image: WasmImageArg::parse(val).unwrap(),
+            output_dir: OutputDirArg::parse(val),
+            running_arg: val.into(),
+            mock_test: MockTestArg::parse(val),
+            file_backend: FileBackendArg::parse(val),
         }
     }
 }
 
-impl Into<VerifyArg> for &ArgMatches {
-    fn into(self) -> VerifyArg {
+impl From<&ArgMatches> for VerifyArg {
+    fn from(val: &ArgMatches) -> Self {
         VerifyArg {
-            output_dir: OutputDirArg::parse(self),
+            output_dir: OutputDirArg::parse(val),
         }
     }
 }
 
-impl Into<ZkWasmCli> for ArgMatches {
-    fn into(self) -> ZkWasmCli {
-        let subcommand = match self.subcommand() {
+impl From<ArgMatches> for ZkWasmCli {
+    fn from(arg: ArgMatches) -> ZkWasmCli {
+        let subcommand = match arg.subcommand() {
             Some(("setup", sub_matches)) => Subcommands::Setup(sub_matches.into()),
             Some(("dry-run", sub_matches)) => Subcommands::DryRun(sub_matches.into()),
             Some(("prove", sub_matches)) => Subcommands::Prove(sub_matches.into()),
@@ -282,8 +282,8 @@ impl Into<ZkWasmCli> for ArgMatches {
         };
 
         ZkWasmCli {
-            name: self.get_one::<String>("NAME").unwrap().to_owned(),
-            params_dir: self.get_one::<PathBuf>("params").unwrap().to_owned(),
+            name: arg.get_one::<String>("NAME").unwrap().to_owned(),
+            params_dir: arg.get_one::<PathBuf>("params").unwrap().to_owned(),
             subcommand,
         }
     }

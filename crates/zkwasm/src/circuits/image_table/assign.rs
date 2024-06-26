@@ -5,6 +5,7 @@ use halo2_proofs::plonk::Error;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::ParallelSlice;
+use rayon::slice::ParallelSliceMut;
 use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
 
 use super::ImageTableChip;
@@ -125,23 +126,21 @@ impl<F: FieldExt> ImageTableChip<F> {
 
                 let init_memory_handler = |base_offset| {
                     const THREAD: usize = 4;
-                    let chunk_size = if image_table.init_memory_entries.len() == 0 {
+                    let chunk_size = if image_table.init_memory_entries.is_empty() {
                         1
                     } else {
                         (image_table.init_memory_entries.len() + THREAD - 1) / THREAD
                     };
 
                     let mut cells = Vec::with_capacity(image_table.init_memory_entries.len());
-                    unsafe {
-                        cells.set_len(image_table.init_memory_entries.len());
-                    }
-                    let cells_ref = &cells;
+                    let remaining = cells.spare_capacity_mut();
 
                     image_table
                         .init_memory_entries
                         .par_chunks(chunk_size)
+                        .zip(remaining.par_chunks_mut(chunk_size))
                         .enumerate()
-                        .for_each(|(chunk_index, entries)| {
+                        .for_each(|(chunk_index, (entries, cells))| {
                             let mut ctx = Context::new(region);
                             // start from 'base_offset" because 'encode_compilation_table_values' have inserted an empty at the beginning.
                             ctx.offset = base_offset + chunk_index * chunk_size;
@@ -149,13 +148,13 @@ impl<F: FieldExt> ImageTableChip<F> {
                             entries.iter().enumerate().for_each(|(index, entry)| {
                                 let cell = assign!(ctx, self.config.col, *entry).unwrap();
 
-                                let cells = cells_ref.as_ptr();
-                                unsafe {
-                                    let cells = cells as *mut AssignedCell<F, F>;
-                                    cells.add(chunk_index * chunk_size + index).write(cell);
-                                }
+                                cells[index].write(cell);
                             });
                         });
+
+                    unsafe {
+                        cells.set_len(image_table.init_memory_entries.len());
+                    }
 
                     Ok(cells)
                 };

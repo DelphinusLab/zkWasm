@@ -40,7 +40,7 @@ impl<F: FieldExt> RowDiffConfig<F> {
             let inv = curr!(meta, inv);
             let same = curr!(meta, same);
             vec![
-                diff.clone() * inv.clone() + same.clone() - constant_from!(1),
+                diff.clone() * inv + same.clone() - constant_from!(1),
                 diff * same,
             ]
             .into_iter()
@@ -64,8 +64,8 @@ impl<F: FieldExt> RowDiffConfig<F> {
         data: F,
         diff: F,
     ) -> Result<(), Error> {
-        let offset = if offset_force.is_some() {
-            offset_force.unwrap()
+        let offset = if let Some(offset_force) = offset_force {
+            offset_force
         } else {
             ctx.offset
         };

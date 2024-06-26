@@ -19,6 +19,8 @@ jobs:
         components: rustfmt, clippy
     - name: Code Style Check
       run: cargo fmt --check
+    - name: Cargo clippy
+      run: cargo clippy && cargo clippy --features continuation
     - name: Build
       run: cargo build && cargo clean
     - name: Build Playground

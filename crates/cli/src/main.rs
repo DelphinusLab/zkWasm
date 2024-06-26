@@ -1,4 +1,5 @@
 #![deny(warnings)]
+#![allow(clippy::too_many_arguments, clippy::while_let_on_iterator)]
 
 use std::fs;
 use std::path::PathBuf;
@@ -27,7 +28,7 @@ mod command;
 mod config;
 mod names;
 
-const TRIVIAL_WASM: &'static str = r#"
+const TRIVIAL_WASM: &str = r#"
 (module
     (func (export "zkmain"))
 )
@@ -53,15 +54,15 @@ fn main() -> Result<()> {
     match cli.subcommand {
         Subcommands::Setup(arg) => {
             let env_builder: Box<dyn HostEnvBuilder> = match arg.host_mode {
-                HostMode::DEFAULT => Box::new(DefaultHostEnvBuilder),
-                HostMode::STANDARD => Box::new(StandardHostEnvBuilder::default()),
+                HostMode::Default => Box::new(DefaultHostEnvBuilder),
+                HostMode::Standard => Box::<StandardHostEnvBuilder>::default(),
             };
 
-            arg.setup(&env_builder, &cli.name, &cli.params_dir)?;
+            arg.setup(&*env_builder, &cli.name, &cli.params_dir)?;
         }
         Subcommands::DryRun(arg) => {
             let config = Config::read(&mut fs::File::open(
-                cli.params_dir.join(&name_of_config(&cli.name)),
+                cli.params_dir.join(name_of_config(&cli.name)),
             )?)?;
 
             let public_inputs = parse_args(&arg.running_arg.public_inputs);
@@ -69,12 +70,12 @@ fn main() -> Result<()> {
             let context_inputs = parse_args(&arg.running_arg.context_inputs);
 
             let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
-                HostMode::DEFAULT => Box::new(DefaultHostEnvBuilder),
-                HostMode::STANDARD => Box::new(StandardHostEnvBuilder::default()),
+                HostMode::Default => Box::new(DefaultHostEnvBuilder),
+                HostMode::Standard => Box::<StandardHostEnvBuilder>::default(),
             };
 
             config.dry_run(
-                &env_builder,
+                &*env_builder,
                 &arg.wasm_image,
                 &arg.running_arg.output_dir,
                 ExecutionArg {
@@ -86,11 +87,11 @@ fn main() -> Result<()> {
             )?;
         }
         Subcommands::Prove(arg) => {
-            let trace_dir = arg.output_dir.clone().join("traces");
+            let trace_dir = arg.output_dir.join("traces");
             fs::create_dir_all(&trace_dir)?;
 
             let config = Config::read(&mut fs::File::open(
-                cli.params_dir.join(&name_of_config(&cli.name)),
+                cli.params_dir.join(name_of_config(&cli.name)),
             )?)?;
 
             let public_inputs = parse_args(&arg.running_arg.public_inputs);
@@ -105,7 +106,7 @@ fn main() -> Result<()> {
                     Box::new(move |slice, etable: &EventTable| {
                         let filename_of_etable_slice =
                             PathBuf::from(name_of_etable_slice(&name, slice));
-                        let path = trace_dir.join(&filename_of_etable_slice);
+                        let path = trace_dir.join(filename_of_etable_slice);
 
                         etable.write(&path).unwrap();
 
@@ -115,12 +116,12 @@ fn main() -> Result<()> {
 
                 let frame_table_writer = {
                     let name = cli.name.clone();
-                    let trace_dir = trace_dir.clone();
+                    let trace_dir = trace_dir;
 
                     Box::new(move |slice, frame_table: &FrameTable| {
                         let filename_of_frame_table_slice =
                             PathBuf::from(name_of_frame_table_slice(&name, slice));
-                        let path = trace_dir.join(&filename_of_frame_table_slice);
+                        let path = trace_dir.join(filename_of_frame_table_slice);
 
                         frame_table.write(&path).unwrap();
 
@@ -137,12 +138,12 @@ fn main() -> Result<()> {
             };
 
             let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
-                HostMode::DEFAULT => Box::new(DefaultHostEnvBuilder),
-                HostMode::STANDARD => Box::new(StandardHostEnvBuilder::default()),
+                HostMode::Default => Box::new(DefaultHostEnvBuilder),
+                HostMode::Standard => Box::<StandardHostEnvBuilder>::default(),
             };
 
             config.prove(
-                &env_builder,
+                &*env_builder,
                 &arg.wasm_image,
                 &cli.params_dir,
                 &arg.output_dir,
@@ -158,7 +159,7 @@ fn main() -> Result<()> {
         }
         Subcommands::Verify(arg) => {
             let config = Config::read(&mut fs::File::open(
-                cli.params_dir.join(&name_of_config(&cli.name)),
+                cli.params_dir.join(name_of_config(&cli.name)),
             )?)?;
 
             config.verify(&cli.params_dir, &arg.output_dir)?;

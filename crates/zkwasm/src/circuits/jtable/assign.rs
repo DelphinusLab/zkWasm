@@ -186,10 +186,12 @@ impl<F: FieldExt> JumpTableChip<F> {
             ctx.step(FrameTableValueOffset::Max as usize);
         }
 
-        Ok(cells.try_into().expect(&format!(
-            "The number of inherited frame entries should be {}",
-            INHERITED_FRAME_TABLE_ENTRIES
-        )))
+        Ok(cells.try_into().unwrap_or_else(|_| {
+            panic!(
+                "The number of inherited frame entries should be {}",
+                INHERITED_FRAME_TABLE_ENTRIES
+            )
+        }))
     }
 
     fn assign_frame_table_entries(
@@ -236,7 +238,7 @@ impl<F: FieldExt> JumpTableChip<F> {
                     || Ok(F::one()),
                 )?;
 
-                *rest_return_ops -= 1 as u32;
+                *rest_return_ops -= 1u32;
             }
 
             *rest_call_ops -= 1;

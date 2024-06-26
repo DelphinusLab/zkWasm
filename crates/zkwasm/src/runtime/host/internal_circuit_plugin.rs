@@ -94,7 +94,9 @@ impl ModuleImportResolver for InternalCircuitEnv {
                     index.expect("Unsolved host function index."),
                 ))
             } else {
-                Err(wasmi::Error::Instantiation(format!("Signature not match",)))
+                Err(wasmi::Error::Instantiation(
+                    "Signature not match".to_string(),
+                ))
             }
         } else {
             Err(wasmi::Error::Instantiation(format!(
