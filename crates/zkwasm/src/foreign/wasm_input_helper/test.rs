@@ -17,7 +17,7 @@ mod tests {
 
         let public_inputs = vec![9];
         let private_inputs = vec![];
-        let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+        let wasm = wabt::wat2wasm(textual_repr).expect("failed to parse wat");
 
         test_circuit_with_env(
             18,
@@ -52,7 +52,7 @@ mod tests {
             (export "zkwasm" (func 1)))
         "#;
 
-        let wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+        let wasm = wabt::wat2wasm(textual_repr).expect("failed to parse wat");
 
         let private_inputs = vec![];
         let public_inputs = vec![1, 2];

@@ -68,7 +68,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_blspair_foreign(env: &mut HostEnv) {
     let foreign_blspair_plugin = env
         .external_env
-        .register_plugin("foreign_blspair", Box::new(BlsPairContext::default()));
+        .register_plugin("foreign_blspair", Box::<BlsPairContext>::default());
 
     env.external_env.register_function(
         "blspair_g1",
@@ -113,7 +113,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
                         G2Affine {
                             x: fetch_fq2(&context.limbs, 2),
                             y: fetch_fq2(&context.limbs, 4),
-                            infinity: (0 as u8).into(),
+                            infinity: 0_u8.into(),
                         }
                     };
                     let ab = pairing(&g1, &g2);
@@ -133,7 +133,7 @@ pub fn register_blspair_foreign(env: &mut HostEnv) {
         "blspair_pop",
         ForeignInst::BlsPairG3 as usize,
         ExternalHostCallSignature::Return,
-        foreign_blspair_plugin.clone(),
+        foreign_blspair_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsPairContext>().unwrap();

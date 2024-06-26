@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::Cursor;
 use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -108,7 +109,7 @@ impl Config {
         verifying_key: &[u8],
         expected_md5: &str,
     ) -> anyhow::Result<()> {
-        let verifying_key_md5 = format!("{:x}", md5::compute(&verifying_key));
+        let verifying_key_md5 = format!("{:x}", md5::compute(verifying_key));
 
         if verifying_key_md5 != expected_md5 {
             anyhow::bail!(
@@ -123,7 +124,7 @@ impl Config {
 
 impl Config {
     pub(crate) fn write(&self, fd: &mut File) -> anyhow::Result<()> {
-        fd.write(&bincode::serialize(self)?)?;
+        fd.write_all(&bincode::serialize(self)?)?;
 
         Ok(())
     }
@@ -131,27 +132,27 @@ impl Config {
     pub(crate) fn read(fd: &mut File) -> anyhow::Result<Self> {
         let mut buf = Vec::new();
         fd.read_to_end(&mut buf)?;
-        let config = bincode::deserialize(&mut buf)?;
+        let config = bincode::deserialize(&buf)?;
 
         Ok(config)
     }
 }
 
 impl Config {
-    fn read_wasm_image(&self, wasm_image: &PathBuf) -> anyhow::Result<Module> {
+    fn read_wasm_image(&self, wasm_image: &Path) -> anyhow::Result<Module> {
         let mut buf = Vec::new();
-        File::open(&wasm_image)?.read_to_end(&mut buf)?;
+        File::open(wasm_image)?.read_to_end(&mut buf)?;
 
         self.image_consistent_check(&buf)?;
 
         ZkWasmLoader::parse_module(&buf)
     }
 
-    fn read_params(&self, params_dir: &PathBuf) -> anyhow::Result<Params<G1Affine>> {
+    fn read_params(&self, params_dir: &Path) -> anyhow::Result<Params<G1Affine>> {
         let path = params_dir.join(name_of_params(self.k));
 
         let mut buf = Vec::new();
-        File::open(&path)?.read_to_end(&mut buf)?;
+        File::open(path)?.read_to_end(&mut buf)?;
 
         self.params_consistent_check(&buf)?;
 
@@ -166,7 +167,7 @@ impl Config {
         expected_md5: &str,
     ) -> anyhow::Result<CircuitData<G1Affine>> {
         let mut buf = Vec::new();
-        File::open(&path)?.read_to_end(&mut buf)?;
+        File::open(path)?.read_to_end(&mut buf)?;
 
         let circuit_data_md5 = format!("{:x}", md5::compute(&buf));
 
@@ -177,16 +178,16 @@ impl Config {
             );
         }
 
-        let circuit_data = CircuitData::<G1Affine>::read(&mut File::open(&path)?)?;
+        let circuit_data = CircuitData::<G1Affine>::read(&mut File::open(path)?)?;
 
         Ok(circuit_data)
     }
 
     pub(crate) fn dry_run(
         self,
-        env_builder: &Box<dyn HostEnvBuilder>,
-        wasm_image: &PathBuf,
-        output_dir: &PathBuf,
+        env_builder: &dyn HostEnvBuilder,
+        wasm_image: &Path,
+        output_dir: &Path,
         arg: ExecutionArg,
         context_output_filename: Option<String>,
     ) -> Result<()> {
@@ -236,10 +237,10 @@ impl Config {
 
     pub(crate) fn prove(
         self,
-        env_builder: &Box<dyn HostEnvBuilder>,
-        wasm_image: &PathBuf,
-        params_dir: &PathBuf,
-        output_dir: &PathBuf,
+        env_builder: &dyn HostEnvBuilder,
+        wasm_image: &Path,
+        params_dir: &Path,
+        output_dir: &Path,
         arg: ExecutionArg,
         context_output_filename: Option<String>,
         mock_test: bool,
@@ -309,7 +310,6 @@ impl Config {
         println!("{} Build circuit(s)...", style("[6/8]").bold().dim(),);
         let instances = result
             .public_inputs_and_outputs
-            .clone()
             .iter()
             .map(|v| (*v).into())
             .collect::<Vec<_>>();
@@ -321,10 +321,7 @@ impl Config {
 
         let progress_bar = ProgressBar::new(tables.execution_tables.etable.len() as u64);
 
-        let mut slices = Slices::new(self.k, tables)?
-            .into_iter()
-            .enumerate()
-            .peekable();
+        let mut slices = Slices::new(self.k, tables)?.enumerate().peekable();
         while let Some((index, circuit)) = slices.next() {
             let circuit = circuit?;
 
@@ -407,7 +404,7 @@ impl Config {
                     ),
             };
 
-            proof_piece_info.save_proof_data(&vec![instances.clone()], &proof, &output_dir);
+            proof_piece_info.save_proof_data(&vec![instances.clone()], &proof, output_dir);
 
             proof_load_info.append_single_proof(proof_piece_info);
 
@@ -416,7 +413,7 @@ impl Config {
         progress_bar.finish_and_clear();
 
         {
-            let proof_load_info_path = output_dir.join(&name_of_loadinfo(&self.name));
+            let proof_load_info_path = output_dir.join(name_of_loadinfo(&self.name));
             println!(
                 "{} Saving proof load info to {:?}...",
                 style("[8/8]").bold().dim(),
@@ -428,7 +425,7 @@ impl Config {
         Ok(())
     }
 
-    pub(crate) fn verify(self, params_dir: &PathBuf, output_dir: &PathBuf) -> anyhow::Result<()> {
+    pub(crate) fn verify(self, params_dir: &Path, output_dir: &PathBuf) -> anyhow::Result<()> {
         let mut proofs = {
             println!(
                 "{} Reading proofs from {:?}",
@@ -440,7 +437,7 @@ impl Config {
                 ProofGenerationInfo::load(&output_dir.join(&name_of_loadinfo(&self.name)));
 
             let proofs: Vec<ProofInfo<Bn256>> =
-                ProofInfo::load_proof(&output_dir, &params_dir, &proof_load_info);
+                ProofInfo::load_proof(output_dir, params_dir, &proof_load_info);
 
             proofs
         }

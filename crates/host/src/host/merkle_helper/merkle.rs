@@ -81,7 +81,6 @@ impl MerkleContext {
         let hash = mt.get_root_hash();
         let values = hash
             .chunks(8)
-            .into_iter()
             .map(|x| u64::from_le_bytes(x.to_vec().try_into().unwrap()))
             .collect::<Vec<u64>>();
         let cursor = self.get_root.cursor;
@@ -131,7 +130,7 @@ impl MerkleContext {
         }
         let v = values[self.data_cursor];
         self.data_cursor += 1;
-        return v;
+        v
     }
 }
 
@@ -212,12 +211,12 @@ pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn
         "merkle_get",
         MerkleGet as usize,
         ExternalHostCallSignature::Return,
-        foreign_merkle_plugin.clone(),
+        foreign_merkle_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<MerkleContext>().unwrap();
-                let ret = Some(wasmi::RuntimeValue::I64(context.merkle_get() as i64));
-                ret
+
+                Some(wasmi::RuntimeValue::I64(context.merkle_get() as i64))
             },
         ),
     );

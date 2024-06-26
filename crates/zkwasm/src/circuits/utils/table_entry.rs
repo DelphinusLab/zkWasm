@@ -1,6 +1,7 @@
+use crate::circuits::config::common_range_max;
+use crate::runtime::memory_event_of_step;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
-use serde::Serialize;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::mtable::AccessType;
@@ -10,16 +11,8 @@ use specs::mtable::MemoryTableEntry;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::env;
-use std::io::Write;
-use std::path::PathBuf;
 
-use crate::circuits::config::common_range_max;
-use crate::runtime::memory_event_of_step;
-
-#[derive(Clone, Debug, Serialize)]
 pub(in crate::circuits) struct MemoryWritingEntry {
-    index: usize,
     pub(in crate::circuits) entry: MemoryTableEntry,
     pub(in crate::circuits) end_eid: u32,
 }
@@ -30,7 +23,6 @@ impl MemoryWritingEntry {
     }
 }
 
-#[derive(Debug, Serialize)]
 pub struct MemoryWritingTable(pub(in crate::circuits) Vec<MemoryWritingEntry>);
 
 impl MemoryWritingTable {
@@ -60,36 +52,31 @@ impl MemoryWritingTable {
         } else {
             common_range_max(k)
         };
-        let mut index = 0;
 
         let mut entries: Vec<MemoryWritingEntry> = value
             .entries()
             .iter()
             .filter_map(|entry| {
                 if entry.atype != AccessType::Read {
-                    let entry = Some(MemoryWritingEntry {
-                        index,
+                    Some(MemoryWritingEntry {
                         entry: entry.clone(),
                         end_eid: maximal_eid,
-                    });
-
-                    index += 1;
-
-                    entry
+                    })
                 } else {
                     None
                 }
             })
             .collect();
 
-        let entries_next = entries.clone();
-        let next_iter = entries_next.iter().skip(1);
+        let mut iter = entries.iter_mut().peekable();
 
-        entries.iter_mut().zip(next_iter).for_each(|(curr, next)| {
-            if curr.is_same_memory_address(next) {
-                curr.end_eid = next.entry.eid;
+        while let Some(entry) = iter.next() {
+            if let Some(next_entry) = iter.peek() {
+                if entry.is_same_memory_address(next_entry) {
+                    entry.end_eid = next_entry.entry.eid;
+                }
             }
-        });
+        }
 
         // FIXME: create_memory_table pushed a lot of meaningless Stack init. Fix it elegantly.
         let entries = entries
@@ -120,38 +107,19 @@ impl MemoryWritingTable {
 
         mapping
     }
-
-    pub fn write_json(&self, dir: Option<PathBuf>) {
-        fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
-            let mut folder = folder.clone();
-            folder.push(filename);
-            let mut fd = std::fs::File::create(folder.as_path()).unwrap();
-            folder.pop();
-
-            fd.write(buf.as_bytes()).unwrap();
-        }
-
-        let mtable = serde_json::to_string_pretty(self).unwrap();
-
-        let dir = dir.unwrap_or(env::current_dir().unwrap());
-        write_file(&dir, "memory_writing_table.json", &mtable);
-    }
 }
 
-#[derive(Debug)]
 pub struct MemoryRWEntry {
     pub entry: MemoryTableEntry,
     pub start_eid: u32,
     pub end_eid: u32,
 }
 
-#[derive(Debug)]
 pub struct EventTableEntryWithMemoryInfo {
     pub eentry: EventTableEntry,
     pub memory_rw_entires: Vec<MemoryRWEntry>,
 }
 
-#[derive(Debug)]
 pub(crate) struct EventTableWithMemoryInfo(
     pub(in crate::circuits) Vec<EventTableEntryWithMemoryInfo>,
 );

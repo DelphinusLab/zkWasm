@@ -13,7 +13,7 @@ const LIMBNB: usize = 4;
 use super::bn_to_field;
 use super::field_to_bn;
 
-pub fn fetch_fq(limbs: &Vec<u64>, index: usize) -> BabyJubjubFq {
+pub fn fetch_fq(limbs: &[u64], index: usize) -> BabyJubjubFq {
     let mut bn = BigUint::zero();
     for i in 0..LIMBNB {
         bn.add_assign(BigUint::from_u64(limbs[index * LIMBNB + i]).unwrap() << (i * LIMBSZ))
@@ -21,7 +21,7 @@ pub fn fetch_fq(limbs: &Vec<u64>, index: usize) -> BabyJubjubFq {
     bn_to_field(&bn)
 }
 
-fn fetch_g1(limbs: &Vec<u64>) -> jubjub::Point {
+fn fetch_g1(limbs: &[u64]) -> jubjub::Point {
     jubjub::Point {
         x: fetch_fq(limbs, 0),
         y: fetch_fq(limbs, 1),
@@ -31,14 +31,14 @@ fn fetch_g1(limbs: &Vec<u64>) -> jubjub::Point {
 pub fn babyjubjub_fq_to_limbs(result_limbs: &mut Vec<u64>, f: BabyJubjubFq) {
     let mut bn = field_to_bn(&f);
     for _ in 0..LIMBNB {
-        let d: BigUint = BigUint::from(1 as u64).shl(LIMBSZ);
+        let d: BigUint = BigUint::from(1_u64).shl(LIMBSZ);
         let r = bn.clone() % d.clone();
-        let value = if r == BigUint::from(0 as u32) {
-            0 as u64
+        let value = if r == BigUint::from(0_u32) {
+            0_u64
         } else {
             r.to_u64_digits()[0]
         };
-        bn = bn / d;
+        bn /= d;
         result_limbs.append(&mut vec![value]);
     }
 }

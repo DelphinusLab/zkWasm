@@ -111,9 +111,8 @@ impl Slice {
             .etable
             .entries()
             .par_iter()
-            .map(|entry| memory_event_of_step(entry))
-            .collect::<Vec<Vec<_>>>()
-            .concat();
+            .flat_map(memory_event_of_step)
+            .collect::<Vec<_>>();
 
         // Use a set to deduplicate
         let mut set = HashSet::<MemoryTableEntry>::default();

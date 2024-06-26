@@ -7,7 +7,7 @@ use halo2_proofs::plonk::Instance;
 
 pub mod config;
 
-pub const WASM_INPUT_FOREIGN_TABLE_KEY: &'static str = "wasm-input-helper-table";
+pub const WASM_INPUT_FOREIGN_TABLE_KEY: &str = "wasm-input-helper-table";
 
 #[derive(Clone)]
 pub struct WasmInputHelperTableConfig<F: FieldExt> {

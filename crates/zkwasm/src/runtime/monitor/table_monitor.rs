@@ -29,7 +29,7 @@ pub struct TableMonitor {
 }
 
 impl TableMonitor {
-    pub fn new(k: u32, phantom_regex: &Vec<String>, backend: TraceBackend, env: &HostEnv) -> Self {
+    pub fn new(k: u32, phantom_regex: &[String], backend: TraceBackend, env: &HostEnv) -> Self {
         let wasm_input = env
             .resolve_func(
                 "wasm_input",

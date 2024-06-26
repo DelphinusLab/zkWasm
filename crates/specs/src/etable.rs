@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::host_function::HostPlugin;
 use crate::itable::InstructionTable;
 use crate::itable::InstructionTableEntry;
 use crate::step::StepInfo;
@@ -65,7 +64,7 @@ impl EventTable {
         let mut fd = std::fs::File::create(path)?;
 
         if JSON {
-            fd.write_all(&serde_json::to_string_pretty(self).unwrap().as_bytes())?;
+            fd.write_all(serde_json::to_string_pretty(self).unwrap().as_bytes())?;
         } else {
             fd.write_all(&bincode::serialize(self).unwrap())?;
         }
@@ -80,7 +79,7 @@ impl EventTable {
         if JSON {
             Ok(serde_json::from_slice(&buf).unwrap())
         } else {
-            Ok(bincode::deserialize(&mut buf).unwrap())
+            Ok(bincode::deserialize(&buf).unwrap())
         }
     }
 
@@ -94,16 +93,5 @@ impl EventTable {
 
     pub fn entries_mut(&mut self) -> &mut Vec<EventTableEntry> {
         &mut self.0
-    }
-
-    pub fn filter_foreign_entries(&self, foreign: HostPlugin) -> Vec<EventTableEntry> {
-        self.0
-            .clone()
-            .into_iter()
-            .filter(|entry| match entry.step_info {
-                StepInfo::CallHost { plugin, .. } => plugin == foreign,
-                _ => false,
-            })
-            .collect::<Vec<_>>()
     }
 }

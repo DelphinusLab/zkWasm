@@ -17,7 +17,7 @@ pub struct StatisticPlugin {
 }
 
 impl StatisticPlugin {
-    pub fn new(phantom_regex: &Vec<String>, wasm_input: FuncRef) -> Self {
+    pub fn new(phantom_regex: &[String], wasm_input: FuncRef) -> Self {
         Self {
             phantom_helper: PhantomHelper::new(phantom_regex, wasm_input),
             observer: Rc::new(RefCell::new(Observer::default())),

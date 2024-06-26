@@ -211,7 +211,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                     index,
                 )?;
 
-                if keep.len() > 0 {
+                if !keep.is_empty() {
                     let keep_type: VarType = keep[0].into();
 
                     self.keep.assign(ctx, F::one())?;
@@ -260,8 +260,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                         targets_len - index - 1
                     } else {
                         index - targets_len
-                    }
-                    .into(),
+                    },
                 )?;
 
                 self.br_table_lookup.assign_bn(

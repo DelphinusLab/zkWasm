@@ -408,10 +408,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         }
 
         self.lhs
-            .assign(ctx, lhs.into(), var_type == VarType::I32, op_is_sign)?;
+            .assign(ctx, lhs, var_type == VarType::I32, op_is_sign)?;
         self.rhs
-            .assign(ctx, rhs.into(), var_type == VarType::I32, op_is_sign)?;
-        self.diff.assign(ctx, diff.into())?;
+            .assign(ctx, rhs, var_type == VarType::I32, op_is_sign)?;
+        self.diff.assign(ctx, diff)?;
 
         if diff != 0 {
             self.diff_inv.assign(ctx, step.field_helper.invert(diff))?;

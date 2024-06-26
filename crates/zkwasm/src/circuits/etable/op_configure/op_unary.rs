@@ -306,12 +306,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         let boundary = max.checked_shr(1 + *result as u32).unwrap_or(0) as u64;
                         let tail = *operand ^ boundary;
 
-                        self.lookup_pow_modulus
-                            .assign(ctx, F::from(boundary as u64))?;
+                        self.lookup_pow_modulus.assign(ctx, F::from(boundary))?;
                         self.aux1.assign(ctx, tail)?;
                         // If `operand = 0``, then `boundary == tail == 0`` and therefore `- 1` will panic in debug mode.
                         // Since `aux2`` is useless when `operand = 0`, we give 0.
-                        let aux2 = (boundary - tail).checked_sub(1).unwrap_or(0);
+                        let aux2 = (boundary - tail).saturating_sub(1);
                         self.aux2.assign(ctx, aux2)?;
                         if boundary != 0 {
                             self.lookup_pow_modulus.assign(ctx, boundary.into())?;

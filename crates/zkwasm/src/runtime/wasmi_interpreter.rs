@@ -70,10 +70,6 @@ impl Execution<RuntimeValue> for CompiledImage<wasmi::NotStartedModuleRef<'_>> {
 pub struct WasmiRuntime;
 
 impl WasmiRuntime {
-    pub fn new() -> Self {
-        WasmiRuntime
-    }
-
     pub fn compile<'a, I: ImportResolver>(
         monitor: &mut dyn Monitor,
         module: &'a wasmi::Module,
@@ -81,7 +77,7 @@ impl WasmiRuntime {
         entry: &str,
     ) -> Result<CompiledImage<wasmi::NotStartedModuleRef<'a>>> {
         let instance =
-            ModuleInstance::new(&module, imports).expect("failed to instantiate wasm module");
+            ModuleInstance::new(module, imports).expect("failed to instantiate wasm module");
         monitor.register_module(instance.loaded_module.module(), &instance.instance, entry)?;
 
         Ok(CompiledImage {
