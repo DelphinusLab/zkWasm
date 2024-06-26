@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 // A wasm page size is 64KB
-pub const WASM_BYTES_PER_PAGE: u64 = 64 * 1024 as u64;
+pub const WASM_BYTES_PER_PAGE: u64 = 64 * 1024_u64;
 
 const WASM_32_MAXIMAL_PAGES_DEFAULT: u32 = 65536;
 

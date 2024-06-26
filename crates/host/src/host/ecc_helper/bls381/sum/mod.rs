@@ -50,7 +50,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_blssum_foreign(env: &mut HostEnv) {
     let foreign_blssum_plugin = env
         .external_env
-        .register_plugin("foreign_blssum", Box::new(BlsSumContext::default()));
+        .register_plugin("foreign_blssum", Box::<BlsSumContext>::default());
 
     env.external_env.register_function(
         "blssum_g1",
@@ -77,7 +77,7 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
         "blssum_pop",
         ForeignInst::BlsSumResult as usize,
         ExternalHostCallSignature::Return,
-        foreign_blssum_plugin.clone(),
+        foreign_blssum_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BlsSumContext>().unwrap();
@@ -87,15 +87,11 @@ pub fn register_blssum_foreign(env: &mut HostEnv) {
                             .limbs
                             .chunks(16)
                             .zip(context.g1_identity.clone())
-                            .map(|(limbs, identity)| fetch_g1(&limbs.to_vec(), identity))
+                            .map(|(limbs, identity)| fetch_g1(limbs, identity))
                             .collect::<Vec<G1Affine>>();
-                        let g1result =
-                            fqs[1..fqs.len()]
-                                .into_iter()
-                                .fold(fqs[0], |acc: G1Affine, x| {
-                                    let acc = acc.add(x.clone()).into();
-                                    acc
-                                });
+                        let g1result = fqs[1..fqs.len()]
+                            .iter()
+                            .fold(fqs[0], |acc: G1Affine, x| acc.add(*x).into());
                         context.bls381_result_to_limbs(g1result);
                     },
                     |_| (),

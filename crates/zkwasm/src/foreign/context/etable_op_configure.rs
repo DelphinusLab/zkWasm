@@ -248,7 +248,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextHelperTableConfig<F
             } => {
                 assert_eq!(*plugin, HostPlugin::Context);
 
-                return *op_index_in_plugin == Op::ReadContext as usize;
+                *op_index_in_plugin == Op::ReadContext as usize
             }
             _ => unreachable!(),
         }
@@ -271,7 +271,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableContextHelperTableConfig<F
             } => {
                 assert_eq!(*plugin, HostPlugin::Context);
 
-                return *op_index_in_plugin == Op::WriteContext as usize;
+                *op_index_in_plugin == Op::WriteContext as usize
             }
             _ => unreachable!(),
         }

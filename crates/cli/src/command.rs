@@ -2,6 +2,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::fs::{self};
 use std::io::Read;
+use std::path::Path;
 use std::path::PathBuf;
 
 use crate::config::CircuitDataConfig;
@@ -80,7 +81,7 @@ impl SetupArg {
     pub(crate) fn setup_circuit_data(
         &self,
         name: &str,
-        params_dir: &PathBuf,
+        params_dir: &Path,
         params: &Params<G1Affine>,
         k: u32,
         compilation_tables: &CompilationTable,
@@ -119,14 +120,14 @@ impl SetupArg {
 
     pub(crate) fn setup(
         &self,
-        env_builder: &Box<dyn HostEnvBuilder>,
+        env_builder: &dyn HostEnvBuilder,
         name: &str,
         params_dir: &PathBuf,
     ) -> anyhow::Result<()> {
         fs::create_dir_all(params_dir)?;
 
         let wasm_image = self.wasm_image.as_ref().map_or(
-            wabt::wat2wasm(&TRIVIAL_WASM).map_err(|err| anyhow::anyhow!(err)),
+            wabt::wat2wasm(TRIVIAL_WASM).map_err(|err| anyhow::anyhow!(err)),
             |file| fs::read(file).map_err(|err| anyhow::anyhow!(err)),
         )?;
         let module = ZkWasmLoader::parse_module(&wasm_image)?;
@@ -189,7 +190,7 @@ impl SetupArg {
                 format!("{:x}", md5)
             };
 
-            let config_path = params_dir.join(&name_of_config(name));
+            let config_path = params_dir.join(name_of_config(name));
 
             let config = Config {
                 name: name.to_string(),

@@ -62,11 +62,7 @@ use super::post_image_table::PostImageTableConfig;
 use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
-pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
-    40
-} else {
-    40
-};
+pub const VAR_COLUMNS: usize = 40;
 
 // Reserve a few rows to keep usable rows away from blind rows.
 // The maximal step size of all tables is bit_table::STEP_SIZE.

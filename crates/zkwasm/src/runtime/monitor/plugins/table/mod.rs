@@ -84,7 +84,7 @@ impl TablePlugin {
     pub fn new(
         k: u32,
         host_function_desc: HashMap<usize, HostFunctionDesc>,
-        phantom_regex: &Vec<String>,
+        phantom_regex: &[String],
         wasm_input: FuncRef,
         trace_backend: TraceBackend,
     ) -> Self {
@@ -119,7 +119,7 @@ impl TablePlugin {
         let imtable = InitMemoryTable::new(self.init_memory_table.clone());
         let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(ElemTable::new(self.elements.clone()));
-        let configure_table = Arc::new(self.configure_table.clone());
+        let configure_table = Arc::new(self.configure_table);
         let initialization_state = Arc::new(InitializationState {
             eid: 1,
             fid: self.start_fid.unwrap(),
@@ -341,11 +341,8 @@ impl Monitor for TablePlugin {
 
         {
             for import_entry in module.import_section().map(|s| s.entries()).unwrap_or(&[]) {
-                match *import_entry.external() {
-                    External::Function(fn_ty_idx) => {
-                        type_idx_of_func.push(fn_ty_idx);
-                    }
-                    _ => {}
+                if let External::Function(fn_ty_idx) = *import_entry.external() {
+                    type_idx_of_func.push(fn_ty_idx);
                 }
             }
 
@@ -410,7 +407,7 @@ impl Monitor for TablePlugin {
                     let wasm_input_func_idx = self.phantom_helper.wasm_input_func_idx(module_ref);
 
                     let instructions = PhantomFunction::build_phantom_function_instructions(
-                        &func.signature(),
+                        func.signature(),
                         wasm_input_func_idx,
                     );
 
@@ -421,18 +418,16 @@ impl Monitor for TablePlugin {
                             instruction.into_opcode(&function_mapping),
                         );
                     }
-                } else {
-                    if let Some(body) = func.body() {
-                        let code = &body.code;
+                } else if let Some(body) = func.body() {
+                    let code = &body.code;
 
-                        let mut iter = code.iterate_from(0);
-                        let mut iid = iter.position();
-                        while let Some(instr) = iter.next() {
-                            self.itable
-                                .push(fid, iid, instr.into_opcode(&function_mapping));
+                    let mut iter = code.iterate_from(0);
+                    let mut iid = iter.position();
+                    while let Some(instr) = iter.next() {
+                        self.itable
+                            .push(fid, iid, instr.into_opcode(&function_mapping));
 
-                            iid = iter.position();
-                        }
+                        iid = iter.position();
                     }
                 }
 
@@ -510,7 +505,7 @@ impl Monitor for TablePlugin {
                 .offset()
                 .as_ref()
                 .expect("passive segments are rejected due to validation");
-            let offset_val = match eval_init_expr(offset, &module_ref) {
+            let offset_val = match eval_init_expr(offset, module_ref) {
                 RuntimeValue::I32(v) => v as u32,
                 _ => panic!("Due to validation elem segment offset should evaluate to i32"),
             };

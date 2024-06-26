@@ -17,7 +17,7 @@ struct Context {
 
 impl Context {
     fn new(context_input: Vec<u64>) -> Self {
-        let mut inputs = context_input.clone();
+        let mut inputs = context_input;
         inputs.reverse();
 
         Context {

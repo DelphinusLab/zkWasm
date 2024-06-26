@@ -719,7 +719,7 @@ pub(super) fn run_instruction_pre(
             let value = value_stack.top();
             Some(RunInstructionTracePre::SetLocal {
                 depth,
-                value: value.clone(),
+                value: *value,
                 vtype,
             })
         }
@@ -775,7 +775,7 @@ pub(super) fn run_instruction_pre(
             };
 
             let raw_address = <_>::from_value_internal(*value_stack.top());
-            let address = effective_address(offset, raw_address).map_or(None, |addr| Some(addr));
+            let address = effective_address(offset, raw_address).ok();
 
             Some(RunInstructionTracePre::Load {
                 offset,
@@ -803,7 +803,7 @@ pub(super) fn run_instruction_pre(
                 _ => unreachable!(),
             };
             let raw_address = <_>::from_value_internal(*value_stack.top());
-            let address = effective_address(offset, raw_address).map_or(None, |addr| Some(addr));
+            let address = effective_address(offset, raw_address).ok();
 
             Some(RunInstructionTracePre::Load {
                 offset,
@@ -825,7 +825,7 @@ pub(super) fn run_instruction_pre(
 
             let value: u32 = <_>::from_value_internal(*value_stack.pick(1));
             let raw_address = <_>::from_value_internal(*value_stack.pick(2));
-            let address = effective_address(offset, raw_address).map_or(None, |addr| Some(addr));
+            let address = effective_address(offset, raw_address).ok();
 
             let pre_block_value1 = address.map(|address| {
                 let mut buf = [0u8; 8];
@@ -838,22 +838,20 @@ pub(super) fn run_instruction_pre(
                 u64::from_le_bytes(buf)
             });
 
-            let pre_block_value2 = address
-                .map(|address| {
-                    if store_size.byte_size() as u32 + address % 8 > 8 {
-                        let mut buf = [0u8; 8];
-                        function_context
-                            .memory
-                            .clone()
-                            .unwrap()
-                            .get_into((address / 8 + 1) * 8, &mut buf)
-                            .unwrap();
-                        Some(u64::from_le_bytes(buf))
-                    } else {
-                        None
-                    }
-                })
-                .flatten();
+            let pre_block_value2 = address.and_then(|address| {
+                if store_size.byte_size() as u32 + address % 8 > 8 {
+                    let mut buf = [0u8; 8];
+                    function_context
+                        .memory
+                        .clone()
+                        .unwrap()
+                        .get_into((address / 8 + 1) * 8, &mut buf)
+                        .unwrap();
+                    Some(u64::from_le_bytes(buf))
+                } else {
+                    None
+                }
+            });
 
             Some(RunInstructionTracePre::Store {
                 offset,
@@ -880,7 +878,7 @@ pub(super) fn run_instruction_pre(
 
             let value = <_>::from_value_internal(*value_stack.pick(1));
             let raw_address = <_>::from_value_internal(*value_stack.pick(2));
-            let address = effective_address(offset, raw_address).map_or(None, |addr| Some(addr));
+            let address = effective_address(offset, raw_address).ok();
 
             let pre_block_value1 = address.map(|address| {
                 let mut buf = [0u8; 8];
@@ -893,22 +891,20 @@ pub(super) fn run_instruction_pre(
                 u64::from_le_bytes(buf)
             });
 
-            let pre_block_value2 = address
-                .map(|address| {
-                    if store_size.byte_size() as u32 + address % 8 > 8 {
-                        let mut buf = [0u8; 8];
-                        function_context
-                            .memory
-                            .clone()
-                            .unwrap()
-                            .get_into((address / 8 + 1) * 8, &mut buf)
-                            .unwrap();
-                        Some(u64::from_le_bytes(buf))
-                    } else {
-                        None
-                    }
-                })
-                .flatten();
+            let pre_block_value2 = address.and_then(|address| {
+                if store_size.byte_size() as u32 + address % 8 > 8 {
+                    let mut buf = [0u8; 8];
+                    function_context
+                        .memory
+                        .clone()
+                        .unwrap()
+                        .get_into((address / 8 + 1) * 8, &mut buf)
+                        .unwrap();
+                    Some(u64::from_le_bytes(buf))
+                } else {
+                    None
+                }
+            });
 
             Some(RunInstructionTracePre::Store {
                 offset,
@@ -1091,7 +1087,7 @@ impl TablePlugin {
                 let is_mutable = global_ref.is_mutable();
                 let vtype: VarType = global_ref.value_type().into_elements().into();
                 let value = from_value_internal_to_u64_with_typ(
-                    vtype.into(),
+                    vtype,
                     ValueInternal::from(global_ref.get()),
                 );
 
@@ -1107,7 +1103,7 @@ impl TablePlugin {
                 let is_mutable = global_ref.is_mutable();
                 let vtype: VarType = global_ref.value_type().into_elements().into();
                 let value = from_value_internal_to_u64_with_typ(
-                    vtype.into(),
+                    vtype,
                     ValueInternal::from(global_ref.get()),
                 );
 
@@ -1272,9 +1268,9 @@ impl TablePlugin {
                                 desc.signature.clone().into();
                             let params = signature.params.clone();
 
-                            for i in 0..params_len {
+                            for (i, param) in params.iter().enumerate().take(params_len) {
                                 args.push(from_value_internal_to_u64_with_typ(
-                                    (params[i]).into(),
+                                    param.into(),
                                     *value_stack.pick(params_len - i),
                                 ));
                             }
@@ -1364,19 +1360,19 @@ impl TablePlugin {
                         u64::from_le_bytes(buf)
                     };
 
-                    let block_value2 =
-                        if effective_address.unwrap() % 8 + load_size.byte_size() as u32 > 8 {
-                            let mut buf = [0u8; 8];
-                            context
-                                .memory
-                                .clone()
-                                .unwrap()
-                                .get_into((effective_address.unwrap() / 8 + 1) * 8, &mut buf)
-                                .unwrap();
-                            u64::from_le_bytes(buf)
-                        } else {
-                            0
-                        };
+                    let block_value2 = if effective_address.unwrap() % 8 + load_size.byte_size() > 8
+                    {
+                        let mut buf = [0u8; 8];
+                        context
+                            .memory
+                            .clone()
+                            .unwrap()
+                            .get_into((effective_address.unwrap() / 8 + 1) * 8, &mut buf)
+                            .unwrap();
+                        u64::from_le_bytes(buf)
+                    } else {
+                        0
+                    };
 
                     StepInfo::Load {
                         vtype: vtype.into(),
@@ -1444,7 +1440,7 @@ impl TablePlugin {
                         offset,
                         raw_address,
                         effective_address: effective_address.unwrap(),
-                        value: value as u64,
+                        value,
                         pre_block_value1: pre_block_value1.unwrap(),
                         pre_block_value2: pre_block_value2.unwrap_or(0u64),
                         updated_block_value1,

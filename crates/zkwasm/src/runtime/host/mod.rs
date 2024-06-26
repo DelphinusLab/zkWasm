@@ -33,10 +33,10 @@ impl MatchForeignOpSignature for ExternalHostCallSignature {
             ExternalHostCallSignature::Argument => {
                 signature.params().len() == 1
                     && signature.params()[0] == wasmi::ValueType::I64
-                    && signature.return_type() == None
+                    && signature.return_type().is_none()
             }
             ExternalHostCallSignature::Return => {
-                signature.params().len() == 0
+                signature.params().is_empty()
                     && signature.return_type() == Some(wasmi::ValueType::I64)
             }
         }

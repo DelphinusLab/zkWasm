@@ -75,7 +75,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_bn254pair_foreign(env: &mut HostEnv) {
     let foreign_blspair_plugin = env
         .external_env
-        .register_plugin("foreign_blspair", Box::new(BN254PairContext::default()));
+        .register_plugin("foreign_blspair", Box::<BN254PairContext>::default());
 
     env.external_env.register_function(
         "bn254pair_g1",
@@ -146,7 +146,7 @@ pub fn register_bn254pair_foreign(env: &mut HostEnv) {
         "bn254pair_pop",
         Bn254PairG3 as usize,
         ExternalHostCallSignature::Return,
-        foreign_blspair_plugin.clone(),
+        foreign_blspair_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BN254PairContext>().unwrap();

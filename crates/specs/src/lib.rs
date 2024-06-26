@@ -1,9 +1,14 @@
 #![feature(trait_alias)]
-#![deny(unused_imports)]
-#![deny(dead_code)]
+#![deny(warnings)]
+#![allow(
+    clippy::assertions_on_constants,
+    clippy::too_many_arguments,
+    clippy::type_complexity
+)]
 
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -76,11 +81,11 @@ pub struct Tables {
 impl Tables {
     pub fn write(
         &self,
-        dir: &PathBuf,
+        dir: &Path,
         name_of_etable_slice: impl Fn(usize) -> String,
         name_of_frame_table_slice: impl Fn(usize) -> String,
     ) {
-        fn write_file(folder: &PathBuf, filename: &str, buf: &String) {
+        fn write_file(folder: &Path, filename: &str, buf: &String) {
             let folder = folder.join(filename);
             let mut fd = File::create(folder.as_path()).unwrap();
 
@@ -101,7 +106,7 @@ impl Tables {
                     etable.write(&path).unwrap();
                 }
                 TableBackend::Json(path) => {
-                    let etable = EventTable::read(&path).unwrap();
+                    let etable = EventTable::read(path).unwrap();
                     external_host_call_table.extend(etable.filter_external_host_call_table().0);
                 }
             });

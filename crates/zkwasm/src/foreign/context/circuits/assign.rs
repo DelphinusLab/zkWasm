@@ -21,8 +21,8 @@ impl<F: FieldExt> ContextContHelperTableChip<F> {
     pub fn assign(
         &self,
         layouter: impl Layouter<F>,
-        inputs: &Vec<u64>,
-        outputs: &Vec<u64>,
+        inputs: &[u64],
+        outputs: &[u64],
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "context cont helper assign",

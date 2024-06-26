@@ -253,7 +253,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         VarType::I32,
                         *result as u64,
                         VarType::I64,
-                        (u64::MAX << 32) as u64,
+                        u64::MAX << 32,
                         1 << 31,
                     )
                 }
@@ -295,7 +295,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         VarType::I64,
                         *result as u64,
                         VarType::I64,
-                        (u64::MAX << 8) as u64,
+                        u64::MAX << 8,
                         1 << 7,
                     )
                 }
@@ -309,7 +309,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         VarType::I64,
                         *result as u64,
                         VarType::I64,
-                        (u64::MAX << 16) as u64,
+                        u64::MAX << 16,
                         1 << 15,
                     )
                 }
@@ -323,7 +323,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         VarType::I64,
                         *result as u64,
                         VarType::I64,
-                        (u64::MAX << 32) as u64,
+                        (u64::MAX << 32),
                         1 << 31,
                     )
                 }

@@ -30,10 +30,6 @@ impl InitMemoryTable {
         Self(map)
     }
 
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(&self.0).unwrap()
-    }
-
     pub fn try_find(&self, ltype: LocationType, offset: u32) -> Option<&InitMemoryTableEntry> {
         self.0.get(&(ltype, offset))
     }

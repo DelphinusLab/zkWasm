@@ -28,8 +28,8 @@ impl UpdateInitMemoryTable for InitMemoryTable {
         // First insert origin imtable entries which may be overwritten.
         let mut map = self.0.clone();
 
-        let mut it = execution_table.entries().iter();
-        while let Some(etable_entry) = it.next() {
+        let it = execution_table.entries().iter();
+        for etable_entry in it {
             let memory_writing_entires = memory_event_of_step(etable_entry)
                 .into_iter()
                 .filter(|entry| entry.atype == AccessType::Write);
@@ -94,7 +94,23 @@ impl UpdateInitializationState for InitializationState<u32> {
             }
         }
 
-        let post_initialization_state = if next_event_entry.is_none() {
+        let post_initialization_state = if let Some(next_entry) = next_event_entry {
+            InitializationState {
+                eid: next_entry.eid,
+                fid: next_entry.fid,
+                iid: next_entry.iid,
+                frame_id: next_entry.last_jump_eid,
+                sp: next_entry.sp,
+
+                host_public_inputs,
+                context_in_index,
+                context_out_index,
+                external_host_call_call_index,
+
+                initial_memory_pages: next_entry.allocated_memory_pages,
+                maximal_memory_pages: configure_table.maximal_memory_pages,
+            }
+        } else {
             let last_entry = execution_table.entries().last().unwrap();
 
             InitializationState {
@@ -116,24 +132,6 @@ impl UpdateInitializationState for InitializationState<u32> {
                 external_host_call_call_index,
 
                 initial_memory_pages: last_entry.allocated_memory_pages,
-                maximal_memory_pages: configure_table.maximal_memory_pages,
-            }
-        } else {
-            let next_entry = next_event_entry.unwrap();
-
-            InitializationState {
-                eid: next_entry.eid,
-                fid: next_entry.fid,
-                iid: next_entry.iid,
-                frame_id: next_entry.last_jump_eid,
-                sp: next_entry.sp,
-
-                host_public_inputs,
-                context_in_index,
-                context_out_index,
-                external_host_call_call_index,
-
-                initial_memory_pages: next_entry.allocated_memory_pages,
                 maximal_memory_pages: configure_table.maximal_memory_pages,
             }
         };
