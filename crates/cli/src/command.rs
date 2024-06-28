@@ -261,6 +261,8 @@ pub(crate) struct ProveArg {
     pub(crate) running_arg: RunningArg,
     pub(crate) mock_test: bool,
     pub(crate) file_backend: bool,
+    // skip first n slice(s) proving.
+    pub(crate) skip: usize,
 }
 
 /// Verify the proof.
