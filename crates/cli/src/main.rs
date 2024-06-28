@@ -155,6 +155,7 @@ fn main() -> Result<()> {
                 arg.running_arg.context_output,
                 arg.mock_test,
                 trace_backend,
+                arg.skip,
             )?;
         }
         Subcommands::Verify(arg) => {

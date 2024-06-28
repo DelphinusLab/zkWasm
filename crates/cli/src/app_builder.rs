@@ -134,6 +134,20 @@ impl ArgBuilder<bool> for MockTestArg {
     }
 }
 
+struct SkipArg;
+impl ArgBuilder<usize> for SkipArg {
+    fn builder() -> Arg<'static> {
+        arg!(--skip [SKIP_SIZE] "Skip first SKIP_SIZE slice(s)")
+            .default_value("0")
+            .value_parser(value_parser!(usize))
+            .multiple_values(false)
+    }
+
+    fn parse(matches: &ArgMatches) -> usize {
+        *matches.get_one("skip").unwrap()
+    }
+}
+
 fn setup_command() -> Command<'static> {
     let command = Command::new("setup")
         .about("Setup a new zkWasm circuit for provided Wasm image")
@@ -180,7 +194,7 @@ fn dry_run_command() -> Command<'static> {
 }
 
 fn prove_command() -> Command<'static> {
-    Command::new("prove")
+    let command = Command::new("prove")
         .about("Execute the Wasm image and generate a proof")
         .arg(WasmImageArg::builder())
         .arg(PublicInputsArg::builder())
@@ -189,7 +203,13 @@ fn prove_command() -> Command<'static> {
         .arg(ContextOutputArg::builder())
         .arg(OutputDirArg::builder())
         .arg(MockTestArg::builder())
-        .arg(FileBackendArg::builder())
+        .arg(FileBackendArg::builder());
+
+    if cfg!(feature = "continuation") {
+        command.arg(SkipArg::builder())
+    } else {
+        command
+    }
 }
 
 fn verify_command() -> Command<'static> {
@@ -259,6 +279,7 @@ impl From<&ArgMatches> for ProveArg {
             running_arg: val.into(),
             mock_test: MockTestArg::parse(val),
             file_backend: FileBackendArg::parse(val),
+            skip: SkipArg::parse(val),
         }
     }
 }

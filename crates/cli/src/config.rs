@@ -245,6 +245,7 @@ impl Config {
         context_output_filename: Option<String>,
         mock_test: bool,
         table_backend: TraceBackend,
+        skip: usize,
     ) -> anyhow::Result<()> {
         let mut cached_proving_key = None;
 
@@ -321,7 +322,15 @@ impl Config {
 
         let progress_bar = ProgressBar::new(tables.execution_tables.etable.len() as u64);
 
-        let mut slices = Slices::new(self.k, tables)?.enumerate().peekable();
+        if skip != 0 {
+            progress_bar.inc(skip as u64);
+            println!("skip first {} slice(s)", skip);
+        }
+
+        let mut slices = Slices::new(self.k, tables)?
+            .enumerate()
+            .skip(skip)
+            .peekable();
         while let Some((index, circuit)) = slices.next() {
             let circuit = circuit?;
 
