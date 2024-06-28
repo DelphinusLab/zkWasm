@@ -8,7 +8,7 @@ use halo2_proofs::plonk::Fixed;
 pub mod assign;
 pub mod config;
 
-pub const CONTEXT_FOREIGN_TABLE_KEY: &'static str = "wasm-context-helper-table";
+pub const CONTEXT_FOREIGN_TABLE_KEY: &str = "wasm-context-helper-table";
 
 #[derive(Clone)]
 pub struct ContextContHelperTableConfig<F: FieldExt> {

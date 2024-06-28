@@ -59,7 +59,7 @@ fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
     let mut features = Features::new();
     features.enable_sign_extension();
 
-    let wasm = wat2wasm_with_features(&textual_repr, features).expect("failed to parse wat");
+    let wasm = wat2wasm_with_features(textual_repr, features).expect("failed to parse wat");
 
     test_circuit_with_env(MIN_K, wasm, "test".to_string(), vec![], vec![])?;
 

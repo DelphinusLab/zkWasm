@@ -54,15 +54,13 @@ impl Context {
     pub fn wasm_input(&mut self, arg: i32) -> u64 {
         assert!(arg == 0 || arg == 1);
 
-        let input = if arg == 1 {
+        if arg == 1 {
             let value = self.pop_public();
             self.push_public(value);
             value
         } else {
             self.pop_private()
-        };
-
-        input
+        }
     }
 
     pub fn wasm_output(&mut self, value: u64) {

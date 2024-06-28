@@ -162,28 +162,28 @@ impl<F: FieldExt> RangeTableChip<F> {
                                 table.assign_cell(
                                     || "range table",
                                     self.config.op_table.op,
-                                    offset as usize,
+                                    offset,
                                     || Ok(F::from(op as u64)),
                                 )?;
 
                                 table.assign_cell(
                                     || "range table",
                                     self.config.op_table.left,
-                                    offset as usize,
+                                    offset,
                                     || Ok(F::from(left as u64)),
                                 )?;
 
                                 table.assign_cell(
                                     || "range table",
                                     self.config.op_table.right,
-                                    offset as usize,
+                                    offset,
                                     || Ok(F::from(right as u64)),
                                 )?;
 
                                 table.assign_cell(
                                     || "range table",
                                     self.config.op_table.result,
-                                    offset as usize,
+                                    offset,
                                     || Ok(F::from(op.eval(left as u64, right as u64))),
                                 )?;
 
@@ -196,28 +196,28 @@ impl<F: FieldExt> RangeTableChip<F> {
                         table.assign_cell(
                             || "range table",
                             self.config.op_table.op,
-                            offset as usize,
+                            offset,
                             || Ok(F::from(BitTableOp::Popcnt.index() as u64)),
                         )?;
 
                         table.assign_cell(
                             || "range table",
                             self.config.op_table.left,
-                            offset as usize,
+                            offset,
                             || Ok(F::from(left as u64)),
                         )?;
 
                         table.assign_cell(
                             || "range table",
                             self.config.op_table.right,
-                            offset as usize,
+                            offset,
                             || Ok(F::from(0)),
                         )?;
 
                         table.assign_cell(
                             || "range table",
                             self.config.op_table.result,
-                            offset as usize,
+                            offset,
                             || Ok(F::from(left.count_ones() as u64)),
                         )?;
 

@@ -20,9 +20,9 @@ impl ExternalHostCallSignature {
     }
 }
 
-impl Into<Signature> for ExternalHostCallSignature {
-    fn into(self) -> Signature {
-        match self {
+impl From<ExternalHostCallSignature> for Signature {
+    fn from(sig: ExternalHostCallSignature) -> Signature {
+        match sig {
             ExternalHostCallSignature::Argument => Signature {
                 params: vec![ValueType::I64],
                 return_type: None,

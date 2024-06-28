@@ -70,7 +70,7 @@ impl ExternalCircuitEnv {
 
     pub fn get_statics(&self) -> HashMap<String, ForeignStatics> {
         let mut m = HashMap::new();
-        for (_, v) in &self.functions {
+        for v in self.functions.values() {
             let plugin_name = &v.plugin.name;
 
             if !m.contains_key(plugin_name) {

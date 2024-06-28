@@ -72,7 +72,7 @@ pub fn image_table_offset_to_memory_location(offset: usize) -> (LocationType, u3
     }
 
     offset -= GLOBAL_CAPABILITY;
-    return (LocationType::Heap, offset as u32);
+    (LocationType::Heap, offset as u32)
 }
 
 /*
@@ -359,7 +359,7 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
                         unsafe {
                             let addr = addr as *mut F;
 
-                            *addr.offset((pos + 1) as isize) = *entry;
+                            *addr.add(pos + 1) = *entry;
                         }
                     }
                 });
@@ -374,7 +374,7 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
         page_capability,
     );
 
-    let layouter = assigner
+    assigner
         .exec::<_, Error>(
             initialization_state_handler,
             inherited_frame_entries_handler,
@@ -383,9 +383,7 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
             padding_handler,
             init_memory_entries_handler,
         )
-        .unwrap();
-
-    layouter
+        .unwrap()
 }
 
 pub(crate) trait EncodeImageTable<F: FieldExt> {

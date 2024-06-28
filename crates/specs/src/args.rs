@@ -1,8 +1,8 @@
 pub fn parse_args<T: AsRef<str>>(values: &[T]) -> Vec<u64> {
     values
-        .into_iter()
-        .map(|v| {
-            let [v, t] = v.as_ref().split(":").collect::<Vec<&str>>()[..] else { todo!() };
+        .iter()
+        .flat_map(|v| {
+            let [v, t] = v.as_ref().split(':').collect::<Vec<&str>>()[..] else { todo!() };
             match t {
                 "i64" => {
                     if v.starts_with("0x") {
@@ -19,10 +19,7 @@ pub fn parse_args<T: AsRef<str>>(values: &[T]) -> Vec<u64> {
                         panic!("bytes input need start with 0x");
                     }
                     let bytes = hex::decode(String::from(v).trim_start_matches("0x")).unwrap();
-                    bytes
-                        .into_iter()
-                        .map(|x| u64::from(x))
-                        .collect::<Vec<u64>>()
+                    bytes.into_iter().map(u64::from).collect::<Vec<u64>>()
                 }
                 "bytes-packed" => {
                     if !v.starts_with("0x") {
@@ -58,6 +55,5 @@ pub fn parse_args<T: AsRef<str>>(values: &[T]) -> Vec<u64> {
                 }
             }
         })
-        .flatten()
         .collect()
 }

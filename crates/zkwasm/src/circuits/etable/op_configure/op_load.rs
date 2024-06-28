@@ -469,19 +469,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 let tailing_bits = inner_byte_index * 8;
                 let picked_bits = len * 8;
                 let load_value: BigUint = (BigUint::from(block_value2) << 64) + block_value1;
-                let tailing: u64 = load_value.to_u64_digits().first().unwrap_or(&0u64).clone()
+                let tailing: u64 = *load_value.to_u64_digits().first().unwrap_or(&0u64)
                     & ((1 << tailing_bits) - 1);
-                let picked: u64 = ((&load_value >> tailing_bits)
+                let picked: u64 = *((&load_value >> tailing_bits)
                     & ((BigUint::from(1u64) << picked_bits) - 1u64))
                     .to_u64_digits()
                     .first()
-                    .unwrap_or(&0u64)
-                    .clone();
-                let leading: u64 = (load_value >> (picked_bits + tailing_bits))
+                    .unwrap_or(&0u64);
+                let leading: u64 = *(load_value >> (picked_bits + tailing_bits))
                     .to_u64_digits()
                     .first()
-                    .unwrap_or(&0u64)
-                    .clone();
+                    .unwrap_or(&0u64);
 
                 self.load_tailing.assign(ctx, tailing)?;
                 self.load_tailing_diff

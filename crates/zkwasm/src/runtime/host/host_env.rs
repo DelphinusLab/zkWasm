@@ -67,14 +67,14 @@ impl HostEnv {
         for (name, op) in &self.external_env.functions {
             internal_op_allocator_offset = usize::max(internal_op_allocator_offset, op.op_index);
 
-            lookup
+            if lookup
                 .insert(
                     op.op_index,
                     HostFunction {
                         desc: HostFunctionDesc::External {
                             name: name.to_owned(),
                             op: op.op_index,
-                            sig: op.sig.into(),
+                            sig: op.sig,
                         },
                         execution_env: HostFunctionExecutionEnv {
                             ctx: op.plugin.ctx.clone(),
@@ -82,7 +82,10 @@ impl HostEnv {
                         },
                     },
                 )
-                .map(|_| panic!("conflicting op index of foreign function"));
+                .is_some()
+            {
+                panic!("conflicting op index of foreign function")
+            }
         }
 
         internal_op_allocator_offset += 1;
@@ -165,14 +168,7 @@ impl Externals for ExecEnv {
         index: usize,
         args: RuntimeArgs,
     ) -> Result<Option<RuntimeValue>, Trap> {
-        match self
-            .host_env
-            .cached_lookup
-            .as_ref()
-            .unwrap()
-            .get(&index)
-            .clone()
-        {
+        match self.host_env.cached_lookup.as_ref().unwrap().get(&index) {
             Some(HostFunction {
                 desc: _desc,
                 execution_env: HostFunctionExecutionEnv { ctx, cb },

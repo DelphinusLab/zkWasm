@@ -168,7 +168,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
 
                 self.drop_cell.assign(ctx, F::from(*drop as u64))?;
 
-                if keep.len() > 0 {
+                if !keep.is_empty() {
                     let keep_type: VarType = keep[0].into();
 
                     self.keep_cell.assign(ctx, F::one())?;

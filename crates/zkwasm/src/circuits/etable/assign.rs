@@ -279,7 +279,7 @@ impl<F: FieldExt> EventTableChip<F> {
         /*
          * The length of event_table equals 0: without_witness
          */
-        if event_table.0.len() == 0 {
+        if event_table.0.is_empty() {
             return Ok(());
         }
 
@@ -444,7 +444,7 @@ impl<F: FieldExt> EventTableChip<F> {
                         let op_config = op_configs.get(&((&instruction.opcode).into())).unwrap();
                         op_config
                             .0
-                            .assign(&mut ctx, &mut step_status, &entry)
+                            .assign(&mut ctx, &mut step_status, entry)
                             .unwrap();
                     }
 
@@ -518,7 +518,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     event_table,
                     configure_table,
                     frame_table,
-                    &initialization_state,
+                    initialization_state,
                     post_initialization_state,
                     rest_mops,
                     rest_call_ops,
@@ -529,7 +529,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 let post_initialization_state_cells = self
                     .assign_padding_and_post_initialization_state(
                         &mut ctx,
-                        &post_initialization_state,
+                        post_initialization_state,
                     )?;
 
                 Ok(EventTablePermutationCells {

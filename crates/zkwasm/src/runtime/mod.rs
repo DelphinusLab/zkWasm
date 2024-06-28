@@ -77,7 +77,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp + 1;
+                    sp += 1;
                 }
             }
 
@@ -96,7 +96,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp - 1;
+                    sp -= 1;
                 }
             }
 
@@ -124,7 +124,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 value: *condition as u32 as u64,
             }];
 
-            sp = sp + 1;
+            sp += 1;
 
             if *condition != 0 {
                 return ops;
@@ -142,7 +142,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp + 1;
+                    sp += 1;
                 }
             }
 
@@ -161,7 +161,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp - 1;
+                    sp -= 1;
                 }
             }
 
@@ -189,7 +189,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 value: *condition as u32 as u64,
             }];
 
-            sp = sp + 1;
+            sp += 1;
 
             if *condition == 0 {
                 return ops;
@@ -207,7 +207,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp + 1;
+                    sp += 1;
                 }
             }
 
@@ -226,7 +226,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp - 1;
+                    sp -= 1;
                 }
             }
 
@@ -254,7 +254,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 value: *index as u32 as u64,
             }];
 
-            sp = sp + 1;
+            sp += 1;
 
             {
                 for i in 0..keep.len() {
@@ -268,7 +268,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp + 1;
+                    sp += 1;
                 }
             }
 
@@ -287,7 +287,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp - 1;
+                    sp -= 1;
                 }
             }
 
@@ -316,7 +316,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp + 1;
+                    sp += 1;
                 }
             }
 
@@ -335,7 +335,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                         value: keep_values[i],
                     });
 
-                    sp = sp - 1;
+                    sp -= 1;
                 }
             }
 
@@ -361,7 +361,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 value: *cond,
             });
-            sp = sp + 1;
+            sp += 1;
 
             ops.push(MemoryTableEntry {
                 eid,
@@ -372,7 +372,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 value: *val2,
             });
-            sp = sp + 1;
+            sp += 1;
 
             ops.push(MemoryTableEntry {
                 eid,
@@ -433,7 +433,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 });
             }
 
-            sp = sp + args.len() as u32;
+            sp += args.len() as u32;
 
             if let Some(ty) = signature.return_type {
                 mops.push(MemoryTableEntry {
@@ -653,7 +653,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 value: *block_value1,
             };
 
-            let load_value2 = if *effective_address % 8 + load_size.byte_size() as u32 > 8 {
+            let load_value2 = if *effective_address % 8 + load_size.byte_size() > 8 {
                 Some(MemoryTableEntry {
                     eid,
                     offset: effective_address / 8 + 1,
@@ -790,7 +790,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             VarType::I32,
             VarType::I32,
             &[],
-            &[event.allocated_memory_pages as u32 as u64],
+            &[event.allocated_memory_pages as u64],
         ),
         StepInfo::MemoryGrow { grow_size, result } => mem_op_from_stack_only_step(
             sp_before_execution,
@@ -947,7 +947,7 @@ pub(crate) fn mem_op_from_stack_only_step(
     let mut mem_op = vec![];
     let mut sp = sp_before_execution;
 
-    for i in 0..pop_value.len() {
+    for value in pop_value {
         mem_op.push(MemoryTableEntry {
             eid,
             offset: sp + 1,
@@ -955,12 +955,12 @@ pub(crate) fn mem_op_from_stack_only_step(
             atype: AccessType::Read,
             vtype: inputs_type,
             is_mutable: true,
-            value: pop_value[i],
+            value: *value,
         });
-        sp = sp + 1;
+        sp += 1;
     }
 
-    for i in 0..push_value.len() {
+    for value in push_value {
         mem_op.push(MemoryTableEntry {
             eid,
             offset: sp,
@@ -968,9 +968,9 @@ pub(crate) fn mem_op_from_stack_only_step(
             atype: AccessType::Write,
             vtype: outputs_type,
             is_mutable: true,
-            value: push_value[i],
+            value: *value,
         });
-        sp = sp - 1;
+        sp -= 1;
     }
 
     mem_op

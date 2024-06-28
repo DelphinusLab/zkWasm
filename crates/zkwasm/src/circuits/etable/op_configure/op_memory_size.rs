@@ -76,7 +76,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemorySizeConfig<F> {
                     step.current.sp,
                     LocationType::Stack,
                     true,
-                    step.current.allocated_memory_pages as u32 as u64,
+                    step.current.allocated_memory_pages as u64,
                 )?;
 
                 Ok(())

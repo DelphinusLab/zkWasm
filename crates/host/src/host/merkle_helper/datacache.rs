@@ -60,8 +60,6 @@ impl CacheContext {
                 self.data = datahashrecord.map_or(vec![], |r| {
                     r.data
                         .chunks_exact(8)
-                        .into_iter()
-                        .into_iter()
                         .map(|x| u64::from_le_bytes(x.try_into().unwrap()))
                         .collect::<Vec<u64>>()
                 });
@@ -76,8 +74,7 @@ impl CacheContext {
                                 data: self
                                     .data
                                     .iter()
-                                    .map(|x| x.to_le_bytes())
-                                    .flatten()
+                                    .flat_map(|x| x.to_le_bytes())
                                     .collect::<Vec<u8>>(),
                             }
                         })
@@ -88,7 +85,7 @@ impl CacheContext {
     }
 
     pub fn fetch_data(&mut self) -> u64 {
-        if self.fetch == false {
+        if !self.fetch {
             self.fetch = true;
             self.data.reverse();
             self.data.len() as u64
@@ -163,12 +160,12 @@ pub fn register_datacache_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<
         "cache_fetch_data",
         CacheFetchData as usize,
         ExternalHostCallSignature::Return,
-        foreign_merkle_plugin.clone(),
+        foreign_merkle_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<CacheContext>().unwrap();
-                let ret = Some(wasmi::RuntimeValue::I64(context.fetch_data() as i64));
-                ret
+
+                Some(wasmi::RuntimeValue::I64(context.fetch_data() as i64))
             },
         ),
     );

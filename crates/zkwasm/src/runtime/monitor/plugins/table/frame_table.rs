@@ -20,32 +20,32 @@ struct FrameTableEntry {
     returned: bool,
 }
 
-impl Into<CalledFrameTableEntry> for &FrameTableEntry {
-    fn into(self) -> CalledFrameTableEntry {
-        assert!(!self.inherited);
+impl From<&FrameTableEntry> for CalledFrameTableEntry {
+    fn from(entry: &FrameTableEntry) -> CalledFrameTableEntry {
+        assert!(!entry.inherited);
 
         CalledFrameTableEntry(FrameTableEntryInternal {
-            frame_id: self.frame_id,
-            next_frame_id: self.next_frame_id,
-            callee_fid: self.callee_fid,
-            fid: self.fid,
-            iid: self.iid,
-            returned: self.returned,
+            frame_id: entry.frame_id,
+            next_frame_id: entry.next_frame_id,
+            callee_fid: entry.callee_fid,
+            fid: entry.fid,
+            iid: entry.iid,
+            returned: entry.returned,
         })
     }
 }
 
-impl Into<InheritedFrameTableEntry> for &FrameTableEntry {
-    fn into(self) -> InheritedFrameTableEntry {
-        assert!(self.inherited);
+impl From<&FrameTableEntry> for InheritedFrameTableEntry {
+    fn from(entry: &FrameTableEntry) -> InheritedFrameTableEntry {
+        assert!(entry.inherited);
 
         InheritedFrameTableEntry(Some(FrameTableEntryInternal {
-            frame_id: self.frame_id,
-            next_frame_id: self.next_frame_id,
-            callee_fid: self.callee_fid,
-            fid: self.fid,
-            iid: self.iid,
-            returned: self.returned,
+            frame_id: entry.frame_id,
+            next_frame_id: entry.next_frame_id,
+            callee_fid: entry.callee_fid,
+            fid: entry.fid,
+            iid: entry.iid,
+            returned: entry.returned,
         }))
     }
 }

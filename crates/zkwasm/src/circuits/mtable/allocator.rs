@@ -27,11 +27,11 @@ pub(super) trait MemoryTableCellExpression<F: FieldExt> {
 
 impl<F: FieldExt> MemoryTableCellExpression<F> for AllocatedCell<F> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot + MEMORY_TABLE_ENTRY_ROWS as i32)
+        nextn!(meta, self.col, self.rot + MEMORY_TABLE_ENTRY_ROWS)
     }
 
     fn prev_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        nextn!(meta, self.col, self.rot - MEMORY_TABLE_ENTRY_ROWS as i32)
+        nextn!(meta, self.col, self.rot - MEMORY_TABLE_ENTRY_ROWS)
     }
 }
 
@@ -137,7 +137,6 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
             let init = u64_cell.curr_expr(meta);
             vec![
                 (0..4)
-                    .into_iter()
                     .map(|x| u16_cells_le[x].curr_expr(meta) * constant_from!(1u64 << (16 * x)))
                     .fold(init, |acc, x| acc - x)
                     * enable(meta),
@@ -156,13 +155,7 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(
-            meta,
-            sel.clone(),
-            (l_0, l_active, l_active_last),
-            rtable,
-            cols,
-        );
+        let mut allocator = Self::_new(meta, sel, (l_0, l_active, l_active_last), rtable, cols);
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);

@@ -240,7 +240,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
         };
 
         const THREAD: usize = 8;
-        let chunk_size = if mtable.0.len() == 0 {
+        let chunk_size = if mtable.0.is_empty() {
             1
         } else {
             (mtable.0.len() + THREAD - 1) / THREAD
@@ -386,7 +386,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
 
                 let rest_mops_cell = self.constrain_rest_mops_permutation(&mut ctx, rest_mops)?;
 
-                self.assign_entries(region, &mtable, rest_mops, rest_memory_finalize_ops)?;
+                self.assign_entries(region, mtable, rest_mops, rest_memory_finalize_ops)?;
 
                 cfg_if::cfg_if! {
                     if #[cfg(feature="continuation")] {

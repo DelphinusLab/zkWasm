@@ -196,7 +196,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
                     assert_eq!(arg_type, VarType::I32);
                     assert_eq!(ret_type, VarType::I64);
 
-                    let is_public = *args.get(0).unwrap() == 1;
+                    let is_public = *args.first().unwrap() == 1;
                     let value = ret_val.unwrap();
 
                     self.is_wasm_input_op.assign_bool(ctx, true)?;
@@ -219,7 +219,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ETableWasmInputHelperTableConfig
                         step.current.sp + 1,
                         LocationType::Stack,
                         true,
-                        *args.get(0).unwrap(),
+                        *args.first().unwrap(),
                     )?;
 
                     self.lookup_write_stack.assign(

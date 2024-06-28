@@ -103,6 +103,10 @@ impl CalledFrameTable {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -120,7 +124,7 @@ impl FrameTable {
         if JSON {
             Ok(serde_json::from_slice(&buf).unwrap())
         } else {
-            Ok(bincode::deserialize(&mut buf).unwrap())
+            Ok(bincode::deserialize(&buf).unwrap())
         }
     }
 
@@ -128,7 +132,7 @@ impl FrameTable {
         let mut fd = std::fs::File::create(path)?;
 
         if JSON {
-            fd.write_all(&serde_json::to_string_pretty(self).unwrap().as_bytes())?;
+            fd.write_all(serde_json::to_string_pretty(self).unwrap().as_bytes())?;
         } else {
             fd.write_all(&bincode::serialize(self).unwrap())?;
         }

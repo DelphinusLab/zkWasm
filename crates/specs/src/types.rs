@@ -28,9 +28,9 @@ pub enum Value {
     I64(i64),
 }
 
-impl Into<VarType> for Value {
-    fn into(self) -> VarType {
-        match self {
+impl From<Value> for VarType {
+    fn from(val: Value) -> Self {
+        match val {
             Value::I32(_) => VarType::I32,
             Value::I64(_) => VarType::I64,
         }

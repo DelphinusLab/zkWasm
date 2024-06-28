@@ -18,7 +18,9 @@ use crate::types::ValueType;
 use num_bigint::BigUint;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::sync::Arc;
 use strum_macros::EnumIter;
 
@@ -323,9 +325,9 @@ pub const OPCODE_ARG0_SHIFT: u32 = OPCODE_ARG1_SHIFT + COMMON_RANGE_OFFSET;
 pub const OPCODE_ARG1_SHIFT: u32 = 64;
 pub const OPCODE_CELL: usize = 4;
 
-impl Into<BigUint> for &Opcode {
-    fn into(self) -> BigUint {
-        let bn = match self {
+impl From<&Opcode> for BigUint {
+    fn from(opcode: &Opcode) -> BigUint {
+        let bn = match opcode {
             Opcode::LocalGet { vtype, offset } => {
                 (BigUint::from(OpcodeClass::LocalGet as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(*vtype as u64) << OPCODE_ARG0_SHIFT)
@@ -354,7 +356,7 @@ impl Into<BigUint> for &Opcode {
                 (BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(*drop as u64) << OPCODE_ARG0_SHIFT)
                     + (BigUint::from(keep.len() as u64) << OPCODE_ARG1_SHIFT)
-                    + keep.first().map_or(0u64, |x| VarType::from(*x) as u64)
+                    + keep.first().map_or(0u64, |x| VarType::from(x) as u64)
             }
             Opcode::Bin { class, vtype } => {
                 (BigUint::from(OpcodeClass::Bin as u64) << OPCODE_CLASS_SHIFT)
@@ -416,7 +418,7 @@ impl Into<BigUint> for &Opcode {
             Opcode::InternalHostCall {
                 op_index_in_plugin, ..
             } => {
-                let opcode_class_plain: OpcodeClassPlain = self.into();
+                let opcode_class_plain: OpcodeClassPlain = opcode.into();
 
                 (BigUint::from(opcode_class_plain.0) << OPCODE_CLASS_SHIFT)
                     + (BigUint::from(*op_index_in_plugin as u64))
@@ -540,9 +542,9 @@ impl Into<BigUint> for &Opcode {
     }
 }
 
-impl Into<OpcodeClass> for &Opcode {
-    fn into(self) -> OpcodeClass {
-        match self {
+impl From<&Opcode> for OpcodeClass {
+    fn from(val: &Opcode) -> Self {
+        match val {
             Opcode::LocalGet { .. } => OpcodeClass::LocalGet,
             Opcode::LocalSet { .. } => OpcodeClass::LocalSet,
             Opcode::LocalTee { .. } => OpcodeClass::LocalTee,
@@ -576,11 +578,11 @@ impl Into<OpcodeClass> for &Opcode {
     }
 }
 
-impl Into<OpcodeClassPlain> for &Opcode {
-    fn into(self) -> OpcodeClassPlain {
-        let class: OpcodeClass = self.into();
+impl From<&Opcode> for OpcodeClassPlain {
+    fn from(val: &Opcode) -> Self {
+        let class: OpcodeClass = val.into();
 
-        if let Opcode::InternalHostCall { plugin, .. } = self {
+        if let Opcode::InternalHostCall { plugin, .. } = val {
             OpcodeClassPlain(class as usize + (*plugin) as usize)
         } else {
             OpcodeClassPlain(class as usize)
@@ -595,6 +597,12 @@ pub struct InstructionTableEntry {
     pub iid: u32,
     pub opcode: Opcode,
     pub encode: BigUint,
+}
+
+impl Display for InstructionTableEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
 }
 
 impl InstructionTableEntry {
@@ -613,10 +621,6 @@ impl InstructionTableEntry {
             opcode,
             encode,
         }
-    }
-
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
     }
 }
 
@@ -653,11 +657,11 @@ impl InstructionTable {
     }
 
     pub fn get(&self, fid: u32, iid: u32) -> &InstructionTableEntry {
-        &self.0[fid as usize][iid as usize].as_ref().unwrap()
+        self.0[fid as usize][iid as usize].as_ref().unwrap()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &InstructionTableEntry> {
-        self.0.iter().flatten().flatten().filter_map(|x| Some(x))
+        self.0.iter().flatten().flatten().filter_map(Some)
     }
 
     pub fn create_brtable(&self) -> BrTable {
@@ -686,10 +690,14 @@ impl InstructionTable {
     pub fn len(&self) -> usize {
         self.iter().count()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
-impl Into<InstructionTable> for InstructionTableInternal {
-    fn into(self) -> InstructionTable {
-        InstructionTable::new(self)
+impl From<InstructionTableInternal> for InstructionTable {
+    fn from(val: InstructionTableInternal) -> Self {
+        InstructionTable::new(val)
     }
 }

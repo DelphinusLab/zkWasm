@@ -63,7 +63,7 @@ impl<'a, 'b, F: FieldExt> ConstraintBuilder<'a, 'b, F> {
         selector: impl Fn(&mut VirtualCells<F>) -> (Expression<F>, Expression<F>),
     ) {
         for (name, builder) in self.constraints {
-            self.meta.create_gate(&name, |meta| {
+            self.meta.create_gate(name, |meta| {
                 builder(meta)
                     .into_iter()
                     .map(|constraint| {
