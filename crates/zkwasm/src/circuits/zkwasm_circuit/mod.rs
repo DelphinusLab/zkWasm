@@ -68,10 +68,10 @@ pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
     40
 };
 
-// Reserve a few rows to keep usable rows away from blind rows.
-// The maximal step size of all tables is bit_table::STEP_SIZE.
+// Reserve 128 rows(greater than step size of all tables) to keep usable rows away from
+//   blind rows and range checking rows.
 // Reserve (1 << 16) / 2 to allow u16 range checking based on shuffle with step 2.
-pub(crate) const RESERVE_ROWS: usize = crate::circuits::bit_table::STEP_SIZE + (1 << 15);
+pub(crate) const RESERVE_ROWS: usize = 128 + (1 << 15);
 
 #[derive(Default, Clone)]
 struct AssignedCells<F: FieldExt> {
