@@ -68,24 +68,22 @@ impl<F: FieldExt> JumpTableChip<F> {
                 )?;
             }
 
-            if i == capability - 1 {
-                ctx.region.assign_advice_from_constant(
-                    || "frame table: entry terminate",
-                    self.config.value,
-                    ctx.offset + FrameTableValueOffset::CallOps as usize,
-                    F::zero(),
-                )?;
-
-                ctx.region.assign_advice_from_constant(
-                    || "frame table: entry terminate",
-                    self.config.value,
-                    ctx.offset + FrameTableValueOffset::ReturnOps as usize,
-                    F::zero(),
-                )?;
-            }
-
             ctx.step(FrameTableValueOffset::Max as usize);
         }
+
+        ctx.region.assign_advice_from_constant(
+            || "frame table: entry terminate",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::CallOps as usize,
+            F::zero(),
+        )?;
+
+        ctx.region.assign_advice_from_constant(
+            || "frame table: entry terminate",
+            self.config.value,
+            ctx.offset + FrameTableValueOffset::ReturnOps as usize,
+            F::zero(),
+        )?;
 
         ctx.region.assign_fixed(
             || "frame table: inherited",

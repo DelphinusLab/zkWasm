@@ -357,6 +357,8 @@ impl<F: FieldExt> MemoryTableConfig<F> {
                     // post_init_encode_cell assigned iff at memory finalized position.
                     post_init_encode_cell.curr_expr(meta)
                         * (constant_from!(1) - is_memory_finalized_position_bit.clone()),
+                    post_init_encode_cell.curr_expr(meta)
+                        * (constant_from!(1) - enabled_cell.curr_expr(meta)),
                     // encode post_init_encode_cell.
                     (post_init_encode_cell.curr_expr(meta)
                         - address_encode_cell.curr_expr(meta)
