@@ -444,25 +444,21 @@ impl<F: FieldExt> EventTableConfig<F> {
          *    1. constrains the relation between the last step and termination.
          *    2. ignores rows following the termination step.
          */
-        let sum_ops_expr_with_init =
-            |init: Expression<F>,
-             meta: &mut VirtualCells<'_, F>,
-             get_expr: &dyn Fn(
-                &mut VirtualCells<'_, F>,
-                &OpcodeConfig<F>,
-            ) -> Option<Expression<F>>,
-             enable: Option<&dyn Fn(&mut VirtualCells<'_, F>) -> Expression<F>>| {
-                let expr = op_bitmaps
-                    .iter()
-                    .filter_map(|(op, op_index)| {
-                        get_expr(meta, op_configs.get(op).unwrap())
-                            .map(|expr| expr * ops[*op_index].curr_expr(meta))
-                    })
-                    .fold(init, |acc, x| acc + x)
-                    * fixed_curr!(meta, step_sel);
-
-                enable.map_or(expr.clone(), |enable_expr| expr * enable_expr(meta))
-            };
+        let sum_ops_expr_with_init = |init: Expression<F>,
+                                      meta: &mut VirtualCells<'_, F>,
+                                      get_expr: &dyn Fn(
+            &mut VirtualCells<'_, F>,
+            &OpcodeConfig<F>,
+        ) -> Option<Expression<F>>| {
+            op_bitmaps
+                .iter()
+                .filter_map(|(op, op_index)| {
+                    get_expr(meta, op_configs.get(op).unwrap())
+                        .map(|expr| expr * ops[*op_index].curr_expr(meta))
+                })
+                .fold(init, |acc, x| acc + x)
+                * fixed_curr!(meta, step_sel)
+        };
 
         let sum_ops_expr = |meta: &mut VirtualCells<'_, F>,
                             get_expr: &dyn Fn(
@@ -484,7 +480,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 rest_mops_cell.next_expr(meta) - rest_mops_cell.curr_expr(meta),
                 meta,
                 &|meta, config: &OpcodeConfig<F>| config.0.mops(meta),
-                None,
             )]
         });
 
@@ -494,13 +489,11 @@ impl<F: FieldExt> EventTableConfig<F> {
                     rest_call_ops_cell.next_expr(meta) - rest_call_ops_cell.curr_expr(meta),
                     meta,
                     &|meta, config: &OpcodeConfig<F>| config.0.call_ops_expr(meta),
-                    None,
                 ),
                 sum_ops_expr_with_init(
                     rest_return_ops_cell.next_expr(meta) - rest_return_ops_cell.curr_expr(meta),
                     meta,
                     &|meta, config: &OpcodeConfig<F>| config.0.return_ops_expr(meta),
-                    None,
                 ),
             ]
         });
@@ -512,7 +505,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &OpcodeConfig<F>| {
                     config.0.input_index_increase(meta, &common_config)
                 },
-                None,
             )]
         });
 
@@ -526,7 +518,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .0
                         .external_host_call_index_increase(meta, &common_config)
                 },
-                None,
             )]
         });
 
@@ -535,7 +526,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 sp_cell.curr_expr(meta) - sp_cell.next_expr(meta),
                 meta,
                 &|meta, config: &OpcodeConfig<F>| config.0.sp_diff(meta),
-                None,
             )]
         });
 
@@ -544,7 +534,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 mpages_cell.curr_expr(meta) - mpages_cell.next_expr(meta),
                 meta,
                 &|meta, config: &OpcodeConfig<F>| config.0.allocated_memory_pages_diff(meta),
-                None,
             )]
         });
 
@@ -555,7 +544,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &OpcodeConfig<F>| {
                     config.0.context_input_index_increase(meta, &common_config)
                 },
-                None,
             )]
         });
 
@@ -567,7 +555,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                 &|meta, config: &OpcodeConfig<F>| {
                     config.0.context_output_index_increase(meta, &common_config)
                 },
-                None,
             )]
         });
 
@@ -590,7 +577,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .next_fid(meta, &common_config)
                         .map(|x| x - fid_cell.curr_expr(meta))
                 },
-                None,
             )]
         });
 
@@ -604,7 +590,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .next_iid(meta, &common_config)
                         .map(|x| iid_cell.curr_expr(meta) + enabled_cell.curr_expr(meta) - x)
                 },
-                None,
             )]
         });
 
@@ -618,7 +603,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                         .next_frame_id(meta, &common_config)
                         .map(|x| x - frame_id_cell.curr_expr(meta))
                 },
-                None,
             )]
         });
 
@@ -641,7 +625,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             brtable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
-        jtable.configure_in_event_table(meta, "c8c. jtable_lookup in jtable", |meta| {
+        jtable.configure_lookup_in_frame_table(meta, "c8c. jtable_lookup in jtable", |meta| {
             (
                 fixed_curr!(meta, step_sel),
                 common_config.is_returned_cell.curr_expr(meta) * fixed_curr!(meta, step_sel),

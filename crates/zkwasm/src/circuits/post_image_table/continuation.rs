@@ -152,7 +152,7 @@ impl<F: FieldExt> PostImageTableConfig<F> {
             |meta| curr!(meta, memory_finalized_lookup_encode),
         );
 
-        frame_table.configure_in_event_table(
+        frame_table.configure_lookup_in_frame_table(
             meta,
             "post image table: extract unreturned frame table entries",
             |meta| {

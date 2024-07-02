@@ -89,7 +89,7 @@ impl<F: FieldExt> JTableConstraint<F> for JumpTableConfig<F> {
 
 impl<F: FieldExt> JumpTableConfig<F> {
     /// Frame Table Constraint 4. Etable step's call/return record can be found on jtable_entry
-    pub(in crate::circuits) fn configure_in_event_table(
+    pub(in crate::circuits) fn configure_lookup_in_frame_table(
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
