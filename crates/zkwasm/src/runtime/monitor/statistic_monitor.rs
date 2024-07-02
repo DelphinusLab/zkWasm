@@ -24,7 +24,7 @@ pub struct StatisticMonitor {
 }
 
 impl StatisticMonitor {
-    pub fn new(phantom_regex: &Vec<String>, env: &HostEnv) -> Self {
+    pub fn new(phantom_regex: &[String], env: &HostEnv) -> Self {
         let wasm_input = env
             .resolve_func(
                 "wasm_input",

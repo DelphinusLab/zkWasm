@@ -16,12 +16,11 @@ use super::babyjubjub_fq_to_limbs;
 use super::fetch_g1;
 use super::LIMBNB;
 
-fn fetch_biguint(_limbs: &Vec<u64>) -> BigUint {
+fn fetch_biguint(_limbs: &[u64]) -> BigUint {
     BigUint::from_bytes_le(
         _limbs
             .iter()
-            .map(|x| x.to_le_bytes())
-            .flatten()
+            .flat_map(|x| x.to_le_bytes())
             .collect::<Vec<_>>()
             .as_slice(),
     )
@@ -79,23 +78,20 @@ impl BabyJubjubSumContext {
 
     pub fn babyjubjub_sum_finalize(&mut self) -> u64 {
         let limbs = self.result_limbs.clone();
-        match limbs {
-            None => {
-                assert!(self.limbs.len() == LIMBNB * 2);
-                let coeff = fetch_biguint(&self.coeffs.to_vec());
-                let g1 = fetch_g1(&self.limbs.to_vec());
-                log::debug!("acc is {:?}", self.acc);
-                log::debug!("g1 is {:?}", g1);
-                log::debug!("coeff is {:?} {}", coeff, self.coeffs.len());
-                self.acc = self
-                    .acc
-                    .projective()
-                    .add(&g1.mul_scalar(&coeff).projective())
-                    .affine();
-                log::debug!("msm result: {:?}", self.acc);
-                self.babyjubjub_result_to_limbs(self.acc.clone());
-            }
-            _ => (),
+        if limbs.is_none() {
+            assert!(self.limbs.len() == LIMBNB * 2);
+            let coeff = fetch_biguint(&self.coeffs.to_vec());
+            let g1 = fetch_g1(&self.limbs.to_vec());
+            log::debug!("acc is {:?}", self.acc);
+            log::debug!("g1 is {:?}", g1);
+            log::debug!("coeff is {:?} {}", coeff, self.coeffs.len());
+            self.acc = self
+                .acc
+                .projective()
+                .add(&g1.mul_scalar(&coeff).projective())
+                .affine();
+            log::debug!("msm result: {:?}", self.acc);
+            self.babyjubjub_result_to_limbs(self.acc.clone());
         };
         let ret = self.result_limbs.as_ref().unwrap()[self.result_cursor];
         self.result_cursor += 1;
@@ -161,14 +157,14 @@ pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
         "babyjubjub_sum_finalize",
         JubjubSumResult as usize,
         ExternalHostCallSignature::Return,
-        foreign_babyjubjubsum_plugin.clone(),
+        foreign_babyjubjubsum_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BabyJubjubSumContext>().unwrap();
-                let ret = Some(wasmi::RuntimeValue::I64(
+
+                Some(wasmi::RuntimeValue::I64(
                     context.babyjubjub_sum_finalize() as i64
-                ));
-                ret
+                ))
             },
         ),
     );

@@ -1,4 +1,6 @@
 #![deny(warnings)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
 #![feature(int_roundings)]
 #![feature(stmt_expr_attributes)]
 #![feature(trait_upcasting)]

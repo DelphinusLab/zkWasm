@@ -70,9 +70,9 @@ impl<F: FieldExt> Slices<F> {
         use halo2_proofs::dev::MockProver;
 
         let k = self.k;
-        let mut iter = self.into_iter();
+        let iter = self;
 
-        while let Some(slice) = iter.next() {
+        for slice in iter {
             match slice? {
                 ZkWasmCircuit::Ongoing(circuit) => {
                     let prover = MockProver::run(k, &circuit, vec![instances.clone()])?;
@@ -108,7 +108,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
                 match next_event_table {
                     TableBackend::Memory(etable) => etable.entries().first().cloned(),
                     TableBackend::Json(path) => {
-                        let etable = EventTable::read(&path).unwrap();
+                        let etable = EventTable::read(path).unwrap();
                         etable.entries().first().cloned()
                     }
                 }
@@ -134,7 +134,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
             |frame_table| {
                 let post_inherited_frame_table = match frame_table {
                     TableBackend::Memory(frame_table) => frame_table.inherited.clone(),
-                    TableBackend::Json(path) => FrameTable::read(&path).unwrap().inherited,
+                    TableBackend::Json(path) => FrameTable::read(path).unwrap().inherited,
                 };
 
                 Arc::new((*post_inherited_frame_table).clone().try_into().unwrap())

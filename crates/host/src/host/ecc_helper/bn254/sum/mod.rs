@@ -143,7 +143,7 @@ pub fn register_bn254sum_foreign(env: &mut HostEnv) {
         "bn254_sum_finalize",
         Bn254SumResult as usize,
         ExternalHostCallSignature::Return,
-        foreign_bn254sum_plugin.clone(),
+        foreign_bn254sum_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<BN254SumContext>().unwrap();

@@ -21,7 +21,7 @@ impl ContextOutput {
         for value in &self.0 {
             let bytes = value.to_le_bytes();
             let s = hex::encode(bytes);
-            fd.write_all(&s.as_bytes())?;
+            fd.write_all(s.as_bytes())?;
         }
 
         fd.write_all(":bytes-packed".as_bytes())?;

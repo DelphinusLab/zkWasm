@@ -92,10 +92,10 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
                     .hasher
                     .as_mut()
                     .map_or(Some(Sha256::new()), |_| None);
-                hasher.map(|s| {
+                if let Some(s) = hasher {
                     context.hasher = Some(s);
                     context.size = args.nth::<u64>(0) as usize;
-                });
+                };
                 None
             },
         ),
@@ -109,7 +109,7 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
-                context.hasher.as_mut().map(|s| {
+                if let Some(s) = context.hasher.as_mut() {
                     let sz = if context.size > 8 {
                         context.size -= 8;
                         8
@@ -118,10 +118,10 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
                         context.size = 0;
                         s
                     };
-                    let mut r = (args.nth::<u64>(0) as u64).to_le_bytes().to_vec();
+                    let mut r = args.nth::<u64>(0).to_le_bytes().to_vec();
                     r.truncate(sz);
                     s.update(r);
-                });
+                };
                 None
             },
         ),
@@ -131,17 +131,17 @@ pub fn register_sha256_foreign(env: &mut HostEnv) {
         "sha256_finalize",
         SHA256Finalize as usize,
         ExternalHostCallSignature::Return,
-        foreign_sha256_plugin.clone(),
+        foreign_sha256_plugin,
         Rc::new(
             |_obs, context: &mut dyn ForeignContext, _args: wasmi::RuntimeArgs| {
                 let context = context.downcast_mut::<Sha256Context>().unwrap();
-                context.hasher.as_ref().map(|s| {
+                if let Some(s) = context.hasher.as_ref() {
                     let dwords: Vec<u8> = s.clone().finalize()[..].to_vec();
                     context.generator.values = dwords
                         .chunks(8)
                         .map(|x| u64::from_le_bytes(x.to_vec().try_into().unwrap()))
                         .collect::<Vec<u64>>();
-                });
+                };
                 context.hasher = None;
                 Some(wasmi::RuntimeValue::I64(context.generator.gen() as i64))
             },

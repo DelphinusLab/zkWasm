@@ -146,7 +146,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
 
                 self.drop.assign(ctx, F::from(*drop as u64))?;
 
-                if keep_values.len() == 0 {
+                if keep_values.is_empty() {
                     self.keep.assign(ctx, 0.into())?;
                 } else {
                     self.keep.assign(ctx, 1.into())?;
@@ -206,7 +206,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     fn memory_writing_ops(&self, entry: &EventTableEntry) -> u32 {
         match &entry.step_info {
             StepInfo::Return { keep, .. } => {
-                if keep.len() > 0 {
+                if !keep.is_empty() {
                     assert!(keep.len() == 1);
                     1
                 } else {

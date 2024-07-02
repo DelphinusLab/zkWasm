@@ -348,7 +348,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
                                 if memory_finalized_set
                                     .contains(&image_table_offset_to_memory_location(offset))
                                 {
-                                    rest_memory_writing_ops = rest_memory_writing_ops - F::one();
+                                    rest_memory_writing_ops -= F::one();
                                 }
 
                                 offset += 1;

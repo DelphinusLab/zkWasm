@@ -5,8 +5,8 @@ use serde::Serialize;
 pub enum HostMode {
     /// Trivial Wasm Host Environment
     #[default]
-    DEFAULT,
+    Default,
 
     /// Wasm Host Environment with more Zk plugins
-    STANDARD,
+    Standard,
 }

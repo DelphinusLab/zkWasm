@@ -42,7 +42,7 @@ fn test_call_host_external() {
 
         let foreign_playground_plugin = env
             .external_env
-            .register_plugin("foreign_playground", Box::new(Context::default()));
+            .register_plugin("foreign_playground", Box::<Context>::default());
         env.external_env.register_function(
             "foreign_push",
             0,
@@ -78,6 +78,6 @@ fn test_call_host_external() {
         env
     };
 
-    let _wasm = wabt::wat2wasm(&textual_repr).expect("failed to parse wat");
+    let _wasm = wabt::wat2wasm(textual_repr).expect("failed to parse wat");
     // test_circuit_with_env(env, wasm, "test".to_string()).unwrap();
 }
