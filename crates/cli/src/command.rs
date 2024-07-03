@@ -263,6 +263,8 @@ pub(crate) struct ProveArg {
     pub(crate) file_backend: bool,
     // skip first n slice(s) proving.
     pub(crate) skip: usize,
+    // add trivial circuits to padding
+    pub(crate) padding: Option<usize>,
 }
 
 /// Verify the proof.

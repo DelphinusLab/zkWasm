@@ -613,6 +613,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             vec![
                 (encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
                     - itable_lookup_cell.curr_expr(meta))
+                    * enabled_cell.curr_expr(meta)
                     * fixed_curr!(meta, step_sel),
             ]
         });

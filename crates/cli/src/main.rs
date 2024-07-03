@@ -156,6 +156,7 @@ fn main() -> Result<()> {
                 arg.mock_test,
                 trace_backend,
                 arg.skip,
+                arg.padding,
             )?;
         }
         Subcommands::Verify(arg) => {
