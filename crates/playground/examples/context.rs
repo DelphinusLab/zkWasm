@@ -31,7 +31,7 @@ fn main() -> Result<()> {
         let runner = loader.compile(&module, &mut monitor)?;
         let result = loader.run(runner, &mut monitor)?;
 
-        let slices: Slices<Fr> = Slices::new(K, monitor.into_tables())?;
+        let slices: Slices<Fr> = Slices::new(K, monitor.into_tables(), None)?;
         slices.mock_test_all(result.public_inputs_and_outputs())?;
 
         result.context_outputs
@@ -53,7 +53,7 @@ fn main() -> Result<()> {
         let runner = loader.compile(&module, &mut monitor)?;
         let result = loader.run(runner, &mut monitor)?;
 
-        let slices: Slices<Fr> = Slices::new(K, monitor.into_tables())?;
+        let slices: Slices<Fr> = Slices::new(K, monitor.into_tables(), None)?;
         slices.mock_test_all(result.public_inputs_and_outputs())?;
     }
 

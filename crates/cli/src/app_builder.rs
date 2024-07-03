@@ -148,6 +148,19 @@ impl ArgBuilder<usize> for SkipArg {
     }
 }
 
+struct PaddingArg;
+impl ArgBuilder<Option<usize>> for PaddingArg {
+    fn builder() -> Arg<'static> {
+        arg!(--padding [AT_LEAST_N] "Insert trivial slices so that the number of proofs is at least AT_LEAST_N")
+            .value_parser(value_parser!(usize))
+            .multiple_values(false)
+    }
+
+    fn parse(matches: &ArgMatches) -> Option<usize> {
+        matches.get_one("padding").copied()
+    }
+}
+
 fn setup_command() -> Command<'static> {
     let command = Command::new("setup")
         .about("Setup a new zkWasm circuit for provided Wasm image")
@@ -206,7 +219,7 @@ fn prove_command() -> Command<'static> {
         .arg(FileBackendArg::builder());
 
     if cfg!(feature = "continuation") {
-        command.arg(SkipArg::builder())
+        command.arg(SkipArg::builder()).arg(PaddingArg::builder())
     } else {
         command
     }
@@ -280,6 +293,7 @@ impl From<&ArgMatches> for ProveArg {
             mock_test: MockTestArg::parse(val),
             file_backend: FileBackendArg::parse(val),
             skip: SkipArg::parse(val),
+            padding: PaddingArg::parse(val),
         }
     }
 }

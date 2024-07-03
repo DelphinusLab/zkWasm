@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     let result = loader.run(runner, &mut monitor)?;
     let instances = result.public_inputs_and_outputs::<Fr>();
 
-    let slices = Slices::new(K, monitor.into_tables())?;
+    let slices = Slices::new(K, monitor.into_tables(), None)?;
     slices.mock_test_all(instances)?;
 
     Ok(())

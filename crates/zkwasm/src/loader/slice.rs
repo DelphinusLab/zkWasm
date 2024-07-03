@@ -5,8 +5,10 @@ use specs::configure_table::ConfigureTable;
 use specs::etable::EventTable;
 use specs::imtable::InitMemoryTable;
 use specs::itable::InstructionTable;
+use specs::jtable::CalledFrameTable;
 use specs::jtable::FrameTable;
 use specs::jtable::InheritedFrameTable;
+use specs::slice::FrameTableSlice;
 use specs::slice::Slice;
 use specs::state::InitializationState;
 use specs::TableBackend;
@@ -21,6 +23,9 @@ use crate::runtime::state::UpdateInitializationState;
 
 pub struct Slices<F: FieldExt> {
     k: u32,
+
+    // The number of trivial circuits left.
+    padding: usize,
 
     itable: Arc<InstructionTable>,
     br_table: Arc<BrTable>,
@@ -37,17 +42,26 @@ pub struct Slices<F: FieldExt> {
 }
 
 impl<F: FieldExt> Slices<F> {
-    pub fn new(k: u32, tables: Tables) -> Result<Self, BuildingCircuitError> {
-        if cfg!(not(feature = "continuation")) {
-            let slices = tables.execution_tables.etable.len();
+    /*
+     * padding: Insert trivial slices so that the number of proofs is at least padding.
+     */
+    pub fn new(
+        k: u32,
+        tables: Tables,
+        padding: Option<usize>,
+    ) -> Result<Self, BuildingCircuitError> {
+        let slices_len = tables.execution_tables.etable.len();
 
-            if slices != 1 {
-                return Err(BuildingCircuitError::MultiSlicesNotSupport(slices));
-            }
+        if cfg!(not(feature = "continuation")) && slices_len != 1 {
+            return Err(BuildingCircuitError::MultiSlicesNotSupport(slices_len));
         }
+
+        let padding = padding.map_or(0, |padding| padding.saturating_sub(slices_len));
 
         Ok(Self {
             k,
+
+            padding,
 
             itable: tables.compilation_tables.itable,
             br_table: tables.compilation_tables.br_table,
@@ -89,12 +103,50 @@ impl<F: FieldExt> Slices<F> {
     }
 }
 
+impl<F: FieldExt> Slices<F> {
+    // create a circuit slice with all entries disabled.
+    fn trivial_slice(&mut self) -> Result<ZkWasmCircuit<F>, BuildingCircuitError> {
+        self.padding -= 1;
+
+        let frame_table = Arc::new(FrameTableSlice {
+            inherited: self.initial_frame_table.clone(),
+            called: CalledFrameTable::default(),
+        });
+
+        let slice = Slice {
+            itable: self.itable.clone(),
+            br_table: self.br_table.clone(),
+            elem_table: self.elem_table.clone(),
+            configure_table: self.configure_table.clone(),
+            initial_frame_table: self.initial_frame_table.clone(),
+
+            frame_table,
+            post_inherited_frame_table: self.initial_frame_table.clone(),
+
+            imtable: self.imtable.clone(),
+            post_imtable: self.imtable.clone(),
+
+            initialization_state: self.initialization_state.clone(),
+            post_initialization_state: self.initialization_state.clone(),
+
+            etable: Arc::new(EventTable::new(vec![])),
+            is_last_slice: false,
+        };
+
+        ZkWasmCircuit::new(self.k, slice)
+    }
+}
+
 impl<F: FieldExt> Iterator for Slices<F> {
     type Item = Result<ZkWasmCircuit<F>, BuildingCircuitError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.etables.is_empty() {
             return None;
+        }
+
+        if self.padding > 0 {
+            return Some(self.trivial_slice());
         }
 
         let etable = match self.etables.pop_front().unwrap() {
