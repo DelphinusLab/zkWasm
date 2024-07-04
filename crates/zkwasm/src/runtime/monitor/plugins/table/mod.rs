@@ -37,6 +37,7 @@ use wasmi::Error;
 use wasmi::FuncRef;
 use wasmi::RuntimeValue;
 use wasmi::Signature;
+use wasmi::Trap;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::compute_slice_capability;
@@ -566,7 +567,7 @@ impl Monitor for TablePlugin {
         function_context: &FunctionContext,
         instruction: &Instruction,
         outcome: &InstructionOutcome,
-    ) {
+    ) -> Result<(), Trap> {
         if !self.phantom_helper.is_in_phantom_function() {
             let current_event = self.unresolved_event.take();
 
@@ -662,6 +663,8 @@ impl Monitor for TablePlugin {
             }
             _ => {}
         }
+
+        Ok(())
     }
 
     fn invoke_call_host_post_hook(&mut self, return_value: Option<RuntimeValue>) {

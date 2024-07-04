@@ -7,6 +7,8 @@ use wasmi::isa::Keep;
 use wasmi::monitor::Monitor;
 use wasmi::runner::InstructionOutcome;
 use wasmi::FuncRef;
+use wasmi::Trap;
+use wasmi::TrapCode;
 
 use super::phantom::PhantomHelper;
 use crate::runtime::monitor::Observer;
@@ -14,13 +16,19 @@ use crate::runtime::monitor::Observer;
 pub struct StatisticPlugin {
     phantom_helper: PhantomHelper,
     observer: Rc<RefCell<Observer>>,
+    instruction_limit: Option<usize>,
 }
 
 impl StatisticPlugin {
-    pub fn new(phantom_regex: &[String], wasm_input: FuncRef) -> Self {
+    pub fn new(
+        phantom_regex: &[String],
+        wasm_input: FuncRef,
+        instruction_limit: Option<usize>,
+    ) -> Self {
         Self {
             phantom_helper: PhantomHelper::new(phantom_regex, wasm_input),
             observer: Rc::new(RefCell::new(Observer::default())),
+            instruction_limit,
         }
     }
 
@@ -52,9 +60,15 @@ impl Monitor for StatisticPlugin {
         _function_context: &wasmi::runner::FunctionContext,
         _instruction: &wasmi::isa::Instruction,
         outcome: &wasmi::runner::InstructionOutcome,
-    ) {
+    ) -> Result<(), Trap> {
         self.observer.borrow_mut().counter +=
             !self.phantom_helper.is_in_phantom_function() as usize;
+
+        if let Some(instruction_limit) = self.instruction_limit {
+            if self.observer.borrow_mut().counter > instruction_limit {
+                return Err(Trap::Code(TrapCode::InstructionExceedsLimit));
+            }
+        }
 
         match outcome {
             InstructionOutcome::ExecuteCall(func_ref) => {
@@ -89,5 +103,7 @@ impl Monitor for StatisticPlugin {
             }
             _ => {}
         }
+
+        Ok(())
     }
 }
