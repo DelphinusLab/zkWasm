@@ -11,6 +11,7 @@ use wasmi::ModuleImportResolver;
 use wasmi::ModuleRef;
 use wasmi::RuntimeValue;
 use wasmi::Signature;
+use wasmi::Trap;
 use wasmi::ValueType;
 
 use crate::runtime::host::host_env::HostEnv;
@@ -24,7 +25,7 @@ pub struct StatisticMonitor {
 }
 
 impl StatisticMonitor {
-    pub fn new(phantom_regex: &[String], env: &HostEnv) -> Self {
+    pub fn new(phantom_regex: &[String], env: &HostEnv, instruction_limit: Option<usize>) -> Self {
         let wasm_input = env
             .resolve_func(
                 "wasm_input",
@@ -33,7 +34,7 @@ impl StatisticMonitor {
             .expect("Failed to resolve wasm_input function, please make sure it is imported in the wasm image.");
 
         Self {
-            statistic_plugin: StatisticPlugin::new(phantom_regex, wasm_input),
+            statistic_plugin: StatisticPlugin::new(phantom_regex, wasm_input, instruction_limit),
         }
     }
 }
@@ -78,7 +79,7 @@ impl Monitor for StatisticMonitor {
         function_context: &FunctionContext,
         instruction: &Instruction,
         outcome: &InstructionOutcome,
-    ) {
+    ) -> Result<(), Trap> {
         self.statistic_plugin.invoke_instruction_post_hook(
             fid,
             iid,
@@ -88,7 +89,9 @@ impl Monitor for StatisticMonitor {
             function_context,
             instruction,
             outcome,
-        );
+        )?;
+
+        Ok(())
     }
 
     fn invoke_call_host_post_hook(&mut self, return_value: Option<RuntimeValue>) {

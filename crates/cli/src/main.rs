@@ -84,6 +84,7 @@ fn main() -> Result<()> {
                     context_inputs,
                 },
                 arg.running_arg.context_output,
+                arg.instruction_limit,
             )?;
         }
         Subcommands::Prove(arg) => {

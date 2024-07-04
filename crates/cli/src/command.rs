@@ -251,6 +251,7 @@ pub(crate) struct RunningArg {
 pub(crate) struct DryRunArg {
     pub(crate) wasm_image: PathBuf,
     pub(crate) running_arg: RunningArg,
+    pub(crate) instruction_limit: Option<usize>,
 }
 
 /// Execute the Wasm image and generate a proof.

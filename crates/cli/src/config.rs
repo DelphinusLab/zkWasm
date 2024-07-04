@@ -190,12 +190,13 @@ impl Config {
         output_dir: &Path,
         arg: ExecutionArg,
         context_output_filename: Option<String>,
+        instruction_limit: Option<usize>,
     ) -> Result<()> {
         let module = self.read_wasm_image(wasm_image)?;
 
         let env = env_builder.create_env(self.k, arg);
 
-        let mut monitor = StatisticMonitor::new(&self.phantom_functions, &env);
+        let mut monitor = StatisticMonitor::new(&self.phantom_functions, &env, instruction_limit);
 
         let result = {
             let loader = ZkWasmLoader::new(self.k, env)?;

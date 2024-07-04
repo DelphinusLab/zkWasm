@@ -161,6 +161,19 @@ impl ArgBuilder<Option<usize>> for PaddingArg {
     }
 }
 
+struct InstructionLimitArg;
+impl ArgBuilder<Option<usize>> for InstructionLimitArg {
+    fn builder() -> Arg<'static> {
+        arg!(--limit [LIMIT] "Terminate if the number of instructions exceeds [LIMIT]")
+            .value_parser(value_parser!(usize))
+            .multiple_values(false)
+    }
+
+    fn parse(matches: &ArgMatches) -> Option<usize> {
+        matches.get_one("limit").cloned()
+    }
+}
+
 fn setup_command() -> Command<'static> {
     let command = Command::new("setup")
         .about("Setup a new zkWasm circuit for provided Wasm image")
@@ -204,6 +217,7 @@ fn dry_run_command() -> Command<'static> {
         .arg(ContextInputsArg::builder())
         .arg(ContextOutputArg::builder())
         .arg(OutputDirArg::builder())
+        .arg(InstructionLimitArg::builder())
 }
 
 fn prove_command() -> Command<'static> {
@@ -280,6 +294,7 @@ impl From<&ArgMatches> for DryRunArg {
         DryRunArg {
             wasm_image: WasmImageArg::parse(val).unwrap(),
             running_arg: val.into(),
+            instruction_limit: InstructionLimitArg::parse(val),
         }
     }
 }
