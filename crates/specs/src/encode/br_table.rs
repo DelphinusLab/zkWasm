@@ -1,17 +1,24 @@
 use num_bigint::BigUint;
+use num_traits::One;
+use static_assertions::const_assert;
 
 use crate::brtable::BrTableEntry;
 use crate::brtable::ElemEntry;
 use crate::brtable::IndirectClass;
-use crate::encode::COMMON_RANGE_OFFSET;
+use crate::encode::instruction_table::FID_BITS;
+use crate::encode::instruction_table::IID_BITS;
+use crate::encode::COMMON_RANGE_BITS;
 
 use super::FromBn;
 
+const INDIRECT_CLASS_SHIFT: u32 = 192;
 lazy_static! {
-    static ref INDIRECT_CLASS_SHIFT: BigUint = BigUint::from(1u64) << 192;
+    static ref INDIRECT_CLASS_SHIFT_BN: BigUint = BigUint::one() << INDIRECT_CLASS_SHIFT;
 }
 
-pub(crate) const BR_TABLE_ENCODE_BOUNDARY: u32 = 224;
+pub const BR_TABLE_ENCODE_BOUNDARY: u32 = 224;
+// Tag only includes 1 bit(BrTable or Elem)
+const_assert!(INDIRECT_CLASS_SHIFT < BR_TABLE_ENCODE_BOUNDARY);
 
 pub fn encode_br_table_entry<T: FromBn>(
     fid: T,
@@ -21,37 +28,38 @@ pub fn encode_br_table_entry<T: FromBn>(
     keep: T,
     dst_pc: T,
 ) -> T {
-    const FID_SHIFT: u32 = IID_SHIFT + COMMON_RANGE_OFFSET;
-    const IID_SHIFT: u32 = INDEX_SHIFT + COMMON_RANGE_OFFSET;
-    const INDEX_SHIFT: u32 = DROP_SHIFT + COMMON_RANGE_OFFSET;
-    const DROP_SHIFT: u32 = KEEP_SHIFT + COMMON_RANGE_OFFSET;
-    const KEEP_SHIFT: u32 = DST_PC_SHIFT + COMMON_RANGE_OFFSET;
+    const FID_SHIFT: u32 = IID_SHIFT + IID_BITS;
+    const IID_SHIFT: u32 = INDEX_SHIFT + COMMON_RANGE_BITS;
+    const INDEX_SHIFT: u32 = DROP_SHIFT + COMMON_RANGE_BITS;
+    const DROP_SHIFT: u32 = KEEP_SHIFT + COMMON_RANGE_BITS;
+    const KEEP_SHIFT: u32 = DST_PC_SHIFT + COMMON_RANGE_BITS;
     const DST_PC_SHIFT: u32 = 0;
 
-    assert!(FID_SHIFT + COMMON_RANGE_OFFSET <= BR_TABLE_ENCODE_BOUNDARY);
+    assert!(FID_SHIFT + FID_BITS <= INDIRECT_CLASS_SHIFT);
 
-    T::from_bn(&(BigUint::from(IndirectClass::BrTable as u64))) * T::from_bn(&INDIRECT_CLASS_SHIFT)
-        + fid * T::from_bn(&(BigUint::from(1u64) << FID_SHIFT))
-        + iid * T::from_bn(&(BigUint::from(1u64) << IID_SHIFT))
-        + index * T::from_bn(&(BigUint::from(1u64) << INDEX_SHIFT))
-        + drop * T::from_bn(&(BigUint::from(1u64) << DROP_SHIFT))
-        + keep * T::from_bn(&(BigUint::from(1u64) << KEEP_SHIFT))
+    T::from_bn(&(BigUint::from(IndirectClass::BrTable as u64)))
+        * T::from_bn(&INDIRECT_CLASS_SHIFT_BN)
+        + fid * T::from_bn(&(BigUint::one() << FID_SHIFT))
+        + iid * T::from_bn(&(BigUint::one() << IID_SHIFT))
+        + index * T::from_bn(&(BigUint::one() << INDEX_SHIFT))
+        + drop * T::from_bn(&(BigUint::one() << DROP_SHIFT))
+        + keep * T::from_bn(&(BigUint::one() << KEEP_SHIFT))
         + dst_pc
 }
 
 pub fn encode_elem_entry<T: FromBn>(table_idx: T, type_idx: T, offset: T, func_idx: T) -> T {
-    const TABLE_INDEX_SHIFT: u32 = TYPE_INDEX_SHIFT + COMMON_RANGE_OFFSET;
-    const TYPE_INDEX_SHIFT: u32 = OFFSET_SHIFT + COMMON_RANGE_OFFSET;
-    const OFFSET_SHIFT: u32 = FUNC_INDEX + COMMON_RANGE_OFFSET;
+    const TABLE_INDEX_SHIFT: u32 = TYPE_INDEX_SHIFT + COMMON_RANGE_BITS;
+    const TYPE_INDEX_SHIFT: u32 = OFFSET_SHIFT + COMMON_RANGE_BITS;
+    const OFFSET_SHIFT: u32 = FUNC_INDEX + FID_BITS;
     const FUNC_INDEX: u32 = 0;
 
-    assert!(TABLE_INDEX_SHIFT + COMMON_RANGE_OFFSET <= BR_TABLE_ENCODE_BOUNDARY);
+    assert!(TABLE_INDEX_SHIFT + COMMON_RANGE_BITS <= INDIRECT_CLASS_SHIFT);
 
     T::from_bn(&(BigUint::from(IndirectClass::CallIndirect as u64)))
-        * T::from_bn(&INDIRECT_CLASS_SHIFT)
-        + table_idx * T::from_bn(&(BigUint::from(1u64) << TABLE_INDEX_SHIFT))
-        + type_idx * T::from_bn(&(BigUint::from(1u64) << TYPE_INDEX_SHIFT))
-        + offset * T::from_bn(&(BigUint::from(1u64) << OFFSET_SHIFT))
+        * T::from_bn(&INDIRECT_CLASS_SHIFT_BN)
+        + table_idx * T::from_bn(&(BigUint::one() << TABLE_INDEX_SHIFT))
+        + type_idx * T::from_bn(&(BigUint::one() << TYPE_INDEX_SHIFT))
+        + offset * T::from_bn(&(BigUint::one() << OFFSET_SHIFT))
         + func_idx
 }
 

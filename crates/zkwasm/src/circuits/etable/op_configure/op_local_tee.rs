@@ -4,27 +4,21 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
+use specs::encode::opcode::encode_local_tee;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct LocalTeeConfig<F: FieldExt> {
-    offset_cell: AllocatedCommonRangeCell<F>,
+    offset_cell: AllocatedU16Cell<F>,
     is_i32_cell: AllocatedBitCell<F>,
     value_cell: AllocatedU64Cell<F>,
     memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
@@ -40,7 +34,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalTeeConfigBuilder {
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let is_i32_cell = allocator.alloc_bit_cell();
-        let offset_cell = allocator.alloc_common_range_cell();
+        let offset_cell = allocator.alloc_u16_cell();
         let value_cell = allocator.alloc_u64_cell();
 
         let sp_cell = common_config.sp_cell;
@@ -80,17 +74,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LocalTeeConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::LocalTee as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_i32_cell.expr(meta)
-            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + self.offset_cell.expr(meta)
+        encode_local_tee(self.is_i32_cell.expr(meta), self.offset_cell.expr(meta))
     }
 
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -103,26 +93,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig<F> {
                 self.value_cell.assign(ctx, *value)?;
                 self.offset_cell.assign(ctx, F::from(*depth as u64))?;
 
-                self.memory_table_lookup_stack_read.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *value,
-                )?;
-
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entires[1].end_eid,
-                    step.current.sp + depth,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *value,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.memory_table_lookup_stack_read
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }

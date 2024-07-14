@@ -144,7 +144,7 @@ fn run_test() -> Result<()> {
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
 
-    test_circuit_with_env(K, wasm, "zkmain".to_owned(), public_inputs, private_inputs)?;
+    test_circuit_with_env(K, wasm, public_inputs, private_inputs)?;
 
     Ok(())
 }

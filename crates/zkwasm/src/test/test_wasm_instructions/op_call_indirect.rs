@@ -1,4 +1,4 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_call_indirect() {
@@ -19,10 +19,10 @@ fn test_call_indirect() {
                 i32.const 1
                 call_indirect (type 0))
             (table (;0;) 2 2 funcref)
-            (export "test" (func 2))
+            (export "zkmain" (func 2))
             (elem (;0;) (i32.const 0) func 0 1)
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

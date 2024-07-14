@@ -1,10 +1,10 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_const() {
     let textual_repr = r#"
             (module
-                (func (export "test")
+                (func (export "zkmain")
                   (i32.const 0)
                   (drop)
                   (i64.const 0)
@@ -13,5 +13,5 @@ fn test_const() {
                )
             "#;
 
-    test_circuit_noexternal(textual_repr).unwrap();
+    test_instruction(textual_repr).unwrap();
 }

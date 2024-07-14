@@ -90,7 +90,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -112,26 +112,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrConfig<F> {
                     self.value_cell.assign(ctx, keep_values[0])?;
                     self.is_i32_cell.assign(ctx, F::from(keep_type as u64))?;
 
-                    self.memory_table_lookup_stack_read.assign(
-                        ctx,
-                        entry.memory_rw_entires[0].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[0].end_eid,
-                        step.current.sp + 1,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
-
-                    self.memory_table_lookup_stack_write.assign(
-                        ctx,
-                        step.current.eid,
-                        entry.memory_rw_entires[1].end_eid,
-                        step.current.sp + *drop + 1,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
+                    let mut memory_entries = entry.memory_rw_entries.iter();
+                    self.memory_table_lookup_stack_read
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                    self.memory_table_lookup_stack_write
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
                 }
 
                 self.dst_pc_cell.assign(ctx, F::from((*dst_pc) as u64))?;

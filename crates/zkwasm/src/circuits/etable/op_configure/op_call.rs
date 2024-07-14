@@ -22,7 +22,7 @@ use specs::step::StepInfo;
 pub struct CallConfig<F: FieldExt> {
     // indicates if the calling returned in current slice.
     is_returned_cell: AllocatedBitCell<F>,
-    index_cell: AllocatedCommonRangeCell<F>,
+    index_cell: AllocatedU16Cell<F>,
     frame_table_lookup: AllocatedUnlimitedCell<F>,
 }
 
@@ -34,7 +34,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let index_cell = allocator.alloc_common_range_cell();
+        let index_cell = allocator.alloc_u16_cell();
         let frame_table_lookup = common_config.jtable_lookup_cell;
 
         let fid_cell = common_config.fid_cell;

@@ -1,4 +1,5 @@
 use crate::circuits::cell::AllocatedUnlimitedCell;
+use crate::circuits::cell::CellExpression;
 use crate::circuits::etable::allocator::EventTableCellAllocator;
 use crate::circuits::etable::constraint_builder::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
@@ -26,7 +27,35 @@ pub trait ForeignTableConfig<F: FieldExt> {
     );
 }
 
-pub(crate) trait EventTableForeignCallConfigBuilder<F: FieldExt> {
+pub(crate) trait EventTableForeignCallConfigBuilder<F: FieldExt>: Sized {
+    fn configure_all(
+        self,
+        common_config: &EventTableCommonConfig<F>,
+        allocator: &mut EventTableCellAllocator<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
+        lookup_cells: &mut (impl Iterator<Item = AllocatedUnlimitedCell<F>> + Clone),
+    ) -> Box<dyn EventTableOpcodeConfig<F>> {
+        let unused_args = common_config
+            .uniarg_configs
+            .iter()
+            .map(|x| x.is_enabled_cell)
+            .collect::<Vec<_>>();
+        constraint_builder.push(
+            "foreign call: uniarg",
+            Box::new(move |meta| {
+                vec![unused_args
+                    .iter()
+                    .map(|x| x.expr(meta))
+                    .reduce(|a, b| a + b)
+                    .unwrap()]
+            }),
+        );
+
+        let mut common_config = common_config.clone();
+        common_config.uniarg_configs = common_config.uniarg_configs.into_iter().take(0).collect();
+        self.configure(&common_config, allocator, constraint_builder, lookup_cells)
+    }
+
     fn configure(
         self,
         common_config: &EventTableCommonConfig<F>,

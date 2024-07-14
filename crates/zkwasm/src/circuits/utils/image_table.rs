@@ -19,6 +19,7 @@ use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::slice::Slice;
 use specs::state::InitializationState;
+use specs::state::INITIALIZATION_STATE_FIELD_COUNT;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::image_table::compute_maximal_pages;
@@ -27,7 +28,13 @@ use crate::circuits::utils::bn_to_field;
 
 pub const STACK_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
 pub const GLOBAL_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
-pub const INIT_MEMORY_ENTRIES_OFFSET: usize = 40960;
+pub const INSTRUCTION_CAPABILITY: usize = 65535;
+// 10 for InitializationState fields count
+// 2 * INSTRUCTION_CAPABILITY for instructions and constants
+pub const INIT_MEMORY_ENTRIES_OFFSET: usize = INITIALIZATION_STATE_FIELD_COUNT
+    + INHERITED_FRAME_TABLE_ENTRIES
+    + INSTRUCTION_CAPABILITY
+    + INSTRUCTION_CAPABILITY;
 
 pub(crate) struct InitMemoryLayouter {
     pub(crate) pages: u32,
@@ -81,6 +88,9 @@ pub fn image_table_offset_to_memory_location(offset: usize) -> (LocationType, u3
  * --------------------
  * Static Frame Entries
  * --------------------
+ * Constants extracted
+ * from instruction(u64)
+ * --------------------
  * Instructions
  * --------------------
  * Br Table
@@ -98,6 +108,7 @@ pub fn image_table_offset_to_memory_location(offset: usize) -> (LocationType, u3
 pub struct ImageTableLayouter<T> {
     pub(crate) initialization_state: InitializationState<T>,
     pub(crate) inherited_frame_entries: Box<[T; INHERITED_FRAME_TABLE_ENTRIES]>,
+    pub(crate) constants: Box<[T; INSTRUCTION_CAPABILITY]>,
     pub(crate) instructions: Vec<T>,
     pub(crate) br_table_entires: Vec<T>,
     // NOTE: unused instructions and br_table entries.
@@ -111,6 +122,7 @@ pub struct ImageTableAssigner {
 
     initialization_state_offset: usize,
     inherited_frame_entries_offset: usize,
+    constant_offset: usize,
     instruction_offset: usize,
     br_table_offset: usize,
     padding_offset: usize,
@@ -124,11 +136,16 @@ impl ImageTableAssigner {
         let initialization_state_offset = 0;
         let inherited_frame_entries_offset =
             initialization_state_offset + InitializationState::<u32>::field_count();
-        let instruction_offset = inherited_frame_entries_offset + INHERITED_FRAME_TABLE_ENTRIES;
+        let constant_offset = inherited_frame_entries_offset + INHERITED_FRAME_TABLE_ENTRIES;
+        let instruction_offset = constant_offset + INSTRUCTION_CAPABILITY;
         let br_table_offset = instruction_offset + instruction_number;
         let padding_offset = br_table_offset + br_table_number;
         let init_memory_offset = INIT_MEMORY_ENTRIES_OFFSET;
 
+        assert_eq!(
+            instruction_offset + INSTRUCTION_CAPABILITY,
+            init_memory_offset
+        );
         assert!(
             padding_offset <= init_memory_offset,
             "The number of instructions of the image({}) is too large",
@@ -140,6 +157,7 @@ impl ImageTableAssigner {
 
             initialization_state_offset,
             inherited_frame_entries_offset,
+            constant_offset,
             instruction_offset,
             br_table_offset,
             padding_offset,
@@ -164,6 +182,13 @@ impl ImageTableAssigner {
         >,
     ) -> Result<Box<[T; INHERITED_FRAME_TABLE_ENTRIES]>, Error> {
         inherited_frame_entries_handler(self.inherited_frame_entries_offset)
+    }
+
+    pub fn exec_constant<T, Error>(
+        &self,
+        mut handler: impl FnMut(usize) -> Result<Box<[T; INSTRUCTION_CAPABILITY]>, Error>,
+    ) -> Result<Box<[T; INSTRUCTION_CAPABILITY]>, Error> {
+        handler(self.constant_offset)
     }
 
     pub fn exec_instruction<T, Error>(
@@ -203,6 +228,7 @@ impl ImageTableAssigner {
             Box<[T; INHERITED_FRAME_TABLE_ENTRIES]>,
             Error,
         >,
+        constant_handler: impl FnMut(usize) -> Result<Box<[T; INSTRUCTION_CAPABILITY]>, Error>,
         instruction_handler: impl FnMut(usize) -> Result<Vec<T>, Error>,
         br_table_handler: impl FnMut(usize) -> Result<Vec<T>, Error>,
         padding_handler: impl FnMut(usize, usize) -> Result<Vec<T>, Error>,
@@ -211,6 +237,7 @@ impl ImageTableAssigner {
         let initialization_state = self.exec_initialization_state(initialization_state_handler)?;
         let inherited_frame_entries =
             self.exec_inherited_frame_entries(inherited_frame_entries_handler)?;
+        let constants = self.exec_constant(constant_handler)?;
         let instructions = self.exec_instruction(instruction_handler)?;
         let br_table_entires = self.exec_br_table_entires(br_table_handler)?;
         let padding_entires = self.exec_padding_entires(padding_handler)?;
@@ -218,6 +245,7 @@ impl ImageTableAssigner {
         Ok(ImageTableLayouter {
             initialization_state,
             inherited_frame_entries,
+            constants,
             instructions,
             br_table_entires,
             padding_entires,
@@ -247,6 +275,17 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
         }
 
         Ok(cells)
+    };
+
+    let constant_handler = |_| {
+        let mut cells = vec![F::zero(); INSTRUCTION_CAPABILITY].into_boxed_slice();
+
+        for (index, entry) in itable.instruction_constants().iter().enumerate() {
+            cells[index] =
+                bn_to_field(&ImageTableEncoder::Instruction.encode(BigUint::from(*entry)))
+        }
+
+        Ok(cells.try_into().unwrap())
     };
 
     let instruction_handler = |_| {
@@ -378,6 +417,7 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
         .exec::<_, Error>(
             initialization_state_handler,
             inherited_frame_entries_handler,
+            constant_handler,
             instruction_handler,
             br_table_handler,
             padding_handler,

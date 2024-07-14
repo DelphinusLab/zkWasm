@@ -61,7 +61,11 @@ use super::post_image_table::PostImageTableConfig;
 use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
-pub const VAR_COLUMNS: usize = 40;
+pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
+    43
+} else {
+    44
+};
 
 // Reserve 128 rows(greater than step size of all tables) to keep usable rows away from
 //   blind rows and range checking rows.
@@ -583,6 +587,14 @@ macro_rules! impl_zkwasm_circuit {
 
                         // 6. fixed part(instructions, br_tables, padding) within pre image chip and post image chip
                         if let Some((post_image_table_cells, _)) = post_image_table_cells.as_ref() {
+                            for (l, r) in pre_image_table_cells
+                                .constants
+                                .iter()
+                                .zip(post_image_table_cells.constants.iter())
+                            {
+                                region.constrain_equal(l.cell(), r.cell())?;
+                            }
+
                             for (l, r) in pre_image_table_cells
                                 .instructions
                                 .iter()

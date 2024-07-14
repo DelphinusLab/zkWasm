@@ -1,10 +1,10 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
@@ -14,26 +14,19 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
+use specs::encode::opcode::encode_select;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct SelectConfig<F: FieldExt> {
-    cond: AllocatedU64Cell<F>,
     cond_inv: AllocatedUnlimitedCell<F>,
+    res: AllocatedUnlimitedCell<F>,
 
-    val1: AllocatedU64Cell<F>,
-    val2: AllocatedU64Cell<F>,
-    res: AllocatedU64Cell<F>,
-    is_i32: AllocatedBitCell<F>,
-
-    memory_table_lookup_stack_read_cond: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_stack_read_val2: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_stack_read_val1: AllocatedMemoryTableLookupReadCell<F>,
+    cond_arg: EventTableCommonArgsConfig<F>,
+    rhs_arg: EventTableCommonArgsConfig<F>,
+    lhs_arg: EventTableCommonArgsConfig<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -45,90 +38,62 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let cond = allocator.alloc_u64_cell();
         let cond_inv = allocator.alloc_unlimited_cell();
+        let res = allocator.alloc_unlimited_cell();
 
-        let val1 = allocator.alloc_u64_cell();
-        let val2 = allocator.alloc_u64_cell();
-        let res = allocator.alloc_u64_cell();
-        let is_i32 = allocator.alloc_bit_cell();
+        let eid = common_config.eid_cell;
+        let sp = common_config.sp_cell;
+
+        let cond_arg = common_config.uniarg_configs[0].clone();
+        let rhs_arg = common_config.uniarg_configs[1].clone();
+        let lhs_arg = common_config.uniarg_configs[2].clone();
+        let is_i32 = lhs_arg.is_i32_cell;
+        let cond = cond_arg.value_cell;
+        let lhs = lhs_arg.value_cell;
+        let rhs = rhs_arg.value_cell;
+        constraint_builder.push(
+            "select: uniarg",
+            Box::new(move |meta| {
+                vec![
+                    cond_arg.is_i32_cell.expr(meta) - constant_from!(1),
+                    rhs_arg.is_i32_cell.expr(meta) - lhs_arg.is_i32_cell.expr(meta),
+                ]
+            }),
+        );
 
         constraint_builder.push(
             "select: cond is zero",
             Box::new(move |meta| {
                 vec![
-                    (constant_from!(1) - cond.u64_cell.expr(meta) * cond_inv.expr(meta))
-                        * (res.u64_cell.expr(meta) - val2.u64_cell.expr(meta)),
+                    (constant_from!(1) - cond.expr(meta) * cond_inv.expr(meta))
+                        * (res.expr(meta) - rhs.expr(meta)),
                 ]
             }),
         );
 
         constraint_builder.push(
             "select: cond is not zero",
-            Box::new(move |meta| {
-                vec![
-                    cond.u64_cell.expr(meta) * (res.u64_cell.expr(meta) - val1.u64_cell.expr(meta)),
-                ]
-            }),
+            Box::new(move |meta| vec![cond.expr(meta) * (res.expr(meta) - lhs.expr(meta))]),
         );
 
-        let eid = common_config.eid_cell;
-        let sp = common_config.sp_cell;
-
-        let memory_table_lookup_stack_read_cond = allocator.alloc_memory_table_lookup_read_cell(
-            "op_select stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| cond.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_read_val2 = allocator.alloc_memory_table_lookup_read_cell(
-            "op_select stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| val2.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_read_val1 = allocator.alloc_memory_table_lookup_read_cell(
-            "op_select stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(3),
-            move |meta| is_i32.expr(meta),
-            move |meta| val1.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_select stack write",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(3),
+            move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
             move |meta| is_i32.expr(meta),
-            move |meta| res.u64_cell.expr(meta),
+            move |meta| res.expr(meta),
             move |____| constant_from!(1),
         );
 
         Box::new(SelectConfig {
-            cond,
             cond_inv,
-            val1,
-            val2,
             res,
-            is_i32,
-            memory_table_lookup_stack_read_cond,
-            memory_table_lookup_stack_read_val2,
-            memory_table_lookup_stack_read_val1,
+            cond_arg,
+            rhs_arg,
+            lhs_arg,
             memory_table_lookup_stack_write,
         })
     }
@@ -136,9 +101,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
     fn opcode(&self, _: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Select as u64) << OPCODE_CLASS_SHIFT)
-        ))
+        encode_select(UniArgEncode::Reserve)
     }
 
     fn assign(
@@ -149,63 +112,25 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             StepInfo::Select {
-                val1,
-                val2,
                 cond,
                 result,
-                vtype,
+                lhs_uniarg,
+                rhs_uniarg,
+                cond_uniarg,
+                ..
             } => {
-                self.val1.assign(ctx, *val1)?;
-                self.val2.assign(ctx, *val2)?;
-                self.cond.assign(ctx, *cond)?;
                 if *cond != 0 {
                     self.cond_inv.assign(ctx, step.field_helper.invert(*cond))?;
                 }
-                self.res.assign(ctx, *result)?;
-                self.is_i32.assign_bool(ctx, *vtype == VarType::I32)?;
+                self.res.assign(ctx, F::from(*result))?;
 
-                self.memory_table_lookup_stack_read_cond.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    *cond,
-                )?;
-
-                self.memory_table_lookup_stack_read_val2.assign(
-                    ctx,
-                    entry.memory_rw_entires[1].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[1].end_eid,
-                    step.current.sp + 2,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *val2,
-                )?;
-
-                self.memory_table_lookup_stack_read_val1.assign(
-                    ctx,
-                    entry.memory_rw_entires[2].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[2].end_eid,
-                    step.current.sp + 3,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *val1,
-                )?;
-
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entires[3].end_eid,
-                    step.current.sp + 3,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *result,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.cond_arg
+                    .assign(ctx, cond_uniarg, &mut memory_entries)?;
+                self.rhs_arg.assign(ctx, rhs_uniarg, &mut memory_entries)?;
+                self.lhs_arg.assign(ctx, lhs_uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }
@@ -215,7 +140,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(2))
+        Some(constant!(-F::one()))
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

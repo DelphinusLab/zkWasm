@@ -1,10 +1,10 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_br_if_eqz_ok() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
               (block
                 (if (i32.const 0)
                   (then (br 0))
@@ -15,5 +15,5 @@ fn test_br_if_eqz_ok() {
            )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap();
+    test_instruction(textual_repr).unwrap();
 }

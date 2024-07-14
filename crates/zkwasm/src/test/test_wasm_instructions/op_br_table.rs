@@ -1,10 +1,10 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_br_table_1() {
     let textual_repr = r#"
         (module
-            (func (export "test") (result i32)
+            (func (export "zkmain") (result i32)
             (block
                 (block
                 (block
@@ -26,14 +26,14 @@ fn test_br_table_1() {
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap();
+    test_instruction(textual_repr).unwrap();
 }
 
 #[test]
 fn test_br_table_2() {
     let textual_repr = r#"
         (module
-            (func (export "test") (result i32)
+            (func (export "zkmain") (result i32)
             (block
                 (block
                 (block
@@ -55,14 +55,14 @@ fn test_br_table_2() {
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap();
+    test_instruction(textual_repr).unwrap();
 }
 
 #[test]
 fn test_br_table_oob_1() {
     let textual_repr = r#"
         (module
-            (func (export "test") (result i32)
+            (func (export "zkmain") (result i32)
             (block
                 (block
                 (block
@@ -84,14 +84,14 @@ fn test_br_table_oob_1() {
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap();
+    test_instruction(textual_repr).unwrap();
 }
 
 #[test]
 fn test_br_table_oob_2() {
     let textual_repr = r#"
         (module
-            (func (export "test") (result i32)
+            (func (export "zkmain") (result i32)
             (block
                 (block
                 (block
@@ -113,5 +113,5 @@ fn test_br_table_oob_2() {
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap();
+    test_instruction(textual_repr).unwrap();
 }

@@ -1,3 +1,4 @@
+use crate::circuits::MIN_K;
 use crate::loader::slice::Slices;
 use crate::loader::ZkWasmLoader;
 use crate::runtime::host::default_env::DefaultHostEnvBuilder;
@@ -23,7 +24,6 @@ mod test_start;
 pub fn test_circuit_with_env(
     k: u32,
     wasm: Vec<u8>,
-    function_name: String,
     public_inputs: Vec<u64>,
     private_inputs: Vec<u64>,
 ) -> Result<()> {
@@ -44,8 +44,7 @@ pub fn test_circuit_with_env(
         &vec![],
         &env,
     );
-    let mut loader = ZkWasmLoader::new(k, env)?;
-    loader.set_entry(function_name);
+    let loader = ZkWasmLoader::new(k, env)?;
 
     let runner = loader.compile(&module, &mut monitor)?;
 
@@ -59,15 +58,13 @@ pub fn test_circuit_with_env(
 
 /// Run test function and generate trace, then test circuit with mock prover. Only tests should
 /// use this function.
-fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
-    use crate::circuits::MIN_K;
-
+fn test_instruction(textual_repr: &str) -> Result<()> {
     let mut features = Features::new();
     features.enable_sign_extension();
 
     let wasm = wat2wasm_with_features(textual_repr, features).expect("failed to parse wat");
 
-    test_circuit_with_env(MIN_K, wasm, "test".to_string(), vec![], vec![])?;
+    test_circuit_with_env(MIN_K, wasm, vec![], vec![])?;
 
     Ok(())
 }

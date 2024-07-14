@@ -8,7 +8,7 @@ use crate::encode::instruction_table::INSTRUCTION_ENCODE_BOUNDARY;
 
 use super::FromBn;
 
-const CLASS_SHIFT: u32 = 224;
+const CLASS_SHIFT: u32 = 250;
 
 #[derive(Clone, Copy)]
 pub enum ImageTableEncoder {
@@ -22,7 +22,7 @@ const_assert!(BR_TABLE_ENCODE_BOUNDARY <= CLASS_SHIFT);
 const_assert!(INIT_MEMORY_ENCODE_BOUNDARY <= CLASS_SHIFT);
 
 lazy_static! {
-    static ref INSTRUCTION_TAG: BigUint = (ImageTableEncoder::Instruction as u64)
+    pub static ref INSTRUCTION_TAG: BigUint = (ImageTableEncoder::Instruction as u64)
         .to_biguint()
         .unwrap()
         << CLASS_SHIFT;

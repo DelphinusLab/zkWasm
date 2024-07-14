@@ -1,11 +1,9 @@
 use crate::external_host_call_table::ExternalHostCallSignature;
 use crate::host_function::HostPlugin;
 use crate::host_function::Signature;
-use crate::itable::BinOp;
-use crate::itable::BitOp;
-use crate::itable::RelOp;
-use crate::itable::ShiftOp;
+use crate::itable::BinaryOp;
 use crate::itable::UnaryOp;
+use crate::itable::UniArg;
 use crate::mtable::MemoryReadSize;
 use crate::mtable::MemoryStoreSize;
 use crate::mtable::VarType;
@@ -13,7 +11,7 @@ use crate::types::ValueType;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StepInfo {
     Br {
         dst_pc: u32,
@@ -27,6 +25,7 @@ pub enum StepInfo {
         drop: u32,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
+        uniarg: UniArg,
     },
     BrIfNez {
         condition: i32,
@@ -34,6 +33,7 @@ pub enum StepInfo {
         drop: u32,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
+        uniarg: UniArg,
     },
     BrTable {
         index: i32,
@@ -41,6 +41,7 @@ pub enum StepInfo {
         drop: u32,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
+        uniarg: UniArg,
     },
     Return {
         drop: u32,
@@ -50,9 +51,12 @@ pub enum StepInfo {
 
     Drop,
     Select {
-        val1: u64,
-        val2: u64,
+        lhs: u64,
+        lhs_uniarg: UniArg,
+        rhs: u64,
+        rhs_uniarg: UniArg,
         cond: u64,
+        cond_uniarg: UniArg,
         result: u64,
         vtype: VarType,
     },
@@ -65,6 +69,7 @@ pub enum StepInfo {
         type_index: u32,
         offset: u32,
         func_index: u32,
+        uniarg: UniArg,
     },
     CallHost {
         plugin: HostPlugin,
@@ -90,6 +95,7 @@ pub enum StepInfo {
         vtype: VarType,
         depth: u32,
         value: u64,
+        uniarg: UniArg,
     },
     TeeLocal {
         vtype: VarType,
@@ -108,6 +114,7 @@ pub enum StepInfo {
         vtype: VarType,
         is_mutable: bool,
         value: u64,
+        uniarg: UniArg,
     },
 
     Load {
@@ -119,6 +126,7 @@ pub enum StepInfo {
         value: u64,
         block_value1: u64,
         block_value2: u64,
+        uniarg: UniArg,
     },
     Store {
         vtype: VarType,
@@ -131,12 +139,15 @@ pub enum StepInfo {
         pre_block_value2: u64,
         updated_block_value2: u64,
         value: u64,
+        pos_uniarg: UniArg,
+        val_uniarg: UniArg,
     },
 
     MemorySize,
     MemoryGrow {
         grow_size: i32,
         result: i32,
+        uniarg: UniArg,
     },
 
     I32Const {
@@ -147,41 +158,23 @@ pub enum StepInfo {
     },
 
     I32BinOp {
-        class: BinOp,
+        class: BinaryOp,
         left: i32,
+        lhs_uniarg: UniArg,
         right: i32,
-        value: i32,
-    },
-    I32BinShiftOp {
-        class: ShiftOp,
-        left: i32,
-        right: i32,
-        value: i32,
-    },
-    I32BinBitOp {
-        class: BitOp,
-        left: i32,
-        right: i32,
+        rhs_uniarg: UniArg,
         value: i32,
     },
 
     I64BinOp {
-        class: BinOp,
+        class: BinaryOp,
         left: i64,
+        lhs_uniarg: UniArg,
         right: i64,
+        rhs_uniarg: UniArg,
         value: i64,
-    },
-    I64BinShiftOp {
-        class: ShiftOp,
-        left: i64,
-        right: i64,
-        value: i64,
-    },
-    I64BinBitOp {
-        class: BitOp,
-        left: i64,
-        right: i64,
-        value: i64,
+        // rel should return i32, otherwise i64
+        value_type: VarType,
     },
 
     UnaryOp {
@@ -189,53 +182,50 @@ pub enum StepInfo {
         vtype: VarType,
         operand: u64,
         result: u64,
+        uniarg: UniArg,
     },
 
     Test {
         vtype: VarType,
         value: u64,
         result: i32,
-    },
-    I32Comp {
-        class: RelOp,
-        left: i32,
-        right: i32,
-        value: bool,
-    },
-    I64Comp {
-        class: RelOp,
-        left: i64,
-        right: i64,
-        value: bool,
+        uniarg: UniArg,
     },
 
     I32WrapI64 {
         value: i64,
         result: i32,
+        uniarg: UniArg,
     },
     I64ExtendI32 {
         value: i32,
         result: i64,
         sign: bool,
+        uniarg: UniArg,
     },
     I32SignExtendI8 {
         value: i32,
         result: i32,
+        uniarg: UniArg,
     },
     I32SignExtendI16 {
         value: i32,
         result: i32,
+        uniarg: UniArg,
     },
     I64SignExtendI8 {
         value: i64,
         result: i64,
+        uniarg: UniArg,
     },
     I64SignExtendI16 {
         value: i64,
         result: i64,
+        uniarg: UniArg,
     },
     I64SignExtendI32 {
         value: i64,
         result: i64,
+        uniarg: UniArg,
     },
 }

@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -17,18 +18,19 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::opcode::encode_bin_shift;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
 use specs::itable::ShiftOp;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 pub struct BinShiftConfig<F: FieldExt> {
+    lhs_arg: EventTableCommonArgsConfig<F>,
+    rhs_arg: EventTableCommonArgsConfig<F>,
     lhs: AllocatedU64CellWithFlagBitDyn<F>,
     rhs: AllocatedU64Cell<F>,
+
     round: AllocatedU64Cell<F>,
     rem: AllocatedU64Cell<F>,
     diff: AllocatedU64Cell<F>,
@@ -37,11 +39,9 @@ pub struct BinShiftConfig<F: FieldExt> {
     rhs_modulus: AllocatedUnlimitedCell<F>,
     size_modulus: AllocatedUnlimitedCell<F>,
 
-    rhs_round: AllocatedCommonRangeCell<F>,
-    rhs_rem: AllocatedCommonRangeCell<F>,
-    rhs_rem_diff: AllocatedCommonRangeCell<F>,
-
-    is_i32: AllocatedBitCell<F>,
+    rhs_round: AllocatedU16Cell<F>,
+    rhs_rem: AllocatedU16Cell<F>,
+    rhs_rem_diff: AllocatedU16Cell<F>,
 
     is_shl: AllocatedBitCell<F>,
     is_shr_u: AllocatedBitCell<F>,
@@ -55,8 +55,6 @@ pub struct BinShiftConfig<F: FieldExt> {
     lookup_pow_modulus: AllocatedUnlimitedCell<F>,
     lookup_pow_power: AllocatedUnlimitedCell<F>,
 
-    memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -68,10 +66,24 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let is_i32 = allocator.alloc_bit_cell();
+        let rhs_arg = common_config.uniarg_configs[0].clone();
+        let lhs_arg = common_config.uniarg_configs[1].clone();
+        let is_i32 = rhs_arg.is_i32_cell;
         let lhs = allocator
             .alloc_u64_with_flag_bit_cell_dyn(constraint_builder, move |meta| is_i32.expr(meta));
         let rhs = allocator.alloc_u64_cell();
+
+        constraint_builder.push(
+            "op_bin_shift: uniarg",
+            Box::new(move |meta| {
+                vec![
+                    rhs_arg.is_i32_cell.expr(meta) - lhs_arg.is_i32_cell.expr(meta),
+                    rhs_arg.value_cell.expr(meta) - rhs.u64_cell.expr(meta),
+                    lhs_arg.value_cell.expr(meta) - lhs.u64_cell.expr(meta),
+                ]
+            }),
+        );
+
         let round = allocator.alloc_u64_cell();
         let rem = allocator.alloc_u64_cell();
         let diff = allocator.alloc_u64_cell();
@@ -79,9 +91,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let rhs_modulus = allocator.alloc_unlimited_cell();
         let size_modulus = allocator.alloc_unlimited_cell();
 
-        let rhs_round = allocator.alloc_common_range_cell();
-        let rhs_rem = allocator.alloc_common_range_cell();
-        let rhs_rem_diff = allocator.alloc_common_range_cell();
+        let rhs_round = allocator.alloc_u16_cell();
+        let rhs_rem = allocator.alloc_u16_cell();
+        let rhs_rem_diff = allocator.alloc_u16_cell();
 
         let is_shl = allocator.alloc_bit_cell();
         let is_shr_u = allocator.alloc_bit_cell();
@@ -100,35 +112,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin_shift stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| rhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin_shift stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| lhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
                 "op_bin_shift stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
                 move |meta| is_i32.expr(meta),
                 move |____| constant_from!(1),
             );
@@ -283,6 +274,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         Box::new(BinShiftConfig {
+            lhs_arg,
+            rhs_arg,
             lhs,
             rhs,
             round,
@@ -293,7 +286,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             rhs_round,
             rhs_rem,
             rhs_rem_diff,
-            is_i32,
             is_shl,
             is_shr_u,
             is_shr_s,
@@ -303,8 +295,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             is_r,
             lookup_pow_modulus,
             lookup_pow_power,
-            memory_table_lookup_stack_read_lhs,
-            memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
             rhs_modulus,
             size_modulus,
@@ -315,44 +305,35 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::BinShift as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_shl.expr(meta)
-            * constant!(bn_to_field(
-                &(BigUint::from(ShiftOp::Shl as u64) << OPCODE_ARG0_SHIFT)
-            ))
-            + self.is_shr_u.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::UnsignedShr as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_shr_s.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::SignedShr as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_rotl.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::Rotl as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_rotr.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::Rotr as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_i32.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+        encode_bin_shift(
+            self.is_shl.expr(meta) * constant_from_bn!(&(BigUint::from(ShiftOp::Shl as u64)))
+                + self.is_shr_u.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::UnsignedShr as u64)))
+                + self.is_shr_s.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::SignedShr as u64)))
+                + self.is_rotl.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::Rotl as u64)))
+                + self.is_rotr.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::Rotr as u64))),
+            self.rhs_arg.is_i32_cell.expr(meta),
+            UniArgEncode::Reserve,
+        )
     }
 
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (class, left, right, value, power, is_eight_bytes, _is_sign) =
+        let (class, left, right, value, power, is_eight_bytes, _is_sign, lhs_uniarg, rhs_uniarg) =
             match entry.eentry.step_info {
-                StepInfo::I32BinShiftOp {
+                StepInfo::I32BinOp {
                     class,
                     left,
+                    lhs_uniarg,
                     right,
+                    rhs_uniarg,
                     value,
                 } => {
                     let left = left as u32 as u64;
@@ -361,14 +342,27 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     let power = right % 32;
                     let is_eight_bytes = false;
                     let is_sign = true;
-                    (class, left, right, value, power, is_eight_bytes, is_sign)
+                    (
+                        class.as_shift_op(),
+                        left,
+                        right,
+                        value,
+                        power,
+                        is_eight_bytes,
+                        is_sign,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
                 }
 
-                StepInfo::I64BinShiftOp {
+                StepInfo::I64BinOp {
                     class,
                     left,
+                    lhs_uniarg,
                     right,
+                    rhs_uniarg,
                     value,
+                    ..
                 } => {
                     let left = left as u64;
                     let right = right as u64;
@@ -376,7 +370,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     let power = right % 64;
                     let is_eight_bytes = true;
                     let is_sign = true;
-                    (class, left, right, value, power, is_eight_bytes, is_sign)
+                    (
+                        class.as_shift_op(),
+                        left,
+                        right,
+                        value,
+                        power,
+                        is_eight_bytes,
+                        is_sign,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
                 }
 
                 _ => {
@@ -407,8 +411,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
         self.lookup_pow_modulus.assign(ctx, modulus.into())?;
         self.lookup_pow_power
             .assign_bn(ctx, &pow_table_power_encode(BigUint::from(power)))?;
-        self.is_i32
-            .assign(ctx, if is_eight_bytes { F::zero() } else { F::one() })?;
         self.res.assign(ctx, F::from(value))?;
         self.rhs_modulus
             .assign_u32(ctx, if is_eight_bytes { 64 } else { 32 })?;
@@ -479,37 +481,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             }
         }
 
-        self.memory_table_lookup_stack_read_rhs.assign(
-            ctx,
-            entry.memory_rw_entires[0].start_eid,
-            step.current.eid,
-            entry.memory_rw_entires[0].end_eid,
-            step.current.sp + 1,
-            LocationType::Stack,
-            !is_eight_bytes,
-            right,
-        )?;
+        let mut memory_entries = entry.memory_rw_entries.iter();
 
-        self.memory_table_lookup_stack_read_lhs.assign(
-            ctx,
-            entry.memory_rw_entires[1].start_eid,
-            step.current.eid,
-            entry.memory_rw_entires[1].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            !is_eight_bytes,
-            left,
-        )?;
-
-        self.memory_table_lookup_stack_write.assign(
-            ctx,
-            step.current.eid,
-            entry.memory_rw_entires[2].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            !is_eight_bytes,
-            value,
-        )?;
+        self.rhs_arg.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
+        self.lhs_arg.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
+        self.memory_table_lookup_stack_write
+            .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
         Ok(())
     }
@@ -523,6 +500,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant!(F::one()))
+        Some(constant!(-F::one()))
     }
 }

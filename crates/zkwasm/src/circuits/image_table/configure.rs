@@ -8,6 +8,8 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::image_table::ImageTableEncoder;
 
+use crate::fixed_curr;
+
 use super::ImageTableConfig;
 
 impl<F: FieldExt> ImageTableConfig<F> {
@@ -28,8 +30,11 @@ impl<F: FieldExt> ImageTableConfig<F> {
 
         meta.enable_equality(col);
 
+        let opcode_prefix = meta.fixed_column();
+
         Self {
             memory_addr_sel,
+            opcode_prefix,
             col,
             _mark: PhantomData,
         }
@@ -39,13 +44,17 @@ impl<F: FieldExt> ImageTableConfig<F> {
         &self,
         meta: &mut ConstraintSystem<F>,
         key: &'static str,
-        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        expr: impl FnOnce(&mut VirtualCells<'_, F>) -> [Expression<F>; 2],
     ) {
         meta.lookup_any(key, |meta| {
-            vec![(
-                ImageTableEncoder::Instruction.encode(expr(meta)),
-                self.expr(meta),
-            )]
+            let [prefix, content] = expr(meta);
+            vec![
+                (prefix, fixed_curr!(meta, self.opcode_prefix)),
+                (
+                    ImageTableEncoder::Instruction.encode(content),
+                    self.expr(meta),
+                ),
+            ]
         });
     }
 
@@ -56,8 +65,6 @@ impl<F: FieldExt> ImageTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>),
     ) {
-        use crate::fixed_curr;
-
         meta.lookup_any(key, |meta| {
             let (addr, encode) = expr(meta);
 

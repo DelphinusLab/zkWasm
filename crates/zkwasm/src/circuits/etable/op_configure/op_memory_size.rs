@@ -4,7 +4,6 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
@@ -14,10 +13,8 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
+use specs::encode::opcode::encode_memory_size;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
@@ -56,28 +53,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemorySizeConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for MemorySizeConfig<F> {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::MemorySize as u64) << OPCODE_CLASS_SHIFT)
-        ))
+        encode_memory_size()
     }
 
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             StepInfo::MemorySize => {
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp,
-                    LocationType::Stack,
-                    true,
-                    step.current.allocated_memory_pages as u64,
-                )?;
+                let mut memory_rw_entries = entry.memory_rw_entries.iter();
+
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_rw_entries)?;
 
                 Ok(())
             }

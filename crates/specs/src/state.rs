@@ -17,10 +17,11 @@ pub struct InitializationState<T> {
     pub maximal_memory_pages: T,
 }
 
+pub const INITIALIZATION_STATE_FIELD_COUNT: usize = 10;
 impl<T> InitializationState<T> {
     // TODO: try to remove the magic number
     pub fn field_count() -> usize {
-        10
+        INITIALIZATION_STATE_FIELD_COUNT
     }
 
     pub fn zip_for_each<U, E>(
