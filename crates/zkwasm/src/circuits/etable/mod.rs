@@ -58,10 +58,10 @@ use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
+use specs::itable::UniArg;
 use specs::mtable::LocationType;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use wasmi::isa::UniArg;
 
 pub(super) mod assign;
 mod op_configure;

@@ -9,6 +9,7 @@ use specs::itable::RelOp;
 use specs::itable::ShiftOp;
 use specs::itable::TestOp;
 use specs::itable::UnaryOp;
+use specs::itable::UniArg;
 use specs::mtable::MemoryReadSize;
 use specs::mtable::MemoryStoreSize;
 use specs::mtable::VarType;
@@ -54,7 +55,7 @@ impl PhantomFunction {
             instructions.push(Instruction::Call(wasm_input_function_idx));
 
             if sig.return_type() != Some(wasmi::ValueType::I64) {
-                instructions.push(Instruction::I32WrapI64(isa::UniArg::Pop));
+                instructions.push(Instruction::I32WrapI64(UniArg::Pop));
             }
         }
 
@@ -82,9 +83,10 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 offset: offset as u64,
                 vtype: typ.into(),
             },
-            Instruction::SetLocal(offset, typ, ..) => Opcode::LocalSet {
+            Instruction::SetLocal(offset, typ, uniarg) => Opcode::LocalSet {
                 offset: offset as u64,
                 vtype: typ.into(),
+                uniarg,
             },
             Instruction::TeeLocal(offset, typ, ..) => Opcode::LocalTee {
                 offset: offset as u64,
@@ -99,7 +101,7 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 },
                 dst_pc,
             },
-            Instruction::BrIfEqz(Target { dst_pc, drop_keep }, ..) => Opcode::BrIfEqz {
+            Instruction::BrIfEqz(Target { dst_pc, drop_keep }, uniarg) => Opcode::BrIfEqz {
                 drop: drop_keep.drop,
                 keep: if let Keep::Single(t) = drop_keep.keep {
                     vec![t.into()]
@@ -107,8 +109,9 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                     vec![]
                 },
                 dst_pc,
+                uniarg,
             },
-            Instruction::BrIfNez(Target { dst_pc, drop_keep }, ..) => Opcode::BrIf {
+            Instruction::BrIfNez(Target { dst_pc, drop_keep }, uniarg) => Opcode::BrIf {
                 drop: drop_keep.drop,
                 keep: if let Keep::Single(t) = drop_keep.keep {
                     vec![t.into()]
@@ -116,8 +119,9 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                     vec![]
                 },
                 dst_pc,
+                uniarg,
             },
-            Instruction::BrTable(targets, ..) => Opcode::BrTable {
+            Instruction::BrTable(targets, uniarg) => Opcode::BrTable {
                 targets: targets
                     .stream
                     .iter()
@@ -138,6 +142,7 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                         }
                     })
                     .collect(),
+                uniarg,
             },
             Instruction::Unreachable => Opcode::Unreachable,
             Instruction::Return(drop_keep) => Opcode::Return {
@@ -169,112 +174,139 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                     }
                 }
             }
-            Instruction::CallIndirect(idx, ..) => Opcode::CallIndirect { type_idx: idx },
+            Instruction::CallIndirect(idx, uniarg) => Opcode::CallIndirect {
+                type_idx: idx,
+                uniarg,
+            },
             Instruction::Drop => Opcode::Drop,
-            Instruction::Select(_, ..) => Opcode::Select,
+            Instruction::Select(_, _arg0, _arg1) => Opcode::Select {
+                uniargs: todo!(),
+            },
             Instruction::GetGlobal(idx, ..) => Opcode::GlobalGet { idx: idx as u64 },
-            Instruction::SetGlobal(idx, ..) => Opcode::GlobalSet { idx: idx as u64 },
-            Instruction::I32Load(offset, ..) => Opcode::Load {
+            Instruction::SetGlobal(idx, uniarg) => Opcode::GlobalSet {
+                idx: idx as u64,
+                uniarg,
+            },
+            Instruction::I32Load(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::U32,
+                uniarg,
             },
-            Instruction::I64Load(offset, ..) => Opcode::Load {
+            Instruction::I64Load(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::I64,
+                uniarg,
             },
             Instruction::F32Load(_) => todo!(),
             Instruction::F64Load(_) => todo!(),
-            Instruction::I32Load8S(offset, ..) => Opcode::Load {
+            Instruction::I32Load8S(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::S8,
+                uniarg,
             },
-            Instruction::I32Load8U(offset, ..) => Opcode::Load {
+            Instruction::I32Load8U(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::U8,
+                uniarg,
             },
-            Instruction::I32Load16S(offset, ..) => Opcode::Load {
+            Instruction::I32Load16S(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::S16,
+                uniarg,
             },
-            Instruction::I32Load16U(offset, ..) => Opcode::Load {
+            Instruction::I32Load16U(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::U16,
+                uniarg,
             },
-            Instruction::I64Load8S(offset, ..) => Opcode::Load {
+            Instruction::I64Load8S(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::S8,
+                uniarg,
             },
-            Instruction::I64Load8U(offset, ..) => Opcode::Load {
+            Instruction::I64Load8U(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::U8,
+                uniarg,
             },
-            Instruction::I64Load16S(offset, ..) => Opcode::Load {
+            Instruction::I64Load16S(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::S16,
+                uniarg,
             },
-            Instruction::I64Load16U(offset, ..) => Opcode::Load {
+            Instruction::I64Load16U(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::U16,
+                uniarg,
             },
-            Instruction::I64Load32S(offset, ..) => Opcode::Load {
+            Instruction::I64Load32S(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::S32,
+                uniarg,
             },
-            Instruction::I64Load32U(offset, ..) => Opcode::Load {
+            Instruction::I64Load32U(offset, uniarg) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::U32,
+                uniarg,
             },
-            Instruction::I32Store(offset, ..) => Opcode::Store {
+            Instruction::I32Store(offset, arg0, arg1) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Store(offset, ..) => Opcode::Store {
+            Instruction::I64Store(offset, arg0, arg1) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte64,
+                uniargs: [arg0, arg1],
             },
             Instruction::F32Store(_) => todo!(),
             Instruction::F64Store(_) => todo!(),
-            Instruction::I32Store8(offset, ..) => Opcode::Store {
+            Instruction::I32Store8(offset, arg0, arg1) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte8,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Store16(offset, ..) => Opcode::Store {
+            Instruction::I32Store16(offset, arg0, arg1) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte16,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Store8(offset, ..) => Opcode::Store {
+            Instruction::I64Store8(offset, arg0, arg1) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte8,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Store16(offset, ..) => Opcode::Store {
+            Instruction::I64Store16(offset, arg0, arg1) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte16,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Store32(offset, ..) => Opcode::Store {
+            Instruction::I64Store32(offset, arg0, arg1) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte32,
+                uniargs: [arg0, arg1],
             },
             Instruction::CurrentMemory => Opcode::MemorySize,
-            Instruction::GrowMemory(_) => Opcode::MemoryGrow,
+            Instruction::GrowMemory(uniarg) => Opcode::MemoryGrow { uniarg },
             Instruction::I32Const(v) => Opcode::Const {
                 vtype: VarType::I32,
                 value: v as u32 as u64,
@@ -285,93 +317,115 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             },
             Instruction::F32Const(_) => todo!(),
             Instruction::F64Const(_) => todo!(),
-            Instruction::I32Eqz(_) => Opcode::Test {
+            Instruction::I32Eqz(uniarg) => Opcode::Test {
                 class: TestOp::Eqz,
                 vtype: VarType::I32,
+                uniarg,
             },
-            Instruction::I32Eq(..) => Opcode::Rel {
+            Instruction::I32Eq(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Eq,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Ne(..) => Opcode::Rel {
+            Instruction::I32Ne(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Ne,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32LtS(..) => Opcode::Rel {
+            Instruction::I32LtS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedLt,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32LtU(..) => Opcode::Rel {
+            Instruction::I32LtU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedLt,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32GtS(..) => Opcode::Rel {
+            Instruction::I32GtS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedGt,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32GtU(..) => Opcode::Rel {
+            Instruction::I32GtU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedGt,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32LeS(..) => Opcode::Rel {
+            Instruction::I32LeS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedLe,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32LeU(..) => Opcode::Rel {
+            Instruction::I32LeU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedLe,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32GeS(..) => Opcode::Rel {
+            Instruction::I32GeS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedGe,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32GeU(..) => Opcode::Rel {
+            Instruction::I32GeU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedGe,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Eqz(..) => Opcode::Test {
+            Instruction::I64Eqz(uniarg) => Opcode::Test {
                 class: TestOp::Eqz,
                 vtype: VarType::I64,
+                uniarg,
             },
-            Instruction::I64Eq(..) => Opcode::Rel {
+            Instruction::I64Eq(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Eq,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Ne(..) => Opcode::Rel {
+            Instruction::I64Ne(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Ne,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64LtS(..) => Opcode::Rel {
+            Instruction::I64LtS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedLt,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64LtU(..) => Opcode::Rel {
+            Instruction::I64LtU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedLt,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64GtS(..) => Opcode::Rel {
+            Instruction::I64GtS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedGt,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64GtU(..) => Opcode::Rel {
+            Instruction::I64GtU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedGt,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64LeS(..) => Opcode::Rel {
+            Instruction::I64LeS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedLe,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64LeU(..) => Opcode::Rel {
+            Instruction::I64LeU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedLe,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64GeS(..) => Opcode::Rel {
+            Instruction::I64GeS(arg0, arg1) => Opcode::Rel {
                 class: RelOp::SignedGe,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64GeU(..) => Opcode::Rel {
+            Instruction::I64GeU(arg0, arg1) => Opcode::Rel {
                 class: RelOp::UnsignedGe,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
             Instruction::F32Eq => todo!(),
             Instruction::F32Ne => todo!(),
@@ -385,149 +439,185 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             Instruction::F64Gt => todo!(),
             Instruction::F64Le => todo!(),
             Instruction::F64Ge => todo!(),
-            Instruction::I32Clz(..) => Opcode::Unary {
+            Instruction::I32Clz(uniarg) => Opcode::Unary {
                 class: UnaryOp::Clz,
                 vtype: VarType::I32,
+                uniarg,
             },
-            Instruction::I32Ctz(..) => Opcode::Unary {
+            Instruction::I32Ctz(uniarg) => Opcode::Unary {
                 class: UnaryOp::Ctz,
                 vtype: VarType::I32,
+                uniarg,
             },
-            Instruction::I32Popcnt(..) => Opcode::Unary {
+            Instruction::I32Popcnt(uniarg) => Opcode::Unary {
                 class: UnaryOp::Popcnt,
                 vtype: VarType::I32,
+                uniarg,
             },
-            Instruction::I32Add(_, _) => Opcode::Bin {
+            Instruction::I32Add(arg0, arg1) => Opcode::Bin {
                 class: BinOp::Add,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Sub(_, _) => Opcode::Bin {
+            Instruction::I32Sub(arg0, arg1) => Opcode::Bin {
                 class: BinOp::Sub,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Mul(_, _) => Opcode::Bin {
+            Instruction::I32Mul(arg0, arg1) => Opcode::Bin {
                 class: BinOp::Mul,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32DivS(..) => Opcode::Bin {
+            Instruction::I32DivS(arg0, arg1) => Opcode::Bin {
                 class: BinOp::SignedDiv,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32DivU(..) => Opcode::Bin {
+            Instruction::I32DivU(arg0, arg1) => Opcode::Bin {
                 class: BinOp::UnsignedDiv,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32RemS(..) => Opcode::Bin {
+            Instruction::I32RemS(arg0, arg1) => Opcode::Bin {
                 class: BinOp::SignedRem,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32RemU(..) => Opcode::Bin {
+            Instruction::I32RemU(arg0, arg1) => Opcode::Bin {
                 class: BinOp::UnsignedRem,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32And(..) => Opcode::BinBit {
+            Instruction::I32And(arg0, arg1) => Opcode::BinBit {
                 class: BitOp::And,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Or(..) => Opcode::BinBit {
+            Instruction::I32Or(arg0, arg1) => Opcode::BinBit {
                 class: BitOp::Or,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Xor(..) => Opcode::BinBit {
+            Instruction::I32Xor(arg0, arg1) => Opcode::BinBit {
                 class: BitOp::Xor,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Shl(..) => Opcode::BinShift {
+            Instruction::I32Shl(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::Shl,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32ShrS(..) => Opcode::BinShift {
+            Instruction::I32ShrS(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::SignedShr,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32ShrU(..) => Opcode::BinShift {
+            Instruction::I32ShrU(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::UnsignedShr,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Rotl(..) => Opcode::BinShift {
+            Instruction::I32Rotl(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::Rotl,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I32Rotr(..) => Opcode::BinShift {
+            Instruction::I32Rotr(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::Rotr,
                 vtype: VarType::I32,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Clz(..) => Opcode::Unary {
+            Instruction::I64Clz(uniarg) => Opcode::Unary {
                 class: UnaryOp::Clz,
                 vtype: VarType::I64,
+                uniarg,
             },
-            Instruction::I64Ctz(..) => Opcode::Unary {
+            Instruction::I64Ctz(uniarg) => Opcode::Unary {
                 class: UnaryOp::Ctz,
                 vtype: VarType::I64,
+                uniarg,
             },
-            Instruction::I64Popcnt(..) => Opcode::Unary {
+            Instruction::I64Popcnt(uniarg) => Opcode::Unary {
                 class: UnaryOp::Popcnt,
                 vtype: VarType::I64,
+                uniarg,
             },
-            Instruction::I64Add(..) => Opcode::Bin {
+            Instruction::I64Add(arg0, arg1) => Opcode::Bin {
                 class: BinOp::Add,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Sub(..) => Opcode::Bin {
+            Instruction::I64Sub(arg0, arg1) => Opcode::Bin {
                 class: BinOp::Sub,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Mul(..) => Opcode::Bin {
+            Instruction::I64Mul(arg0, arg1) => Opcode::Bin {
                 class: BinOp::Mul,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64DivS(..) => Opcode::Bin {
+            Instruction::I64DivS(arg0, arg1) => Opcode::Bin {
                 class: BinOp::SignedDiv,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64DivU(..) => Opcode::Bin {
+            Instruction::I64DivU(arg0, arg1) => Opcode::Bin {
                 class: BinOp::UnsignedDiv,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64RemS(..) => Opcode::Bin {
+            Instruction::I64RemS(arg0, arg1) => Opcode::Bin {
                 class: BinOp::SignedRem,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64RemU(..) => Opcode::Bin {
+            Instruction::I64RemU(arg0, arg1) => Opcode::Bin {
                 class: BinOp::UnsignedRem,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64And(..) => Opcode::BinBit {
+            Instruction::I64And(arg0, arg1) => Opcode::BinBit {
                 class: BitOp::And,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Or(..) => Opcode::BinBit {
+            Instruction::I64Or(arg0, arg1) => Opcode::BinBit {
                 class: BitOp::Or,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Xor(..) => Opcode::BinBit {
+            Instruction::I64Xor(arg0, arg1) => Opcode::BinBit {
                 class: BitOp::Xor,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Shl(..) => Opcode::BinShift {
+            Instruction::I64Shl(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::Shl,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64ShrS(..) => Opcode::BinShift {
+            Instruction::I64ShrS(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::SignedShr,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64ShrU(..) => Opcode::BinShift {
+            Instruction::I64ShrU(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::UnsignedShr,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Rotl(..) => Opcode::BinShift {
+            Instruction::I64Rotl(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::Rotl,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
-            Instruction::I64Rotr(..) => Opcode::BinShift {
+            Instruction::I64Rotr(arg0, arg1) => Opcode::BinShift {
                 class: ShiftOp::Rotr,
                 vtype: VarType::I64,
+                uniargs: [arg0, arg1],
             },
             Instruction::F32Abs => todo!(),
             Instruction::F32Neg => todo!(),
@@ -557,18 +647,21 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             Instruction::F64Min => todo!(),
             Instruction::F64Max => todo!(),
             Instruction::F64Copysign => todo!(),
-            Instruction::I32WrapI64(..) => Opcode::Conversion {
+            Instruction::I32WrapI64(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I32WrapI64,
+                uniarg,
             },
             Instruction::I32TruncSF32 => todo!(),
             Instruction::I32TruncUF32 => todo!(),
             Instruction::I32TruncSF64 => todo!(),
             Instruction::I32TruncUF64 => todo!(),
-            Instruction::I64ExtendSI32(..) => Opcode::Conversion {
+            Instruction::I64ExtendSI32(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I64ExtendI32s,
+                uniarg,
             },
-            Instruction::I64ExtendUI32(..) => Opcode::Conversion {
+            Instruction::I64ExtendUI32(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I64ExtendI32u,
+                uniarg,
             },
             Instruction::I64TruncSF32 => todo!(),
             Instruction::I64TruncUF32 => todo!(),
@@ -588,20 +681,25 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             Instruction::I64ReinterpretF64 => todo!(),
             Instruction::F32ReinterpretI32 => todo!(),
             Instruction::F64ReinterpretI64 => todo!(),
-            Instruction::I32Extend8S(..) => Opcode::Conversion {
+            Instruction::I32Extend8S(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I32Extend8S,
+                uniarg,
             },
-            Instruction::I32Extend16S(..) => Opcode::Conversion {
+            Instruction::I32Extend16S(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I32Extend16S,
+                uniarg,
             },
-            Instruction::I64Extend8S(..) => Opcode::Conversion {
+            Instruction::I64Extend8S(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I64Extend8S,
+                uniarg,
             },
-            Instruction::I64Extend16S(..) => Opcode::Conversion {
+            Instruction::I64Extend16S(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I64Extend16S,
+                uniarg,
             },
-            Instruction::I64Extend32S(..) => Opcode::Conversion {
+            Instruction::I64Extend32S(uniarg) => Opcode::Conversion {
                 class: ConversionOp::I64Extend32S,
+                uniarg,
             },
         }
     }

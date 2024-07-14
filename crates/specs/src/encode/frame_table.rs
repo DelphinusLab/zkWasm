@@ -1,7 +1,7 @@
 use num_bigint::BigUint;
 use num_bigint::ToBigUint;
 
-use crate::encode::COMMON_RANGE_OFFSET;
+use crate::encode::COMMON_RANGE_BITS;
 use crate::jtable::CalledFrameTableEntry;
 use crate::jtable::FrameTableEntryInternal;
 use crate::jtable::InheritedFrameTableEntry;
@@ -15,10 +15,10 @@ pub fn encode_frame_table_entry<T: FromBn>(
     fid: T,
     iid: T,
 ) -> T {
-    const FRAME_ID_SHIFT: u32 = LAST_JUMP_FRAME_ID_SHIFT + COMMON_RANGE_OFFSET;
-    const LAST_JUMP_FRAME_ID_SHIFT: u32 = CALLEE_FID + COMMON_RANGE_OFFSET;
-    const CALLEE_FID: u32 = FID_SHIFT + COMMON_RANGE_OFFSET;
-    const FID_SHIFT: u32 = IID_SHIFT + COMMON_RANGE_OFFSET;
+    const FRAME_ID_SHIFT: u32 = LAST_JUMP_FRAME_ID_SHIFT + COMMON_RANGE_BITS;
+    const LAST_JUMP_FRAME_ID_SHIFT: u32 = CALLEE_FID + COMMON_RANGE_BITS;
+    const CALLEE_FID: u32 = FID_SHIFT + COMMON_RANGE_BITS;
+    const FID_SHIFT: u32 = IID_SHIFT + COMMON_RANGE_BITS;
     const IID_SHIFT: u32 = 0;
 
     frame_id * T::from_bn(&(1u64.to_biguint().unwrap() << FRAME_ID_SHIFT))

@@ -16,12 +16,9 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::opcode::encode_bin;
 use specs::etable::EventTableEntry;
 use specs::itable::BinOp;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -343,38 +340,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Bin as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_add.expr(meta)
-            * constant!(bn_to_field(
-                &(BigUint::from(BinOp::Add as u64) << OPCODE_ARG0_SHIFT)
-            ))
-            + self.is_sub.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BinOp::Sub as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_mul.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BinOp::Mul as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_div_u.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BinOp::UnsignedDiv as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_rem_u.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BinOp::UnsignedRem as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_div_s.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BinOp::SignedDiv as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_rem_s.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(BinOp::SignedRem as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_i32.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+        encode_bin(
+            self.is_add.expr(meta) * constant_from_bn!(&BigUint::from(BinOp::Add as u64))
+                + self.is_sub.expr(meta) * constant_from_bn!(&BigUint::from(BinOp::Sub as u64))
+                + self.is_mul.expr(meta) * constant_from_bn!(&BigUint::from(BinOp::Mul as u64))
+                + self.is_div_u.expr(meta)
+                    * constant_from_bn!(&BigUint::from(BinOp::UnsignedDiv as u64))
+                + self.is_rem_u.expr(meta)
+                    * constant_from_bn!(&BigUint::from(BinOp::UnsignedRem as u64))
+                + self.is_div_s.expr(meta)
+                    * constant_from_bn!(&BigUint::from(BinOp::SignedDiv as u64))
+                + self.is_rem_s.expr(meta)
+                    * constant_from_bn!(&BigUint::from(BinOp::SignedRem as u64)),
+            self.is_i32.expr(meta),
+            todo!(),
+        )
     }
 
     fn assign(
