@@ -15,12 +15,9 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::opcode::encode_rel;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
 use specs::itable::RelOp;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -242,75 +239,53 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
 impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         let subop_eq = |meta: &mut VirtualCells<F>| {
-            self.op_is_eq.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::Eq as u64) << OPCODE_ARG0_SHIFT)
-                ))
+            self.op_is_eq.expr(meta) * constant!(bn_to_field(&(BigUint::from(RelOp::Eq as u64))))
         };
         let subop_ne = |meta: &mut VirtualCells<F>| {
-            self.op_is_ne.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::Ne as u64) << OPCODE_ARG0_SHIFT)
-                ))
+            self.op_is_ne.expr(meta) * constant!(bn_to_field(&(BigUint::from(RelOp::Ne as u64))))
         };
         let subop_gt_u = |meta: &mut VirtualCells<F>| {
             self.op_is_gt.expr(meta)
                 * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::UnsignedGt as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedGt as u64))))
         };
         let subop_ge_u = |meta: &mut VirtualCells<F>| {
             self.op_is_ge.expr(meta)
                 * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::UnsignedGe as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedGe as u64))))
         };
         let subop_lt_u = |meta: &mut VirtualCells<F>| {
             self.op_is_lt.expr(meta)
                 * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::UnsignedLt as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedLt as u64))))
         };
         let subop_le_u = |meta: &mut VirtualCells<F>| {
             self.op_is_le.expr(meta)
                 * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::UnsignedLe as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedLe as u64))))
         };
         let subop_gt_s = |meta: &mut VirtualCells<F>| {
             self.op_is_gt.expr(meta)
                 * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::SignedGt as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedGt as u64))))
         };
         let subop_ge_s = |meta: &mut VirtualCells<F>| {
             self.op_is_ge.expr(meta)
                 * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::SignedGe as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedGe as u64))))
         };
         let subop_lt_s = |meta: &mut VirtualCells<F>| {
             self.op_is_lt.expr(meta)
                 * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::SignedLt as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedLt as u64))))
         };
         let subop_le_s = |meta: &mut VirtualCells<F>| {
             self.op_is_le.expr(meta)
                 * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(RelOp::SignedLe as u64) << OPCODE_ARG0_SHIFT)
-                ))
+                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedLe as u64))))
         };
 
-        let subop = |meta: &mut VirtualCells<F>| {
+        let class = |meta: &mut VirtualCells<F>| {
             subop_eq(meta)
                 + subop_ne(meta)
                 + subop_ge_u(meta)
@@ -323,11 +298,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
                 + subop_lt_s(meta)
         };
 
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Rel as u64) << OPCODE_CLASS_SHIFT)
-        )) + subop(meta)
-            + self.is_i32.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+        encode_rel(class(meta), self.is_i32.expr(meta), todo!())
     }
 
     fn assign(

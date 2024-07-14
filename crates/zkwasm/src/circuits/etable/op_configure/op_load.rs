@@ -14,7 +14,6 @@ use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
@@ -22,11 +21,8 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::opcode::encode_load;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -415,12 +411,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
             + self.is_sign.expr(meta)
             + constant_from!(1);
 
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Load as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_i32.expr(meta)
-            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + load_size * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
-            + self.opcode_load_offset.expr(meta)
+        encode_load(
+            self.is_i32.expr(meta),
+            load_size,
+            self.opcode_load_offset.expr(meta),
+            todo!(),
+        )
     }
 
     fn assign(

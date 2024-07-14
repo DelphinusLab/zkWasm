@@ -1,3 +1,5 @@
+// FIXME: tmp
+#![allow(unused_imports, dead_code, unreachable_code, unused_must_use, unused_mut, unused_variables)]
 #![deny(warnings)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
