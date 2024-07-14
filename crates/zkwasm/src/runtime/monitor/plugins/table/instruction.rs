@@ -54,7 +54,7 @@ impl PhantomFunction {
             instructions.push(Instruction::Call(wasm_input_function_idx));
 
             if sig.return_type() != Some(wasmi::ValueType::I64) {
-                instructions.push(Instruction::I32WrapI64);
+                instructions.push(Instruction::I32WrapI64(isa::UniArg::Pop));
             }
         }
 
@@ -82,11 +82,11 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 offset: offset as u64,
                 vtype: typ.into(),
             },
-            Instruction::SetLocal(offset, typ) => Opcode::LocalSet {
+            Instruction::SetLocal(offset, typ, ..) => Opcode::LocalSet {
                 offset: offset as u64,
                 vtype: typ.into(),
             },
-            Instruction::TeeLocal(offset, typ) => Opcode::LocalTee {
+            Instruction::TeeLocal(offset, typ, ..) => Opcode::LocalTee {
                 offset: offset as u64,
                 vtype: typ.into(),
             },
@@ -99,7 +99,7 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 },
                 dst_pc,
             },
-            Instruction::BrIfEqz(Target { dst_pc, drop_keep }) => Opcode::BrIfEqz {
+            Instruction::BrIfEqz(Target { dst_pc, drop_keep }, ..) => Opcode::BrIfEqz {
                 drop: drop_keep.drop,
                 keep: if let Keep::Single(t) = drop_keep.keep {
                     vec![t.into()]
@@ -108,7 +108,7 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 },
                 dst_pc,
             },
-            Instruction::BrIfNez(Target { dst_pc, drop_keep }) => Opcode::BrIf {
+            Instruction::BrIfNez(Target { dst_pc, drop_keep }, ..) => Opcode::BrIf {
                 drop: drop_keep.drop,
                 keep: if let Keep::Single(t) = drop_keep.keep {
                     vec![t.into()]
@@ -117,7 +117,7 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 },
                 dst_pc,
             },
-            Instruction::BrTable(targets) => Opcode::BrTable {
+            Instruction::BrTable(targets, ..) => Opcode::BrTable {
                 targets: targets
                     .stream
                     .iter()
@@ -169,112 +169,112 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                     }
                 }
             }
-            Instruction::CallIndirect(idx) => Opcode::CallIndirect { type_idx: idx },
+            Instruction::CallIndirect(idx, ..) => Opcode::CallIndirect { type_idx: idx },
             Instruction::Drop => Opcode::Drop,
-            Instruction::Select(_) => Opcode::Select,
-            Instruction::GetGlobal(idx) => Opcode::GlobalGet { idx: idx as u64 },
-            Instruction::SetGlobal(idx) => Opcode::GlobalSet { idx: idx as u64 },
-            Instruction::I32Load(offset) => Opcode::Load {
+            Instruction::Select(_, ..) => Opcode::Select,
+            Instruction::GetGlobal(idx, ..) => Opcode::GlobalGet { idx: idx as u64 },
+            Instruction::SetGlobal(idx, ..) => Opcode::GlobalSet { idx: idx as u64 },
+            Instruction::I32Load(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::U32,
             },
-            Instruction::I64Load(offset) => Opcode::Load {
+            Instruction::I64Load(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::I64,
             },
             Instruction::F32Load(_) => todo!(),
             Instruction::F64Load(_) => todo!(),
-            Instruction::I32Load8S(offset) => Opcode::Load {
+            Instruction::I32Load8S(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::S8,
             },
-            Instruction::I32Load8U(offset) => Opcode::Load {
+            Instruction::I32Load8U(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::U8,
             },
-            Instruction::I32Load16S(offset) => Opcode::Load {
+            Instruction::I32Load16S(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::S16,
             },
-            Instruction::I32Load16U(offset) => Opcode::Load {
+            Instruction::I32Load16U(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryReadSize::U16,
             },
-            Instruction::I64Load8S(offset) => Opcode::Load {
+            Instruction::I64Load8S(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::S8,
             },
-            Instruction::I64Load8U(offset) => Opcode::Load {
+            Instruction::I64Load8U(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::U8,
             },
-            Instruction::I64Load16S(offset) => Opcode::Load {
+            Instruction::I64Load16S(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::S16,
             },
-            Instruction::I64Load16U(offset) => Opcode::Load {
+            Instruction::I64Load16U(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::U16,
             },
-            Instruction::I64Load32S(offset) => Opcode::Load {
+            Instruction::I64Load32S(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::S32,
             },
-            Instruction::I64Load32U(offset) => Opcode::Load {
+            Instruction::I64Load32U(offset, ..) => Opcode::Load {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryReadSize::U32,
             },
-            Instruction::I32Store(offset) => Opcode::Store {
+            Instruction::I32Store(offset, ..) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte32,
             },
-            Instruction::I64Store(offset) => Opcode::Store {
+            Instruction::I64Store(offset, ..) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte64,
             },
             Instruction::F32Store(_) => todo!(),
             Instruction::F64Store(_) => todo!(),
-            Instruction::I32Store8(offset) => Opcode::Store {
+            Instruction::I32Store8(offset, ..) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte8,
             },
-            Instruction::I32Store16(offset) => Opcode::Store {
+            Instruction::I32Store16(offset, ..) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte16,
             },
-            Instruction::I64Store8(offset) => Opcode::Store {
+            Instruction::I64Store8(offset, ..) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte8,
             },
-            Instruction::I64Store16(offset) => Opcode::Store {
+            Instruction::I64Store16(offset, ..) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte16,
             },
-            Instruction::I64Store32(offset) => Opcode::Store {
+            Instruction::I64Store32(offset, ..) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte32,
             },
             Instruction::CurrentMemory => Opcode::MemorySize,
-            Instruction::GrowMemory => Opcode::MemoryGrow,
+            Instruction::GrowMemory(_) => Opcode::MemoryGrow,
             Instruction::I32Const(v) => Opcode::Const {
                 vtype: VarType::I32,
                 value: v as u32 as u64,
@@ -285,91 +285,91 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             },
             Instruction::F32Const(_) => todo!(),
             Instruction::F64Const(_) => todo!(),
-            Instruction::I32Eqz => Opcode::Test {
+            Instruction::I32Eqz(_) => Opcode::Test {
                 class: TestOp::Eqz,
                 vtype: VarType::I32,
             },
-            Instruction::I32Eq => Opcode::Rel {
+            Instruction::I32Eq(..) => Opcode::Rel {
                 class: RelOp::Eq,
                 vtype: VarType::I32,
             },
-            Instruction::I32Ne => Opcode::Rel {
+            Instruction::I32Ne(..) => Opcode::Rel {
                 class: RelOp::Ne,
                 vtype: VarType::I32,
             },
-            Instruction::I32LtS => Opcode::Rel {
+            Instruction::I32LtS(..) => Opcode::Rel {
                 class: RelOp::SignedLt,
                 vtype: VarType::I32,
             },
-            Instruction::I32LtU => Opcode::Rel {
+            Instruction::I32LtU(..) => Opcode::Rel {
                 class: RelOp::UnsignedLt,
                 vtype: VarType::I32,
             },
-            Instruction::I32GtS => Opcode::Rel {
+            Instruction::I32GtS(..) => Opcode::Rel {
                 class: RelOp::SignedGt,
                 vtype: VarType::I32,
             },
-            Instruction::I32GtU => Opcode::Rel {
+            Instruction::I32GtU(..) => Opcode::Rel {
                 class: RelOp::UnsignedGt,
                 vtype: VarType::I32,
             },
-            Instruction::I32LeS => Opcode::Rel {
+            Instruction::I32LeS(..) => Opcode::Rel {
                 class: RelOp::SignedLe,
                 vtype: VarType::I32,
             },
-            Instruction::I32LeU => Opcode::Rel {
+            Instruction::I32LeU(..) => Opcode::Rel {
                 class: RelOp::UnsignedLe,
                 vtype: VarType::I32,
             },
-            Instruction::I32GeS => Opcode::Rel {
+            Instruction::I32GeS(..) => Opcode::Rel {
                 class: RelOp::SignedGe,
                 vtype: VarType::I32,
             },
-            Instruction::I32GeU => Opcode::Rel {
+            Instruction::I32GeU(..) => Opcode::Rel {
                 class: RelOp::UnsignedGe,
                 vtype: VarType::I32,
             },
-            Instruction::I64Eqz => Opcode::Test {
+            Instruction::I64Eqz(..) => Opcode::Test {
                 class: TestOp::Eqz,
                 vtype: VarType::I64,
             },
-            Instruction::I64Eq => Opcode::Rel {
+            Instruction::I64Eq(..) => Opcode::Rel {
                 class: RelOp::Eq,
                 vtype: VarType::I64,
             },
-            Instruction::I64Ne => Opcode::Rel {
+            Instruction::I64Ne(..) => Opcode::Rel {
                 class: RelOp::Ne,
                 vtype: VarType::I64,
             },
-            Instruction::I64LtS => Opcode::Rel {
+            Instruction::I64LtS(..) => Opcode::Rel {
                 class: RelOp::SignedLt,
                 vtype: VarType::I64,
             },
-            Instruction::I64LtU => Opcode::Rel {
+            Instruction::I64LtU(..) => Opcode::Rel {
                 class: RelOp::UnsignedLt,
                 vtype: VarType::I64,
             },
-            Instruction::I64GtS => Opcode::Rel {
+            Instruction::I64GtS(..) => Opcode::Rel {
                 class: RelOp::SignedGt,
                 vtype: VarType::I64,
             },
-            Instruction::I64GtU => Opcode::Rel {
+            Instruction::I64GtU(..) => Opcode::Rel {
                 class: RelOp::UnsignedGt,
                 vtype: VarType::I64,
             },
-            Instruction::I64LeS => Opcode::Rel {
+            Instruction::I64LeS(..) => Opcode::Rel {
                 class: RelOp::SignedLe,
                 vtype: VarType::I64,
             },
-            Instruction::I64LeU => Opcode::Rel {
+            Instruction::I64LeU(..) => Opcode::Rel {
                 class: RelOp::UnsignedLe,
                 vtype: VarType::I64,
             },
-            Instruction::I64GeS => Opcode::Rel {
+            Instruction::I64GeS(..) => Opcode::Rel {
                 class: RelOp::SignedGe,
                 vtype: VarType::I64,
             },
-            Instruction::I64GeU => Opcode::Rel {
+            Instruction::I64GeU(..) => Opcode::Rel {
                 class: RelOp::UnsignedGe,
                 vtype: VarType::I64,
             },
@@ -385,147 +385,147 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             Instruction::F64Gt => todo!(),
             Instruction::F64Le => todo!(),
             Instruction::F64Ge => todo!(),
-            Instruction::I32Clz => Opcode::Unary {
+            Instruction::I32Clz(..) => Opcode::Unary {
                 class: UnaryOp::Clz,
                 vtype: VarType::I32,
             },
-            Instruction::I32Ctz => Opcode::Unary {
+            Instruction::I32Ctz(..) => Opcode::Unary {
                 class: UnaryOp::Ctz,
                 vtype: VarType::I32,
             },
-            Instruction::I32Popcnt => Opcode::Unary {
+            Instruction::I32Popcnt(..) => Opcode::Unary {
                 class: UnaryOp::Popcnt,
                 vtype: VarType::I32,
             },
-            Instruction::I32Add => Opcode::Bin {
+            Instruction::I32Add(_, _) => Opcode::Bin {
                 class: BinOp::Add,
                 vtype: VarType::I32,
             },
-            Instruction::I32Sub => Opcode::Bin {
+            Instruction::I32Sub(_, _) => Opcode::Bin {
                 class: BinOp::Sub,
                 vtype: VarType::I32,
             },
-            Instruction::I32Mul => Opcode::Bin {
+            Instruction::I32Mul(_, _) => Opcode::Bin {
                 class: BinOp::Mul,
                 vtype: VarType::I32,
             },
-            Instruction::I32DivS => Opcode::Bin {
+            Instruction::I32DivS(..) => Opcode::Bin {
                 class: BinOp::SignedDiv,
                 vtype: VarType::I32,
             },
-            Instruction::I32DivU => Opcode::Bin {
+            Instruction::I32DivU(..) => Opcode::Bin {
                 class: BinOp::UnsignedDiv,
                 vtype: VarType::I32,
             },
-            Instruction::I32RemS => Opcode::Bin {
+            Instruction::I32RemS(..) => Opcode::Bin {
                 class: BinOp::SignedRem,
                 vtype: VarType::I32,
             },
-            Instruction::I32RemU => Opcode::Bin {
+            Instruction::I32RemU(..) => Opcode::Bin {
                 class: BinOp::UnsignedRem,
                 vtype: VarType::I32,
             },
-            Instruction::I32And => Opcode::BinBit {
+            Instruction::I32And(..) => Opcode::BinBit {
                 class: BitOp::And,
                 vtype: VarType::I32,
             },
-            Instruction::I32Or => Opcode::BinBit {
+            Instruction::I32Or(..) => Opcode::BinBit {
                 class: BitOp::Or,
                 vtype: VarType::I32,
             },
-            Instruction::I32Xor => Opcode::BinBit {
+            Instruction::I32Xor(..) => Opcode::BinBit {
                 class: BitOp::Xor,
                 vtype: VarType::I32,
             },
-            Instruction::I32Shl => Opcode::BinShift {
+            Instruction::I32Shl(..) => Opcode::BinShift {
                 class: ShiftOp::Shl,
                 vtype: VarType::I32,
             },
-            Instruction::I32ShrS => Opcode::BinShift {
+            Instruction::I32ShrS(..) => Opcode::BinShift {
                 class: ShiftOp::SignedShr,
                 vtype: VarType::I32,
             },
-            Instruction::I32ShrU => Opcode::BinShift {
+            Instruction::I32ShrU(..) => Opcode::BinShift {
                 class: ShiftOp::UnsignedShr,
                 vtype: VarType::I32,
             },
-            Instruction::I32Rotl => Opcode::BinShift {
+            Instruction::I32Rotl(..) => Opcode::BinShift {
                 class: ShiftOp::Rotl,
                 vtype: VarType::I32,
             },
-            Instruction::I32Rotr => Opcode::BinShift {
+            Instruction::I32Rotr(..) => Opcode::BinShift {
                 class: ShiftOp::Rotr,
                 vtype: VarType::I32,
             },
-            Instruction::I64Clz => Opcode::Unary {
+            Instruction::I64Clz(..) => Opcode::Unary {
                 class: UnaryOp::Clz,
                 vtype: VarType::I64,
             },
-            Instruction::I64Ctz => Opcode::Unary {
+            Instruction::I64Ctz(..) => Opcode::Unary {
                 class: UnaryOp::Ctz,
                 vtype: VarType::I64,
             },
-            Instruction::I64Popcnt => Opcode::Unary {
+            Instruction::I64Popcnt(..) => Opcode::Unary {
                 class: UnaryOp::Popcnt,
                 vtype: VarType::I64,
             },
-            Instruction::I64Add => Opcode::Bin {
+            Instruction::I64Add(..) => Opcode::Bin {
                 class: BinOp::Add,
                 vtype: VarType::I64,
             },
-            Instruction::I64Sub => Opcode::Bin {
+            Instruction::I64Sub(..) => Opcode::Bin {
                 class: BinOp::Sub,
                 vtype: VarType::I64,
             },
-            Instruction::I64Mul => Opcode::Bin {
+            Instruction::I64Mul(..) => Opcode::Bin {
                 class: BinOp::Mul,
                 vtype: VarType::I64,
             },
-            Instruction::I64DivS => Opcode::Bin {
+            Instruction::I64DivS(..) => Opcode::Bin {
                 class: BinOp::SignedDiv,
                 vtype: VarType::I64,
             },
-            Instruction::I64DivU => Opcode::Bin {
+            Instruction::I64DivU(..) => Opcode::Bin {
                 class: BinOp::UnsignedDiv,
                 vtype: VarType::I64,
             },
-            Instruction::I64RemS => Opcode::Bin {
+            Instruction::I64RemS(..) => Opcode::Bin {
                 class: BinOp::SignedRem,
                 vtype: VarType::I64,
             },
-            Instruction::I64RemU => Opcode::Bin {
+            Instruction::I64RemU(..) => Opcode::Bin {
                 class: BinOp::UnsignedRem,
                 vtype: VarType::I64,
             },
-            Instruction::I64And => Opcode::BinBit {
+            Instruction::I64And(..) => Opcode::BinBit {
                 class: BitOp::And,
                 vtype: VarType::I64,
             },
-            Instruction::I64Or => Opcode::BinBit {
+            Instruction::I64Or(..) => Opcode::BinBit {
                 class: BitOp::Or,
                 vtype: VarType::I64,
             },
-            Instruction::I64Xor => Opcode::BinBit {
+            Instruction::I64Xor(..) => Opcode::BinBit {
                 class: BitOp::Xor,
                 vtype: VarType::I64,
             },
-            Instruction::I64Shl => Opcode::BinShift {
+            Instruction::I64Shl(..) => Opcode::BinShift {
                 class: ShiftOp::Shl,
                 vtype: VarType::I64,
             },
-            Instruction::I64ShrS => Opcode::BinShift {
+            Instruction::I64ShrS(..) => Opcode::BinShift {
                 class: ShiftOp::SignedShr,
                 vtype: VarType::I64,
             },
-            Instruction::I64ShrU => Opcode::BinShift {
+            Instruction::I64ShrU(..) => Opcode::BinShift {
                 class: ShiftOp::UnsignedShr,
                 vtype: VarType::I64,
             },
-            Instruction::I64Rotl => Opcode::BinShift {
+            Instruction::I64Rotl(..) => Opcode::BinShift {
                 class: ShiftOp::Rotl,
                 vtype: VarType::I64,
             },
-            Instruction::I64Rotr => Opcode::BinShift {
+            Instruction::I64Rotr(..) => Opcode::BinShift {
                 class: ShiftOp::Rotr,
                 vtype: VarType::I64,
             },
@@ -557,17 +557,17 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             Instruction::F64Min => todo!(),
             Instruction::F64Max => todo!(),
             Instruction::F64Copysign => todo!(),
-            Instruction::I32WrapI64 => Opcode::Conversion {
+            Instruction::I32WrapI64(..) => Opcode::Conversion {
                 class: ConversionOp::I32WrapI64,
             },
             Instruction::I32TruncSF32 => todo!(),
             Instruction::I32TruncUF32 => todo!(),
             Instruction::I32TruncSF64 => todo!(),
             Instruction::I32TruncUF64 => todo!(),
-            Instruction::I64ExtendSI32 => Opcode::Conversion {
+            Instruction::I64ExtendSI32(..) => Opcode::Conversion {
                 class: ConversionOp::I64ExtendI32s,
             },
-            Instruction::I64ExtendUI32 => Opcode::Conversion {
+            Instruction::I64ExtendUI32(..) => Opcode::Conversion {
                 class: ConversionOp::I64ExtendI32u,
             },
             Instruction::I64TruncSF32 => todo!(),
@@ -588,19 +588,19 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             Instruction::I64ReinterpretF64 => todo!(),
             Instruction::F32ReinterpretI32 => todo!(),
             Instruction::F64ReinterpretI64 => todo!(),
-            Instruction::I32Extend8S => Opcode::Conversion {
+            Instruction::I32Extend8S(..) => Opcode::Conversion {
                 class: ConversionOp::I32Extend8S,
             },
-            Instruction::I32Extend16S => Opcode::Conversion {
+            Instruction::I32Extend16S(..) => Opcode::Conversion {
                 class: ConversionOp::I32Extend16S,
             },
-            Instruction::I64Extend8S => Opcode::Conversion {
+            Instruction::I64Extend8S(..) => Opcode::Conversion {
                 class: ConversionOp::I64Extend8S,
             },
-            Instruction::I64Extend16S => Opcode::Conversion {
+            Instruction::I64Extend16S(..) => Opcode::Conversion {
                 class: ConversionOp::I64Extend16S,
             },
-            Instruction::I64Extend32S => Opcode::Conversion {
+            Instruction::I64Extend32S(..) => Opcode::Conversion {
                 class: ConversionOp::I64Extend32S,
             },
         }
@@ -715,7 +715,7 @@ pub(super) fn run_instruction_pre(
 ) -> Option<RunInstructionTracePre> {
     match *instructions {
         isa::Instruction::GetLocal(..) => None,
-        isa::Instruction::SetLocal(depth, vtype) => {
+        isa::Instruction::SetLocal(depth, vtype, ..) => {
             let value = value_stack.top();
             Some(RunInstructionTracePre::SetLocal {
                 depth,
@@ -728,13 +728,13 @@ pub(super) fn run_instruction_pre(
         isa::Instruction::SetGlobal(..) => Some(RunInstructionTracePre::SetGlobal),
 
         isa::Instruction::Br(_) => None,
-        isa::Instruction::BrIfEqz(_) => Some(RunInstructionTracePre::BrIfEqz {
+        isa::Instruction::BrIfEqz(..) => Some(RunInstructionTracePre::BrIfEqz {
             value: <_>::from_value_internal(*value_stack.top()),
         }),
-        isa::Instruction::BrIfNez(_) => Some(RunInstructionTracePre::BrIfNez {
+        isa::Instruction::BrIfNez(..) => Some(RunInstructionTracePre::BrIfNez {
             value: <_>::from_value_internal(*value_stack.top()),
         }),
-        isa::Instruction::BrTable(_) => Some(RunInstructionTracePre::BrTable {
+        isa::Instruction::BrTable(..) => Some(RunInstructionTracePre::BrTable {
             index: <_>::from_value_internal(*value_stack.top()),
         }),
 
@@ -742,7 +742,7 @@ pub(super) fn run_instruction_pre(
         isa::Instruction::Return(..) => None,
 
         isa::Instruction::Call(..) => Some(RunInstructionTracePre::Call),
-        isa::Instruction::CallIndirect(type_idx) => {
+        isa::Instruction::CallIndirect(type_idx, ..) => {
             let table_idx = DEFAULT_TABLE_INDEX;
             let offset = <_>::from_value_internal(*value_stack.top());
 
@@ -754,17 +754,17 @@ pub(super) fn run_instruction_pre(
         }
 
         isa::Instruction::Drop => Some(RunInstructionTracePre::Drop),
-        isa::Instruction::Select(vtype) => Some(RunInstructionTracePre::Select {
+        isa::Instruction::Select(vtype, ..) => Some(RunInstructionTracePre::Select {
             cond: from_value_internal_to_u64_with_typ(VarType::I32, *value_stack.pick(1)),
             val2: from_value_internal_to_u64_with_typ(vtype.into(), *value_stack.pick(2)),
             val1: from_value_internal_to_u64_with_typ(vtype.into(), *value_stack.pick(3)),
         }),
 
-        isa::Instruction::I32Load(offset)
-        | isa::Instruction::I32Load8S(offset)
-        | isa::Instruction::I32Load8U(offset)
-        | isa::Instruction::I32Load16S(offset)
-        | isa::Instruction::I32Load16U(offset) => {
+        isa::Instruction::I32Load(offset, ..)
+        | isa::Instruction::I32Load8S(offset, ..)
+        | isa::Instruction::I32Load8U(offset, ..)
+        | isa::Instruction::I32Load16S(offset, ..)
+        | isa::Instruction::I32Load16U(offset, ..) => {
             let load_size = match *instructions {
                 isa::Instruction::I32Load(..) => MemoryReadSize::U32,
                 isa::Instruction::I32Load8S(..) => MemoryReadSize::S8,
@@ -785,13 +785,13 @@ pub(super) fn run_instruction_pre(
                 load_size,
             })
         }
-        isa::Instruction::I64Load(offset)
-        | isa::Instruction::I64Load8S(offset)
-        | isa::Instruction::I64Load8U(offset)
-        | isa::Instruction::I64Load16S(offset)
-        | isa::Instruction::I64Load16U(offset)
-        | isa::Instruction::I64Load32S(offset)
-        | isa::Instruction::I64Load32U(offset) => {
+        isa::Instruction::I64Load(offset, ..)
+        | isa::Instruction::I64Load8S(offset, ..)
+        | isa::Instruction::I64Load8U(offset, ..)
+        | isa::Instruction::I64Load16S(offset, ..)
+        | isa::Instruction::I64Load16U(offset, ..)
+        | isa::Instruction::I64Load32S(offset, ..)
+        | isa::Instruction::I64Load32U(offset, ..) => {
             let load_size = match *instructions {
                 isa::Instruction::I64Load(..) => MemoryReadSize::I64,
                 isa::Instruction::I64Load8S(..) => MemoryReadSize::S8,
@@ -813,13 +813,13 @@ pub(super) fn run_instruction_pre(
                 load_size,
             })
         }
-        isa::Instruction::I32Store(offset)
-        | isa::Instruction::I32Store8(offset)
-        | isa::Instruction::I32Store16(offset) => {
+        isa::Instruction::I32Store(offset, ..)
+        | isa::Instruction::I32Store8(offset, ..)
+        | isa::Instruction::I32Store16(offset, ..) => {
             let store_size = match *instructions {
-                isa::Instruction::I32Store8(_) => MemoryStoreSize::Byte8,
-                isa::Instruction::I32Store16(_) => MemoryStoreSize::Byte16,
-                isa::Instruction::I32Store(_) => MemoryStoreSize::Byte32,
+                isa::Instruction::I32Store8(_, ..) => MemoryStoreSize::Byte8,
+                isa::Instruction::I32Store16(_, ..) => MemoryStoreSize::Byte16,
+                isa::Instruction::I32Store(_, ..) => MemoryStoreSize::Byte32,
                 _ => unreachable!(),
             };
 
@@ -864,10 +864,10 @@ pub(super) fn run_instruction_pre(
                 pre_block_value2,
             })
         }
-        isa::Instruction::I64Store(offset)
-        | isa::Instruction::I64Store8(offset)
-        | isa::Instruction::I64Store16(offset)
-        | isa::Instruction::I64Store32(offset) => {
+        isa::Instruction::I64Store(offset, ..)
+        | isa::Instruction::I64Store8(offset, ..)
+        | isa::Instruction::I64Store16(offset, ..)
+        | isa::Instruction::I64Store32(offset, ..) => {
             let store_size = match *instructions {
                 isa::Instruction::I64Store(..) => MemoryStoreSize::Byte64,
                 isa::Instruction::I64Store8(..) => MemoryStoreSize::Byte8,
@@ -919,123 +919,123 @@ pub(super) fn run_instruction_pre(
         }
 
         isa::Instruction::CurrentMemory => None,
-        isa::Instruction::GrowMemory => Some(RunInstructionTracePre::GrowMemory(
+        isa::Instruction::GrowMemory(_) => Some(RunInstructionTracePre::GrowMemory(
             <_>::from_value_internal(*value_stack.pick(1)),
         )),
 
         isa::Instruction::I32Const(_) => None,
         isa::Instruction::I64Const(_) => None,
 
-        isa::Instruction::I32Eqz => Some(RunInstructionTracePre::I32Single(
+        isa::Instruction::I32Eqz(_) => Some(RunInstructionTracePre::I32Single(
             <_>::from_value_internal(*value_stack.pick(1)),
         )),
-        isa::Instruction::I64Eqz => Some(RunInstructionTracePre::I64Single(
+        isa::Instruction::I64Eqz(_) => Some(RunInstructionTracePre::I64Single(
             <_>::from_value_internal(*value_stack.pick(1)),
         )),
 
-        isa::Instruction::I32Eq
-        | isa::Instruction::I32Ne
-        | isa::Instruction::I32GtS
-        | isa::Instruction::I32GtU
-        | isa::Instruction::I32GeS
-        | isa::Instruction::I32GeU
-        | isa::Instruction::I32LtU
-        | isa::Instruction::I32LeU
-        | isa::Instruction::I32LtS
-        | isa::Instruction::I32LeS => Some(RunInstructionTracePre::I32Comp {
+        isa::Instruction::I32Eq(..)
+        | isa::Instruction::I32Ne(..)
+        | isa::Instruction::I32GtS(..)
+        | isa::Instruction::I32GtU(..)
+        | isa::Instruction::I32GeS(..)
+        | isa::Instruction::I32GeU(..)
+        | isa::Instruction::I32LtU(..)
+        | isa::Instruction::I32LeU(..)
+        | isa::Instruction::I32LtS(..)
+        | isa::Instruction::I32LeS(..) => Some(RunInstructionTracePre::I32Comp {
             left: <_>::from_value_internal(*value_stack.pick(2)),
             right: <_>::from_value_internal(*value_stack.pick(1)),
         }),
 
-        isa::Instruction::I64Eq
-        | isa::Instruction::I64Ne
-        | isa::Instruction::I64GtS
-        | isa::Instruction::I64GtU
-        | isa::Instruction::I64GeS
-        | isa::Instruction::I64GeU
-        | isa::Instruction::I64LtU
-        | isa::Instruction::I64LeU
-        | isa::Instruction::I64LtS
-        | isa::Instruction::I64LeS => Some(RunInstructionTracePre::I64Comp {
+        isa::Instruction::I64Eq(..)
+        | isa::Instruction::I64Ne(..)
+        | isa::Instruction::I64GtS(..)
+        | isa::Instruction::I64GtU(..)
+        | isa::Instruction::I64GeS(..)
+        | isa::Instruction::I64GeU(..)
+        | isa::Instruction::I64LtU(..)
+        | isa::Instruction::I64LeU(..)
+        | isa::Instruction::I64LtS(..)
+        | isa::Instruction::I64LeS(..) => Some(RunInstructionTracePre::I64Comp {
             left: <_>::from_value_internal(*value_stack.pick(2)),
             right: <_>::from_value_internal(*value_stack.pick(1)),
         }),
 
-        isa::Instruction::I32Add
-        | isa::Instruction::I32Sub
-        | isa::Instruction::I32Mul
-        | isa::Instruction::I32DivS
-        | isa::Instruction::I32DivU
-        | isa::Instruction::I32RemS
-        | isa::Instruction::I32RemU
-        | isa::Instruction::I32Shl
-        | isa::Instruction::I32ShrU
-        | isa::Instruction::I32ShrS
-        | isa::Instruction::I32And
-        | isa::Instruction::I32Or
-        | isa::Instruction::I32Xor
-        | isa::Instruction::I32Rotl
-        | isa::Instruction::I32Rotr => Some(RunInstructionTracePre::I32BinOp {
+        isa::Instruction::I32Add(_, _)
+        | isa::Instruction::I32Sub(_, _)
+        | isa::Instruction::I32Mul(_, _)
+        | isa::Instruction::I32DivS(..)
+        | isa::Instruction::I32DivU(..)
+        | isa::Instruction::I32RemS(..)
+        | isa::Instruction::I32RemU(..)
+        | isa::Instruction::I32Shl(..)
+        | isa::Instruction::I32ShrU(..)
+        | isa::Instruction::I32ShrS(..)
+        | isa::Instruction::I32And(..)
+        | isa::Instruction::I32Or(..)
+        | isa::Instruction::I32Xor(..)
+        | isa::Instruction::I32Rotl(..)
+        | isa::Instruction::I32Rotr(..) => Some(RunInstructionTracePre::I32BinOp {
             left: <_>::from_value_internal(*value_stack.pick(2)),
             right: <_>::from_value_internal(*value_stack.pick(1)),
         }),
 
-        isa::Instruction::I64Add
-        | isa::Instruction::I64Sub
-        | isa::Instruction::I64Mul
-        | isa::Instruction::I64DivS
-        | isa::Instruction::I64DivU
-        | isa::Instruction::I64RemS
-        | isa::Instruction::I64RemU
-        | isa::Instruction::I64Shl
-        | isa::Instruction::I64ShrU
-        | isa::Instruction::I64ShrS
-        | isa::Instruction::I64And
-        | isa::Instruction::I64Or
-        | isa::Instruction::I64Xor
-        | isa::Instruction::I64Rotl
-        | isa::Instruction::I64Rotr => Some(RunInstructionTracePre::I64BinOp {
+        isa::Instruction::I64Add(..)
+        | isa::Instruction::I64Sub(..)
+        | isa::Instruction::I64Mul(..)
+        | isa::Instruction::I64DivS(..)
+        | isa::Instruction::I64DivU(..)
+        | isa::Instruction::I64RemS(..)
+        | isa::Instruction::I64RemU(..)
+        | isa::Instruction::I64Shl(..)
+        | isa::Instruction::I64ShrU(..)
+        | isa::Instruction::I64ShrS(..)
+        | isa::Instruction::I64And(..)
+        | isa::Instruction::I64Or(..)
+        | isa::Instruction::I64Xor(..)
+        | isa::Instruction::I64Rotl(..)
+        | isa::Instruction::I64Rotr(..) => Some(RunInstructionTracePre::I64BinOp {
             left: <_>::from_value_internal(*value_stack.pick(2)),
             right: <_>::from_value_internal(*value_stack.pick(1)),
         }),
 
-        isa::Instruction::I32Ctz | isa::Instruction::I32Clz | isa::Instruction::I32Popcnt => {
-            Some(RunInstructionTracePre::UnaryOp {
-                operand: from_value_internal_to_u64_with_typ(VarType::I32, *value_stack.pick(1)),
-                vtype: VarType::I32,
-            })
-        }
-        isa::Instruction::I64Ctz | isa::Instruction::I64Clz | isa::Instruction::I64Popcnt => {
-            Some(RunInstructionTracePre::UnaryOp {
-                operand: from_value_internal_to_u64_with_typ(VarType::I64, *value_stack.pick(1)),
-                vtype: VarType::I64,
-            })
-        }
+        isa::Instruction::I32Ctz(..)
+        | isa::Instruction::I32Clz(..)
+        | isa::Instruction::I32Popcnt(..) => Some(RunInstructionTracePre::UnaryOp {
+            operand: from_value_internal_to_u64_with_typ(VarType::I32, *value_stack.pick(1)),
+            vtype: VarType::I32,
+        }),
+        isa::Instruction::I64Ctz(..)
+        | isa::Instruction::I64Clz(..)
+        | isa::Instruction::I64Popcnt(..) => Some(RunInstructionTracePre::UnaryOp {
+            operand: from_value_internal_to_u64_with_typ(VarType::I64, *value_stack.pick(1)),
+            vtype: VarType::I64,
+        }),
 
-        isa::Instruction::I32WrapI64 => Some(RunInstructionTracePre::I32WrapI64 {
+        isa::Instruction::I32WrapI64(..) => Some(RunInstructionTracePre::I32WrapI64 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
         }),
-        isa::Instruction::I64ExtendUI32 => Some(RunInstructionTracePre::I64ExtendI32 {
+        isa::Instruction::I64ExtendUI32(..) => Some(RunInstructionTracePre::I64ExtendI32 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
             sign: false,
         }),
-        isa::Instruction::I64ExtendSI32 => Some(RunInstructionTracePre::I64ExtendI32 {
+        isa::Instruction::I64ExtendSI32(..) => Some(RunInstructionTracePre::I64ExtendI32 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
             sign: true,
         }),
-        isa::Instruction::I32Extend8S => Some(RunInstructionTracePre::I32SignExtendI8 {
+        isa::Instruction::I32Extend8S(..) => Some(RunInstructionTracePre::I32SignExtendI8 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
         }),
-        isa::Instruction::I32Extend16S => Some(RunInstructionTracePre::I32SignExtendI16 {
+        isa::Instruction::I32Extend16S(..) => Some(RunInstructionTracePre::I32SignExtendI16 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
         }),
-        isa::Instruction::I64Extend8S => Some(RunInstructionTracePre::I64SignExtendI8 {
+        isa::Instruction::I64Extend8S(..) => Some(RunInstructionTracePre::I64SignExtendI8 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
         }),
-        isa::Instruction::I64Extend16S => Some(RunInstructionTracePre::I64SignExtendI16 {
+        isa::Instruction::I64Extend16S(..) => Some(RunInstructionTracePre::I64SignExtendI16 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
         }),
-        isa::Instruction::I64Extend32S => Some(RunInstructionTracePre::I64SignExtendI32 {
+        isa::Instruction::I64Extend32S(..) => Some(RunInstructionTracePre::I64SignExtendI32 {
             value: <_>::from_value_internal(*value_stack.pick(1)),
         }),
 
@@ -1098,7 +1098,7 @@ impl TablePlugin {
                     value,
                 }
             }
-            isa::Instruction::SetGlobal(idx) => {
+            isa::Instruction::SetGlobal(idx, ..) => {
                 let global_ref = context.module().global_by_index(idx).unwrap();
                 let is_mutable = global_ref.is_mutable();
                 let vtype: VarType = global_ref.value_type().into_elements().into();
@@ -1131,7 +1131,7 @@ impl TablePlugin {
                     Keep::None => vec![],
                 },
             },
-            isa::Instruction::BrIfEqz(target) => {
+            isa::Instruction::BrIfEqz(target, ..) => {
                 if let RunInstructionTracePre::BrIfEqz { value } = current_event.unwrap() {
                     StepInfo::BrIfEqz {
                         condition: value,
@@ -1154,7 +1154,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::BrIfNez(target) => {
+            isa::Instruction::BrIfNez(target, ..) => {
                 if let RunInstructionTracePre::BrIfNez { value } = current_event.unwrap() {
                     StepInfo::BrIfNez {
                         condition: value,
@@ -1177,7 +1177,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::BrTable(targets) => {
+            isa::Instruction::BrTable(targets, ..) => {
                 if let RunInstructionTracePre::BrTable { index } = current_event.unwrap() {
                     StepInfo::BrTable {
                         index,
@@ -1232,7 +1232,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::Select(vtype) => {
+            isa::Instruction::Select(vtype, ..) => {
                 if let RunInstructionTracePre::Select { val1, val2, cond } = current_event.unwrap()
                 {
                     StepInfo::Select {
@@ -1304,7 +1304,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::CallIndirect(_) => {
+            isa::Instruction::CallIndirect(_, ..) => {
                 if let RunInstructionTracePre::CallIndirect {
                     table_idx,
                     type_idx,
@@ -1452,7 +1452,7 @@ impl TablePlugin {
             }
 
             isa::Instruction::CurrentMemory => StepInfo::MemorySize,
-            isa::Instruction::GrowMemory => {
+            isa::Instruction::GrowMemory(..) => {
                 if let RunInstructionTracePre::GrowMemory(grow_size) = current_event.unwrap() {
                     StepInfo::MemoryGrow {
                         grow_size,
@@ -1466,7 +1466,7 @@ impl TablePlugin {
             isa::Instruction::I32Const(value) => StepInfo::I32Const { value },
             isa::Instruction::I64Const(value) => StepInfo::I64Const { value },
 
-            isa::Instruction::I32Eqz => {
+            isa::Instruction::I32Eqz(..) => {
                 if let RunInstructionTracePre::I32Single(value) = current_event.unwrap() {
                     StepInfo::Test {
                         vtype: VarType::I32,
@@ -1477,7 +1477,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Eq => {
+            isa::Instruction::I32Eq(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::Eq,
@@ -1489,7 +1489,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Ne => {
+            isa::Instruction::I32Ne(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::Ne,
@@ -1501,7 +1501,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32GtS => {
+            isa::Instruction::I32GtS(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::SignedGt,
@@ -1513,7 +1513,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32GtU => {
+            isa::Instruction::I32GtU(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::UnsignedGt,
@@ -1525,7 +1525,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32GeS => {
+            isa::Instruction::I32GeS(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::SignedGe,
@@ -1537,7 +1537,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32GeU => {
+            isa::Instruction::I32GeU(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::UnsignedGe,
@@ -1549,7 +1549,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32LtS => {
+            isa::Instruction::I32LtS(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::SignedLt,
@@ -1561,7 +1561,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32LtU => {
+            isa::Instruction::I32LtU(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::UnsignedLt,
@@ -1573,7 +1573,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32LeS => {
+            isa::Instruction::I32LeS(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::SignedLe,
@@ -1585,7 +1585,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32LeU => {
+            isa::Instruction::I32LeU(..) => {
                 if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
                     StepInfo::I32Comp {
                         class: RelOp::UnsignedLe,
@@ -1598,7 +1598,7 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I64Eqz => {
+            isa::Instruction::I64Eqz(..) => {
                 if let RunInstructionTracePre::I64Single(value) = current_event.unwrap() {
                     StepInfo::Test {
                         vtype: VarType::I64,
@@ -1609,7 +1609,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Eq => {
+            isa::Instruction::I64Eq(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::Eq,
@@ -1621,7 +1621,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Ne => {
+            isa::Instruction::I64Ne(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::Ne,
@@ -1633,7 +1633,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64GtS => {
+            isa::Instruction::I64GtS(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::SignedGt,
@@ -1645,7 +1645,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64GtU => {
+            isa::Instruction::I64GtU(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::UnsignedGt,
@@ -1657,7 +1657,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64LtU => {
+            isa::Instruction::I64LtU(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::UnsignedLt,
@@ -1669,7 +1669,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64LtS => {
+            isa::Instruction::I64LtS(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::SignedLt,
@@ -1681,7 +1681,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64LeU => {
+            isa::Instruction::I64LeU(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::UnsignedLe,
@@ -1693,7 +1693,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64LeS => {
+            isa::Instruction::I64LeS(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::SignedLe,
@@ -1705,7 +1705,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64GeU => {
+            isa::Instruction::I64GeU(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::UnsignedGe,
@@ -1717,7 +1717,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64GeS => {
+            isa::Instruction::I64GeS(..) => {
                 if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
                     StepInfo::I64Comp {
                         class: RelOp::SignedGe,
@@ -1730,7 +1730,7 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I32Add => {
+            isa::Instruction::I32Add(_, _) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinOp::Add,
@@ -1742,7 +1742,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Sub => {
+            isa::Instruction::I32Sub(_, _) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinOp::Sub,
@@ -1754,7 +1754,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Mul => {
+            isa::Instruction::I32Mul(_, _) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinOp::Mul,
@@ -1766,7 +1766,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32DivU => {
+            isa::Instruction::I32DivU(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinOp::UnsignedDiv,
@@ -1778,7 +1778,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32RemU => {
+            isa::Instruction::I32RemU(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinOp::UnsignedRem,
@@ -1790,7 +1790,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32DivS => {
+            isa::Instruction::I32DivS(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinOp::SignedDiv,
@@ -1802,7 +1802,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32RemS => {
+            isa::Instruction::I32RemS(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinOp::SignedRem,
@@ -1814,7 +1814,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32And => {
+            isa::Instruction::I32And(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinBitOp {
                         class: BitOp::And,
@@ -1826,7 +1826,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Or => {
+            isa::Instruction::I32Or(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinBitOp {
                         class: BitOp::Or,
@@ -1838,7 +1838,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Xor => {
+            isa::Instruction::I32Xor(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinBitOp {
                         class: BitOp::Xor,
@@ -1850,7 +1850,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Shl => {
+            isa::Instruction::I32Shl(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinShiftOp {
                         class: ShiftOp::Shl,
@@ -1862,7 +1862,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32ShrU => {
+            isa::Instruction::I32ShrU(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinShiftOp {
                         class: ShiftOp::UnsignedShr,
@@ -1874,7 +1874,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32ShrS => {
+            isa::Instruction::I32ShrS(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinShiftOp {
                         class: ShiftOp::SignedShr,
@@ -1886,7 +1886,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Rotl => {
+            isa::Instruction::I32Rotl(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinShiftOp {
                         class: ShiftOp::Rotl,
@@ -1898,7 +1898,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Rotr => {
+            isa::Instruction::I32Rotr(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinShiftOp {
                         class: ShiftOp::Rotr,
@@ -1910,7 +1910,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Add => {
+            isa::Instruction::I64Add(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
                         class: BinOp::Add,
@@ -1922,7 +1922,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Sub => {
+            isa::Instruction::I64Sub(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
                         class: BinOp::Sub,
@@ -1934,7 +1934,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Mul => {
+            isa::Instruction::I64Mul(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
                         class: BinOp::Mul,
@@ -1946,7 +1946,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64DivU => {
+            isa::Instruction::I64DivU(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
                         class: BinOp::UnsignedDiv,
@@ -1958,7 +1958,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64RemU => {
+            isa::Instruction::I64RemU(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
                         class: BinOp::UnsignedRem,
@@ -1970,7 +1970,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64DivS => {
+            isa::Instruction::I64DivS(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
                         class: BinOp::SignedDiv,
@@ -1982,7 +1982,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64RemS => {
+            isa::Instruction::I64RemS(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
                         class: BinOp::SignedRem,
@@ -1994,7 +1994,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64And => {
+            isa::Instruction::I64And(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinBitOp {
                         class: BitOp::And,
@@ -2006,7 +2006,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Or => {
+            isa::Instruction::I64Or(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinBitOp {
                         class: BitOp::Or,
@@ -2018,7 +2018,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Xor => {
+            isa::Instruction::I64Xor(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinBitOp {
                         class: BitOp::Xor,
@@ -2030,7 +2030,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Shl => {
+            isa::Instruction::I64Shl(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinShiftOp {
                         class: ShiftOp::Shl,
@@ -2042,7 +2042,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64ShrU => {
+            isa::Instruction::I64ShrU(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinShiftOp {
                         class: ShiftOp::UnsignedShr,
@@ -2054,7 +2054,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64ShrS => {
+            isa::Instruction::I64ShrS(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinShiftOp {
                         class: ShiftOp::SignedShr,
@@ -2066,7 +2066,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Rotl => {
+            isa::Instruction::I64Rotl(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinShiftOp {
                         class: ShiftOp::Rotl,
@@ -2078,7 +2078,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Rotr => {
+            isa::Instruction::I64Rotr(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinShiftOp {
                         class: ShiftOp::Rotr,
@@ -2091,12 +2091,12 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I32Ctz
-            | isa::Instruction::I32Clz
-            | isa::Instruction::I32Popcnt
-            | isa::Instruction::I64Ctz
-            | isa::Instruction::I64Clz
-            | isa::Instruction::I64Popcnt => {
+            isa::Instruction::I32Ctz(..)
+            | isa::Instruction::I32Clz(..)
+            | isa::Instruction::I32Popcnt(..)
+            | isa::Instruction::I64Ctz(..)
+            | isa::Instruction::I64Clz(..)
+            | isa::Instruction::I64Popcnt(..) => {
                 if let RunInstructionTracePre::UnaryOp { operand, vtype } = current_event.unwrap() {
                     StepInfo::UnaryOp {
                         class: UnaryOp::from(instructions.clone()),
@@ -2109,7 +2109,7 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I32WrapI64 => {
+            isa::Instruction::I32WrapI64(..) => {
                 if let RunInstructionTracePre::I32WrapI64 { value } = current_event.unwrap() {
                     StepInfo::I32WrapI64 {
                         value,
@@ -2119,7 +2119,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64ExtendSI32 | isa::Instruction::I64ExtendUI32 => {
+            isa::Instruction::I64ExtendSI32(..) | isa::Instruction::I64ExtendUI32(..) => {
                 if let RunInstructionTracePre::I64ExtendI32 { value, sign } = current_event.unwrap()
                 {
                     StepInfo::I64ExtendI32 {
@@ -2131,7 +2131,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Extend8S => {
+            isa::Instruction::I32Extend8S(..) => {
                 if let RunInstructionTracePre::I32SignExtendI8 { value } = current_event.unwrap() {
                     StepInfo::I32SignExtendI8 {
                         value,
@@ -2141,7 +2141,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Extend16S => {
+            isa::Instruction::I32Extend16S(..) => {
                 if let RunInstructionTracePre::I32SignExtendI16 { value } = current_event.unwrap() {
                     StepInfo::I32SignExtendI16 {
                         value,
@@ -2151,7 +2151,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Extend8S => {
+            isa::Instruction::I64Extend8S(..) => {
                 if let RunInstructionTracePre::I64SignExtendI8 { value } = current_event.unwrap() {
                     StepInfo::I64SignExtendI8 {
                         value,
@@ -2161,7 +2161,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Extend16S => {
+            isa::Instruction::I64Extend16S(..) => {
                 if let RunInstructionTracePre::I64SignExtendI16 { value } = current_event.unwrap() {
                     StepInfo::I64SignExtendI16 {
                         value,
@@ -2171,7 +2171,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Extend32S => {
+            isa::Instruction::I64Extend32S(..) => {
                 if let RunInstructionTracePre::I64SignExtendI32 { value } = current_event.unwrap() {
                     StepInfo::I64SignExtendI32 {
                         value,
