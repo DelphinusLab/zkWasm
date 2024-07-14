@@ -58,8 +58,10 @@ use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
+use specs::mtable::LocationType;
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use wasmi::isa::UniArg;
 
 pub(super) mod assign;
 mod op_configure;
@@ -76,6 +78,58 @@ pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
 pub(crate) const OP_CAPABILITY: usize = 32;
 
 const FOREIGN_LOOKUP_CAPABILITY: usize = 6;
+
+#[derive(Clone)]
+pub struct EventTableCommonArgsConfig<F: FieldExt> {
+    pub(crate) is_pop_cell: AllocatedBitCell<F>,
+    pub(crate) is_const_cell: AllocatedBitCell<F>,
+    pub(crate) is_stack_cell: AllocatedBitCell<F>,
+
+    pub(crate) is_i32_cell: AllocatedBitCell<F>,
+    pub(crate) is_enabled_cell: AllocatedBitCell<F>,
+    pub(crate) value_cell: AllocatedU64Cell<F>,
+
+    pub(crate) m_read_lookup_cell: AllocatedMemoryTableLookupReadCell<F>,
+}
+
+impl<F: FieldExt> EventTableCommonArgsConfig<F> {
+    pub(crate) fn assign(
+        &self,
+        ctx: &mut Context<'_, F>,
+        start_eid: u32,
+        eid: u32,
+        end_eid: u32,
+        offset: u32,
+        is_i32: bool,
+        value: u64,
+        arg_type: UniArg,
+        is_pop: bool,
+    ) -> Result<(), Error> {
+        self.is_enabled_cell.assign_bool(ctx, true);
+        self.is_i32_cell.assign_bool(ctx, is_i32);
+        match arg_type {
+            UniArg::Pop => self.is_pop_cell.assign_bool(ctx, true),
+            UniArg::Stack(_) => self.is_const_cell.assign_bool(ctx, true),
+            UniArg::IConst(_) => self.is_stack_cell.assign_bool(ctx, true),
+        }?;
+
+        match arg_type {
+            UniArg::Pop | UniArg::Stack(_) => self.m_read_lookup_cell.assign(
+                ctx,
+                start_eid,
+                eid,
+                end_eid,
+                offset,
+                LocationType::Stack,
+                is_i32,
+                value,
+            ),
+            UniArg::IConst(_) => self.value_cell.assign(ctx, value),
+        }?;
+
+        Ok(())
+    }
+}
 
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
@@ -106,6 +160,8 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     pow_table_lookup_power_cell: AllocatedUnlimitedCell<F>,
     bit_table_lookup_cells: AllocatedBitTableLookupCells<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
+
+    uniarg_configs: Vec<EventTableCommonArgsConfig<F>>,
 }
 
 pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
@@ -301,6 +357,98 @@ impl<F: FieldExt> EventTableConfig<F> {
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
         let bit_table_lookup_cells = allocator.alloc_bit_table_lookup_cells();
 
+        // TODO: Adjust SP
+        // TODO: Adjust OPCODE
+        let arg_is_enabled_cells = [0; 3].map(|_| allocator.alloc_bit_cell());
+        let mut allocators = vec![allocator.clone()];
+        let mut uniarg_configs: Vec<EventTableCommonArgsConfig<F>> = vec![];
+
+        for i in 0..3 {
+            let is_const_cell = allocator.alloc_bit_cell();
+            let is_pop_cell = allocator.alloc_bit_cell();
+            let is_stack_cell = allocator.alloc_bit_cell();
+
+            let is_i32_cell = allocator.alloc_bit_cell();
+            let value_cell = allocator.alloc_u64_cell();
+
+            let is_memory_read_cell = allocator.alloc_unlimited_cell();
+            let stack_offset_cell = allocator.alloc_u16_cell();
+            let arg_offset_cell = allocator.alloc_unlimited_cell();
+
+            meta.create_gate("c_arg.0. type select", |meta| {
+                vec![
+                    (is_const_cell.expr(meta) + is_pop_cell.expr(meta) + is_stack_cell.expr(meta)
+                        - constant_from!(1)),
+                ]
+                .into_iter()
+                .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cells[i].expr(meta))
+                .collect::<Vec<_>>()
+            });
+
+            let cells: Vec<_> = allocator
+                .alloc_group(&EventTableCellType::MTableLookup)
+                .into_iter()
+                .map(|x| AllocatedUnlimitedCell { cell: x })
+                .collect();
+
+            let cell = AllocatedMemoryTableLookupReadCell {
+                start_eid_cell: cells[0],
+                end_eid_cell: cells[1],
+                encode_cell: cells[2],
+                value_cell: cells[3],
+                start_eid_diff_cell: allocator.alloc_u32_state_cell(),
+                end_eid_diff_cell: allocator.alloc_u32_state_cell(),
+            };
+
+            meta.create_gate("c_arg.1. memory read", |meta| {
+                // By default, pop take the value on sp + 1
+                let mut sp_diff_expr =
+                    sp_cell.expr(meta) + constant_from!(1) - stack_offset_cell.expr(meta);
+
+                // Previous pop modify the diff by increasing 1
+                for j in 0..i {
+                    sp_diff_expr = sp_diff_expr
+                        + uniarg_configs[j].is_enabled_cell.expr(meta)
+                            * uniarg_configs[j].is_pop_cell.expr(meta);
+                }
+
+                vec![
+                    sp_diff_expr * is_pop_cell.expr(meta),
+                    is_memory_read_cell.expr(meta)
+                        - is_pop_cell.expr(meta)
+                        - is_stack_cell.expr(meta),
+                    (eid_cell.expr(meta)
+                        - cell.start_eid_cell.expr(meta)
+                        - cell.start_eid_diff_cell.expr(meta)
+                        - constant_from!(1))
+                        * is_memory_read_cell.expr(meta),
+                    (eid_cell.expr(meta) + cell.end_eid_diff_cell.expr(meta)
+                        - cell.end_eid_cell.expr(meta))
+                        * is_memory_read_cell.expr(meta),
+                    (specs::encode::memory_table::encode_memory_table_entry(
+                        stack_offset_cell.expr(meta),
+                        constant_from!(specs::mtable::LocationType::Stack as u64),
+                        is_i32_cell.expr(meta),
+                    ) - cell.encode_cell.expr(meta))
+                        * is_memory_read_cell.expr(meta),
+                ]
+                .into_iter()
+                .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cells[i].expr(meta))
+                .collect::<Vec<_>>()
+            });
+
+            uniarg_configs.push(EventTableCommonArgsConfig {
+                is_enabled_cell: arg_is_enabled_cells[i],
+                is_pop_cell,
+                is_const_cell,
+                is_stack_cell,
+                is_i32_cell,
+                value_cell,
+                m_read_lookup_cell:cell,
+            });
+            allocators.push(allocator.clone());
+        }
+
         let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
             .map(|_| allocator.alloc_unlimited_cell())
             .into_iter();
@@ -330,6 +478,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             pow_table_lookup_power_cell,
             bit_table_lookup_cells,
             external_foreign_call_lookup_cell,
+            uniarg_configs,
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
@@ -338,13 +487,13 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut profiler = AllocatorFreeCellsProfiler::new(&allocator);
 
         macro_rules! configure {
-            ($op:expr, $x:ident) => {
+            ($op:expr, $x:ident, $allocator:expr) => {
                 let op = OpcodeClassPlain($op as usize);
 
                 let foreign_table_configs = BTreeMap::new();
                 let mut constraint_builder = ConstraintBuilder::new(meta, &foreign_table_configs);
 
-                let mut allocator = allocator.clone();
+                let mut allocator = $allocator.clone();
                 let config = $x::configure(&common_config, &mut allocator, &mut constraint_builder);
 
                 constraint_builder.finalize(|meta| {
@@ -358,10 +507,18 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
-        configure!(OpcodeClass::BinShift, BinShiftConfigBuilder);
-        configure!(OpcodeClass::Bin, BinConfigBuilder);
-        configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder);
-        configure!(OpcodeClass::BrIf, BrIfConfigBuilder);
+        // 1 args
+
+        // 2 args
+        configure!(OpcodeClass::BinBit, BinBitConfigBuilder, allocators[2]);
+        configure!(OpcodeClass::BinShift, BinShiftConfigBuilder, allocators[2]);
+        configure!(OpcodeClass::Bin, BinConfigBuilder, allocators[2]);
+        configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder, allocators[2]);
+        configure!(OpcodeClass::BrIf, BrIfConfigBuilder, allocators[2]);
+
+        unimplemented!();
+        //unhandled
+        /*
         configure!(OpcodeClass::Br, BrConfigBuilder);
         configure!(OpcodeClass::Call, CallConfigBuilder);
         configure!(OpcodeClass::CallHost, ExternalCallHostCircuitConfigBuilder);
@@ -380,11 +537,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Unary, UnaryConfigBuilder);
         configure!(OpcodeClass::Load, LoadConfigBuilder);
         configure!(OpcodeClass::Store, StoreConfigBuilder);
-        configure!(OpcodeClass::BinBit, BinBitConfigBuilder);
         configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
         configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder);
         configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
         configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder);
+
 
         macro_rules! configure_foreign {
             ($x:ident, $i:expr) => {
@@ -412,9 +569,12 @@ impl<F: FieldExt> EventTableConfig<F> {
                 profiler.update(&allocator);
             };
         }
+        */
+        /*
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
         configure_foreign!(ETableContextHelperTableConfigBuilder, 1);
         configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
+         */
 
         profiler.assert_no_free_cells(&allocator);
 
