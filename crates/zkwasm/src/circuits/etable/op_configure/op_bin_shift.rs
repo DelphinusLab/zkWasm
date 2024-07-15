@@ -18,6 +18,7 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use specs::encode::opcode::encode_bin_shift;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::ShiftOp;
 use specs::mtable::LocationType;
@@ -323,7 +324,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                 + self.is_rotr.expr(meta)
                     * constant_from_bn!(&(BigUint::from(ShiftOp::Rotr as u64))),
             self.is_i32.expr(meta),
-            todo!(),
+            UniArgEncode::Reserve,
         )
     }
 

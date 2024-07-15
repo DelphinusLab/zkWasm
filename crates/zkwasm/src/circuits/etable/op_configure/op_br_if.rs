@@ -13,6 +13,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::opcode::encode_br_if;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
@@ -126,7 +127,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
             self.drop_cell.expr(meta),
             self.keep_cell.expr(meta),
             self.dst_pc_cell.expr(meta),
-            todo!(),
+            UniArgEncode::Reserve,
         )
     }
 

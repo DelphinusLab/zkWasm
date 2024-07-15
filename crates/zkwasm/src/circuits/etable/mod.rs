@@ -631,7 +631,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             pow_table_lookup_power_cell,
             bit_table_lookup_cells,
             external_foreign_call_lookup_cell,
-            uniarg_configs,
+            uniarg_configs: uniarg_configs.clone(),
         };
 
         let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
@@ -665,6 +665,11 @@ impl<F: FieldExt> EventTableConfig<F> {
             };
         }
 
+        // 0 args
+        configure!(OpcodeClass::Drop, DropConfigBuilder, 0);
+        configure!(OpcodeClass::Const, ConstConfigBuilder, 0);
+        configure!(OpcodeClass::Return, ReturnConfigBuilder, 0);
+
         // 1 args
 
         // 2 args
@@ -674,22 +679,19 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder, 2);
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder, 2);
 
-        unimplemented!();
+        // unimplemented!();
         //unhandled
         /*
         configure!(OpcodeClass::Br, BrConfigBuilder);
         configure!(OpcodeClass::Call, CallConfigBuilder);
         configure!(OpcodeClass::CallHost, ExternalCallHostCircuitConfigBuilder);
-        configure!(OpcodeClass::Const, ConstConfigBuilder);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
-        configure!(OpcodeClass::Drop, DropConfigBuilder);
         configure!(OpcodeClass::GlobalGet, GlobalGetConfigBuilder);
         configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder);
         configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
         configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
         configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
         configure!(OpcodeClass::Rel, RelConfigBuilder);
-        configure!(OpcodeClass::Return, ReturnConfigBuilder);
         configure!(OpcodeClass::Select, SelectConfigBuilder);
         configure!(OpcodeClass::Test, TestConfigBuilder);
         configure!(OpcodeClass::Unary, UnaryConfigBuilder);
@@ -734,7 +736,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
          */
 
-        profiler.assert_no_free_cells(&allocator);
+        // FIXME: open me after finish uniarg
+        // profiler.assert_no_free_cells(&allocator);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
