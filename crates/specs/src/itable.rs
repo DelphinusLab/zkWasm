@@ -253,12 +253,16 @@ impl UniArg {
         BigUint::from(1u64) << 64
     }
 
-    pub fn i32_const_tag() -> BigUint {
+    pub fn i64_const_tag() -> BigUint {
         BigUint::from(2u64) << 64
     }
 
-    pub fn i64_const_tag() -> BigUint {
+    pub fn i32_const_tag() -> BigUint {
         BigUint::from(3u64) << 64
+    }
+
+    pub fn i64_i32_const_tag() -> BigUint {
+        Self::i32_const_tag() - Self::i64_const_tag()
     }
 
     pub(crate) fn encode(&self) -> BigUint {

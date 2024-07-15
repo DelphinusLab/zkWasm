@@ -63,18 +63,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             );
         let res = memory_table_lookup_stack_write.value_cell;
 
-        constraint_builder.push(
-            "op_bin_bit: args",
-            Box::new(move |meta| {
-                vec![
-                    rhs.is_i32_cell.expr(meta) - lhs.is_i32_cell.expr(meta),
-                    rhs.is_enabled_cell.expr(meta) + lhs.is_enabled_cell.expr(meta)
-                        - constant_from!(2),
-                    // disable unused uniarg
-                    common_config.uniarg_configs[2].is_enabled_cell.expr(meta),
-                ]
-            }),
-        );
+        {
+            let tmp = common_config.uniarg_configs[2].is_enabled_cell.clone();
+            constraint_builder.push(
+                "op_bin_bit: args",
+                Box::new(move |meta| {
+                    vec![
+                        rhs.is_i32_cell.expr(meta) - lhs.is_i32_cell.expr(meta),
+                        rhs.is_enabled_cell.expr(meta) + lhs.is_enabled_cell.expr(meta)
+                            - constant_from!(2),
+                        // disable unused uniarg
+                        tmp.expr(meta),
+                    ]
+                }),
+            );
+        }
 
         constraint_builder.push(
             "op_bin_bit: lookup",
