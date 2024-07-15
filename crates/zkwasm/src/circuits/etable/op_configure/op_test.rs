@@ -106,8 +106,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
                 }
                 self.res_cell.assign_u32(ctx, *result as u32)?;
 
-                todo!();
-                //self.operand_arg.assign()
+                if let specs::itable::Opcode::Test { uniarg, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.operand_arg.assign(ctx, uniarg, &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
 
                 self.memory_table_lookup_stack_write.assign(
                     ctx,

@@ -131,8 +131,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
                     )?;
                 }
 
-                todo!();
-                // self.grow_size_arg.assign()
+                if let specs::itable::Opcode::MemoryGrow { uniarg, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.grow_size_arg
+                        .assign(ctx, uniarg, &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
 
                 self.memory_table_lookup_stack_write.assign(
                     ctx,

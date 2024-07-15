@@ -539,9 +539,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                         - (block_start_index + is_cross_block as u32 + 1),
                 )?;
 
-                todo!();
-                //self.val_arg.assign()
-                //self.pos_arg.assign()
+                if let specs::itable::Opcode::Store { uniargs, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.val_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
+                    self.pos_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
 
                 self.memory_table_lookup_heap_read1.assign(
                     ctx,

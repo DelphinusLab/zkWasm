@@ -531,8 +531,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 )?;
 
                 let mut i = 0;
-                todo!();
-                // load_base_arg.assign()
+                if let specs::itable::Opcode::Load { uniarg, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.load_base_arg
+                        .assign(ctx, uniarg, &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
                 i += 1;
 
                 self.memory_table_lookup_heap_read1.assign(

@@ -345,8 +345,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
             .assign(ctx, bn_to_field(&BigUint::from(modulus)))?;
         self.padding.assign(ctx, F::from(padding))?;
 
-        todo!();
-        // value_arg.assign()
+        if let specs::itable::Opcode::Conversion { uniarg, .. } =
+            entry.eentry.get_instruction(&step.current.itable).opcode
+        {
+            let mut memory_entries = entry.memory_rw_entires.iter();
+
+            self.value_arg.assign(ctx, uniarg, &mut memory_entries)?;
+        } else {
+            unreachable!();
+        }
 
         self.memory_table_lookup_stack_write.assign(
             ctx,
@@ -368,7 +375,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
     fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
-    
+
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant!(-F::one()))
     }

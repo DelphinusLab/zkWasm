@@ -66,9 +66,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
         constraint_builder.push(
             "select: uniarg",
             Box::new(move |meta| {
-                vec![
-                    expected_index_arg.is_i32_cell.expr(meta) - constant_from!(1),
-                ]
+                vec![expected_index_arg.is_i32_cell.expr(meta) - constant_from!(1)]
             }),
         );
 
@@ -205,8 +203,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                 self.drop.assign(ctx, F::from(*drop as u64))?;
                 self.dst_iid.assign(ctx, F::from(*dst_pc as u64))?;
 
-                todo!();
-                // self.expected_index_arg.assign()
+                if let specs::itable::Opcode::BrTable { uniarg, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.expected_index_arg
+                        .assign(ctx, uniarg, &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
 
                 if !keep.is_empty() {
                     let keep_type: VarType = keep[0].into();

@@ -124,10 +124,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
                 }
                 self.res.assign(ctx, F::from(*result))?;
 
-                todo!();
-                // cond_arg.assign()
-                // val1_arg.assign()
-                // val2_arg.assign()
+                if let specs::itable::Opcode::Select { uniargs, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.cond_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
+                    self.val1_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+                    self.val2_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
 
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
