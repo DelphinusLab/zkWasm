@@ -446,6 +446,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant!(F::one()))
+        Some(constant!(-F::one()))
     }
 }

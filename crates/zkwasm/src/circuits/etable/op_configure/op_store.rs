@@ -592,10 +592,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
         }
     }
 
-    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(2))
-    }
-
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(constant_from!(1) + self.is_cross_block.expr(meta))
     }

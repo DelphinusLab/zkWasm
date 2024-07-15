@@ -345,4 +345,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
     fn memory_writing_ops(&self, _: &EventTableEntry) -> u32 {
         1
     }
+
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant!(-F::one()))
+    }
 }
