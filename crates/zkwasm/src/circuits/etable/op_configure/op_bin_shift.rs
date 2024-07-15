@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -25,8 +26,11 @@ use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 pub struct BinShiftConfig<F: FieldExt> {
+    lhs_arg: EventTableCommonArgsConfig<F>,
+    rhs_arg: EventTableCommonArgsConfig<F>,
     lhs: AllocatedU64CellWithFlagBitDyn<F>,
     rhs: AllocatedU64Cell<F>,
+
     round: AllocatedU64Cell<F>,
     rem: AllocatedU64Cell<F>,
     diff: AllocatedU64Cell<F>,
@@ -38,8 +42,6 @@ pub struct BinShiftConfig<F: FieldExt> {
     rhs_round: AllocatedCommonRangeCell<F>,
     rhs_rem: AllocatedCommonRangeCell<F>,
     rhs_rem_diff: AllocatedCommonRangeCell<F>,
-
-    is_i32: AllocatedBitCell<F>,
 
     is_shl: AllocatedBitCell<F>,
     is_shr_u: AllocatedBitCell<F>,
@@ -53,8 +55,6 @@ pub struct BinShiftConfig<F: FieldExt> {
     lookup_pow_modulus: AllocatedUnlimitedCell<F>,
     lookup_pow_power: AllocatedUnlimitedCell<F>,
 
-    memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -66,10 +66,24 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let is_i32 = allocator.alloc_bit_cell();
+        let rhs_arg = common_config.uniarg_configs[0].clone();
+        let lhs_arg = common_config.uniarg_configs[1].clone();
+        let is_i32 = rhs_arg.is_i32_cell;
         let lhs = allocator
             .alloc_u64_with_flag_bit_cell_dyn(constraint_builder, move |meta| is_i32.expr(meta));
         let rhs = allocator.alloc_u64_cell();
+
+        constraint_builder.push(
+            "op_bin_shift: uniarg",
+            Box::new(move |meta| {
+                vec![
+                    rhs_arg.is_i32_cell.expr(meta) - lhs_arg.is_i32_cell.expr(meta),
+                    rhs_arg.value_cell.expr(meta) - rhs.u64_cell.expr(meta),
+                    lhs_arg.value_cell.expr(meta) - lhs.u64_cell.expr(meta),
+                ]
+            }),
+        );
+
         let round = allocator.alloc_u64_cell();
         let rem = allocator.alloc_u64_cell();
         let diff = allocator.alloc_u64_cell();
@@ -120,13 +134,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             move |____| constant_from!(1),
         );
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
                 "op_bin_shift stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
                 move |meta| is_i32.expr(meta),
                 move |____| constant_from!(1),
             );
@@ -281,6 +296,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         Box::new(BinShiftConfig {
+            lhs_arg,
+            rhs_arg,
             lhs,
             rhs,
             round,
@@ -291,7 +308,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             rhs_round,
             rhs_rem,
             rhs_rem_diff,
-            is_i32,
             is_shl,
             is_shr_u,
             is_shr_s,
@@ -301,8 +317,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             is_r,
             lookup_pow_modulus,
             lookup_pow_power,
-            memory_table_lookup_stack_read_lhs,
-            memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
             rhs_modulus,
             size_modulus,
@@ -323,7 +337,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     * constant_from_bn!(&(BigUint::from(ShiftOp::Rotl as u64)))
                 + self.is_rotr.expr(meta)
                     * constant_from_bn!(&(BigUint::from(ShiftOp::Rotr as u64))),
-            self.is_i32.expr(meta),
+            self.rhs_arg.is_i32_cell.expr(meta),
             UniArgEncode::Reserve,
         )
     }
@@ -394,8 +408,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
         self.lookup_pow_modulus.assign(ctx, modulus.into())?;
         self.lookup_pow_power
             .assign_bn(ctx, &pow_table_power_encode(BigUint::from(power)))?;
-        self.is_i32
-            .assign(ctx, if is_eight_bytes { F::zero() } else { F::one() })?;
         self.res.assign(ctx, F::from(value))?;
         self.rhs_modulus
             .assign_u32(ctx, if is_eight_bytes { 64 } else { 32 })?;
@@ -466,27 +478,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             }
         }
 
-        self.memory_table_lookup_stack_read_rhs.assign(
-            ctx,
-            entry.memory_rw_entires[0].start_eid,
-            step.current.eid,
-            entry.memory_rw_entires[0].end_eid,
-            step.current.sp + 1,
-            LocationType::Stack,
-            !is_eight_bytes,
-            right,
-        )?;
-
-        self.memory_table_lookup_stack_read_lhs.assign(
-            ctx,
-            entry.memory_rw_entires[1].start_eid,
-            step.current.eid,
-            entry.memory_rw_entires[1].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            !is_eight_bytes,
-            left,
-        )?;
+        todo!();
+        // self.lhs_arg.assign()
+        // self.rhs_arg.assign()
 
         self.memory_table_lookup_stack_write.assign(
             ctx,
