@@ -219,9 +219,69 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     uniarg_configs: Vec<EventTableCommonArgsConfig<F>>,
 }
 
+impl<F: FieldExt> EventTableCommonConfig<F> {
+    fn config_uargs_enable(
+        common_config: &EventTableCommonConfig<F>,
+        allocator: &mut EventTableCellAllocator<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
+    ) {
+    }
+}
+
 pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
+    fn configure_all(
+        common_config: &EventTableCommonConfig<F>,
+        allocator: &mut EventTableCellAllocator<F>,
+        constraint_builder: &mut ConstraintBuilder<F>,
+        uniarg_nr: usize,
+    ) -> Box<dyn EventTableOpcodeConfig<F>> {
+        let used_args = common_config
+            .uniarg_configs
+            .iter()
+            .take(uniarg_nr)
+            .map(|x| x.is_enabled_cell.clone())
+            .collect::<Vec<_>>();
+        let unused_args = common_config
+            .uniarg_configs
+            .iter()
+            .skip(uniarg_nr)
+            .map(|x| x.is_enabled_cell.clone())
+            .collect::<Vec<_>>();
+        constraint_builder.push(
+            "op_unary: uniarg",
+            Box::new(move |meta| {
+                let mut gates = vec![];
+                if used_args.len() > 0 {
+                    gates.push(
+                        used_args
+                            .iter()
+                            .map(|x| x.expr(meta))
+                            .reduce(|a, b| a + b)
+                            .unwrap()
+                            - constant_from!(uniarg_nr),
+                    )
+                }
+
+                if unused_args.len() > 0 {
+                    gates.push(
+                        unused_args
+                            .iter()
+                            .map(|x| x.expr(meta))
+                            .reduce(|a, b| a + b)
+                            .unwrap(),
+                    );
+                }
+                gates
+            }),
+        );
+
+        let mut common_config = common_config.clone();
+        common_config.uniarg_configs = common_config.uniarg_configs.into_iter().take(uniarg_nr).collect();
+        Self::configure(&common_config, allocator, constraint_builder)
+    }
+
     fn configure(
-        common: &EventTableCommonConfig<F>,
+        common_config: &EventTableCommonConfig<F>,
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
@@ -561,14 +621,19 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut profiler = AllocatorFreeCellsProfiler::new(&allocator);
 
         macro_rules! configure {
-            ($op:expr, $x:ident, $allocator:expr) => {
+            ($op:expr, $x:ident, $uniargs_nr:expr) => {
                 let op = OpcodeClassPlain($op as usize);
 
                 let foreign_table_configs = BTreeMap::new();
                 let mut constraint_builder = ConstraintBuilder::new(meta, &foreign_table_configs);
 
-                let mut allocator = $allocator.clone();
-                let config = $x::configure(&common_config, &mut allocator, &mut constraint_builder);
+                let mut allocator = allocators[$uniargs_nr].clone();
+                let config = $x::configure_all(
+                    &common_config,
+                    &mut allocator,
+                    &mut constraint_builder,
+                    $uniargs_nr,
+                );
 
                 constraint_builder.finalize(|meta| {
                     (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
@@ -584,11 +649,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         // 1 args
 
         // 2 args
-        configure!(OpcodeClass::BinBit, BinBitConfigBuilder, allocators[2]);
-        configure!(OpcodeClass::BinShift, BinShiftConfigBuilder, allocators[2]);
-        configure!(OpcodeClass::Bin, BinConfigBuilder, allocators[2]);
-        configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder, allocators[2]);
-        configure!(OpcodeClass::BrIf, BrIfConfigBuilder, allocators[2]);
+        configure!(OpcodeClass::BinBit, BinBitConfigBuilder, 2);
+        configure!(OpcodeClass::BinShift, BinShiftConfigBuilder, 2);
+        configure!(OpcodeClass::Bin, BinConfigBuilder, 2);
+        configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder, 2);
+        configure!(OpcodeClass::BrIf, BrIfConfigBuilder, 2);
 
         unimplemented!();
         //unhandled
