@@ -48,9 +48,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let sp = common_config.sp_cell;
         let bit_table_lookup = common_config.bit_table_lookup_cells;
 
-        let rhs = common_config.uniarg_configs[0];
-        let lhs = common_config.uniarg_configs[1];
-        let is_i32 = common_config.uniarg_configs[0].is_i32_cell;
+        let rhs = common_config.uniarg_configs[0].clone();
+        let lhs = common_config.uniarg_configs[1].clone();
 
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
@@ -58,8 +57,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + todo!(),
-                move |meta| is_i32.expr(meta),
+                move |meta| sp.expr(meta) + rhs.is_pop_cell.expr(meta) + lhs.is_pop_cell.expr(meta),
+                move |meta| rhs.is_i32_cell.expr(meta),
                 move |____| constant_from!(1),
             );
         let res = memory_table_lookup_stack_write.value_cell;
@@ -163,19 +162,19 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
                         entry.memory_rw_entires[0].start_eid,
                         step.current.eid,
                         entry.memory_rw_entires[0].end_eid,
-                        todo!(),
+                        step.current.sp + 1,
                         vtype == VarType::I32,
                         right,
                     )?;
                 }
-                UniArg::Stack(_) => {
+                UniArg::Stack(delta) => {
                     self.rhs.assign_stack(
                         ctx,
                         uniargs[0],
                         entry.memory_rw_entires[0].start_eid,
                         step.current.eid,
                         entry.memory_rw_entires[0].end_eid,
-                        todo!(),
+                        step.current.sp + delta as u32,
                         vtype == VarType::I32,
                         right,
                     )?;
@@ -193,19 +192,19 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
                         entry.memory_rw_entires[1].start_eid,
                         step.current.eid,
                         entry.memory_rw_entires[1].end_eid,
-                        todo!(),
+                        step.current.sp + 1 + uniargs[0].is_pop() as u32,
                         vtype == VarType::I32,
                         left,
                     )?;
                 }
-                UniArg::Stack(_) => {
+                UniArg::Stack(delta) => {
                     self.lhs.assign_stack(
                         ctx,
                         uniargs[1],
                         entry.memory_rw_entires[1].start_eid,
                         step.current.eid,
                         entry.memory_rw_entires[1].end_eid,
-                        todo!(),
+                        step.current.sp + delta as u32,
                         vtype == VarType::I32,
                         left,
                     )?;
@@ -214,19 +213,19 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
                     self.lhs.assign_const(ctx, uniargs[1])?;
                 }
             }
+
+            self.memory_table_lookup_stack_write.assign(
+                ctx,
+                step.current.eid,
+                entry.memory_rw_entires[2].end_eid,
+                step.current.sp + uniargs[0].is_pop() as u32 + uniargs[1].is_pop() as u32,
+                LocationType::Stack,
+                vtype == VarType::I32,
+                value,
+            )?;
         } else {
             unreachable!();
         }
-
-        self.memory_table_lookup_stack_write.assign(
-            ctx,
-            step.current.eid,
-            entry.memory_rw_entires[2].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            vtype == VarType::I32,
-            value,
-        )?;
 
         Ok(())
     }
