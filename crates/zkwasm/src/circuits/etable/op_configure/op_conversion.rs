@@ -15,6 +15,7 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use specs::encode::opcode::encode_conversion;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
@@ -213,6 +214,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
             self.value_is_i64.expr(meta),
             self.res_is_i32.expr(meta),
             self.res_is_i64.expr(meta),
+            UniArgEncode::Reserve,
         )
     }
 

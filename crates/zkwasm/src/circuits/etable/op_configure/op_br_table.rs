@@ -15,6 +15,7 @@ use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use specs::encode::br_table::encode_br_table_entry;
 use specs::encode::opcode::encode_br_table;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
@@ -171,7 +172,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        encode_br_table(self.targets_len.expr(meta))
+        encode_br_table(self.targets_len.expr(meta), UniArgEncode::Reserve)
     }
 
     fn assign(

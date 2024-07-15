@@ -19,6 +19,7 @@ use num_bigint::BigUint;
 use specs::encode::br_table::encode_elem_entry;
 use specs::encode::frame_table::encode_frame_table_entry;
 use specs::encode::opcode::encode_call_indirect;
+use specs::encode::opcode::UniArgEncode;
 use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
@@ -122,7 +123,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        encode_call_indirect(self.type_index.expr(meta))
+        encode_call_indirect(self.type_index.expr(meta), UniArgEncode::Reserve)
     }
 
     fn assign(
