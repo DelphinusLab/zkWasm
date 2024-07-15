@@ -216,7 +216,7 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     bit_table_lookup_cells: AllocatedBitTableLookupCells<F>,
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
 
-    uniarg_configs: Vec<EventTableCommonArgsConfig<F>>,
+    pub(crate) uniarg_configs: Vec<EventTableCommonArgsConfig<F>>,
 }
 
 impl<F: FieldExt> EventTableCommonConfig<F> {
@@ -669,8 +669,28 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Drop, DropConfigBuilder, 0);
         configure!(OpcodeClass::Const, ConstConfigBuilder, 0);
         configure!(OpcodeClass::Return, ReturnConfigBuilder, 0);
+        configure!(OpcodeClass::Br, BrConfigBuilder, 0);
+        configure!(OpcodeClass::Call, CallConfigBuilder, 0);
+        configure!(
+            OpcodeClass::CallHost,
+            ExternalCallHostCircuitConfigBuilder,
+            0
+        );
+        configure!(OpcodeClass::GlobalGet, GlobalGetConfigBuilder, 0);
+        configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder, 0);
+        configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder, 0);
+        configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder, 0);
 
         // 1 args
+        configure!(OpcodeClass::BrTable, BrTableConfigBuilder, 1);
+        configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder, 1);
+        configure!(OpcodeClass::Conversion, ConversionConfigBuilder, 1);
+        configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder, 1);
+        configure!(OpcodeClass::Load, LoadConfigBuilder, 1);
+        configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder, 1);
+        configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder, 1);
+        configure!(OpcodeClass::Test, TestConfigBuilder, 1);
+        configure!(OpcodeClass::Unary, UnaryConfigBuilder, 1);
 
         // 2 args
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder, 2);
@@ -678,30 +698,11 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::Bin, BinConfigBuilder, 2);
         configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder, 2);
         configure!(OpcodeClass::BrIf, BrIfConfigBuilder, 2);
+        configure!(OpcodeClass::Rel, RelConfigBuilder, 2);
+        configure!(OpcodeClass::Store, StoreConfigBuilder, 2);
 
-        // unimplemented!();
-        //unhandled
-        /*
-        configure!(OpcodeClass::Br, BrConfigBuilder);
-        configure!(OpcodeClass::Call, CallConfigBuilder);
-        configure!(OpcodeClass::CallHost, ExternalCallHostCircuitConfigBuilder);
-        configure!(OpcodeClass::Conversion, ConversionConfigBuilder);
-        configure!(OpcodeClass::GlobalGet, GlobalGetConfigBuilder);
-        configure!(OpcodeClass::GlobalSet, GlobalSetConfigBuilder);
-        configure!(OpcodeClass::LocalGet, LocalGetConfigBuilder);
-        configure!(OpcodeClass::LocalSet, LocalSetConfigBuilder);
-        configure!(OpcodeClass::LocalTee, LocalTeeConfigBuilder);
-        configure!(OpcodeClass::Rel, RelConfigBuilder);
-        configure!(OpcodeClass::Select, SelectConfigBuilder);
-        configure!(OpcodeClass::Test, TestConfigBuilder);
-        configure!(OpcodeClass::Unary, UnaryConfigBuilder);
-        configure!(OpcodeClass::Load, LoadConfigBuilder);
-        configure!(OpcodeClass::Store, StoreConfigBuilder);
-        configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder);
-        configure!(OpcodeClass::MemoryGrow, MemoryGrowConfigBuilder);
-        configure!(OpcodeClass::BrTable, BrTableConfigBuilder);
-        configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder);
-
+        // 3 args
+        configure!(OpcodeClass::Select, SelectConfigBuilder, 3);
 
         macro_rules! configure_foreign {
             ($x:ident, $i:expr) => {
@@ -710,9 +711,9 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let op = OpcodeClassPlain(op);
 
                 let mut constraint_builder = ConstraintBuilder::new(meta, foreign_table_configs);
-                let mut allocator = allocator.clone();
+                let mut allocator = allocators[0].clone();
 
-                let config = builder.configure(
+                let config = builder.configure_all(
                     &common_config,
                     &mut allocator,
                     &mut constraint_builder,
@@ -729,14 +730,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                 profiler.update(&allocator);
             };
         }
-        */
-        /*
         configure_foreign!(ETableWasmInputHelperTableConfigBuilder, 0);
         configure_foreign!(ETableContextHelperTableConfigBuilder, 1);
         configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
-         */
 
-        // FIXME: open me after finish uniarg
         // profiler.assert_no_free_cells(&allocator);
 
         meta.create_gate("c1. enable seq", |meta| {
