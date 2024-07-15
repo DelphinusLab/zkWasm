@@ -245,18 +245,36 @@ impl UniArg {
         }
     }
 
+    pub fn pop_tag() -> BigUint {
+        BigUint::from(0u64) << 64
+    }
+
+    pub fn stack_tag() -> BigUint {
+        BigUint::from(1u64) << 64
+    }
+
+    pub fn i32_const_tag() -> BigUint {
+        BigUint::from(2u64) << 64
+    }
+
+    pub fn i64_const_tag() -> BigUint {
+        BigUint::from(3u64) << 64
+    }
+
     pub(crate) fn encode(&self) -> BigUint {
         macro_rules! tag {
             ($tag:expr, $value:expr) => {
-                ($tag << 64) + $value
+                $tag + $value
             };
         }
         match self {
-            UniArg::Pop => tag!(BigUint::from(0u64), BigUint::zero()),
-            UniArg::Stack(usize) => tag!(BigUint::from(1u64), BigUint::from(*usize as u64)),
+            UniArg::Pop => tag!(Self::pop_tag(), BigUint::zero()),
+            UniArg::Stack(usize) => tag!(Self::stack_tag(), BigUint::from(*usize as u64)),
             UniArg::IConst(c) => match c {
-                Value::I32(value) => tag!(BigUint::from(2u64), BigUint::from(*value as u32 as u64)),
-                Value::I64(value) => tag!(BigUint::from(3u64), BigUint::from(*value as u64)),
+                Value::I32(value) => {
+                    tag!(Self::i32_const_tag(), BigUint::from(*value as u32 as u64))
+                }
+                Value::I64(value) => tag!(Self::i64_const_tag(), BigUint::from(*value as u64)),
             },
         }
     }
