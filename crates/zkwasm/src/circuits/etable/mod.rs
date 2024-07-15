@@ -276,7 +276,11 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
         );
 
         let mut common_config = common_config.clone();
-        common_config.uniarg_configs = common_config.uniarg_configs.into_iter().take(uniarg_nr).collect();
+        common_config.uniarg_configs = common_config
+            .uniarg_configs
+            .into_iter()
+            .take(uniarg_nr)
+            .collect();
         Self::configure(&common_config, allocator, constraint_builder)
     }
 
@@ -285,6 +289,20 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
+
+    fn sp_after_uniarg(
+        sp_cell: AllocatedCommonRangeCell<F>,
+        uniarg_configs: &Vec<EventTableCommonArgsConfig<F>>,
+        meta: &mut VirtualCells<'_, F>,
+    ) -> Expression<F> {
+        let pops = uniarg_configs
+            .iter()
+            .map(|x| x.is_pop_cell)
+            .collect::<Vec<_>>();
+        pops.iter()
+            .map(|x| x.expr(meta))
+            .fold(sp_cell.expr(meta), |acc, x| acc + x)
+    }
 }
 
 pub trait EventTableOpcodeConfig<F: FieldExt> {

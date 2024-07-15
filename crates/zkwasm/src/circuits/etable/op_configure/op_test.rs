@@ -57,12 +57,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for TestConfigBuilder {
             }),
         ));
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_test stack write",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
             move |____| constant_from!(1),
             move |meta| res_cell.expr(meta),
             move |____| constant_from!(1),
