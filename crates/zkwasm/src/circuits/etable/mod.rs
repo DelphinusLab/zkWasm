@@ -299,9 +299,10 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
             .iter()
             .map(|x| x.is_pop_cell)
             .collect::<Vec<_>>();
+        let mut acc = sp_cell.expr(meta);
         pops.iter()
             .map(|x| x.expr(meta))
-            .fold(sp_cell.expr(meta), |acc, x| acc + x)
+            .fold(acc, |acc, x| acc + x)
     }
 }
 
