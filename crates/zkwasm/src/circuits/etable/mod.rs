@@ -559,25 +559,27 @@ impl<F: FieldExt> EventTableConfig<F> {
                     (value_cell.expr(meta) - m_read_lookup_cell.value_cell.expr(meta))
                         * is_stack_read.clone(),
                     // stack_offset = if is_pop { sp + 1 + previous_popped } else { sp + constant_offset }
-                    stack_offset_cell.expr(meta) - sp_cell.expr(meta)
-                        + is_pop_cell.expr(meta) * pop_sp_offset_expr
-                        + is_local_get_cell.expr(meta)
-                            * (sp_cell.expr(meta) - local_get_offset_cell.expr(meta)),
+                    // bad
+                    // stack_offset_cell.expr(meta) - sp_cell.expr(meta)
+                    //     + is_pop_cell.expr(meta) * pop_sp_offset_expr
+                    //     + is_local_get_cell.expr(meta)
+                    //         * (sp_cell.expr(meta) - local_get_offset_cell.expr(meta)),
                     // on memory read
-                    (eid_cell.expr(meta)
-                        - m_read_lookup_cell.start_eid_cell.expr(meta)
-                        - m_read_lookup_cell.start_eid_diff_cell.expr(meta)
-                        - constant_from!(1))
-                        * is_stack_read.clone(),
-                    (eid_cell.expr(meta) + m_read_lookup_cell.end_eid_diff_cell.expr(meta)
-                        - m_read_lookup_cell.end_eid_cell.expr(meta))
-                        * is_stack_read.clone(),
-                    (specs::encode::memory_table::encode_memory_table_entry(
-                        stack_offset_cell.expr(meta),
-                        constant_from!(specs::mtable::LocationType::Stack as u64),
-                        is_i32_cell.expr(meta),
-                    ) - m_read_lookup_cell.encode_cell.expr(meta))
-                        * is_stack_read,
+                    // bad
+                    // (eid_cell.expr(meta)
+                    //     - m_read_lookup_cell.start_eid_cell.expr(meta)
+                    //     - m_read_lookup_cell.start_eid_diff_cell.expr(meta)
+                    //     - constant_from!(1))
+                    //     * is_stack_read.clone(),
+                    // (eid_cell.expr(meta) + m_read_lookup_cell.end_eid_diff_cell.expr(meta)
+                    //     - m_read_lookup_cell.end_eid_cell.expr(meta))
+                    //     * is_stack_read.clone(),
+                    // (specs::encode::memory_table::encode_memory_table_entry(
+                    //     stack_offset_cell.expr(meta),
+                    //     constant_from!(specs::mtable::LocationType::Stack as u64),
+                    //     is_i32_cell.expr(meta),
+                    // ) - m_read_lookup_cell.encode_cell.expr(meta))
+                    //     * is_stack_read,
                 ]
                 .into_iter()
                 .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cells[i].expr(meta))
