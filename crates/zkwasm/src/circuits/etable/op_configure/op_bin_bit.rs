@@ -2,6 +2,7 @@ use crate::circuits::bit_table::BitTableOp;
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -18,15 +19,18 @@ use specs::encode::opcode::encode_bin_bit;
 use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::BitOp;
+use specs::itable::Opcode;
+use specs::itable::UniArg;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct BinBitConfig<F: FieldExt> {
-    is_i32: AllocatedBitCell<F>,
     op_class: AllocatedCommonRangeCell<F>,
     bit_table_lookup: AllocatedBitTableLookupCells<F>,
 
+    lhs: EventTableCommonArgsConfig<F>,
+    rhs: EventTableCommonArgsConfig<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -45,31 +49,34 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let sp = common_config.sp_cell;
         let bit_table_lookup = common_config.bit_table_lookup_cells;
 
-        let rhs = common_config.uniarg_configs[0].value_cell;
-        let lhs = common_config.uniarg_configs[1].value_cell;
+        let rhs = common_config.uniarg_configs[0];
+        let lhs = common_config.uniarg_configs[1];
         let is_i32 = common_config.uniarg_configs[0].is_i32_cell;
 
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
-                "op_bin stack read",
+                "op_bin stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| sp.expr(meta) + todo!(),
                 move |meta| is_i32.expr(meta),
                 move |____| constant_from!(1),
             );
         let res = memory_table_lookup_stack_write.value_cell;
 
-        todo!("constrain rhs.is_i32 == lhs.is_i32");
+        constraint_builder.push(
+            "op_bin_bit: args",
+            Box::new(move |meta| vec![rhs.is_i32_cell.expr(meta) - lhs.is_i32_cell.expr(meta)]),
+        );
 
         constraint_builder.push(
             "op_bin_bit: lookup",
             Box::new(move |meta| {
                 vec![
                     bit_table_lookup.op.expr(meta) - op_class.expr(meta),
-                    bit_table_lookup.left.expr(meta) - lhs.expr(meta),
-                    bit_table_lookup.right.expr(meta) - rhs.expr(meta),
+                    bit_table_lookup.left.expr(meta) - lhs.value_cell.expr(meta),
+                    bit_table_lookup.right.expr(meta) - rhs.value_cell.expr(meta),
                     bit_table_lookup.result.expr(meta) - res.expr(meta),
                 ]
             }),
@@ -77,8 +84,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
 
         Box::new(BinBitConfig {
             op_class,
-            is_i32,
             bit_table_lookup,
+            lhs,
+            rhs,
             memory_table_lookup_stack_write,
         })
     }
@@ -88,7 +96,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         encode_bin_bit(
             self.op_class.expr(meta),
-            self.is_i32.expr(meta),
+            self.rhs.is_i32_cell.expr(meta),
             UniArgEncode::Reserve,
         )
     }
@@ -127,8 +135,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
             _ => unreachable!(),
         };
 
-        self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
-
         self.bit_table_lookup
             .assign(ctx, BitTableOp::BinaryBit(class), left, right, value)?;
 
@@ -144,27 +150,74 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
             }
         };
 
-        self.memory_table_lookup_stack_read_rhs.assign(
-            ctx,
-            entry.memory_rw_entires[0].start_eid,
-            step.current.eid,
-            entry.memory_rw_entires[0].end_eid,
-            step.current.sp + 1,
-            LocationType::Stack,
-            vtype == VarType::I32,
-            right,
-        )?;
+        if let Opcode::BinBit {
+            class,
+            vtype,
+            uniargs,
+        } = entry.eentry.get_instruction(&step.current.itable).opcode
+        {
+            match uniargs[0] {
+                UniArg::Pop => {
+                    self.rhs.assign_pop(
+                        ctx,
+                        uniargs[0],
+                        entry.memory_rw_entires[0].start_eid,
+                        step.current.eid,
+                        entry.memory_rw_entires[0].end_eid,
+                        todo!(),
+                        vtype == VarType::I32,
+                        right,
+                    )?;
+                }
+                UniArg::Stack(_) => {
+                    self.rhs.assign_stack(
+                        ctx,
+                        uniargs[0],
+                        entry.memory_rw_entires[0].start_eid,
+                        step.current.eid,
+                        entry.memory_rw_entires[0].end_eid,
+                        todo!(),
+                        vtype == VarType::I32,
+                        right,
+                    )?;
+                }
+                UniArg::IConst(_) => {
+                    self.rhs.assign_const(ctx, uniargs[0])?;
+                }
+            }
 
-        self.memory_table_lookup_stack_read_lhs.assign(
-            ctx,
-            entry.memory_rw_entires[1].start_eid,
-            step.current.eid,
-            entry.memory_rw_entires[1].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            vtype == VarType::I32,
-            left,
-        )?;
+            match uniargs[1] {
+                UniArg::Pop => {
+                    self.lhs.assign_pop(
+                        ctx,
+                        uniargs[1],
+                        entry.memory_rw_entires[1].start_eid,
+                        step.current.eid,
+                        entry.memory_rw_entires[1].end_eid,
+                        todo!(),
+                        vtype == VarType::I32,
+                        left,
+                    )?;
+                }
+                UniArg::Stack(_) => {
+                    self.lhs.assign_stack(
+                        ctx,
+                        uniargs[1],
+                        entry.memory_rw_entires[1].start_eid,
+                        step.current.eid,
+                        entry.memory_rw_entires[1].end_eid,
+                        todo!(),
+                        vtype == VarType::I32,
+                        left,
+                    )?;
+                }
+                UniArg::IConst(_) => {
+                    self.lhs.assign_const(ctx, uniargs[1])?;
+                }
+            }
+        } else {
+            unreachable!();
+        }
 
         self.memory_table_lookup_stack_write.assign(
             ctx,
