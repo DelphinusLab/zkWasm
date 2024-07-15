@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -20,7 +21,8 @@ use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct BrIfConfig<F: FieldExt> {
-    cond_cell: AllocatedU64Cell<F>,
+    cond_arg: EventTableCommonArgsConfig<F>,
+
     cond_inv_cell: AllocatedUnlimitedCell<F>,
     cond_is_zero_cell: AllocatedBitCell<F>,
     cond_is_not_zero_cell: AllocatedBitCell<F>,
@@ -29,8 +31,7 @@ pub struct BrIfConfig<F: FieldExt> {
     is_i32_cell: AllocatedBitCell<F>,
     drop_cell: AllocatedCommonRangeCell<F>,
     dst_pc_cell: AllocatedCommonRangeCell<F>,
-    value_cell: AllocatedU64Cell<F>,
-    memory_table_lookup_stack_read_cond: AllocatedMemoryTableLookupReadCell<F>,
+
     memory_table_lookup_stack_read_return_value: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write_return_value: AllocatedMemoryTableLookupWriteCell<F>,
 }
@@ -43,7 +44,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let cond_cell = allocator.alloc_u64_cell();
+        let cond_arg = common_config.uniarg_configs[0].clone();
+        let cond_cell = cond_arg.value_cell;
+        constraint_builder.push(
+            "op_br_if: uniarg",
+            Box::new(move |meta| vec![cond_arg.is_i32_cell.expr(meta) - constant_from!(1)]),
+        );
+
         let cond_inv_cell = allocator.alloc_unlimited_cell();
         let cond_is_zero_cell = allocator.alloc_bit_cell();
         let cond_is_not_zero_cell = allocator.alloc_bit_cell();
@@ -52,9 +59,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
             "op_br_if cond bit",
             Box::new(move |meta| {
                 vec![
-                    cond_is_zero_cell.expr(meta) * cond_cell.u64_cell.expr(meta),
-                    cond_is_zero_cell.expr(meta)
-                        + cond_cell.u64_cell.expr(meta) * cond_inv_cell.expr(meta)
+                    cond_is_zero_cell.expr(meta) * cond_cell.expr(meta),
+                    cond_is_zero_cell.expr(meta) + cond_cell.expr(meta) * cond_inv_cell.expr(meta)
                         - constant_from!(1),
                     cond_is_zero_cell.expr(meta) + cond_is_not_zero_cell.expr(meta)
                         - constant_from!(1),
@@ -66,46 +72,42 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
         let is_i32_cell = allocator.alloc_bit_cell();
         let drop_cell = allocator.alloc_common_range_cell();
         let dst_pc_cell = allocator.alloc_common_range_cell();
-        let value_cell = allocator.alloc_u64_cell();
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read_cond = allocator.alloc_memory_table_lookup_read_cell(
-            "op_br_if stack read cond",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| cond_cell.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_read_return_value = allocator
-            .alloc_memory_table_lookup_read_cell(
+            .alloc_memory_table_lookup_read_cell_with_value(
                 "op_br_if stack read return value",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta) + constant_from!(1),
                 move |meta| is_i32_cell.expr(meta),
-                move |meta| value_cell.u64_cell.expr(meta),
                 move |meta| keep_cell.expr(meta) * cond_is_not_zero_cell.expr(meta),
             );
+        let value_cell = memory_table_lookup_stack_read_return_value.value_cell;
+
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write_return_value = allocator
             .alloc_memory_table_lookup_write_cell(
                 "op_br_if stack write return value",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + drop_cell.expr(meta) + constant_from!(2),
+                move |meta| {
+                    Self::sp_after_uniarg(sp, &uniarg_configs, meta)
+                        + drop_cell.expr(meta)
+                        + constant_from!(1)
+                },
                 move |meta| is_i32_cell.expr(meta),
-                move |meta| value_cell.u64_cell.expr(meta),
+                move |meta| value_cell.expr(meta),
                 move |meta| keep_cell.expr(meta) * cond_is_not_zero_cell.expr(meta),
             );
 
         Box::new(BrIfConfig {
-            cond_cell,
+            cond_arg,
             cond_inv_cell,
             cond_is_zero_cell,
             cond_is_not_zero_cell,
@@ -113,8 +115,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfConfigBuilder {
             is_i32_cell,
             drop_cell,
             dst_pc_cell,
-            value_cell,
-            memory_table_lookup_stack_read_cond,
             memory_table_lookup_stack_read_return_value,
             memory_table_lookup_stack_write_return_value,
         })
@@ -149,16 +149,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
 
                 let cond = *condition as u32 as u64;
 
-                self.memory_table_lookup_stack_read_cond.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    cond,
-                )?;
+                todo!();
+                // self.cond_arg.assgin()
 
                 self.drop_cell.assign(ctx, F::from(*drop as u64))?;
 
@@ -166,7 +158,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
                     let keep_type: VarType = keep[0].into();
 
                     self.keep_cell.assign(ctx, F::one())?;
-                    self.value_cell.assign(ctx, keep_values[0])?;
                     self.is_i32_cell.assign(ctx, F::from(keep_type as u64))?;
                     if *condition != 0 {
                         self.memory_table_lookup_stack_read_return_value.assign(
@@ -192,7 +183,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
                     }
                 }
 
-                self.cond_cell.assign(ctx, cond)?;
                 if cond != 0 {
                     self.cond_inv_cell
                         .assign(ctx, step.field_helper.invert(cond))?;

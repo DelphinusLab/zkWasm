@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -22,12 +23,13 @@ use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct ConversionConfig<F: FieldExt> {
+    value_arg: EventTableCommonArgsConfig<F>,
+
     value: AllocatedU64Cell<F>,
     value_is_i8: AllocatedBitCell<F>,
     value_is_i16: AllocatedBitCell<F>,
     value_is_i32: AllocatedBitCell<F>,
     value_is_i64: AllocatedBitCell<F>,
-    value_type_is_i32: AllocatedBitCell<F>,
     res_is_i32: AllocatedBitCell<F>,
     res_is_i64: AllocatedBitCell<F>,
 
@@ -44,7 +46,6 @@ pub struct ConversionConfig<F: FieldExt> {
     shift: AllocatedUnlimitedCell<F>,
     padding: AllocatedUnlimitedCell<F>,
 
-    memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -62,8 +63,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         let value_is_i16 = allocator.alloc_bit_cell();
         let value_is_i32 = allocator.alloc_bit_cell();
         let value_is_i64 = allocator.alloc_bit_cell();
-
-        let value_type_is_i32 = allocator.alloc_bit_cell();
 
         let res_is_i32 = allocator.alloc_bit_cell();
         let res_is_i64 = allocator.alloc_bit_cell();
@@ -83,24 +82,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_conversion stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| value_type_is_i32.expr(meta),
-            move |meta| value.expr(meta),
-            move |____| constant_from!(1),
+        let value_arg = common_config.uniarg_configs[0].clone();
+        let value_type_is_i32 = value_arg.is_i32_cell;
+        constraint_builder.push(
+            "select: uniarg",
+            Box::new(move |meta| vec![value_arg.value_cell.expr(meta) - value.expr(meta)]),
         );
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
                 "op_conversion stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(1),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
                 move |meta| res_is_i32.expr(meta),
                 move |____| constant_from!(1),
             );
@@ -180,12 +176,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         );
 
         Box::new(ConversionConfig {
+            value_arg,
             value,
             value_is_i8,
             value_is_i16,
             value_is_i32,
             value_is_i64,
-            value_type_is_i32,
             res_is_i32,
             res_is_i64,
             sign_op,
@@ -197,7 +193,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             modulus,
             shift,
             padding,
-            memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
         })
     }
@@ -207,7 +202,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         encode_conversion::<Expression<F>>(
             self.sign_op.expr(meta),
-            self.value_type_is_i32.expr(meta),
+            self.value_arg.is_i32_cell.expr(meta),
             self.value_is_i8.expr(meta),
             self.value_is_i16.expr(meta),
             self.value_is_i32.expr(meta),
@@ -333,8 +328,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
             };
 
         self.value.assign(ctx, value)?;
-        self.value_type_is_i32
-            .assign(ctx, F::from(value_type as u64))?;
         self.res_is_i32.assign(ctx, F::from(result_type as u64))?;
         self.sign_op.assign_bool(ctx, is_sign_op)?;
 
@@ -351,16 +344,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
             .assign(ctx, bn_to_field(&BigUint::from(modulus)))?;
         self.padding.assign(ctx, F::from(padding))?;
 
-        self.memory_table_lookup_stack_read.assign(
-            ctx,
-            entry.memory_rw_entires[0].start_eid,
-            step.current.eid,
-            entry.memory_rw_entires[0].end_eid,
-            step.current.sp + 1,
-            LocationType::Stack,
-            value_type == VarType::I32,
-            value,
-        )?;
+        todo!();
+        // value_arg.assign()
 
         self.memory_table_lookup_stack_write.assign(
             ctx,

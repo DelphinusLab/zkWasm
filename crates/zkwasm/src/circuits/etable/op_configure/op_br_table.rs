@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -28,7 +29,7 @@ pub struct BrTableConfig<F: FieldExt> {
     drop: AllocatedCommonRangeCell<F>,
     dst_iid: AllocatedCommonRangeCell<F>,
 
-    expected_index: AllocatedU64Cell<F>,
+    expected_index_arg: EventTableCommonArgsConfig<F>,
     effective_index: AllocatedCommonRangeCell<F>,
     targets_len: AllocatedCommonRangeCell<F>,
     is_out_of_bound: AllocatedBitCell<F>,
@@ -37,7 +38,6 @@ pub struct BrTableConfig<F: FieldExt> {
 
     br_table_lookup: AllocatedUnlimitedCell<F>,
 
-    memory_table_lookup_stack_read_index: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_read_return_value: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write_return_value: AllocatedMemoryTableLookupWriteCell<F>,
 }
@@ -55,12 +55,22 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
         let keep_value = allocator.alloc_u64_cell();
         let drop = allocator.alloc_common_range_cell();
         let dst_iid = allocator.alloc_common_range_cell();
-        let expected_index = allocator.alloc_u64_cell();
         let effective_index = allocator.alloc_common_range_cell();
         let targets_len = allocator.alloc_common_range_cell();
         let is_out_of_bound = allocator.alloc_bit_cell();
         let is_not_out_of_bound = allocator.alloc_bit_cell();
         let diff = allocator.alloc_u64_cell();
+
+        let expected_index_arg = common_config.uniarg_configs[0].clone();
+        let expected_index = expected_index_arg.value_cell;
+        constraint_builder.push(
+            "select: uniarg",
+            Box::new(move |meta| {
+                vec![
+                    expected_index_arg.is_i32_cell.expr(meta) - constant_from!(1),
+                ]
+            }),
+        );
 
         constraint_builder.push(
             "op_br_table oob",
@@ -115,36 +125,31 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read_index = allocator.alloc_memory_table_lookup_read_cell(
-            "op_br_table stack read index",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| expected_index.expr(meta),
-            move |____| constant_from!(1),
-        );
-
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_read_return_value = allocator
             .alloc_memory_table_lookup_read_cell(
                 "op_br_table stack read index",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta) + constant_from!(1),
                 move |meta| keep_is_i32.expr(meta),
                 move |meta| keep_value.expr(meta),
                 move |meta| keep.expr(meta),
             );
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write_return_value = allocator
             .alloc_memory_table_lookup_write_cell(
                 "op_br stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + drop.expr(meta) + constant_from!(2),
+                move |meta| {
+                    Self::sp_after_uniarg(sp, &uniarg_configs, meta)
+                        + drop.expr(meta)
+                        + constant_from!(1)
+                },
                 move |meta| keep_is_i32.expr(meta),
                 move |meta| keep_value.expr(meta),
                 move |meta| keep.expr(meta),
@@ -156,14 +161,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrTableConfigBuilder {
             keep_value,
             drop,
             dst_iid,
-            expected_index,
+            expected_index_arg,
             effective_index,
             targets_len,
             is_out_of_bound,
             is_not_out_of_bound,
             diff,
             br_table_lookup,
-            memory_table_lookup_stack_read_index,
             memory_table_lookup_stack_read_return_value,
             memory_table_lookup_stack_write_return_value,
         })
@@ -201,16 +205,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                 self.drop.assign(ctx, F::from(*drop as u64))?;
                 self.dst_iid.assign(ctx, F::from(*dst_pc as u64))?;
 
-                self.memory_table_lookup_stack_read_index.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    index,
-                )?;
+                todo!();
+                // self.expected_index_arg.assign()
 
                 if !keep.is_empty() {
                     let keep_type: VarType = keep[0].into();
@@ -249,7 +245,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                 } else {
                     targets_len - 1
                 };
-                self.expected_index.assign(ctx, index)?;
                 self.effective_index.assign(ctx, F::from(effective_index))?;
                 self.is_out_of_bound
                     .assign_bool(ctx, index != effective_index)?;

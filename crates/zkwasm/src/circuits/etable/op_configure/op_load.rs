@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -28,6 +29,8 @@ use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct LoadConfig<F: FieldExt> {
+    load_base_arg: EventTableCommonArgsConfig<F>,
+
     // offset in opcode
     opcode_load_offset: AllocatedU32Cell<F>,
 
@@ -67,7 +70,6 @@ pub struct LoadConfig<F: FieldExt> {
     is_sign: AllocatedBitCell<F>,
     is_i32: AllocatedBitCell<F>,
 
-    memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_read1: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_read2: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -131,17 +133,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let sp = common_config.sp_cell;
         let eid = common_config.eid_cell;
 
-        let memory_table_lookup_stack_read = allocator
-            .alloc_memory_table_lookup_read_cell_with_value(
-                "load read offset",
-                constraint_builder,
-                eid,
-                move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(1),
-                move |____| constant_from!(1),
-                move |____| constant_from!(1),
-            );
-
+        let load_base_arg = common_config.uniarg_configs[0].clone();
+        constraint_builder.push(
+            "select: uniarg",
+            Box::new(move |meta| vec![load_base_arg.is_i32_cell.expr(meta) - constant_from!(1)]),
+        );
         let memory_table_lookup_heap_read1 = allocator
             .alloc_memory_table_lookup_read_cell_with_value(
                 "load read data1",
@@ -164,18 +160,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                 move |meta| is_cross_block.expr(meta),
             );
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "load write res",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
             move |meta| is_i32.expr(meta),
             move |meta| res.expr(meta),
             move |____| constant_from!(1),
         );
 
-        let load_base = memory_table_lookup_stack_read.value_cell;
+        let load_base = load_base_arg.value_cell;
         let load_value_in_heap1 = memory_table_lookup_heap_read1.value_cell;
         let load_value_in_heap2 = memory_table_lookup_heap_read2.value_cell;
 
@@ -364,6 +361,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         );
 
         Box::new(LoadConfig {
+            load_base_arg,
             opcode_load_offset,
             load_block_index,
             load_inner_pos,
@@ -389,7 +387,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             len_modulus,
             is_sign,
             is_i32,
-            memory_table_lookup_stack_read,
             memory_table_lookup_heap_read1,
             memory_table_lookup_heap_read2,
             memory_table_lookup_stack_write,
@@ -532,16 +529,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 )?;
 
                 let mut i = 0;
-                self.memory_table_lookup_stack_read.assign(
-                    ctx,
-                    entry.memory_rw_entires[i].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[i].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    raw_address as u64,
-                )?;
+                todo!();
+                // load_base_arg.assign()
                 i += 1;
 
                 self.memory_table_lookup_heap_read1.assign(

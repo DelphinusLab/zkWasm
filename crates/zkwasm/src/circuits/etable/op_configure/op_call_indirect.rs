@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -24,14 +25,15 @@ use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 pub struct CallIndirectConfig<F: FieldExt> {
+    offset_arg: EventTableCommonArgsConfig<F>,
+    offset: AllocatedCommonRangeCell<F>,
+
     is_returned_cell: AllocatedBitCell<F>,
 
     type_index: AllocatedCommonRangeCell<F>,
     func_index: AllocatedCommonRangeCell<F>,
-    offset: AllocatedCommonRangeCell<F>,
     table_index: AllocatedCommonRangeCell<F>,
 
-    memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     elem_lookup: AllocatedUnlimitedCell<F>,
     frame_table_lookup: AllocatedUnlimitedCell<F>,
 }
@@ -75,15 +77,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_call_indirect stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| offset.expr(meta),
-            move |____| constant_from!(1),
+        let offset_arg = common_config.uniarg_configs[0].clone();
+        constraint_builder.push(
+            "select: uniarg",
+            Box::new(move |meta| {
+                vec![
+                    offset_arg.is_i32_cell.expr(meta) - constant_from!(1),
+                    // keep offset because it is limited by common range
+                    offset.expr(meta) - offset_arg.value_cell.expr(meta),
+                ]
+            }),
         );
 
         let fid_cell = common_config.fid_cell;
@@ -109,12 +112,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
         ));
 
         Box::new(CallIndirectConfig {
+            offset_arg,
+            offset,
             is_returned_cell: common_config.is_returned_cell,
             type_index,
             func_index,
-            offset,
             table_index,
-            memory_table_lookup_stack_read,
             elem_lookup,
             frame_table_lookup,
         })
@@ -155,16 +158,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                     ),
                 )?;
 
-                self.memory_table_lookup_stack_read.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    *offset as u64,
-                )?;
+                todo!();
+                // self.offset_arg.assign()
 
                 self.frame_table_lookup.cell.assign_bn(
                     ctx,
