@@ -775,8 +775,14 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("c5e. sp change", |meta| {
+            let mut popped = uniarg_config
+                .iter()
+                .map(|c| c.is_enabled_cell.expr(meta) * c.is_pop_cell.expr(meta))
+                .reduce(|a, b| a + b)
+                .unwrap();
+
             vec![sum_ops_expr_with_init(
-                sp_cell.curr_expr(meta) - sp_cell.next_expr(meta),
+                sp_cell.curr_expr(meta) + popped - sp_cell.next_expr(meta),
                 meta,
                 &|meta, config: &OpcodeConfig<F>| config.0.sp_diff(meta),
             )]
@@ -860,9 +866,26 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("c7. itable_lookup_encode", |meta| {
-            let opcode = sum_ops_expr(meta, &|meta, config: &OpcodeConfig<F>| {
+            let mut opcode = sum_ops_expr(meta, &|meta, config: &OpcodeConfig<F>| {
                 Some(config.0.opcode(meta))
             });
+
+            let mut shift = F::one();
+            let mut arg_shift = num_bigint::BigUint::from(1u64) << 66;
+            for i in 0..3 {
+                opcode = opcode
+                    + uniarg_config[i].is_enabled_cell.expr(meta)
+                        * (is_pop_cell.expr(meta) * todo!()
+                            + is_is_local_get_cell.expr(meta) * todo!()
+                            + is_is_local_get_cell.expr(meta) * local_get_offset_cell.expr(meta)
+                            + is_const_cell.expr(meta) * todo!()
+                            + is_const_cell.expr(meta) * is_i32.expr() * todo!()
+                            + is_const_cell.expr(meta) * const_value_cell.expr(meta))
+                        * constant!(shift);
+
+                shift = shift * arg_shift;
+            }
+
             vec![
                 (encode_instruction_table_entry(fid_cell.expr(meta), iid_cell.expr(meta), opcode)
                     - itable_lookup_cell.curr_expr(meta))
