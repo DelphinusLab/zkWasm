@@ -15,6 +15,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::opcode::encode_bin_bit;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::BitOp;
 use specs::mtable::LocationType;
@@ -26,8 +27,6 @@ pub struct BinBitConfig<F: FieldExt> {
     op_class: AllocatedCommonRangeCell<F>,
     bit_table_lookup: AllocatedBitTableLookupCells<F>,
 
-    memory_table_lookup_stack_read_lhs: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_stack_read_rhs: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -46,29 +45,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let sp = common_config.sp_cell;
         let bit_table_lookup = common_config.bit_table_lookup_cells;
 
-        let memory_table_lookup_stack_read_rhs = allocator
-            .alloc_memory_table_lookup_read_cell_with_value(
-                "op_bin stack read",
-                constraint_builder,
-                eid,
-                move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(1),
-                move |meta| is_i32.expr(meta),
-                move |____| constant_from!(1),
-            );
-        let rhs = memory_table_lookup_stack_read_rhs.value_cell;
-
-        let memory_table_lookup_stack_read_lhs = allocator
-            .alloc_memory_table_lookup_read_cell_with_value(
-                "op_bin stack read",
-                constraint_builder,
-                eid,
-                move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
-                move |meta| is_i32.expr(meta),
-                move |____| constant_from!(1),
-            );
-        let lhs = memory_table_lookup_stack_read_lhs.value_cell;
+        let rhs = common_config.uniarg_configs[0].value_cell;
+        let lhs = common_config.uniarg_configs[1].value_cell;
+        let is_i32 = common_config.uniarg_configs[0].is_i32_cell;
 
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
@@ -81,6 +60,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
                 move |____| constant_from!(1),
             );
         let res = memory_table_lookup_stack_write.value_cell;
+
+        todo!("constrain rhs.is_i32 == lhs.is_i32");
 
         constraint_builder.push(
             "op_bin_bit: lookup",
@@ -98,8 +79,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
             op_class,
             is_i32,
             bit_table_lookup,
-            memory_table_lookup_stack_read_lhs,
-            memory_table_lookup_stack_read_rhs,
             memory_table_lookup_stack_write,
         })
     }
@@ -107,7 +86,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        encode_bin_bit(self.op_class.expr(meta), self.is_i32.expr(meta), todo!())
+        encode_bin_bit(
+            self.op_class.expr(meta),
+            self.is_i32.expr(meta),
+            UniArgEncode::Reserve,
+        )
     }
 
     fn assign(

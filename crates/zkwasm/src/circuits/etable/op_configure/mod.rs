@@ -25,3 +25,10 @@ pub mod op_select;
 pub mod op_store;
 pub mod op_test;
 pub mod op_unary;
+
+pub(crate) struct UniArgDesc<T> {
+    pub(crate) is_stack: T,
+    pub(crate) is_pop: T,
+    pub(crate) is_const: T,
+    pub(crate) value: T,
+}
