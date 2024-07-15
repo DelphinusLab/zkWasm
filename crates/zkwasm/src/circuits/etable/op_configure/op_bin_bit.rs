@@ -42,7 +42,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let is_i32 = allocator.alloc_bit_cell();
         let op_class = allocator.alloc_common_range_cell();
 
         let eid = common_config.eid_cell;
