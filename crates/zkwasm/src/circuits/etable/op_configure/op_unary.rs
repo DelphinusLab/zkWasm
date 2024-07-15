@@ -52,10 +52,10 @@ pub struct UnaryConfig<F: FieldExt> {
 pub struct UnaryConfigBuilder {}
 
 impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
-    fn configure(
-        common_config: &EventTableCommonConfig<F>,
-        allocator: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
+    fn configure<'a>(
+        common_config: &'a EventTableCommonConfig<F>,
+        allocator: &'a mut EventTableCellAllocator<F>,
+        constraint_builder: &'a mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let operand_is_zero = allocator.alloc_bit_cell();
         let operand_inv = allocator.alloc_unlimited_cell();
@@ -81,13 +81,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
         let operand = operand_arg.value_cell;
         let is_i32 = operand_arg.is_i32_cell;
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
                 "op_unary stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(1),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
                 move |meta| is_i32.expr(meta),
                 move |____| constant_from!(1),
             );

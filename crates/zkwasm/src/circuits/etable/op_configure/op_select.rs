@@ -52,7 +52,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         let val1 = val1_arg.value_cell;
         let val2 = val2_arg.value_cell;
         constraint_builder.push(
-            "op_test: uniarg",
+            "select: uniarg",
             Box::new(move |meta| {
                 vec![
                     cond_arg.is_i32_cell.expr(meta) - constant_from!(1),
@@ -76,12 +76,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
             Box::new(move |meta| vec![cond.expr(meta) * (res.expr(meta) - val1.expr(meta))]),
         );
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_select stack write",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(3),
+            move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
             move |meta| is_i32.expr(meta),
             move |meta| res.expr(meta),
             move |____| constant_from!(1),
