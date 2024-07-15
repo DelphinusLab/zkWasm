@@ -223,6 +223,17 @@ pub enum UniArg {
 }
 
 impl UniArg {
+    pub fn get_const_value(&self) -> u64 {
+        match self {
+            UniArg::Pop => 0,
+            UniArg::Stack(_) => 0,
+            UniArg::IConst(v) => match v {
+                Value::I32(v) => *v as u32 as u64,
+                Value::I64(v) => *v as u64,
+            },
+        }
+    }
+
     pub fn try_decease_stack_depth(&mut self, diff: usize) {
         match self {
             UniArg::Stack(i) => *self = UniArg::Stack(*i - diff),
