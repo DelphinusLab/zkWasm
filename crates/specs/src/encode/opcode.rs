@@ -6,10 +6,11 @@ use crate::itable::OpcodeClass;
 use crate::itable::OpcodeClassPlain;
 use crate::itable::UniArg;
 use crate::itable::OPCODE_CLASS_SHIFT as OPCODE_CLASS;
-use crate::itable::UNIARG_BITS;
 
 use super::instruction_table::FID_BITS;
 use super::FromBn;
+
+const UNIARG_BITS: u32 = 66;
 
 lazy_static! {
     static ref OPCODE_CLASS_SHIFT: BigUint = BigUint::from(1u64) << OPCODE_CLASS;

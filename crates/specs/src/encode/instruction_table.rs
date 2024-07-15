@@ -8,7 +8,7 @@ use crate::itable::OPCODE_SHIFT;
 
 use super::FromBn;
 
-pub const INSTRUCTION_ENCODE_BOUNDARY: u32 = 254;
+pub const INSTRUCTION_ENCODE_BOUNDARY: u32 = 250;
 pub(crate) const IID_BITS: u32 = 16;
 pub(crate) const FID_BITS: u32 = 16;
 const_assert!(OPCODE_SHIFT + IID_BITS + FID_BITS <= INSTRUCTION_ENCODE_BOUNDARY);

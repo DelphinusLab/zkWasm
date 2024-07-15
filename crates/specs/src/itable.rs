@@ -394,8 +394,7 @@ impl Opcode {
 }
 
 pub const OPCODE_SHIFT: u32 = OPCODE_CLASS_SHIFT + 8;
-pub const OPCODE_CLASS_SHIFT: u32 = 214;
-pub const UNIARG_BITS: u32 = 66;
+pub const OPCODE_CLASS_SHIFT: u32 = 210;
 
 lazy_static! {
     static ref ENCODE_BOUNDARY: BigUint = BigUint::one() << 250;
