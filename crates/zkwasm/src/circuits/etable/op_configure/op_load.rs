@@ -15,6 +15,7 @@ use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
+use crate::constant;
 use crate::constant_from;
 use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
