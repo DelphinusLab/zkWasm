@@ -8,7 +8,7 @@ use crate::encode::instruction_table::INSTRUCTION_ENCODE_BOUNDARY;
 
 use super::FromBn;
 
-const CLASS_SHIFT: u32 = 254;
+const CLASS_SHIFT: u32 = 250;
 
 #[derive(Clone, Copy)]
 pub enum ImageTableEncoder {
