@@ -7,6 +7,7 @@ use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::utils::bit::BitColumn;
 use crate::circuits::utils::common_range::CommonRangeColumn;
+use crate::circuits::utils::table_entry::MemoryRWEntry;
 use crate::circuits::utils::u16::U16Column;
 use crate::circuits::utils::u8::U8Column;
 use crate::circuits::Context;
@@ -24,9 +25,11 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::memory_table::encode_memory_table_entry;
 use specs::mtable::LocationType;
+use specs::mtable::VarType;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
+use std::slice::Iter;
 
 pub(super) trait EventTableCellExpression<F: FieldExt> {
     fn next_expr(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
@@ -142,6 +145,24 @@ impl<F: FieldExt> AllocatedMemoryTableLookupWriteCell<F> {
         self.value_cell.assign(ctx, value.into())?;
 
         Ok(())
+    }
+
+    pub(crate) fn assign_with_memory_entry(
+        &self,
+        ctx: &mut Context<'_, F>,
+        memory_entry: &mut Iter<MemoryRWEntry>,
+    ) -> Result<(), Error> {
+        let entry = memory_entry.next().unwrap();
+
+        self.assign(
+            ctx,
+            entry.start_eid,
+            entry.end_eid,
+            entry.entry.offset,
+            entry.entry.ltype,
+            entry.entry.vtype == VarType::I32,
+            entry.entry.value,
+        )
     }
 }
 

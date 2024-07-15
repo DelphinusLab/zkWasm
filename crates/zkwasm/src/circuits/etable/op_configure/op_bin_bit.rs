@@ -65,7 +65,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
 
         constraint_builder.push(
             "op_bin_bit: args",
-            Box::new(move |meta| vec![rhs.is_i32_cell.expr(meta) - lhs.is_i32_cell.expr(meta)]),
+            Box::new(move |meta| {
+                vec![
+                    rhs.is_i32_cell.expr(meta) - lhs.is_i32_cell.expr(meta),
+                    rhs.is_enabled_cell.expr(meta) + lhs.is_enabled_cell.expr(meta)
+                        - constant_from!(2),
+                    // disable unused uniarg
+                    common_config.uniarg_configs[2].is_enabled_cell.expr(meta),
+                ]
+            }),
         );
 
         constraint_builder.push(
@@ -154,75 +162,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
             uniargs,
         } = entry.eentry.get_instruction(&step.current.itable).opcode
         {
-            match uniargs[0] {
-                UniArg::Pop => {
-                    self.rhs.assign_pop(
-                        ctx,
-                        uniargs[0],
-                        entry.memory_rw_entires[0].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[0].end_eid,
-                        step.current.sp + 1,
-                        vtype == VarType::I32,
-                        right,
-                    )?;
-                }
-                UniArg::Stack(delta) => {
-                    self.rhs.assign_stack(
-                        ctx,
-                        uniargs[0],
-                        entry.memory_rw_entires[0].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[0].end_eid,
-                        step.current.sp + delta as u32,
-                        vtype == VarType::I32,
-                        right,
-                    )?;
-                }
-                UniArg::IConst(_) => {
-                    self.rhs.assign_const(ctx, uniargs[0])?;
-                }
-            }
+            let mut memory_entries = entry.memory_rw_entires.iter();
 
-            match uniargs[1] {
-                UniArg::Pop => {
-                    self.lhs.assign_pop(
-                        ctx,
-                        uniargs[1],
-                        entry.memory_rw_entires[1].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[1].end_eid,
-                        step.current.sp + 1 + uniargs[0].is_pop() as u32,
-                        vtype == VarType::I32,
-                        left,
-                    )?;
-                }
-                UniArg::Stack(delta) => {
-                    self.lhs.assign_stack(
-                        ctx,
-                        uniargs[1],
-                        entry.memory_rw_entires[1].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[1].end_eid,
-                        step.current.sp + delta as u32,
-                        vtype == VarType::I32,
-                        left,
-                    )?;
-                }
-                UniArg::IConst(_) => {
-                    self.lhs.assign_const(ctx, uniargs[1])?;
-                }
-            }
-
-            self.memory_table_lookup_stack_write.assign(
-                ctx,
-                step.current.eid,
-                entry.memory_rw_entires[2].end_eid,
-                step.current.sp + uniargs[0].is_pop() as u32 + uniargs[1].is_pop() as u32,
-                LocationType::Stack,
-                vtype == VarType::I32,
-                value,
-            )?;
+            self.rhs.assign(ctx, uniargs[0], &mut memory_entries)?;
+            self.lhs.assign(ctx, uniargs[1], &mut memory_entries)?;
+            self.memory_table_lookup_stack_write
+                .assign_with_memory_entry(ctx, &mut memory_entries)?;
         } else {
             unreachable!();
         }

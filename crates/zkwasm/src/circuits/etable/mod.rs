@@ -10,6 +10,7 @@ use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
 use super::utils::step_status::StepStatus;
 use super::utils::table_entry::EventTableEntryWithMemoryInfo;
+use super::utils::table_entry::MemoryRWEntry;
 use super::utils::Context;
 use crate::circuits::etable::op_configure::op_bin::BinConfigBuilder;
 use crate::circuits::etable::op_configure::op_bin_bit::BinBitConfigBuilder;
@@ -38,7 +39,10 @@ use crate::circuits::etable::op_configure::op_select::SelectConfigBuilder;
 use crate::circuits::etable::op_configure::op_store::StoreConfigBuilder;
 use crate::circuits::etable::op_configure::op_test::TestConfigBuilder;
 use crate::circuits::etable::op_configure::op_unary::UnaryConfigBuilder;
+use crate::circuits::utils::bn_to_field;
+use crate::constant;
 use crate::constant_from;
+use crate::constant_from_bn;
 use crate::fixed_curr;
 use crate::foreign::context::etable_op_configure::ETableContextHelperTableConfigBuilder;
 use crate::foreign::require_helper::etable_op_configure::ETableRequireHelperTableConfigBuilder;
@@ -60,7 +64,9 @@ use specs::itable::OpcodeClass;
 use specs::itable::OpcodeClassPlain;
 use specs::itable::UniArg;
 use specs::mtable::LocationType;
+use specs::mtable::VarType;
 use std::collections::BTreeMap;
+use std::slice::Iter;
 use std::sync::Arc;
 
 pub(super) mod assign;
@@ -99,7 +105,7 @@ pub struct EventTableCommonArgsConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> EventTableCommonArgsConfig<F> {
-    fn assign(
+    fn _assign(
         &self,
         ctx: &mut Context<'_, F>,
         arg_type: UniArg,
@@ -154,54 +160,29 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
         Ok(())
     }
 
-    pub(crate) fn assign_const(
+    pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
         uniarg: UniArg,
+        memory_entry: &mut Iter<MemoryRWEntry>,
     ) -> Result<(), Error> {
-        assert!(matches!(uniarg, UniArg::IConst(_)));
+        match uniarg {
+            UniArg::IConst(_) => self._assign(ctx, uniarg, None),
+            UniArg::Stack(_) | UniArg::Pop => {
+                let mread_args = memory_entry.next().map(|x| {
+                    (
+                        x.start_eid,
+                        x.end_eid,
+                        x.entry.eid,
+                        x.entry.offset,
+                        x.entry.vtype == VarType::I32,
+                        x.entry.value,
+                    )
+                });
 
-        self.assign(ctx, uniarg, None)
-    }
-
-    pub(crate) fn assign_stack(
-        &self,
-        ctx: &mut Context<'_, F>,
-        uniarg: UniArg,
-        start_eid: u32,
-        eid: u32,
-        end_eid: u32,
-        offset: u32,
-        is_i32: bool,
-        value: u64,
-    ) -> Result<(), Error> {
-        assert!(matches!(uniarg, UniArg::Stack(_)));
-
-        self.assign(
-            ctx,
-            uniarg,
-            Some((start_eid, eid, end_eid, offset, is_i32, value)),
-        )
-    }
-
-    pub(crate) fn assign_pop(
-        &self,
-        ctx: &mut Context<'_, F>,
-        uniarg: UniArg,
-        start_eid: u32,
-        eid: u32,
-        end_eid: u32,
-        offset: u32,
-        is_i32: bool,
-        value: u64,
-    ) -> Result<(), Error> {
-        assert!(matches!(uniarg, UniArg::Pop));
-
-        self.assign(
-            ctx,
-            uniarg,
-            Some((start_eid, eid, end_eid, offset, is_i32, value)),
-        )
+                self._assign(ctx, uniarg, mread_args)
+            }
+        }
     }
 }
 
@@ -775,7 +756,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("c5e. sp change", |meta| {
-            let mut popped = uniarg_config
+            let mut popped = uniarg_configs
                 .iter()
                 .map(|c| c.is_enabled_cell.expr(meta) * c.is_pop_cell.expr(meta))
                 .reduce(|a, b| a + b)
@@ -871,16 +852,24 @@ impl<F: FieldExt> EventTableConfig<F> {
             });
 
             let mut shift = F::one();
+            let tag_shift = num_bigint::BigUint::from(1u64) << 66;
             let mut arg_shift = num_bigint::BigUint::from(1u64) << 66;
             for i in 0..3 {
                 opcode = opcode
-                    + uniarg_config[i].is_enabled_cell.expr(meta)
-                        * (is_pop_cell.expr(meta) * todo!()
-                            + is_is_local_get_cell.expr(meta) * todo!()
-                            + is_is_local_get_cell.expr(meta) * local_get_offset_cell.expr(meta)
-                            + is_const_cell.expr(meta) * todo!()
-                            + is_const_cell.expr(meta) * is_i32.expr() * todo!()
-                            + is_const_cell.expr(meta) * const_value_cell.expr(meta))
+                    + uniarg_configs[i].is_enabled_cell.expr(meta)
+                        * (uniarg_configs[i].is_pop_cell.expr(meta)
+                            * constant_from_bn!(&UniArg::pop_tag())
+                            + uniarg_configs[i].is_local_get_cell.expr(meta)
+                                * constant_from_bn!(&UniArg::stack_tag())
+                            + uniarg_configs[i].is_local_get_cell.expr(meta)
+                                * uniarg_configs[i].local_get_offset_cell.expr(meta)
+                            + uniarg_configs[i].is_const_cell.expr(meta)
+                                * constant_from_bn!(&UniArg::i32_const_tag())
+                            + uniarg_configs[i].is_const_cell.expr(meta)
+                                * uniarg_configs[i].is_i32_cell.expr(meta)
+                                * todo!()
+                            + uniarg_configs[i].is_const_cell.expr(meta)
+                                * uniarg_configs[i].const_value_cell.expr(meta))
                         * constant!(shift);
 
                 shift = shift * arg_shift;
