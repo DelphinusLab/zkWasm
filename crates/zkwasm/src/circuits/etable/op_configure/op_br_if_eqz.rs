@@ -46,11 +46,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
         let cond_cell = cond_arg.value_cell;
         constraint_builder.push(
             "op_br_if: uniarg",
-            Box::new(move |meta| {
-                vec![
-                    cond_arg.is_i32_cell.expr(meta) - constant_from!(1),
-                ]
-            }),
+            Box::new(move |meta| vec![cond_arg.is_i32_cell.expr(meta) - constant_from!(1)]),
         );
 
         let cond_inv_cell = allocator.alloc_unlimited_cell();
@@ -147,8 +143,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
 
                 let cond = *condition as u32 as u64;
 
-                todo!();
-                //self.cond_arg.assign()
+                if let specs::itable::Opcode::BrIfEqz { uniarg, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.cond_arg.assign(ctx, uniarg, &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
 
                 self.drop_cell.assign(ctx, F::from(*drop as u64))?;
 

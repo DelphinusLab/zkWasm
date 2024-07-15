@@ -149,8 +149,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfConfig<F> {
 
                 let cond = *condition as u32 as u64;
 
-                todo!();
-                // self.cond_arg.assgin()
+                if let specs::itable::Opcode::BrIf { uniarg, .. } =
+                    entry.eentry.get_instruction(&step.current.itable).opcode
+                {
+                    let mut memory_entries = entry.memory_rw_entires.iter();
+
+                    self.cond_arg.assign(ctx, uniarg, &mut memory_entries)?;
+                } else {
+                    unreachable!();
+                }
 
                 self.drop_cell.assign(ctx, F::from(*drop as u64))?;
 

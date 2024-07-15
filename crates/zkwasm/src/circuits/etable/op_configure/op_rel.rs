@@ -420,9 +420,16 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
             }
         };
 
-        todo!();
-        // self.rhs_arg.assign()
-        // self.lhs_arg.assign()
+        if let specs::itable::Opcode::Rel { uniargs, .. } =
+            entry.eentry.get_instruction(&step.current.itable).opcode
+        {
+            let mut memory_entries = entry.memory_rw_entires.iter();
+
+            self.rhs_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
+            self.lhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+        } else {
+            unreachable!();
+        }
 
         self.memory_table_lookup_stack_write.assign(
             ctx,
