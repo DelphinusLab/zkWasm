@@ -99,7 +99,7 @@ pub struct EventTableCommonArgsConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> EventTableCommonArgsConfig<F> {
-    pub(crate) fn assign(
+    fn assign(
         &self,
         ctx: &mut Context<'_, F>,
         arg_type: UniArg,
@@ -152,6 +152,56 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn assign_const(
+        &self,
+        ctx: &mut Context<'_, F>,
+        uniarg: UniArg,
+    ) -> Result<(), Error> {
+        assert!(matches!(uniarg, UniArg::IConst(_)));
+
+        self.assign(ctx, uniarg, None)
+    }
+
+    pub(crate) fn assign_stack(
+        &self,
+        ctx: &mut Context<'_, F>,
+        uniarg: UniArg,
+        start_eid: u32,
+        eid: u32,
+        end_eid: u32,
+        offset: u32,
+        is_i32: bool,
+        value: u64,
+    ) -> Result<(), Error> {
+        assert!(matches!(uniarg, UniArg::Stack(_)));
+
+        self.assign(
+            ctx,
+            uniarg,
+            Some((start_eid, eid, end_eid, offset, is_i32, value)),
+        )
+    }
+
+    pub(crate) fn assign_pop(
+        &self,
+        ctx: &mut Context<'_, F>,
+        uniarg: UniArg,
+        start_eid: u32,
+        eid: u32,
+        end_eid: u32,
+        offset: u32,
+        is_i32: bool,
+        value: u64,
+    ) -> Result<(), Error> {
+        assert!(matches!(uniarg, UniArg::Pop));
+
+        self.assign(
+            ctx,
+            uniarg,
+            Some((start_eid, eid, end_eid, offset, is_i32, value)),
+        )
     }
 }
 
