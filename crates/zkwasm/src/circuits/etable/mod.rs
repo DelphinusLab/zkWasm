@@ -81,14 +81,20 @@ const FOREIGN_LOOKUP_CAPABILITY: usize = 6;
 
 #[derive(Clone)]
 pub struct EventTableCommonArgsConfig<F: FieldExt> {
-    pub(crate) is_pop_cell: AllocatedBitCell<F>,
-    pub(crate) is_const_cell: AllocatedBitCell<F>,
-    pub(crate) is_stack_cell: AllocatedBitCell<F>,
-
-    pub(crate) is_i32_cell: AllocatedBitCell<F>,
     pub(crate) is_enabled_cell: AllocatedBitCell<F>,
-    pub(crate) value_cell: AllocatedU64Cell<F>,
 
+    pub(crate) is_pop_cell: AllocatedBitCell<F>,
+
+    pub(crate) is_local_get_cell: AllocatedBitCell<F>,
+    pub(crate) local_get_offset_cell: AllocatedU16Cell<F>,
+
+    pub(crate) is_const_cell: AllocatedBitCell<F>,
+    pub(crate) is_i32_cell: AllocatedBitCell<F>,
+    pub(crate) const_value_cell: AllocatedU64Cell<F>,
+
+    pub(crate) is_stack_read_cell: AllocatedUnlimitedCell<F>,
+    pub(crate) stack_offset_cell: AllocatedUnlimitedCell<F>,
+    pub(crate) value_cell: AllocatedUnlimitedCell<F>,
     pub(crate) m_read_lookup_cell: AllocatedMemoryTableLookupReadCell<F>,
 }
 
@@ -96,36 +102,54 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
     pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        start_eid: u32,
-        eid: u32,
-        end_eid: u32,
-        offset: u32,
-        is_i32: bool,
-        value: u64,
         arg_type: UniArg,
-        is_pop: bool,
+        // start_eid, eid, end_eid, offset, is_i32, value
+        mread_args: Option<(u32, u32, u32, u32, bool, u64)>,
     ) -> Result<(), Error> {
         self.is_enabled_cell.assign_bool(ctx, true);
-        self.is_i32_cell.assign_bool(ctx, is_i32);
         match arg_type {
-            UniArg::Pop => self.is_pop_cell.assign_bool(ctx, true),
-            UniArg::Stack(_) => self.is_const_cell.assign_bool(ctx, true),
-            UniArg::IConst(_) => self.is_stack_cell.assign_bool(ctx, true),
-        }?;
+            UniArg::Pop => {
+                self.is_pop_cell.assign_bool(ctx, true)?;
+            }
+            UniArg::Stack(offset) => {
+                self.is_local_get_cell.assign_bool(ctx, true)?;
+                self.local_get_offset_cell.assign_u32(ctx, offset as u32)?;
+            }
+            UniArg::IConst(v) => {
+                self.is_const_cell.assign_bool(ctx, true)?;
+                self.const_value_cell
+                    .assign(ctx, arg_type.get_const_value())?;
+                self.value_cell
+                    .assign(ctx, arg_type.get_const_value().into())?;
+                match v {
+                    specs::types::Value::I32(_) => {
+                        self.is_i32_cell.assign_bool(ctx, true);
+                    }
+                    specs::types::Value::I64(_) => {}
+                }
+            }
+        }
 
         match arg_type {
-            UniArg::Pop | UniArg::Stack(_) => self.m_read_lookup_cell.assign(
-                ctx,
-                start_eid,
-                eid,
-                end_eid,
-                offset,
-                LocationType::Stack,
-                is_i32,
-                value,
-            ),
-            UniArg::IConst(_) => self.value_cell.assign(ctx, value),
-        }?;
+            UniArg::Pop | UniArg::Stack(_) => {
+                let (start_eid, eid, end_eid, offset, is_i32, value) = mread_args.unwrap();
+                self.is_stack_read_cell.assign_bool(ctx, true);
+                self.stack_offset_cell.assign_u32(ctx, offset);
+                self.is_i32_cell.assign_bool(ctx, is_i32);
+                self.m_read_lookup_cell.assign(
+                    ctx,
+                    start_eid,
+                    eid,
+                    end_eid,
+                    offset,
+                    LocationType::Stack,
+                    is_i32,
+                    value,
+                )?;
+                self.value_cell.assign(ctx, value.into())?;
+            }
+            UniArg::IConst(v) => {}
+        }
 
         Ok(())
     }
@@ -366,18 +390,21 @@ impl<F: FieldExt> EventTableConfig<F> {
         for i in 0..3 {
             let is_const_cell = allocator.alloc_bit_cell();
             let is_pop_cell = allocator.alloc_bit_cell();
-            let is_stack_cell = allocator.alloc_bit_cell();
+            let is_local_get_cell = allocator.alloc_bit_cell();
+
+            let const_value_cell = allocator.alloc_u64_cell();
+            let local_get_offset_cell = allocator.alloc_u16_cell();
 
             let is_i32_cell = allocator.alloc_bit_cell();
-            let value_cell = allocator.alloc_u64_cell();
-
-            let is_memory_read_cell = allocator.alloc_unlimited_cell();
-            let stack_offset_cell = allocator.alloc_u16_cell();
-            let arg_offset_cell = allocator.alloc_unlimited_cell();
+            let value_cell = allocator.alloc_unlimited_cell();
+            let stack_offset_cell = allocator.alloc_unlimited_cell();
+            let is_stack_read_cell = allocator.alloc_unlimited_cell();
 
             meta.create_gate("c_arg.0. type select", |meta| {
                 vec![
-                    (is_const_cell.expr(meta) + is_pop_cell.expr(meta) + is_stack_cell.expr(meta)
+                    (is_const_cell.expr(meta)
+                        + is_pop_cell.expr(meta)
+                        + is_local_get_cell.expr(meta)
                         - constant_from!(1)),
                 ]
                 .into_iter()
@@ -391,7 +418,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 .map(|x| AllocatedUnlimitedCell { cell: x })
                 .collect();
 
-            let cell = AllocatedMemoryTableLookupReadCell {
+            let m_read_lookup_cell = AllocatedMemoryTableLookupReadCell {
                 start_eid_cell: cells[0],
                 end_eid_cell: cells[1],
                 encode_cell: cells[2],
@@ -402,35 +429,45 @@ impl<F: FieldExt> EventTableConfig<F> {
 
             meta.create_gate("c_arg.1. memory read", |meta| {
                 // By default, pop take the value on sp + 1
-                let mut sp_diff_expr =
-                    sp_cell.expr(meta) + constant_from!(1) - stack_offset_cell.expr(meta);
+                let mut pop_sp_offset_expr = constant_from!(1);
 
                 // Previous pop modify the diff by increasing 1
                 for j in 0..i {
-                    sp_diff_expr = sp_diff_expr
+                    pop_sp_offset_expr = pop_sp_offset_expr
                         + uniarg_configs[j].is_enabled_cell.expr(meta)
                             * uniarg_configs[j].is_pop_cell.expr(meta);
                 }
 
+                let is_stack_read = is_stack_read_cell.expr(meta);
+
                 vec![
-                    sp_diff_expr * is_pop_cell.expr(meta),
-                    is_memory_read_cell.expr(meta)
-                        - is_pop_cell.expr(meta)
-                        - is_stack_cell.expr(meta),
+                    // is_memory_read_cell = is_pop_cell + is_local_get_cell
+                    is_stack_read - is_pop_cell.expr(meta) - is_local_get_cell.expr(meta),
+                    // value_cell = if is_const_cell { const_value_cell } else { mlookup_cell.value_cell }
+                    (value_cell.expr(meta) - const_value_cell.expr(meta))
+                        * is_const_cell.expr(meta),
+                    (value_cell.expr(meta) - m_read_lookup_cell.value_cell.expr(meta))
+                        * is_stack_read,
+                    // stack_offset = if is_pop { sp + 1 + previous_popped } else { sp + constant_offset }
+                    stack_offset_cell.expr(meta) - sp_cell.expr(meta)
+                        + is_pop_cell.expr(meta) * pop_sp_offset_expr
+                        + is_local_get_cell.expr(meta)
+                            * (sp_cell.expr(meta) - local_get_offset_cell.expr(meta)),
+                    // on memory read
                     (eid_cell.expr(meta)
-                        - cell.start_eid_cell.expr(meta)
-                        - cell.start_eid_diff_cell.expr(meta)
+                        - m_read_lookup_cell.start_eid_cell.expr(meta)
+                        - m_read_lookup_cell.start_eid_diff_cell.expr(meta)
                         - constant_from!(1))
-                        * is_memory_read_cell.expr(meta),
-                    (eid_cell.expr(meta) + cell.end_eid_diff_cell.expr(meta)
-                        - cell.end_eid_cell.expr(meta))
-                        * is_memory_read_cell.expr(meta),
+                        * is_stack_read,
+                    (eid_cell.expr(meta) + m_read_lookup_cell.end_eid_diff_cell.expr(meta)
+                        - m_read_lookup_cell.end_eid_cell.expr(meta))
+                        * is_stack_read,
                     (specs::encode::memory_table::encode_memory_table_entry(
                         stack_offset_cell.expr(meta),
                         constant_from!(specs::mtable::LocationType::Stack as u64),
                         is_i32_cell.expr(meta),
-                    ) - cell.encode_cell.expr(meta))
-                        * is_memory_read_cell.expr(meta),
+                    ) - m_read_lookup_cell.encode_cell.expr(meta))
+                        * is_stack_read,
                 ]
                 .into_iter()
                 .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cells[i].expr(meta))
@@ -441,10 +478,16 @@ impl<F: FieldExt> EventTableConfig<F> {
                 is_enabled_cell: arg_is_enabled_cells[i],
                 is_pop_cell,
                 is_const_cell,
-                is_stack_cell,
+                is_local_get_cell,
+                const_value_cell,
+                local_get_offset_cell,
+
+                is_stack_read_cell,
+                stack_offset_cell,
+
                 is_i32_cell,
                 value_cell,
-                m_read_lookup_cell:cell,
+                m_read_lookup_cell,
             });
             allocators.push(allocator.clone());
         }
