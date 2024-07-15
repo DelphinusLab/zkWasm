@@ -223,6 +223,10 @@ pub enum UniArg {
 }
 
 impl UniArg {
+    pub fn is_pop(&self) -> bool {
+        matches!(self, UniArg::Pop)
+    }
+
     pub fn get_const_value(&self) -> u64 {
         match self {
             UniArg::Pop => 0,
