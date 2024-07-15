@@ -17,12 +17,9 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::opcode::encode_bin_shift;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
 use specs::itable::ShiftOp;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
@@ -315,30 +312,19 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::BinShift as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_shl.expr(meta)
-            * constant!(bn_to_field(
-                &(BigUint::from(ShiftOp::Shl as u64) << OPCODE_ARG0_SHIFT)
-            ))
-            + self.is_shr_u.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::UnsignedShr as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_shr_s.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::SignedShr as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_rotl.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::Rotl as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_rotr.expr(meta)
-                * constant!(bn_to_field(
-                    &(BigUint::from(ShiftOp::Rotr as u64) << OPCODE_ARG0_SHIFT)
-                ))
-            + self.is_i32.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+        encode_bin_shift(
+            self.is_shl.expr(meta) * constant_from_bn!(&(BigUint::from(ShiftOp::Shl as u64)))
+                + self.is_shr_u.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::UnsignedShr as u64)))
+                + self.is_shr_s.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::SignedShr as u64)))
+                + self.is_rotl.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::Rotl as u64)))
+                + self.is_rotr.expr(meta)
+                    * constant_from_bn!(&(BigUint::from(ShiftOp::Rotr as u64))),
+            self.is_i32.expr(meta),
+            todo!(),
+        )
     }
 
     fn assign(
