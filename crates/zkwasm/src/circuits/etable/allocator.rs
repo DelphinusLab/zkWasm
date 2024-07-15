@@ -177,7 +177,7 @@ pub(crate) enum EventTableCellType {
 }
 
 const BIT_COLUMNS: usize = 15;
-const U8_COLUMNS: usize = 0;
+const U8_COLUMNS: usize = 1;
 const U32_CELLS: usize = 2;
 const U32_PERMUTATION_CELLS: usize = if cfg!(feature = "continuation") {
     10
@@ -189,7 +189,7 @@ const U16_COLUMNS: usize =
     U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2) + 1;
 const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 7 };
 const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
-    10
+    11
 } else {
     9
 };

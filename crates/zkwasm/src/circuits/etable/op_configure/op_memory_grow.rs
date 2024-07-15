@@ -15,6 +15,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use specs::encode::opcode::encode_memory_grow;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
 use specs::step::StepInfo;
@@ -104,7 +105,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        encode_memory_grow(todo!())
+        encode_memory_grow(UniArgEncode::Reserve)
     }
 
     fn assign(
