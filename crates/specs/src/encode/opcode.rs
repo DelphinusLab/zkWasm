@@ -50,18 +50,25 @@ impl EncoderType {
 
 pub enum UniArgEncode<const N: usize, T: FromBn> {
     Reserve,
-    Value(Vec<T>),
+    Value([T; N]),
 }
 
 impl From<&UniArg> for UniArgEncode<1, BigUint> {
     fn from(uniarg: &UniArg) -> Self {
-        UniArgEncode::Value(vec![uniarg.encode()])
+        UniArgEncode::Value([uniarg.encode()])
     }
 }
 
 impl<const N: usize> From<&[UniArg; N]> for UniArgEncode<N, BigUint> {
     fn from(uniargs: &[UniArg; N]) -> Self {
-        UniArgEncode::Value(uniargs.iter().map(|uniarg| uniarg.encode()).collect())
+        UniArgEncode::Value(
+            uniargs
+                .iter()
+                .map(|uniarg| uniarg.encode())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        )
     }
 }
 
@@ -100,8 +107,10 @@ impl Encoder {
 
         match uniargs {
             UniArgEncode::Reserve => {
-                encode = encode * T::from_bn(&OPCODE_UNIARG_SHIFT) * T::from_bn(&BigUint::from(N));
-                bits += UNIARG_BITS * N as u32;
+                for _ in 0..N {
+                    encode = encode * T::from_bn(&OPCODE_UNIARG_SHIFT);
+                    bits += UNIARG_BITS;
+                }
             }
             UniArgEncode::Value(uniargs) => {
                 for uniarg in uniargs {

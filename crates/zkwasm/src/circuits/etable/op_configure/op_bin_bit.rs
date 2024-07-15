@@ -51,33 +51,23 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         let rhs = common_config.uniarg_configs[0].clone();
         let lhs = common_config.uniarg_configs[1].clone();
 
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
                 "op_bin stack write",
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + rhs.is_pop_cell.expr(meta) + lhs.is_pop_cell.expr(meta),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
                 move |meta| rhs.is_i32_cell.expr(meta),
                 move |____| constant_from!(1),
             );
         let res = memory_table_lookup_stack_write.value_cell;
 
-        {
-            let tmp = common_config.uniarg_configs[2].is_enabled_cell.clone();
-            constraint_builder.push(
-                "op_bin_bit: args",
-                Box::new(move |meta| {
-                    vec![
-                        rhs.is_i32_cell.expr(meta) - lhs.is_i32_cell.expr(meta),
-                        rhs.is_enabled_cell.expr(meta) + lhs.is_enabled_cell.expr(meta)
-                            - constant_from!(2),
-                        // disable unused uniarg
-                        tmp.expr(meta),
-                    ]
-                }),
-            );
-        }
+        constraint_builder.push(
+            "op_bin_bit: uniarg type consistent",
+            Box::new(move |meta| vec![rhs.is_i32_cell.expr(meta) - lhs.is_i32_cell.expr(meta)]),
+        );
 
         constraint_builder.push(
             "op_bin_bit: lookup",

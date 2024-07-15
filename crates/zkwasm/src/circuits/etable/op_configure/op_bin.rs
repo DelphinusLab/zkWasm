@@ -17,6 +17,7 @@ use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
 use specs::encode::opcode::encode_bin;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::BinOp;
 use specs::mtable::LocationType;
@@ -353,7 +354,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 + self.is_rem_s.expr(meta)
                     * constant_from_bn!(&BigUint::from(BinOp::SignedRem as u64)),
             self.is_i32.expr(meta),
-            todo!(),
+            UniArgEncode::Reserve,
         )
     }
 

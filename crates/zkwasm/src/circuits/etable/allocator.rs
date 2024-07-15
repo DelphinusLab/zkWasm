@@ -176,22 +176,22 @@ pub(crate) enum EventTableCellType {
     MTableLookup,
 }
 
-const BIT_COLUMNS: usize = 12;
-const U8_COLUMNS: usize = 1;
+const BIT_COLUMNS: usize = 15;
+const U8_COLUMNS: usize = 0;
 const U32_CELLS: usize = 2;
 const U32_PERMUTATION_CELLS: usize = if cfg!(feature = "continuation") {
     10
 } else {
     0
 };
-const U64_CELLS: usize = 5;
+const U64_CELLS: usize = 7;
 const U16_COLUMNS: usize =
-    U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2);
-const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 6 };
+    U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2) + 1;
+const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 7 };
 const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
     10
 } else {
-    8
+    9
 };
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 
