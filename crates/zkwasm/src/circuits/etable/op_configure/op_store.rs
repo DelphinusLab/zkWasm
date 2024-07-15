@@ -120,28 +120,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let sp = common_config.sp_cell;
         let eid = common_config.eid_cell;
 
-        let val_arg = common_config.uniarg_configs[0];
-        let pos_arg = common_config.uniarg_configs[1];
+        let val_arg = common_config.uniarg_configs[0].clone();
+        let pos_arg = common_config.uniarg_configs[1].clone();
         let is_i32 = val_arg.is_i32_cell;
         constraint_builder.push(
             "op_store: uniarg",
             Box::new(move |meta| {
                 vec![
-                    common_config
-                        .uniarg_configs
-                        .iter()
-                        .take(2)
-                        .map(|x| x.is_enabled_cell.expr(meta))
-                        .reduce(|l, r| l + r)
-                        .unwrap()
-                        - constant_from!(2),
-                    common_config
-                        .uniarg_configs
-                        .iter()
-                        .skip(1)
-                        .map(|x| x.is_enabled_cell.expr(meta))
-                        .reduce(|l, r| l + r)
-                        .unwrap(),
                     pos_arg.is_i32_cell.expr(meta) - constant_from!(1),
                     store_value.expr(meta) - val_arg.value_cell.expr(meta),
                 ]

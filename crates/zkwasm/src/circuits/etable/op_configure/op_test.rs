@@ -43,23 +43,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for TestConfigBuilder {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let operand_arg = common_config.uniarg_configs[0];
+        let operand_arg = common_config.uniarg_configs[0].clone();
         let value_cell = operand_arg.value_cell;
-        constraint_builder.push(
-            "op_test: uniarg",
-            Box::new(move |meta| {
-                vec![
-                    common_config.uniarg_configs[0].is_enabled_cell.expr(meta) - constant_from!(1),
-                    common_config
-                        .uniarg_configs
-                        .iter()
-                        .skip(1)
-                        .map(|x| x.is_enabled_cell.expr(meta))
-                        .reduce(|l, r| l + r)
-                        .unwrap(),
-                ]
-            }),
-        );
 
         constraint_builder.constraints.push((
             "op_test res = !value",
