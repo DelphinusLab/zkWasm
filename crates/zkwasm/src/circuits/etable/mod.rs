@@ -473,12 +473,12 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 vec![
                     // is_memory_read_cell = is_pop_cell + is_local_get_cell
-                    is_stack_read - is_pop_cell.expr(meta) - is_local_get_cell.expr(meta),
+                    is_stack_read.clone() - is_pop_cell.expr(meta) - is_local_get_cell.expr(meta),
                     // value_cell = if is_const_cell { const_value_cell } else { mlookup_cell.value_cell }
                     (value_cell.expr(meta) - const_value_cell.expr(meta))
                         * is_const_cell.expr(meta),
                     (value_cell.expr(meta) - m_read_lookup_cell.value_cell.expr(meta))
-                        * is_stack_read,
+                        * is_stack_read.clone(),
                     // stack_offset = if is_pop { sp + 1 + previous_popped } else { sp + constant_offset }
                     stack_offset_cell.expr(meta) - sp_cell.expr(meta)
                         + is_pop_cell.expr(meta) * pop_sp_offset_expr
@@ -489,10 +489,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                         - m_read_lookup_cell.start_eid_cell.expr(meta)
                         - m_read_lookup_cell.start_eid_diff_cell.expr(meta)
                         - constant_from!(1))
-                        * is_stack_read,
+                        * is_stack_read.clone(),
                     (eid_cell.expr(meta) + m_read_lookup_cell.end_eid_diff_cell.expr(meta)
                         - m_read_lookup_cell.end_eid_cell.expr(meta))
-                        * is_stack_read,
+                        * is_stack_read.clone(),
                     (specs::encode::memory_table::encode_memory_table_entry(
                         stack_offset_cell.expr(meta),
                         constant_from!(specs::mtable::LocationType::Stack as u64),
@@ -853,7 +853,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
             let mut shift = F::one();
             let tag_shift = num_bigint::BigUint::from(1u64) << 66;
-            let mut arg_shift = num_bigint::BigUint::from(1u64) << 66;
+            let arg_shift = num_bigint::BigUint::from(1u64) << 66;
             for i in 0..3 {
                 opcode = opcode
                     + uniarg_configs[i].is_enabled_cell.expr(meta)
@@ -867,12 +867,12 @@ impl<F: FieldExt> EventTableConfig<F> {
                                 * constant_from_bn!(&UniArg::i32_const_tag())
                             + uniarg_configs[i].is_const_cell.expr(meta)
                                 * uniarg_configs[i].is_i32_cell.expr(meta)
-                                * todo!()
+                                * constant_from_bn!(&UniArg::i64_i32_const_tag())
                             + uniarg_configs[i].is_const_cell.expr(meta)
                                 * uniarg_configs[i].const_value_cell.expr(meta))
                         * constant!(shift);
 
-                shift = shift * arg_shift;
+                shift = shift * bn_to_field::<F>(&arg_shift);
             }
 
             vec![
