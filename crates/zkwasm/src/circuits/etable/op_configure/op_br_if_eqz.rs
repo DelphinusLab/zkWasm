@@ -198,7 +198,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(1) + self.cond_is_zero_cell.expr(meta) * self.drop_cell.expr(meta))
+        Some(self.cond_is_zero_cell.expr(meta) * self.drop_cell.expr(meta))
     }
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

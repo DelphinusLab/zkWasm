@@ -8,6 +8,7 @@ use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
+use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
@@ -159,5 +160,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
 
     fn allocated_memory_pages_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
         Some(self.success.expr(meta) * self.grow_size_arg.value_cell.expr(meta))
+    }
+
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant!(-F::one()))
     }
 }

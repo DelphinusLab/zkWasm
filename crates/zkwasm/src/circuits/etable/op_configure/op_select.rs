@@ -8,6 +8,7 @@ use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
+use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
@@ -146,7 +147,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
     }
 
     fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(2))
+        Some(constant!(-F::one()))
     }
 
     fn mops(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

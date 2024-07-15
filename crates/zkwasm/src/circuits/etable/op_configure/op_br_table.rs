@@ -278,7 +278,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
     }
 
     fn sp_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(self.drop.expr(meta) + constant_from!(1))
+        Some(self.drop.expr(meta))
     }
 
     fn next_iid(
