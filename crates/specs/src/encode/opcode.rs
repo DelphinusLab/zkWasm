@@ -319,7 +319,7 @@ pub fn encode_store<T: FromBn>(vtype: T, size: T, offset: T, uniargs: UniArgEnco
     Encoder::encode(
         OpcodeClass::Store,
         vec![
-            (vtype, EncoderType::U32),
+            (vtype, EncoderType::Bit),
             (size, EncoderType::U32),
             (offset, EncoderType::U32),
         ],
