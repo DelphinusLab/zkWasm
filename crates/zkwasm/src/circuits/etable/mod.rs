@@ -96,7 +96,7 @@ pub struct EventTableCommonArgsConfig<F: FieldExt> {
 
     pub(crate) is_const_cell: AllocatedBitCell<F>,
     pub(crate) is_i32_cell: AllocatedBitCell<F>,
-    pub(crate) const_value_cell: AllocatedU64Cell<F>,
+    pub(crate) const_value_cell: AllocatedUnlimitedCell<F>,
 
     pub(crate) is_stack_read_cell: AllocatedUnlimitedCell<F>,
     pub(crate) stack_offset_cell: AllocatedUnlimitedCell<F>,
@@ -124,7 +124,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
             UniArg::IConst(v) => {
                 self.is_const_cell.assign_bool(ctx, true)?;
                 self.const_value_cell
-                    .assign(ctx, arg_type.get_const_value())?;
+                    .assign(ctx, arg_type.get_const_value().into())?;
                 self.value_cell
                     .assign(ctx, arg_type.get_const_value().into())?;
                 match v {
@@ -439,6 +439,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             (l_0, l_active, l_active_last),
             rtable,
             mtable,
+            image_table,
             cols,
         );
 
@@ -486,7 +487,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             .map(|_| allocator.alloc_unlimited_cell())
             .into_iter();
 
-        let itable_lookup_cell = allocator.alloc_unlimited_cell();
+        // MUST be the first cell of itable lookup column
+        let itable_lookup_cell = allocator.alloc_itable_lookup_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
         let jtable_lookup_cell = allocator.alloc_unlimited_cell();
         let is_returned_cell = allocator.alloc_bit_cell();
@@ -495,8 +497,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         let external_foreign_call_lookup_cell = allocator.alloc_unlimited_cell();
         let bit_table_lookup_cells = allocator.alloc_bit_table_lookup_cells();
 
-        // TODO: Adjust SP
-        // TODO: Adjust OPCODE
         let arg_is_enabled_cells = [0; 3].map(|_| allocator.alloc_bit_cell());
         let mut allocators = vec![allocator.clone()];
         let mut uniarg_configs: Vec<EventTableCommonArgsConfig<F>> = vec![];
@@ -506,7 +506,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             let is_pop_cell = allocator.alloc_bit_cell();
             let is_local_get_cell = allocator.alloc_bit_cell();
 
-            let const_value_cell = allocator.alloc_u64_cell();
+            let const_value_cell = allocator.alloc_itable_lookup_cell();
             let local_get_offset_cell = allocator.alloc_u16_cell();
 
             let is_i32_cell = allocator.alloc_bit_cell();
@@ -965,10 +965,6 @@ impl<F: FieldExt> EventTableConfig<F> {
                     * enabled_cell.curr_expr(meta)
                     * fixed_curr!(meta, step_sel),
             ]
-        });
-
-        image_table.instruction_lookup(meta, "c8a. itable_lookup in itable", |meta| {
-            itable_lookup_cell.curr_expr(meta) * fixed_curr!(meta, step_sel)
         });
 
         image_table.br_table_lookup(meta, "c8b. brtable_lookup in brtable", |meta| {

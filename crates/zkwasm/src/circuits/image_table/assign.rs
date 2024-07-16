@@ -57,6 +57,17 @@ macro_rules! assign {
     }};
 }
 
+macro_rules! assign_fixed {
+    ($ctx:expr, $col: expr, $v: expr) => {{
+        let cell = $ctx
+            .region
+            .assign_fixed(|| "pre image table prefix", $col, $ctx.offset, || $v)
+            .unwrap();
+
+        Ok::<_, Error>(cell)
+    }};
+}
+
 impl<F: FieldExt> ImageTableChip<F> {
     pub(crate) fn assign(
         &self,
@@ -93,6 +104,8 @@ impl<F: FieldExt> ImageTableChip<F> {
                     Ok(cells.try_into().unwrap())
                 };
 
+                let f_two = F::one() + F::one();
+
                 let instruction_handler = |base_offset| {
                     let mut ctx = Context::new(region);
                     ctx.offset = base_offset;
@@ -100,7 +113,10 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .instructions
                         .iter()
-                        .map(|entry| assign!(ctx, self.config.col, *entry))
+                        .map(|entry| {
+                            assign_fixed!(ctx, self.config.opcode_prefix, Ok(f_two))?;
+                            assign!(ctx, self.config.col, *entry)
+                        })
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -111,7 +127,10 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .br_table_entires
                         .iter()
-                        .map(|entry| assign!(ctx, self.config.col, *entry))
+                        .map(|entry| {
+                            assign_fixed!(ctx, self.config.opcode_prefix, Ok(f_two))?;
+                            assign!(ctx, self.config.col, *entry)
+                        })
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -119,9 +138,21 @@ impl<F: FieldExt> ImageTableChip<F> {
                     let mut ctx = Context::new(region);
                     ctx.offset = start_offset;
 
-                    (start_offset..end_offset)
-                        .map(|_| assign!(ctx, self.config.col, F::zero()))
-                        .collect::<Result<Vec<_>, Error>>()
+                    let mut res = (start_offset..end_offset - 1)
+                        .map(|_| {
+                            assign_fixed!(ctx, self.config.opcode_prefix, Ok(f_two))?;
+                            assign!(ctx, self.config.col, F::zero())
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?;
+
+                    // TODO: reserve for constant
+                    assign_fixed!(ctx, self.config.opcode_prefix, Ok(F::one()))?;
+                    res.push(
+                        assign!(ctx, self.config.col, F::zero()).unwrap()
+                    );
+                    ctx.next();
+
+                    Ok(res)
                 };
 
                 let init_memory_handler = |base_offset| {

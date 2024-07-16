@@ -3,6 +3,7 @@ use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::bit_table::BitTableOp;
 use crate::circuits::cell::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::image_table::ImageTableConfig;
 use crate::circuits::rtable::RangeTableConfig;
 use crate::circuits::traits::ConfigureLookupTable;
 use crate::circuits::utils::bit::BitColumn;
@@ -174,6 +175,7 @@ pub(crate) enum EventTableCellType {
     CommonRange,
     Unlimited,
     MTableLookup,
+    ITableLookup,
 }
 
 const BIT_COLUMNS: usize = 15;
@@ -184,7 +186,7 @@ const U32_PERMUTATION_CELLS: usize = if cfg!(feature = "continuation") {
 } else {
     0
 };
-const U64_CELLS: usize = 7;
+const U64_CELLS: usize = 5;
 const U16_COLUMNS: usize =
     U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2) + 1;
 const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 6 };
@@ -194,6 +196,7 @@ const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
     10
 };
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
+const IMAGE_TABLE_LOOKUP_COLUMNS: usize = 1;
 
 #[derive(Clone, Copy)]
 pub(crate) struct AllocatedBitTableLookupCells<F: FieldExt> {
@@ -372,6 +375,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         (l_0, l_active, l_active_last): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
+        itable: &ImageTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut allocator = Self::_new(
@@ -380,6 +384,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             (l_0, l_active, l_active_last),
             rtable,
             mtable,
+            itable,
             cols,
         );
         for _ in 0..U32_CELLS {
@@ -405,6 +410,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         (l_0, l_active, l_active_last): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         mtable: &impl ConfigureLookupTable<F>,
+        itable: &ImageTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
         let mut all_cols = BTreeMap::new();
@@ -468,6 +474,19 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .into_iter()
                 .collect(),
         );
+        all_cols.insert(
+            EventTableCellType::ITableLookup,
+            [0; IMAGE_TABLE_LOOKUP_COLUMNS]
+                .map(|_| {
+                    let col = cols.next().unwrap();
+                    itable.instruction_lookup(meta, "c8a. itable_lookup in itable", |meta| {
+                        [fixed_curr!(meta, sel) + constant_from!(1), curr!(meta, col)]
+                    });
+                    vec![col]
+                })
+                .into_iter()
+                .collect(),
+        );
 
         Self {
             all_cols,
@@ -479,6 +498,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                     (EventTableCellType::CommonRange, (0, 0)),
                     (EventTableCellType::Unlimited, (0, 0)),
                     (EventTableCellType::MTableLookup, (0, 0)),
+                    (EventTableCellType::ITableLookup, (0, 0)),
                 ]
                 .into_iter(),
             ),
@@ -568,6 +588,12 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
+    pub(crate) fn alloc_itable_lookup_cell(&mut self) -> AllocatedUnlimitedCell<F> {
+        AllocatedUnlimitedCell {
+            cell: self.alloc(&EventTableCellType::ITableLookup),
+        }
+    }
+
     pub(crate) fn alloc_memory_table_lookup_read_cell(
         &mut self,
         name: &'static str,
@@ -591,7 +617,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             encode_cell: cells[2],
             value_cell: cells[3],
             start_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
-            end_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
+            end_eid_diff_cell: self.alloc_u32_state_cell(),   // TODO: u32
         };
 
         constraint_builder.constraints.push((
@@ -681,7 +707,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             encode_cell: cells[2],
             value_cell: cells[3],
             start_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
-            end_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
+            end_eid_diff_cell: self.alloc_u32_state_cell(),   // TODO: u32
         };
 
         constraint_builder.constraints.push((
@@ -769,7 +795,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let value = self.free_u64_cells.pop().expect("no more free u64 cells");
         let flag_bit_cell = self.alloc_bit_cell();
         let flag_u16_rem_cell = self.alloc_common_range_cell(); // TODO: u16
-        let flag_u16_rem_diff_cell = self.alloc_common_range_cell();  // TODO: u16
+        let flag_u16_rem_diff_cell = self.alloc_common_range_cell(); // TODO: u16
 
         constraint_builder.push(
             "flag bit dyn",
