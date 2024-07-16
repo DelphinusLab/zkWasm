@@ -26,8 +26,8 @@ pub struct SelectConfig<F: FieldExt> {
     res: AllocatedUnlimitedCell<F>,
 
     cond_arg: EventTableCommonArgsConfig<F>,
-    val1_arg: EventTableCommonArgsConfig<F>,
-    val2_arg: EventTableCommonArgsConfig<F>,
+    rhs_arg: EventTableCommonArgsConfig<F>,
+    lhs_arg: EventTableCommonArgsConfig<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -46,18 +46,18 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         let sp = common_config.sp_cell;
 
         let cond_arg = common_config.uniarg_configs[0].clone();
-        let val2_arg = common_config.uniarg_configs[1].clone();
-        let val1_arg = common_config.uniarg_configs[2].clone();
-        let is_i32 = val1_arg.is_i32_cell;
+        let rhs_arg = common_config.uniarg_configs[1].clone();
+        let lhs_arg = common_config.uniarg_configs[2].clone();
+        let is_i32 = lhs_arg.is_i32_cell;
         let cond = cond_arg.value_cell;
-        let val1 = val1_arg.value_cell;
-        let val2 = val2_arg.value_cell;
+        let lhs = lhs_arg.value_cell;
+        let rhs = rhs_arg.value_cell;
         constraint_builder.push(
             "select: uniarg",
             Box::new(move |meta| {
                 vec![
                     cond_arg.is_i32_cell.expr(meta) - constant_from!(1),
-                    val1_arg.is_i32_cell.expr(meta) - val2_arg.is_i32_cell.expr(meta),
+                    rhs_arg.is_i32_cell.expr(meta) - lhs_arg.is_i32_cell.expr(meta),
                 ]
             }),
         );
@@ -67,14 +67,14 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     (constant_from!(1) - cond.expr(meta) * cond_inv.expr(meta))
-                        * (res.expr(meta) - val2.expr(meta)),
+                        * (res.expr(meta) - rhs.expr(meta)),
                 ]
             }),
         );
 
         constraint_builder.push(
             "select: cond is not zero",
-            Box::new(move |meta| vec![cond.expr(meta) * (res.expr(meta) - val1.expr(meta))]),
+            Box::new(move |meta| vec![cond.expr(meta) * (res.expr(meta) - lhs.expr(meta))]),
         );
 
         let uniarg_configs = common_config.uniarg_configs.clone();
@@ -93,8 +93,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
             cond_inv,
             res,
             cond_arg,
-            val1_arg,
-            val2_arg,
+            rhs_arg,
+            lhs_arg,
             memory_table_lookup_stack_write,
         })
     }
@@ -130,21 +130,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
                     self.cond_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
-                    self.val1_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
-                    self.val2_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+                    self.rhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+                    self.lhs_arg.assign(ctx, uniargs[2], &mut memory_entries)?;
+                    self.memory_table_lookup_stack_write
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
                 } else {
                     unreachable!();
                 }
-
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entires[3].end_eid,
-                    step.current.sp + 3,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *result,
-                )?;
 
                 Ok(())
             }
