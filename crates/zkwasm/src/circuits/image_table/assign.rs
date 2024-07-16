@@ -138,7 +138,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                     let mut ctx = Context::new(region);
                     ctx.offset = start_offset;
 
-                    let mut res = (start_offset..end_offset - 1)
+                    let res = (start_offset..end_offset - 1)
                         .map(|_| {
                             assign_fixed!(ctx, self.config.opcode_prefix, Ok(f_two))?;
                             assign!(ctx, self.config.col, F::zero())

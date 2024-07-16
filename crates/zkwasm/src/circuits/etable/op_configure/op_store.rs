@@ -26,7 +26,6 @@ use specs::encode::opcode::encode_store;
 use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct StoreConfig<F: FieldExt> {
@@ -115,14 +114,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let is_two_bytes = allocator.alloc_bit_cell();
         let is_four_bytes = allocator.alloc_bit_cell();
         let is_eight_bytes = allocator.alloc_bit_cell();
-        let is_i32 = allocator.alloc_bit_cell();
 
-        let sp = common_config.sp_cell;
         let eid = common_config.eid_cell;
 
         let val_arg = common_config.uniarg_configs[0].clone();
         let pos_arg = common_config.uniarg_configs[1].clone();
-        let is_i32 = val_arg.is_i32_cell;
+
         constraint_builder.push(
             "op_store: uniarg",
             Box::new(move |meta| {
@@ -443,16 +440,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
     ) -> Result<(), Error> {
         match entry.eentry.step_info {
             StepInfo::Store {
-                vtype,
                 store_size,
                 offset,
-                raw_address,
                 effective_address,
                 pre_block_value1,
                 updated_block_value1,
                 pre_block_value2,
                 updated_block_value2,
                 value,
+                ..
             } => {
                 let len = store_size.byte_size() as u32;
 

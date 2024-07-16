@@ -20,7 +20,6 @@ use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::BitOp;
 use specs::itable::Opcode;
-use specs::itable::UniArg;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -106,7 +105,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
         step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (class, vtype, left, right, value) = match entry.eentry.step_info {
+        let (class, _vtype, left, right, value) = match entry.eentry.step_info {
             StepInfo::I32BinBitOp {
                 class,
                 left,
@@ -149,11 +148,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
             }
         };
 
-        if let Opcode::BinBit {
-            class,
-            vtype,
-            uniargs,
-        } = entry.eentry.get_instruction(&step.current.itable).opcode
+        if let Opcode::BinBit { uniargs, .. } =
+            entry.eentry.get_instruction(&step.current.itable).opcode
         {
             let mut memory_entries = entry.memory_rw_entires.iter();
 

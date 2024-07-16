@@ -84,7 +84,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         let sp = common_config.sp_cell;
 
         let value_arg = common_config.uniarg_configs[0].clone();
-        let value_type_is_i32 = value_arg.is_i32_cell;
+
         constraint_builder.push(
             "select: uniarg",
             Box::new(move |meta| vec![value_arg.value_cell.expr(meta) - value.expr(meta)]),
@@ -220,7 +220,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
         step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (is_sign_op, value, value_type, result, result_type, padding, shift) =
+        let (is_sign_op, value, _value_type, result, result_type, padding, shift) =
             match &entry.eentry.step_info {
                 StepInfo::I32WrapI64 { value, result } => {
                     self.value_is_i64.assign_bool(ctx, true)?;

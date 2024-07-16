@@ -19,7 +19,6 @@ use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::TestOp;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct TestConfig<F: FieldExt> {
@@ -95,11 +94,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::Test {
-                vtype,
-                value,
-                result,
-            } => {
+            StepInfo::Test { value, result, .. } => {
                 if *value != 0 {
                     self.value_inv_cell
                         .assign(ctx, step.field_helper.invert(*value))?;
