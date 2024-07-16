@@ -112,28 +112,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read_rhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin_shift stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| rhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
-        let memory_table_lookup_stack_read_lhs = allocator.alloc_memory_table_lookup_read_cell(
-            "op_bin_shift stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(2),
-            move |meta| is_i32.expr(meta),
-            move |meta| lhs.u64_cell.expr(meta),
-            move |____| constant_from!(1),
-        );
-
         let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator
             .alloc_memory_table_lookup_write_cell_with_value(
@@ -478,7 +456,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             }
         }
 
-        if let specs::itable::Opcode::BinBit {
+        if let specs::itable::Opcode::BinShift {
             class,
             vtype,
             uniargs,
@@ -486,21 +464,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
         {
             let mut memory_entries = entry.memory_rw_entires.iter();
 
-            self.lhs_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
-            self.rhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+            self.rhs_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
+            self.lhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+            self.memory_table_lookup_stack_write
+                .assign_with_memory_entry(ctx, &mut memory_entries)?;
         } else {
             unreachable!();
         }
-
-        self.memory_table_lookup_stack_write.assign(
-            ctx,
-            step.current.eid,
-            entry.memory_rw_entires[2].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            !is_eight_bytes,
-            value,
-        )?;
 
         Ok(())
     }
