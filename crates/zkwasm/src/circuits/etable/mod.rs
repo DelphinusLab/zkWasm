@@ -482,6 +482,10 @@ impl<F: FieldExt> EventTableConfig<F> {
             used_unlimited_cells_for_state.0 + (used_unlimited_cells_for_state.1 != 0) as usize,
         );
 
+        let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
+            .map(|_| allocator.alloc_unlimited_cell())
+            .into_iter();
+
         let itable_lookup_cell = allocator.alloc_unlimited_cell();
         let brtable_lookup_cell = allocator.alloc_unlimited_cell();
         let jtable_lookup_cell = allocator.alloc_unlimited_cell();
@@ -601,10 +605,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             });
             allocators.push(allocator.clone());
         }
-
-        let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
-            .map(|_| allocator.alloc_unlimited_cell())
-            .into_iter();
 
         let common_config = EventTableCommonConfig {
             enabled_cell,
@@ -734,7 +734,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure_foreign!(ETableContextHelperTableConfigBuilder, 1);
         configure_foreign!(ETableRequireHelperTableConfigBuilder, 2);
 
-        // profiler.assert_no_free_cells(&allocator);
+        profiler.assert_no_free_cells(&allocator);
 
         meta.create_gate("c1. enable seq", |meta| {
             vec![
