@@ -248,7 +248,7 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
             .map(|x| x.is_enabled_cell.clone())
             .collect::<Vec<_>>();
         constraint_builder.push(
-            "op_unary: uniarg",
+            "uniarg enable",
             Box::new(move |meta| {
                 let mut gates = vec![];
                 if used_args.len() > 0 {
@@ -682,6 +682,8 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::MemorySize, MemorySizeConfigBuilder, 0);
 
         // 1 args
+        configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder, 1);
+        configure!(OpcodeClass::BrIf, BrIfConfigBuilder, 1);
         configure!(OpcodeClass::BrTable, BrTableConfigBuilder, 1);
         configure!(OpcodeClass::CallIndirect, CallIndirectConfigBuilder, 1);
         configure!(OpcodeClass::Conversion, ConversionConfigBuilder, 1);
@@ -696,8 +698,6 @@ impl<F: FieldExt> EventTableConfig<F> {
         configure!(OpcodeClass::BinBit, BinBitConfigBuilder, 2);
         configure!(OpcodeClass::BinShift, BinShiftConfigBuilder, 2);
         configure!(OpcodeClass::Bin, BinConfigBuilder, 2);
-        configure!(OpcodeClass::BrIfEqz, BrIfEqzConfigBuilder, 2);
-        configure!(OpcodeClass::BrIf, BrIfConfigBuilder, 2);
         configure!(OpcodeClass::Rel, RelConfigBuilder, 2);
         configure!(OpcodeClass::Store, StoreConfigBuilder, 2);
 
