@@ -148,7 +148,14 @@ impl<F: FieldExt> ImageTableChip<F> {
                     // TODO: reserve for constant
                     assign_fixed!(ctx, self.config.opcode_prefix, Ok(F::one()))?;
                     res.push(
-                        assign!(ctx, self.config.col, F::zero()).unwrap()
+                        assign!(
+                            ctx,
+                            self.config.col,
+                            crate::circuits::utils::bn_to_field(
+                                &*specs::encode::image_table::INSTRUCTION_TAG
+                            )
+                        )
+                        .unwrap(),
                     );
                     ctx.next();
 
