@@ -68,7 +68,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
+                move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta) + constant_from!(1),
                 move |meta| is_i32_cell.expr(meta),
                 move |meta| keep_cell.expr(meta) * cond_is_zero_cell.expr(meta),
             );
@@ -81,7 +81,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
                 constraint_builder,
                 eid,
                 move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + drop_cell.expr(meta) + constant_from!(2),
+                move |meta| {
+                    Self::sp_after_uniarg(sp, &uniarg_configs, meta)
+                        + drop_cell.expr(meta)
+                        + constant_from!(1)
+                },
                 move |meta| is_i32_cell.expr(meta),
                 move |meta| value_cell.expr(meta),
                 move |meta| keep_cell.expr(meta) * cond_is_zero_cell.expr(meta),

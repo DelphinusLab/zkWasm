@@ -456,11 +456,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             }
         }
 
-        if let specs::itable::Opcode::BinShift {
-            class,
-            vtype,
-            uniargs,
-        } = entry.eentry.get_instruction(&step.current.itable).opcode
+        if let specs::itable::Opcode::BinShift { uniargs, .. } =
+            entry.eentry.get_instruction(&step.current.itable).opcode
         {
             let mut memory_entries = entry.memory_rw_entires.iter();
 

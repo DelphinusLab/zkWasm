@@ -127,7 +127,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
 
         let res = memory_table_lookup_stack_write.value_cell;
 
-        let uniarg_configs = common_config.uniarg_configs.clone();
         constraint_builder.push(
             "bin: selector",
             Box::new(move |meta| {
@@ -515,11 +514,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             _ => {}
         }
 
-        if let specs::itable::Opcode::Bin {
-            class,
-            vtype,
-            uniargs,
-        } = entry.eentry.get_instruction(&step.current.itable).opcode
+        if let specs::itable::Opcode::Bin { uniargs, .. } =
+            entry.eentry.get_instruction(&step.current.itable).opcode
         {
             let mut memory_entries = entry.memory_rw_entires.iter();
 

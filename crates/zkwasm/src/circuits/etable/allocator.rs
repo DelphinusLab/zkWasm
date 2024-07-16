@@ -193,7 +193,7 @@ const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else
 const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
     12
 } else {
-    10
+    9
 };
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const IMAGE_TABLE_LOOKUP_COLUMNS: usize = 1;

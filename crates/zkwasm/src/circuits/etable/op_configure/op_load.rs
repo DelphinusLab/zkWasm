@@ -429,11 +429,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 vtype,
                 load_size,
                 offset,
-                raw_address,
                 effective_address,
                 value,
                 block_value1,
                 block_value2,
+                ..
             } => {
                 let len = load_size.byte_size();
 

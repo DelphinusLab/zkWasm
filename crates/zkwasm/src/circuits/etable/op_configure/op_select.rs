@@ -18,7 +18,6 @@ use specs::encode::opcode::encode_select;
 use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct SelectConfig<F: FieldExt> {
@@ -112,13 +111,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::Select {
-                val1,
-                val2,
-                cond,
-                result,
-                vtype,
-            } => {
+            StepInfo::Select { cond, result, .. } => {
                 if *cond != 0 {
                     self.cond_inv.assign(ctx, step.field_helper.invert(*cond))?;
                 }

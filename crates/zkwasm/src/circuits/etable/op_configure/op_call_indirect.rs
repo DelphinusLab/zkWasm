@@ -10,7 +10,6 @@ use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
@@ -21,7 +20,6 @@ use specs::encode::br_table::encode_elem_entry;
 use specs::encode::frame_table::encode_frame_table_entry;
 use specs::encode::opcode::encode_call_indirect;
 use specs::encode::opcode::UniArgEncode;
-use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 pub struct CallIndirectConfig<F: FieldExt> {
@@ -73,9 +71,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
                 ]
             }),
         );
-
-        let eid = common_config.eid_cell;
-        let sp = common_config.sp_cell;
 
         let offset_arg = common_config.uniarg_configs[0].clone();
         constraint_builder.push(

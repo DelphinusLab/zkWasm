@@ -8,7 +8,6 @@ use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
@@ -37,7 +36,6 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalSetConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let idx_cell = allocator.alloc_common_range_cell();
 
-        let sp_cell = common_config.sp_cell;
         let eid_cell = common_config.eid_cell;
 
         let value_arg = common_config.uniarg_configs[0].clone();

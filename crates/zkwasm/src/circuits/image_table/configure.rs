@@ -65,8 +65,6 @@ impl<F: FieldExt> ImageTableConfig<F> {
         key: &'static str,
         expr: impl FnOnce(&mut VirtualCells<'_, F>) -> (Expression<F>, Expression<F>),
     ) {
-        use crate::fixed_curr;
-
         meta.lookup_any(key, |meta| {
             let (addr, encode) = expr(meta);
 

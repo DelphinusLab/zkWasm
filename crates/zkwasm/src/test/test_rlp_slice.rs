@@ -1,5 +1,4 @@
 use crate::circuits::config::MIN_K;
-use crate::foreign::context::ContextOutput;
 use crate::loader::slice::Slices;
 use crate::loader::ZkWasmLoader;
 use crate::runtime::host::default_env::DefaultHostEnvBuilder;
@@ -8,7 +7,6 @@ use crate::runtime::host::HostEnvBuilder;
 use crate::test::Fr;
 use crate::test::TableMonitor;
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::Bn256;
 use specs::TraceBackend;
 
 const K: u32 = MIN_K;

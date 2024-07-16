@@ -112,7 +112,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
         // start_eid, eid, end_eid, offset, is_i32, value
         mread_args: Option<(u32, u32, u32, u32, bool, u64)>,
     ) -> Result<(), Error> {
-        self.is_enabled_cell.assign_bool(ctx, true);
+        self.is_enabled_cell.assign_bool(ctx, true)?;
         match arg_type {
             UniArg::Pop => {
                 self.is_pop_cell.assign_bool(ctx, true)?;
@@ -129,7 +129,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
                     .assign(ctx, arg_type.get_const_value().into())?;
                 match v {
                     specs::types::Value::I32(_) => {
-                        self.is_i32_cell.assign_bool(ctx, true);
+                        self.is_i32_cell.assign_bool(ctx, true)?;
                     }
                     specs::types::Value::I64(_) => {}
                 }
@@ -139,9 +139,9 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
         match arg_type {
             UniArg::Pop | UniArg::Stack(_) => {
                 let (start_eid, eid, end_eid, offset, is_i32, value) = mread_args.unwrap();
-                self.is_stack_read_cell.assign_bool(ctx, true);
-                self.stack_offset_cell.assign_u32(ctx, offset);
-                self.is_i32_cell.assign_bool(ctx, is_i32);
+                self.is_stack_read_cell.assign_bool(ctx, true)?;
+                self.stack_offset_cell.assign_u32(ctx, offset)?;
+                self.is_i32_cell.assign_bool(ctx, is_i32)?;
                 self.m_read_lookup_cell.assign(
                     ctx,
                     start_eid,
@@ -154,7 +154,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
                 )?;
                 self.value_cell.assign(ctx, value.into())?;
             }
-            UniArg::IConst(v) => {}
+            UniArg::IConst(_v) => {}
         }
 
         Ok(())
@@ -217,15 +217,6 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     external_foreign_call_lookup_cell: AllocatedUnlimitedCell<F>,
 
     pub(crate) uniarg_configs: Vec<EventTableCommonArgsConfig<F>>,
-}
-
-impl<F: FieldExt> EventTableCommonConfig<F> {
-    fn config_uargs_enable(
-        common_config: &EventTableCommonConfig<F>,
-        allocator: &mut EventTableCellAllocator<F>,
-        constraint_builder: &mut ConstraintBuilder<F>,
-    ) {
-    }
 }
 
 pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt> {
@@ -299,7 +290,8 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
             .iter()
             .map(|x| x.is_pop_cell)
             .collect::<Vec<_>>();
-        let mut acc = sp_cell.expr(meta);
+
+        let acc = sp_cell.expr(meta);
         pops.iter()
             .map(|x| x.expr(meta))
             .fold(acc, |acc, x| acc + x)
@@ -840,7 +832,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         });
 
         meta.create_gate("c5e. sp change", |meta| {
-            let mut popped = uniarg_configs
+            let popped = uniarg_configs
                 .iter()
                 .map(|c| c.is_enabled_cell.expr(meta) * c.is_pop_cell.expr(meta))
                 .reduce(|a, b| a + b)
@@ -936,7 +928,6 @@ impl<F: FieldExt> EventTableConfig<F> {
             });
 
             let mut shift = F::one();
-            let tag_shift = num_bigint::BigUint::from(1u64) << 66;
             let arg_shift = num_bigint::BigUint::from(1u64) << 66;
             for i in 0..3 {
                 opcode = opcode
