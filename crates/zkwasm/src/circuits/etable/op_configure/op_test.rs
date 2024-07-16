@@ -102,7 +102,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
                 self.res_cell.assign_u32(ctx, *result as u32)?;
 
                 if let specs::itable::Opcode::Test { uniarg, .. } =
-                    entry.eentry.get_instruction(&step.current.itable).opcode
+                    entry.eentry.get_instruction(step.current.itable).opcode
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 

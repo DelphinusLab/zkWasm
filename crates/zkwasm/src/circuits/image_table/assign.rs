@@ -151,7 +151,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                         ctx,
                         self.config.col,
                         crate::circuits::utils::bn_to_field(
-                            &*specs::encode::image_table::INSTRUCTION_TAG
+                            &specs::encode::image_table::INSTRUCTION_TAG
                         )
                     )
                     .unwrap();

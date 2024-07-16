@@ -149,7 +149,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
         };
 
         if let Opcode::BinBit { uniargs, .. } =
-            entry.eentry.get_instruction(&step.current.itable).opcode
+            entry.eentry.get_instruction(step.current.itable).opcode
         {
             let mut memory_entries = entry.memory_rw_entires.iter();
 

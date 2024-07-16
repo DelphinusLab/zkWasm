@@ -239,9 +239,8 @@ impl UniArg {
     }
 
     pub fn try_decease_stack_depth(&mut self, diff: usize) {
-        match self {
-            UniArg::Stack(i) => *self = UniArg::Stack(*i - diff),
-            _ => {}
+        if let UniArg::Stack(i) = self {
+            *self = UniArg::Stack(*i - diff);
         }
     }
 

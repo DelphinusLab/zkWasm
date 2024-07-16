@@ -536,7 +536,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 )?;
 
                 if let specs::itable::Opcode::Store { uniargs, .. } =
-                    entry.eentry.get_instruction(&step.current.itable).opcode
+                    entry.eentry.get_instruction(step.current.itable).opcode
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 

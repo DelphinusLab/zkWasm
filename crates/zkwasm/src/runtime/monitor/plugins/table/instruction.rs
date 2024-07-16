@@ -915,9 +915,9 @@ pub(super) fn run_instruction_pre(
         | isa::Instruction::I32Store8(offset, ..)
         | isa::Instruction::I32Store16(offset, ..) => {
             let store_size = match *instructions {
-                isa::Instruction::I32Store8(_, ..) => MemoryStoreSize::Byte8,
-                isa::Instruction::I32Store16(_, ..) => MemoryStoreSize::Byte16,
-                isa::Instruction::I32Store(_, ..) => MemoryStoreSize::Byte32,
+                isa::Instruction::I32Store8(..) => MemoryStoreSize::Byte8,
+                isa::Instruction::I32Store16(..) => MemoryStoreSize::Byte16,
+                isa::Instruction::I32Store(..) => MemoryStoreSize::Byte32,
                 _ => unreachable!(),
             };
 
@@ -1402,7 +1402,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::CallIndirect(_, ..) => {
+            isa::Instruction::CallIndirect(..) => {
                 if let RunInstructionTracePre::CallIndirect {
                     table_idx,
                     type_idx,

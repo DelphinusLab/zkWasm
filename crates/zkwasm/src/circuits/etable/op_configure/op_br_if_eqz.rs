@@ -148,7 +148,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                 let cond = *condition as u32 as u64;
 
                 if let specs::itable::Opcode::BrIfEqz { uniarg, .. } =
-                    entry.eentry.get_instruction(&step.current.itable).opcode
+                    entry.eentry.get_instruction(step.current.itable).opcode
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 

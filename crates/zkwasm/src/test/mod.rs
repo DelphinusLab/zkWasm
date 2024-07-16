@@ -37,7 +37,7 @@ pub fn test_circuit_with_env(
             context_inputs: vec![],
         },
     );
-    let mut monitor = TableMonitor::new(k, &vec![], TraceBackend::Memory, &env);
+    let mut monitor = TableMonitor::new(k, &[], TraceBackend::Memory, &env);
     let mut loader = ZkWasmLoader::new(k, env)?;
     loader.set_entry(function_name);
 

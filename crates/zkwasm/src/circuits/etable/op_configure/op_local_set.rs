@@ -88,7 +88,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalSetConfig<F> {
                 self.offset_cell.assign(ctx, F::from(*depth as u64))?;
 
                 if let specs::itable::Opcode::LocalSet { uniarg, .. } =
-                    entry.eentry.get_instruction(&step.current.itable).opcode
+                    entry.eentry.get_instruction(step.current.itable).opcode
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
