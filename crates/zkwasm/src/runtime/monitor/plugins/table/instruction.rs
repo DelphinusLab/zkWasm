@@ -179,8 +179,8 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 uniarg,
             },
             Instruction::Drop => Opcode::Drop,
-            Instruction::Select(_, _arg0, _arg1) => Opcode::Select {
-                uniargs: todo!(),
+            Instruction::Select(_, lhs, rhs, cond) => Opcode::Select {
+                uniargs: [cond, rhs, lhs],
             },
             Instruction::GetGlobal(idx, ..) => Opcode::GlobalGet { idx: idx as u64 },
             Instruction::SetGlobal(idx, uniarg) => Opcode::GlobalSet {
