@@ -523,21 +523,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
         {
             let mut memory_entries = entry.memory_rw_entires.iter();
 
-            self.lhs_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
-            self.rhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+            self.rhs_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
+            self.lhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+            self.memory_table_lookup_stack_write
+                .assign_with_memory_entry(ctx, &mut memory_entries)?;
         } else {
             unreachable!();
         }
-
-        self.memory_table_lookup_stack_write.assign(
-            ctx,
-            step.current.eid,
-            entry.memory_rw_entires[2].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            var_type == VarType::I32,
-            value,
-        )?;
 
         Ok(())
     }
