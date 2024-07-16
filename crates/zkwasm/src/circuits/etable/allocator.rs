@@ -590,8 +590,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             end_eid_cell: cells[1],
             encode_cell: cells[2],
             value_cell: cells[3],
-            start_eid_diff_cell: self.alloc_u32_state_cell(),
-            end_eid_diff_cell: self.alloc_u32_state_cell(),
+            start_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
+            end_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
         };
 
         constraint_builder.constraints.push((
@@ -680,8 +680,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             end_eid_cell: cells[1],
             encode_cell: cells[2],
             value_cell: cells[3],
-            start_eid_diff_cell: self.alloc_u32_state_cell(),
-            end_eid_diff_cell: self.alloc_u32_state_cell(),
+            start_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
+            end_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
         };
 
         constraint_builder.constraints.push((
@@ -768,8 +768,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     ) -> AllocatedU64CellWithFlagBitDyn<F> {
         let value = self.free_u64_cells.pop().expect("no more free u64 cells");
         let flag_bit_cell = self.alloc_bit_cell();
-        let flag_u16_rem_cell = self.alloc_common_range_cell();
-        let flag_u16_rem_diff_cell = self.alloc_common_range_cell();
+        let flag_u16_rem_cell = self.alloc_common_range_cell(); // TODO: u16
+        let flag_u16_rem_diff_cell = self.alloc_common_range_cell();  // TODO: u16
 
         constraint_builder.push(
             "flag bit dyn",
@@ -804,8 +804,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     ) -> AllocatedU64CellWithFlagBitDynSign<F> {
         let value = self.free_u64_cells.pop().expect("no more free u64 cells");
         let flag_bit_cell = self.alloc_bit_cell();
-        let flag_u16_rem_cell = self.alloc_common_range_cell();
-        let flag_u16_rem_diff_cell = self.alloc_common_range_cell();
+        let flag_u16_rem_cell = self.alloc_common_range_cell(); // TODO: u16
+        let flag_u16_rem_diff_cell = self.alloc_common_range_cell(); // TODO: u16
 
         constraint_builder.push(
             "flag bit dyn sign",

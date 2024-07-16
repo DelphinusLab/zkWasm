@@ -452,13 +452,13 @@ impl<F: FieldExt> EventTableConfig<F> {
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
         let external_host_call_index_cell = allocator.alloc_common_range_cell();
-        let sp_cell = allocator.alloc_common_range_cell();
-        let mpages_cell = allocator.alloc_common_range_cell();
+        let sp_cell = allocator.alloc_common_range_cell(); // TODO: u16
+        let mpages_cell = allocator.alloc_common_range_cell(); // TODO: u16
         let frame_id_cell = allocator.alloc_u32_state_cell();
         let eid_cell = allocator.alloc_u32_state_cell();
-        let fid_cell = allocator.alloc_common_range_cell();
-        let iid_cell = allocator.alloc_common_range_cell();
-        let maximal_memory_pages_cell = allocator.alloc_common_range_cell();
+        let fid_cell = allocator.alloc_common_range_cell(); // TODO: u16
+        let iid_cell = allocator.alloc_common_range_cell(); // TODO: u16
+        let maximal_memory_pages_cell = allocator.alloc_common_range_cell(); // TODO: u16
 
         // We only need to enable equality for the cells of states
         let used_common_range_cells_for_state = allocator

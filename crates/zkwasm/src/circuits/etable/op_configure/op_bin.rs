@@ -86,7 +86,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         );
 
         let d = allocator.alloc_u64_cell();
-        let d_flag_helper_diff = allocator.alloc_common_range_cell();
+        let d_flag_helper_diff = allocator.alloc_common_range_cell(); // TODO: u16??
 
         let aux1 = allocator.alloc_u64_cell();
         let aux2 = allocator.alloc_u64_cell();

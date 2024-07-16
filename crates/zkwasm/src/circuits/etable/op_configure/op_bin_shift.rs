@@ -91,9 +91,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let rhs_modulus = allocator.alloc_unlimited_cell();
         let size_modulus = allocator.alloc_unlimited_cell();
 
-        let rhs_round = allocator.alloc_common_range_cell();
-        let rhs_rem = allocator.alloc_common_range_cell();
-        let rhs_rem_diff = allocator.alloc_common_range_cell();
+        let rhs_round = allocator.alloc_common_range_cell(); // TODO: u16??
+        let rhs_rem = allocator.alloc_common_range_cell(); // TODO: u16??
+        let rhs_rem_diff = allocator.alloc_common_range_cell(); // TODO: u16??
 
         let is_shl = allocator.alloc_bit_cell();
         let is_shr_u = allocator.alloc_bit_cell();

@@ -42,7 +42,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinBitConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let op_class = allocator.alloc_common_range_cell();
+        let op_class = allocator.alloc_common_range_cell(); // TODO: u16
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
