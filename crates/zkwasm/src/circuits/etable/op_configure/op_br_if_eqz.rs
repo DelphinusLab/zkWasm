@@ -55,8 +55,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BrIfEqzConfigBuilder {
 
         let keep_cell = allocator.alloc_bit_cell();
         let is_i32_cell = allocator.alloc_bit_cell();
-        let drop_cell = allocator.alloc_common_range_cell();
-        let dst_pc_cell = allocator.alloc_common_range_cell();
+        let drop_cell = allocator.alloc_common_range_cell(); // TODO: u16??
+        let dst_pc_cell = allocator.alloc_common_range_cell(); // TODO: u16??
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
