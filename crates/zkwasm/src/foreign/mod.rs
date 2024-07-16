@@ -38,7 +38,7 @@ pub(crate) trait EventTableForeignCallConfigBuilder<F: FieldExt>: Sized {
         let unused_args = common_config
             .uniarg_configs
             .iter()
-            .map(|x| x.is_enabled_cell.clone())
+            .map(|x| x.is_enabled_cell)
             .collect::<Vec<_>>();
         constraint_builder.push(
             "op_unary: uniarg",

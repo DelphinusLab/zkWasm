@@ -230,19 +230,19 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
             .uniarg_configs
             .iter()
             .take(uniarg_nr)
-            .map(|x| x.is_enabled_cell.clone())
+            .map(|x| x.is_enabled_cell)
             .collect::<Vec<_>>();
         let unused_args = common_config
             .uniarg_configs
             .iter()
             .skip(uniarg_nr)
-            .map(|x| x.is_enabled_cell.clone())
+            .map(|x| x.is_enabled_cell)
             .collect::<Vec<_>>();
         constraint_builder.push(
             "uniarg enable",
             Box::new(move |meta| {
                 let mut gates = vec![];
-                if used_args.len() > 0 {
+                if !used_args.is_empty() {
                     gates.push(
                         used_args
                             .iter()
@@ -253,7 +253,7 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
                     )
                 }
 
-                if unused_args.len() > 0 {
+                if !unused_args.is_empty() {
                     gates.push(
                         unused_args
                             .iter()
@@ -283,7 +283,7 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
 
     fn sp_after_uniarg(
         sp_cell: AllocatedCommonRangeCell<F>,
-        uniarg_configs: &Vec<EventTableCommonArgsConfig<F>>,
+        uniarg_configs: &[EventTableCommonArgsConfig<F>],
         meta: &mut VirtualCells<'_, F>,
     ) -> Expression<F> {
         let pops = uniarg_configs
@@ -493,7 +493,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         let mut allocators = vec![allocator.clone()];
         let mut uniarg_configs: Vec<EventTableCommonArgsConfig<F>> = vec![];
 
-        for i in 0..3 {
+        for (i, arg_is_enabled_cell) in arg_is_enabled_cells.into_iter().enumerate() {
             let is_const_cell = allocator.alloc_bit_cell();
             let is_pop_cell = allocator.alloc_bit_cell();
             let is_local_get_cell = allocator.alloc_bit_cell();
@@ -514,7 +514,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                         - constant_from!(1)),
                 ]
                 .into_iter()
-                .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cells[i].expr(meta))
+                .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cell.expr(meta))
                 .collect::<Vec<_>>()
             });
 
@@ -538,10 +538,10 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let mut pop_sp_offset_expr = constant_from!(1);
 
                 // Previous pop modify the diff by increasing 1
-                for j in 0..i {
+                for uniarg_config in uniarg_configs.iter().take(i) {
                     pop_sp_offset_expr = pop_sp_offset_expr
-                        + uniarg_configs[j].is_enabled_cell.expr(meta)
-                            * uniarg_configs[j].is_pop_cell.expr(meta);
+                        + uniarg_config.is_enabled_cell.expr(meta)
+                            * uniarg_config.is_pop_cell.expr(meta);
                 }
 
                 let is_stack_read = is_stack_read_cell.expr(meta);
@@ -576,12 +576,12 @@ impl<F: FieldExt> EventTableConfig<F> {
                         * is_stack_read,
                 ]
                 .into_iter()
-                .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cells[i].expr(meta))
+                .map(|expr| expr * fixed_curr!(meta, step_sel) * arg_is_enabled_cell.expr(meta))
                 .collect::<Vec<_>>()
             });
 
             uniarg_configs.push(EventTableCommonArgsConfig {
-                is_enabled_cell: arg_is_enabled_cells[i],
+                is_enabled_cell: arg_is_enabled_cell,
                 is_pop_cell,
                 is_const_cell,
                 is_local_get_cell,
@@ -929,25 +929,25 @@ impl<F: FieldExt> EventTableConfig<F> {
 
             let mut shift = F::one();
             let arg_shift = num_bigint::BigUint::from(1u64) << 66;
-            for i in 0..3 {
+            for uniarg_config in uniarg_configs.iter().take(3) {
                 opcode = opcode
-                    + uniarg_configs[i].is_enabled_cell.expr(meta)
-                        * (uniarg_configs[i].is_pop_cell.expr(meta)
+                    + uniarg_config.is_enabled_cell.expr(meta)
+                        * (uniarg_config.is_pop_cell.expr(meta)
                             * constant_from_bn!(&UniArg::pop_tag())
-                            + uniarg_configs[i].is_local_get_cell.expr(meta)
+                            + uniarg_config.is_local_get_cell.expr(meta)
                                 * constant_from_bn!(&UniArg::stack_tag())
-                            + uniarg_configs[i].is_local_get_cell.expr(meta)
-                                * uniarg_configs[i].local_get_offset_cell.expr(meta)
-                            + uniarg_configs[i].is_const_cell.expr(meta)
+                            + uniarg_config.is_local_get_cell.expr(meta)
+                                * uniarg_config.local_get_offset_cell.expr(meta)
+                            + uniarg_config.is_const_cell.expr(meta)
                                 * constant_from_bn!(&UniArg::i32_const_tag())
-                            + uniarg_configs[i].is_const_cell.expr(meta)
-                                * uniarg_configs[i].is_i32_cell.expr(meta)
+                            + uniarg_config.is_const_cell.expr(meta)
+                                * uniarg_config.is_i32_cell.expr(meta)
                                 * constant_from_bn!(&UniArg::i64_i32_const_tag())
-                            + uniarg_configs[i].is_const_cell.expr(meta)
-                                * uniarg_configs[i].const_value_cell.expr(meta))
+                            + uniarg_config.is_const_cell.expr(meta)
+                                * uniarg_config.const_value_cell.expr(meta))
                         * constant!(shift);
 
-                shift = shift * bn_to_field::<F>(&arg_shift);
+                shift *= bn_to_field::<F>(&arg_shift);
             }
 
             vec![

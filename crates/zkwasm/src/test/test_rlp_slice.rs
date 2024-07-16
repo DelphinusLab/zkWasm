@@ -161,7 +161,7 @@ fn test_slices() -> Result<()> {
         },
     );
 
-    let mut monitor = TableMonitor::new(K, &vec![], TraceBackend::Memory, &env);
+    let mut monitor = TableMonitor::new(K, &[], TraceBackend::Memory, &env);
     let loader = ZkWasmLoader::new(K, env)?;
 
     let runner = loader.compile(&module, &mut monitor)?;

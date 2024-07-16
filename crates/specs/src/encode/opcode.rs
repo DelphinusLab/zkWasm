@@ -40,10 +40,10 @@ impl EncoderType {
 
     fn shift(&self) -> &BigUint {
         match self {
-            EncoderType::U64 => &*OPCODE_U64_SHIFT,
-            EncoderType::U32 => &*OPCODE_U32_SHIFT,
-            EncoderType::Func => &*OPCODE_FUNC_SHIFT,
-            EncoderType::Bit => &*OPCODE_BIT_SHIFT,
+            EncoderType::U64 => &OPCODE_U64_SHIFT,
+            EncoderType::U32 => &OPCODE_U32_SHIFT,
+            EncoderType::Func => &OPCODE_FUNC_SHIFT,
+            EncoderType::Bit => &OPCODE_BIT_SHIFT,
         }
     }
 }
@@ -83,7 +83,7 @@ impl Encoder {
         let mut bits = 0;
 
         for (value, encoder_type) in values {
-            encode = encode * T::from_bn(&encoder_type.shift()) + value;
+            encode = encode * T::from_bn(encoder_type.shift()) + value;
             bits += encoder_type.bits();
         }
 
@@ -101,7 +101,7 @@ impl Encoder {
         let mut bits = 0;
 
         for (value, encoder_type) in values {
-            encode = encode * T::from_bn(&encoder_type.shift()) + value;
+            encode = encode * T::from_bn(encoder_type.shift()) + value;
             bits += encoder_type.bits();
         }
 

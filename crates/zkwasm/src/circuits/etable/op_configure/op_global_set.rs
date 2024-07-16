@@ -79,7 +79,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig<F> {
                 self.idx_cell.assign(ctx, F::from(*idx as u64))?;
 
                 if let specs::itable::Opcode::GlobalSet { uniarg, .. } =
-                    entry.eentry.get_instruction(&step.current.itable).opcode
+                    entry.eentry.get_instruction(step.current.itable).opcode
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
