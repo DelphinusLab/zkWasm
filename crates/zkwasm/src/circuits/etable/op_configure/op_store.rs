@@ -540,8 +540,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
-                    self.val_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
-                    self.pos_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+                    self.val_arg.assign(ctx, &uniargs[0], &mut memory_entries)?;
+                    self.pos_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
                 } else {
                     unreachable!();
                 }

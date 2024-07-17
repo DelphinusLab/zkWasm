@@ -33,6 +33,30 @@ use wasmi::Signature;
 use super::TablePlugin;
 use super::DEFAULT_TABLE_INDEX;
 
+// uniargs: from nearest
+pub fn value_from_uniargs(uniargs: &[UniArg], stack: &ValueStack) -> Vec<ValueInternal> {
+    uniargs
+        .iter()
+        .fold(
+            (0usize, vec![]),
+            |(delta, mut values), uniarg| match uniarg {
+                UniArg::Pop => {
+                    values.push(*stack.pick(delta + 1));
+                    (delta + 1, values)
+                }
+                UniArg::Stack(depth) => {
+                    values.push(*stack.pick(depth + delta));
+                    (delta, values)
+                }
+                UniArg::IConst(value) => {
+                    values.push(value.into());
+                    (delta, values)
+                }
+            },
+        )
+        .1
+}
+
 #[derive(Debug)]
 pub struct FuncDesc {
     pub ftype: FunctionType,
@@ -1059,43 +1083,51 @@ pub(super) fn run_instruction_pre(
             right: <_>::from_value_internal(*value_stack.pick(1)),
         }),
 
-        isa::Instruction::I32Add(_, _)
-        | isa::Instruction::I32Sub(_, _)
-        | isa::Instruction::I32Mul(_, _)
-        | isa::Instruction::I32DivS(..)
-        | isa::Instruction::I32DivU(..)
-        | isa::Instruction::I32RemS(..)
-        | isa::Instruction::I32RemU(..)
-        | isa::Instruction::I32Shl(..)
-        | isa::Instruction::I32ShrU(..)
-        | isa::Instruction::I32ShrS(..)
-        | isa::Instruction::I32And(..)
-        | isa::Instruction::I32Or(..)
-        | isa::Instruction::I32Xor(..)
-        | isa::Instruction::I32Rotl(..)
-        | isa::Instruction::I32Rotr(..) => Some(RunInstructionTracePre::I32BinOp {
-            left: <_>::from_value_internal(*value_stack.pick(2)),
-            right: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
+        isa::Instruction::I32Add(lhs, rhs)
+        | isa::Instruction::I32Sub(lhs, rhs)
+        | isa::Instruction::I32Mul(lhs, rhs)
+        | isa::Instruction::I32DivS(lhs, rhs)
+        | isa::Instruction::I32DivU(lhs, rhs)
+        | isa::Instruction::I32RemS(lhs, rhs)
+        | isa::Instruction::I32RemU(lhs, rhs)
+        | isa::Instruction::I32Shl(lhs, rhs)
+        | isa::Instruction::I32ShrU(lhs, rhs)
+        | isa::Instruction::I32ShrS(lhs, rhs)
+        | isa::Instruction::I32And(lhs, rhs)
+        | isa::Instruction::I32Or(lhs, rhs)
+        | isa::Instruction::I32Xor(lhs, rhs)
+        | isa::Instruction::I32Rotl(lhs, rhs)
+        | isa::Instruction::I32Rotr(lhs, rhs) => {
+            let uniargs = &[rhs, lhs];
+            let values = value_from_uniargs(uniargs, value_stack);
+            Some(RunInstructionTracePre::I32BinOp {
+                left: <_>::from_value_internal(values[1]),
+                right: <_>::from_value_internal(values[0]),
+            })
+        }
 
-        isa::Instruction::I64Add(..)
-        | isa::Instruction::I64Sub(..)
-        | isa::Instruction::I64Mul(..)
-        | isa::Instruction::I64DivS(..)
-        | isa::Instruction::I64DivU(..)
-        | isa::Instruction::I64RemS(..)
-        | isa::Instruction::I64RemU(..)
-        | isa::Instruction::I64Shl(..)
-        | isa::Instruction::I64ShrU(..)
-        | isa::Instruction::I64ShrS(..)
-        | isa::Instruction::I64And(..)
-        | isa::Instruction::I64Or(..)
-        | isa::Instruction::I64Xor(..)
-        | isa::Instruction::I64Rotl(..)
-        | isa::Instruction::I64Rotr(..) => Some(RunInstructionTracePre::I64BinOp {
-            left: <_>::from_value_internal(*value_stack.pick(2)),
-            right: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
+        isa::Instruction::I64Add(lhs, rhs)
+        | isa::Instruction::I64Sub(lhs, rhs)
+        | isa::Instruction::I64Mul(lhs, rhs)
+        | isa::Instruction::I64DivS(lhs, rhs)
+        | isa::Instruction::I64DivU(lhs, rhs)
+        | isa::Instruction::I64RemS(lhs, rhs)
+        | isa::Instruction::I64RemU(lhs, rhs)
+        | isa::Instruction::I64Shl(lhs, rhs)
+        | isa::Instruction::I64ShrU(lhs, rhs)
+        | isa::Instruction::I64ShrS(lhs, rhs)
+        | isa::Instruction::I64And(lhs, rhs)
+        | isa::Instruction::I64Or(lhs, rhs)
+        | isa::Instruction::I64Xor(lhs, rhs)
+        | isa::Instruction::I64Rotl(lhs, rhs)
+        | isa::Instruction::I64Rotr(lhs, rhs) => {
+            let uniargs = &[rhs, lhs];
+            let values = value_from_uniargs(uniargs, value_stack);
+            Some(RunInstructionTracePre::I64BinOp {
+                left: <_>::from_value_internal(values[1]),
+                right: <_>::from_value_internal(values[0]),
+            })
+        }
 
         isa::Instruction::I32Ctz(..)
         | isa::Instruction::I32Clz(..)
@@ -1151,9 +1183,9 @@ impl TablePlugin {
         current_event: Option<RunInstructionTracePre>,
         value_stack: &ValueStack,
         context: &FunctionContext,
-        instructions: &isa::Instruction,
+        instruction: &isa::Instruction,
     ) -> StepInfo {
-        match *instructions {
+        match *instruction {
             isa::Instruction::GetLocal(depth, vtype) => StepInfo::GetLocal {
                 depth,
                 value: from_value_internal_to_u64_with_typ(vtype.into(), *value_stack.top()),
@@ -1828,90 +1860,27 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I32Add(_, _) => {
+            isa::Instruction::I32Add(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Sub(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Mul(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32DivU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32RemU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32DivS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32RemS(lhs_uniarg, rhs_uniarg) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
-                        class: BinOp::Add,
+                        class: BinOp::from(instruction),
                         left,
+                        lhs_uniarg,
                         right,
+                        rhs_uniarg,
                         value: <_>::from_value_internal(*value_stack.top()),
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Sub(_, _) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinOp {
-                        class: BinOp::Sub,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32Mul(_, _) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinOp {
-                        class: BinOp::Mul,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32DivU(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinOp {
-                        class: BinOp::UnsignedDiv,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32RemU(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinOp {
-                        class: BinOp::UnsignedRem,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32DivS(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinOp {
-                        class: BinOp::SignedDiv,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32RemS(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinOp {
-                        class: BinOp::SignedRem,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
+
             isa::Instruction::I32And(..) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinBitOp {
@@ -2008,90 +1977,27 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Add(..) => {
+            isa::Instruction::I64Add(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Sub(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Mul(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64DivU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64RemU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64DivS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64RemS(lhs_uniarg, rhs_uniarg) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
-                        class: BinOp::Add,
+                        class: BinOp::from(instruction),
                         left,
+                        lhs_uniarg,
                         right,
+                        rhs_uniarg,
                         value: <_>::from_value_internal(*value_stack.top()),
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Sub(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinOp {
-                        class: BinOp::Sub,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Mul(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinOp {
-                        class: BinOp::Mul,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64DivU(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinOp {
-                        class: BinOp::UnsignedDiv,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64RemU(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinOp {
-                        class: BinOp::UnsignedRem,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64DivS(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinOp {
-                        class: BinOp::SignedDiv,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64RemS(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinOp {
-                        class: BinOp::SignedRem,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
+
             isa::Instruction::I64And(..) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinBitOp {
@@ -2197,7 +2103,7 @@ impl TablePlugin {
             | isa::Instruction::I64Popcnt(..) => {
                 if let RunInstructionTracePre::UnaryOp { operand, vtype } = current_event.unwrap() {
                     StepInfo::UnaryOp {
-                        class: UnaryOp::from(instructions.clone()),
+                        class: UnaryOp::from(instruction),
                         vtype,
                         operand,
                         result: from_value_internal_to_u64_with_typ(vtype, *value_stack.top()),
@@ -2281,7 +2187,7 @@ impl TablePlugin {
             }
 
             _ => {
-                println!("{:?}", instructions);
+                println!("{:?}", instruction);
                 unimplemented!()
             }
         }

@@ -425,8 +425,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         {
             let mut memory_entries = entry.memory_rw_entires.iter();
 
-            self.rhs_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
-            self.lhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
+            self.rhs_arg.assign(ctx, &uniargs[0], &mut memory_entries)?;
+            self.lhs_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
         } else {
             unreachable!();
         }

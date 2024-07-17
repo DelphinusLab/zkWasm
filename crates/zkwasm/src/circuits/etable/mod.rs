@@ -108,7 +108,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
     fn _assign(
         &self,
         ctx: &mut Context<'_, F>,
-        arg_type: UniArg,
+        arg_type: &UniArg,
         // start_eid, eid, end_eid, offset, is_i32, value
         mread_args: Option<(u32, u32, u32, u32, bool, u64)>,
     ) -> Result<(), Error> {
@@ -119,7 +119,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
             }
             UniArg::Stack(offset) => {
                 self.is_local_get_cell.assign_bool(ctx, true)?;
-                self.local_get_offset_cell.assign_u32(ctx, offset as u32)?;
+                self.local_get_offset_cell.assign_u32(ctx, *offset as u32)?;
             }
             UniArg::IConst(v) => {
                 self.is_const_cell.assign_bool(ctx, true)?;
@@ -163,7 +163,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
     pub(crate) fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        uniarg: UniArg,
+        uniarg: &UniArg,
         memory_entry: &mut Iter<MemoryRWEntry>,
     ) -> Result<(), Error> {
         match uniarg {

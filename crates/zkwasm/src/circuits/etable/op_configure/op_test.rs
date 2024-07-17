@@ -106,7 +106,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
-                    self.operand_arg.assign(ctx, uniarg, &mut memory_entries)?;
+                    self.operand_arg.assign(ctx, &uniarg, &mut memory_entries)?;
                 } else {
                     unreachable!();
                 }

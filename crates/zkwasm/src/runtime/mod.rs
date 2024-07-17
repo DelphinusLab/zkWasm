@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use halo2_proofs::arithmetic::FieldExt;
 use specs::etable::EventTableEntry;
 use specs::external_host_call_table::ExternalHostCallSignature;
+use specs::itable::UniArg;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 use specs::mtable::MemoryTableEntry;
@@ -810,9 +811,22 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[*value as u32 as u64],
         ),
         StepInfo::I32BinOp {
-            left, right, value, ..
-        }
-        | StepInfo::I32BinShiftOp {
+            left,
+            right,
+            value,
+            lhs_uniarg,
+            rhs_uniarg,
+            ..
+        } => mem_ops_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            &[
+                (VarType::I32, *lhs_uniarg, *left as u32 as u64),
+                (VarType::I32, *rhs_uniarg, *right as u32 as u64),
+            ],
+            (VarType::I32, *value as u32 as u64),
+        ),
+        StepInfo::I32BinShiftOp {
             left, right, value, ..
         }
         | StepInfo::I32BinBitOp {
@@ -837,9 +851,22 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
         ),
 
         StepInfo::I64BinOp {
-            left, right, value, ..
-        }
-        | StepInfo::I64BinShiftOp {
+            left,
+            right,
+            value,
+            lhs_uniarg,
+            rhs_uniarg,
+            ..
+        } => mem_ops_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            &[
+                (VarType::I64, *lhs_uniarg, *left as u64),
+                (VarType::I64, *rhs_uniarg, *right as u64),
+            ],
+            (VarType::I64, *value as u64),
+        ),
+        StepInfo::I64BinShiftOp {
             left, right, value, ..
         }
         | StepInfo::I64BinBitOp {
@@ -934,6 +961,62 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[*result as u64],
         ),
     }
+}
+
+fn mem_ops_from_stack_only_step(
+    sp_before_execution: u32,
+    eid: u32,
+    inputs: &[(VarType, UniArg, u64)],
+    output: (VarType, u64),
+) -> Vec<MemoryTableEntry> {
+    let (sp, mut ops) = inputs.iter().rev().fold(
+        (sp_before_execution, vec![]),
+        |(sp, mut ops), (vtype, arg, input)| {
+            let sp = match arg {
+                UniArg::Pop => {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        offset: sp + 1,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: *vtype,
+                        is_mutable: true,
+                        value: *input,
+                    });
+
+                    sp + 1
+                }
+                UniArg::Stack(depth) => {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        offset: sp + *depth as u32,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: *vtype,
+                        is_mutable: true,
+                        value: *input,
+                    });
+
+                    sp
+                }
+                UniArg::IConst(_) => sp,
+            };
+
+            (sp, ops)
+        },
+    );
+
+    ops.push(MemoryTableEntry {
+        eid,
+        offset: sp,
+        ltype: LocationType::Stack,
+        atype: AccessType::Write,
+        vtype: output.0,
+        is_mutable: true,
+        value: output.1,
+    });
+
+    ops
 }
 
 pub(crate) fn mem_op_from_stack_only_step(

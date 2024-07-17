@@ -537,7 +537,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
                     self.load_base_arg
-                        .assign(ctx, uniarg, &mut memory_entries)?;
+                        .assign(ctx, &uniarg, &mut memory_entries)?;
                 } else {
                     unreachable!();
                 }

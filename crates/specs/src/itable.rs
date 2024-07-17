@@ -222,6 +222,12 @@ pub enum UniArg {
     IConst(Value),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UniArgValue {
+    uniarg: UniArg,
+    value: Value,
+}
+
 impl UniArg {
     pub fn is_pop(&self) -> bool {
         matches!(self, UniArg::Pop)
