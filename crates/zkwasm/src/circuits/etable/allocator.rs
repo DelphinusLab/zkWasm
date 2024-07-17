@@ -120,6 +120,25 @@ impl<F: FieldExt> AllocatedMemoryTableLookupReadCell<F> {
 
         Ok(())
     }
+
+    pub fn assign_with_memory_entry(
+        &self,
+        ctx: &mut Context<'_, F>,
+        memory_entry: &mut Iter<MemoryRWEntry>,
+    ) -> Result<(), Error> {
+        let entry = memory_entry.next().unwrap();
+
+        self.assign(
+            ctx,
+            entry.start_eid,
+            entry.entry.eid,
+            entry.end_eid,
+            entry.entry.offset,
+            entry.entry.ltype,
+            entry.entry.vtype == VarType::I32,
+            entry.entry.value,
+        )
+    }
 }
 
 impl<F: FieldExt> AllocatedMemoryTableLookupWriteCell<F> {
