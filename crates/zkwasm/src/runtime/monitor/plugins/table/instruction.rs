@@ -1,6 +1,7 @@
 use parity_wasm::elements::ValueType;
 use specs::external_host_call_table::ExternalHostCallSignature;
 use specs::itable::BinOp;
+use specs::itable::BinaryOp;
 use specs::itable::BitOp;
 use specs::itable::BrTarget;
 use specs::itable::ConversionOp;
@@ -1844,111 +1845,22 @@ impl TablePlugin {
             | isa::Instruction::I32DivU(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I32RemU(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I32DivS(lhs_uniarg, rhs_uniarg)
-            | isa::Instruction::I32RemS(lhs_uniarg, rhs_uniarg) => {
+            | isa::Instruction::I32RemS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32And(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Or(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Xor(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Shl(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32ShrU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32ShrS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Rotl(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Rotr(lhs_uniarg, rhs_uniarg) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
-                        class: BinOp::from(instruction),
+                        class: BinaryOp::from(instruction),
                         left,
                         lhs_uniarg,
                         right,
                         rhs_uniarg,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-
-            isa::Instruction::I32And(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinBitOp {
-                        class: BitOp::And,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32Or(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinBitOp {
-                        class: BitOp::Or,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32Xor(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinBitOp {
-                        class: BitOp::Xor,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32Shl(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinShiftOp {
-                        class: ShiftOp::Shl,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32ShrU(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinShiftOp {
-                        class: ShiftOp::UnsignedShr,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32ShrS(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinShiftOp {
-                        class: ShiftOp::SignedShr,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32Rotl(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinShiftOp {
-                        class: ShiftOp::Rotl,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32Rotr(..) => {
-                if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I32BinShiftOp {
-                        class: ShiftOp::Rotr,
-                        left,
-                        right,
                         value: <_>::from_value_internal(*value_stack.top()),
                     }
                 } else {
@@ -1961,111 +1873,22 @@ impl TablePlugin {
             | isa::Instruction::I64DivU(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I64RemU(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I64DivS(lhs_uniarg, rhs_uniarg)
-            | isa::Instruction::I64RemS(lhs_uniarg, rhs_uniarg) => {
+            | isa::Instruction::I64RemS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64And(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Or(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Xor(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Shl(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64ShrU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64ShrS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Rotl(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Rotr(lhs_uniarg, rhs_uniarg) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I64BinOp {
-                        class: BinOp::from(instruction),
+                        class: BinaryOp::from(instruction).into(),
                         left,
                         lhs_uniarg,
                         right,
                         rhs_uniarg,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-
-            isa::Instruction::I64And(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinBitOp {
-                        class: BitOp::And,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Or(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinBitOp {
-                        class: BitOp::Or,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Xor(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinBitOp {
-                        class: BitOp::Xor,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Shl(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinShiftOp {
-                        class: ShiftOp::Shl,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64ShrU(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinShiftOp {
-                        class: ShiftOp::UnsignedShr,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64ShrS(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinShiftOp {
-                        class: ShiftOp::SignedShr,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Rotl(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinShiftOp {
-                        class: ShiftOp::Rotl,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Rotr(..) => {
-                if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
-                    StepInfo::I64BinShiftOp {
-                        class: ShiftOp::Rotr,
-                        left,
-                        right,
                         value: <_>::from_value_internal(*value_stack.top()),
                     }
                 } else {

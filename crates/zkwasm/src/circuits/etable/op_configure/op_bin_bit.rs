@@ -19,7 +19,6 @@ use specs::encode::opcode::encode_bin_bit;
 use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::BitOp;
-use specs::itable::Opcode;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -102,36 +101,57 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (class, _vtype, left, right, value) = match entry.eentry.step_info {
-            StepInfo::I32BinBitOp {
-                class,
-                left,
-                right,
-                value,
-            } => {
-                let vtype = VarType::I32;
-                let left = left as u32 as u64;
-                let right = right as u32 as u64;
-                let value = value as u32 as u64;
-                (class, vtype, left, right, value)
-            }
-            StepInfo::I64BinBitOp {
-                class,
-                left,
-                right,
-                value,
-            } => {
-                let vtype = VarType::I64;
-                let left = left as u64;
-                let right = right as u64;
-                let value = value as u64;
-                (class, vtype, left, right, value)
-            }
-            _ => unreachable!(),
-        };
+        let (class, _vtype, left, right, value, lhs_uniarg, rhs_uniarg) =
+            match entry.eentry.step_info {
+                StepInfo::I32BinOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                    lhs_uniarg,
+                    rhs_uniarg,
+                } => {
+                    let vtype = VarType::I32;
+                    let left = left as u32 as u64;
+                    let right = right as u32 as u64;
+                    let value = value as u32 as u64;
+                    (
+                        class.as_bit_op(),
+                        vtype,
+                        left,
+                        right,
+                        value,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
+                }
+                StepInfo::I64BinOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                    lhs_uniarg,
+                    rhs_uniarg,
+                } => {
+                    let vtype = VarType::I64;
+                    let left = left as u64;
+                    let right = right as u64;
+                    let value = value as u64;
+                    (
+                        class.as_bit_op(),
+                        vtype,
+                        left,
+                        right,
+                        value,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
+                }
+                _ => unreachable!(),
+            };
 
         self.bit_table_lookup
             .assign(ctx, BitTableOp::BinaryBit(class), left, right, value)?;
@@ -148,18 +168,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
             }
         };
 
-        if let Opcode::BinBit { uniargs, .. } =
-            entry.eentry.get_instruction(step.current.itable).opcode
-        {
-            let mut memory_entries = entry.memory_rw_entires.iter();
-
-            self.rhs.assign(ctx, &uniargs[0], &mut memory_entries)?;
-            self.lhs.assign(ctx, &uniargs[1], &mut memory_entries)?;
-            self.memory_table_lookup_stack_write
-                .assign_with_memory_entry(ctx, &mut memory_entries)?;
-        } else {
-            unreachable!();
-        }
+        let mut memory_entries = entry.memory_rw_entires.iter();
+        self.rhs.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
+        self.lhs.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
+        self.memory_table_lookup_stack_write
+            .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
         Ok(())
     }

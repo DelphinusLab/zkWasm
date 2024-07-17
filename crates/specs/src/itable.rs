@@ -178,6 +178,58 @@ impl BitOp {
     }
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum BinaryOp {
+    BinOp(BinOp),
+    ShiftOp(ShiftOp),
+    BitOp(BitOp),
+}
+
+impl From<BinOp> for BinaryOp {
+    fn from(value: BinOp) -> Self {
+        BinaryOp::BinOp(value)
+    }
+}
+
+impl From<ShiftOp> for BinaryOp {
+    fn from(value: ShiftOp) -> Self {
+        BinaryOp::ShiftOp(value)
+    }
+}
+
+impl From<BitOp> for BinaryOp {
+    fn from(value: BitOp) -> Self {
+        BinaryOp::BitOp(value)
+    }
+}
+
+impl BinaryOp {
+    pub fn is_bit_op(&self) -> bool {
+        matches!(self, BinaryOp::BitOp(_))
+    }
+
+    pub fn as_bin_op(self) -> BinOp {
+        match self {
+            BinaryOp::BinOp(op) => op,
+            _ => panic!("Not a binary op"),
+        }
+    }
+
+    pub fn as_shift_op(self) -> ShiftOp {
+        match self {
+            BinaryOp::ShiftOp(op) => op,
+            _ => panic!("Not a shift op"),
+        }
+    }
+
+    pub fn as_bit_op(self) -> BitOp {
+        match self {
+            BinaryOp::BitOp(op) => op,
+            _ => panic!("Not a bit op"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RelOp {
     Eq,
@@ -865,23 +917,12 @@ impl InstructionTable {
                 Opcode::MemorySize => todo!(),
                 Opcode::MemoryGrow { uniarg } => todo!(),
                 Opcode::Select { uniargs } => todo!(),
-                Opcode::Bin {
-                    class,
-                    vtype,
-                    uniargs,
-                } => uniargs.iter().for_each(|x| {
+                Opcode::Bin { uniargs, .. }
+                | Opcode::BinShift { uniargs, .. }
+                | Opcode::BinBit { uniargs, .. } => uniargs.iter().for_each(|x| {
                     set.insert(x.get_const_value());
                 }),
-                Opcode::BinShift {
-                    class,
-                    vtype,
-                    uniargs,
-                } => todo!(),
-                Opcode::BinBit {
-                    class,
-                    vtype,
-                    uniargs,
-                } => todo!(),
+
                 Opcode::Unary {
                     class,
                     vtype,

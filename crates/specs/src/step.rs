@@ -2,6 +2,7 @@ use crate::external_host_call_table::ExternalHostCallSignature;
 use crate::host_function::HostPlugin;
 use crate::host_function::Signature;
 use crate::itable::BinOp;
+use crate::itable::BinaryOp;
 use crate::itable::BitOp;
 use crate::itable::RelOp;
 use crate::itable::ShiftOp;
@@ -14,7 +15,7 @@ use crate::types::ValueType;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StepInfo {
     Br {
         dst_pc: u32,
@@ -148,44 +149,20 @@ pub enum StepInfo {
     },
 
     I32BinOp {
-        class: BinOp,
+        class: BinaryOp,
         left: i32,
         lhs_uniarg: UniArg,
         right: i32,
         rhs_uniarg: UniArg,
-        value: i32,
-    },
-    I32BinShiftOp {
-        class: ShiftOp,
-        left: i32,
-        right: i32,
-        value: i32,
-    },
-    I32BinBitOp {
-        class: BitOp,
-        left: i32,
-        right: i32,
         value: i32,
     },
 
     I64BinOp {
-        class: BinOp,
+        class: BinaryOp,
         left: i64,
         lhs_uniarg: UniArg,
         right: i64,
         rhs_uniarg: UniArg,
-        value: i64,
-    },
-    I64BinShiftOp {
-        class: ShiftOp,
-        left: i64,
-        right: i64,
-        value: i64,
-    },
-    I64BinBitOp {
-        class: BitOp,
-        left: i64,
-        right: i64,
         value: i64,
     },
 

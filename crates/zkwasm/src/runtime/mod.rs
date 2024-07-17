@@ -826,19 +826,6 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             ],
             (VarType::I32, *value as u32 as u64),
         ),
-        StepInfo::I32BinShiftOp {
-            left, right, value, ..
-        }
-        | StepInfo::I32BinBitOp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            VarType::I32,
-            VarType::I32,
-            &[*right as u32 as u64, *left as u32 as u64],
-            &[*value as u32 as u64],
-        ),
         StepInfo::I32Comp {
             left, right, value, ..
         } => mem_op_from_stack_only_step(
@@ -865,19 +852,6 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 (VarType::I64, *rhs_uniarg, *right as u64),
             ],
             (VarType::I64, *value as u64),
-        ),
-        StepInfo::I64BinShiftOp {
-            left, right, value, ..
-        }
-        | StepInfo::I64BinBitOp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            VarType::I64,
-            VarType::I64,
-            &[*right as u64, *left as u64],
-            &[*value as u64],
         ),
 
         StepInfo::I64Const { value } => mem_op_from_stack_only_step(
