@@ -843,9 +843,9 @@ pub(super) fn run_instruction_pre(
         isa::Instruction::Return(..) => None,
 
         isa::Instruction::Call(..) => Some(RunInstructionTracePre::Call),
-        isa::Instruction::CallIndirect(type_idx, ..) => {
+        isa::Instruction::CallIndirect(type_idx, uniarg) => {
             let table_idx = DEFAULT_TABLE_INDEX;
-            let offset = <_>::from_value_internal(*value_stack.top());
+            let offset = <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]);
 
             Some(RunInstructionTracePre::CallIndirect {
                 table_idx,
@@ -1413,7 +1413,7 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::CallIndirect(..) => {
+            isa::Instruction::CallIndirect(_idx, uniarg) => {
                 if let RunInstructionTracePre::CallIndirect {
                     table_idx,
                     type_idx,
@@ -1432,6 +1432,7 @@ impl TablePlugin {
                         type_index: type_idx,
                         offset,
                         func_index,
+                        uniarg,
                     }
                 } else {
                     unreachable!()

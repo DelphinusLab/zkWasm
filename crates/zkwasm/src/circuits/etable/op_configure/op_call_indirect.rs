@@ -136,6 +136,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                 type_index,
                 offset,
                 func_index,
+                uniarg,
                 ..
             } => {
                 self.table_index.assign(ctx, F::from(*table_index as u64))?;
@@ -153,15 +154,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                     ),
                 )?;
 
-                if let specs::itable::Opcode::CallIndirect { uniarg, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entires.iter();
-
-                    self.offset_arg.assign(ctx, &uniarg, &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
+                let mut memory_entries = entry.memory_rw_entires.iter();
+                self.offset_arg.assign(ctx, &uniarg, &mut memory_entries)?;
 
                 self.frame_table_lookup.cell.assign_bn(
                     ctx,

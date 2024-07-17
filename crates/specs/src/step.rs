@@ -67,6 +67,7 @@ pub enum StepInfo {
         type_index: u32,
         offset: u32,
         func_index: u32,
+        uniarg: UniArg,
     },
     CallHost {
         plugin: HostPlugin,

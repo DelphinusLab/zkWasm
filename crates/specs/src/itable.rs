@@ -905,6 +905,10 @@ impl InstructionTable {
                 Opcode::Const { .. } | Opcode::Drop => (),
                 Opcode::Return { .. } => (),
 
+                Opcode::CallIndirect { uniarg, .. } => {
+                    set.insert(uniarg.get_const_value());
+                }
+
                 Opcode::LocalGet { vtype, offset } => todo!(),
                 Opcode::LocalSet {
                     vtype,
@@ -954,7 +958,6 @@ impl InstructionTable {
                 Opcode::BrTable { targets, uniarg } => todo!(),
                 Opcode::Unreachable => todo!(),
                 Opcode::Call { index } => todo!(),
-                Opcode::CallIndirect { type_idx, uniarg } => todo!(),
                 Opcode::InternalHostCall {
                     plugin,
                     function_index,
