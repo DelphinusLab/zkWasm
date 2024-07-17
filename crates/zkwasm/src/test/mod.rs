@@ -53,6 +53,21 @@ pub fn test_circuit_with_env(
 
 /// Run test function and generate trace, then test circuit with mock prover. Only tests should
 /// use this function.
+fn test_instruction(textual_repr: &str) -> Result<()> {
+    use crate::circuits::config::MIN_K;
+
+    let mut features = Features::new();
+    features.enable_sign_extension();
+
+    let wasm = wat2wasm_with_features(textual_repr, features).expect("failed to parse wat");
+
+    test_circuit_with_env(MIN_K, wasm, "zkmain".to_string(), vec![], vec![])?;
+
+    Ok(())
+}
+
+/// Run test function and generate trace, then test circuit with mock prover. Only tests should
+/// use this function.
 fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
     use crate::circuits::config::MIN_K;
 
