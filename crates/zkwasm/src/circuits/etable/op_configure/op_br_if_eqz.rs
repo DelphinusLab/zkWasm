@@ -152,7 +152,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
-                    self.cond_arg.assign(ctx, uniarg, &mut memory_entries)?;
+                    self.cond_arg.assign(ctx, &uniarg, &mut memory_entries)?;
                 } else {
                     unreachable!();
                 }

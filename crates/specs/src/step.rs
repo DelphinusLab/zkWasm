@@ -6,6 +6,7 @@ use crate::itable::BitOp;
 use crate::itable::RelOp;
 use crate::itable::ShiftOp;
 use crate::itable::UnaryOp;
+use crate::itable::UniArg;
 use crate::mtable::MemoryReadSize;
 use crate::mtable::MemoryStoreSize;
 use crate::mtable::VarType;
@@ -149,7 +150,9 @@ pub enum StepInfo {
     I32BinOp {
         class: BinOp,
         left: i32,
+        lhs_uniarg: UniArg,
         right: i32,
+        rhs_uniarg: UniArg,
         value: i32,
     },
     I32BinShiftOp {
@@ -168,7 +171,9 @@ pub enum StepInfo {
     I64BinOp {
         class: BinOp,
         left: i64,
+        lhs_uniarg: UniArg,
         right: i64,
+        rhs_uniarg: UniArg,
         value: i64,
     },
     I64BinShiftOp {

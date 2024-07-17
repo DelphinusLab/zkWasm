@@ -122,9 +122,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
-                    self.cond_arg.assign(ctx, uniargs[0], &mut memory_entries)?;
-                    self.rhs_arg.assign(ctx, uniargs[1], &mut memory_entries)?;
-                    self.lhs_arg.assign(ctx, uniargs[2], &mut memory_entries)?;
+                    self.cond_arg
+                        .assign(ctx, &uniargs[0], &mut memory_entries)?;
+                    self.rhs_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
+                    self.lhs_arg.assign(ctx, &uniargs[2], &mut memory_entries)?;
                     self.memory_table_lookup_stack_write
                         .assign_with_memory_entry(ctx, &mut memory_entries)?;
                 } else {

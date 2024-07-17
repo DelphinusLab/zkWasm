@@ -209,7 +209,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrTableConfig<F> {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
                     self.expected_index_arg
-                        .assign(ctx, uniarg, &mut memory_entries)?;
+                        .assign(ctx, &uniarg, &mut memory_entries)?;
                 } else {
                     unreachable!();
                 }

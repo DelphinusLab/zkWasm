@@ -158,7 +158,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                 {
                     let mut memory_entries = entry.memory_rw_entires.iter();
 
-                    self.offset_arg.assign(ctx, uniarg, &mut memory_entries)?;
+                    self.offset_arg.assign(ctx, &uniarg, &mut memory_entries)?;
                 } else {
                     unreachable!();
                 }
