@@ -113,7 +113,7 @@ impl Encoder {
                 }
             }
             UniArgEncode::Value(uniargs) => {
-                for uniarg in uniargs {
+                for uniarg in uniargs.into_iter() {
                     encode = encode * T::from_bn(&OPCODE_UNIARG_SHIFT) + uniarg;
                     bits += UNIARG_BITS;
                 }

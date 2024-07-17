@@ -41,6 +41,7 @@ use num_traits::One;
 use num_traits::Zero;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -220,12 +221,6 @@ pub enum UniArg {
     Pop,
     Stack(usize),
     IConst(Value),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UniArgValue {
-    uniarg: UniArg,
-    value: Value,
 }
 
 impl UniArg {
@@ -845,6 +840,107 @@ impl InstructionTable {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub fn instruction_constants(&self) -> Vec<u64> {
+        let mut set = HashSet::<u64>::default();
+
+        // For default lookup
+        set.insert(0);
+
+        for instruction in self.iter() {
+            match &instruction.opcode {
+                Opcode::Drop => (),
+                Opcode::Return { .. } => (),
+
+                Opcode::LocalGet { vtype, offset } => todo!(),
+                Opcode::LocalSet {
+                    vtype,
+                    offset,
+                    uniarg,
+                } => todo!(),
+                Opcode::LocalTee { vtype, offset } => todo!(),
+                Opcode::GlobalGet { idx } => todo!(),
+                Opcode::GlobalSet { idx, uniarg } => todo!(),
+                Opcode::MemorySize => todo!(),
+                Opcode::MemoryGrow { uniarg } => todo!(),
+                Opcode::Const { vtype, value } => todo!(),
+                Opcode::Select { uniargs } => todo!(),
+                Opcode::Bin {
+                    class,
+                    vtype,
+                    uniargs,
+                } => uniargs.iter().for_each(|x| {
+                    set.insert(x.get_const_value());
+                }),
+                Opcode::BinShift {
+                    class,
+                    vtype,
+                    uniargs,
+                } => todo!(),
+                Opcode::BinBit {
+                    class,
+                    vtype,
+                    uniargs,
+                } => todo!(),
+                Opcode::Unary {
+                    class,
+                    vtype,
+                    uniarg,
+                } => todo!(),
+                Opcode::Test {
+                    class,
+                    vtype,
+                    uniarg,
+                } => todo!(),
+                Opcode::Rel {
+                    class,
+                    vtype,
+                    uniargs,
+                } => todo!(),
+                Opcode::Br { drop, keep, dst_pc } => todo!(),
+                Opcode::BrIf {
+                    drop,
+                    keep,
+                    dst_pc,
+                    uniarg,
+                } => todo!(),
+                Opcode::BrIfEqz {
+                    drop,
+                    keep,
+                    dst_pc,
+                    uniarg,
+                } => todo!(),
+                Opcode::BrTable { targets, uniarg } => todo!(),
+                Opcode::Unreachable => todo!(),
+                Opcode::Call { index } => todo!(),
+                Opcode::CallIndirect { type_idx, uniarg } => todo!(),
+                Opcode::InternalHostCall {
+                    plugin,
+                    function_index,
+                    function_name,
+                    op_index_in_plugin,
+                } => todo!(),
+                Opcode::ExternalHostCall { op, sig } => todo!(),
+                Opcode::Load {
+                    offset,
+                    vtype,
+                    size,
+                    uniarg,
+                } => todo!(),
+                Opcode::Store {
+                    offset,
+                    vtype,
+                    size,
+                    uniargs,
+                } => todo!(),
+                Opcode::Conversion { class, uniarg } => todo!(),
+            }
+        }
+
+        let mut constants = set.into_iter().collect::<Vec<_>>();
+        constants.sort();
+        constants
     }
 }
 

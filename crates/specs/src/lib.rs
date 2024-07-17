@@ -1,5 +1,5 @@
 #![feature(trait_alias)]
-#![deny(warnings)]
+// #![deny(warnings)]
 #![allow(
     clippy::assertions_on_constants,
     clippy::too_many_arguments,

@@ -478,41 +478,19 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 vtype: VarType::I32,
                 uniarg,
             },
-            Instruction::I32Add(arg0, arg1) => Opcode::Bin {
-                class: BinOp::Add,
+
+            Instruction::I32Add(lhs, rhs)
+            | Instruction::I32Sub(lhs, rhs)
+            | Instruction::I32Mul(lhs, rhs)
+            | Instruction::I32DivS(lhs, rhs)
+            | Instruction::I32DivU(lhs, rhs)
+            | Instruction::I32RemS(lhs, rhs)
+            | Instruction::I32RemU(lhs, rhs) => Opcode::Bin {
+                class: BinOp::from(&self),
                 vtype: VarType::I32,
-                uniargs: [arg0, arg1],
+                uniargs: [lhs, rhs],
             },
-            Instruction::I32Sub(arg0, arg1) => Opcode::Bin {
-                class: BinOp::Sub,
-                vtype: VarType::I32,
-                uniargs: [arg0, arg1],
-            },
-            Instruction::I32Mul(arg0, arg1) => Opcode::Bin {
-                class: BinOp::Mul,
-                vtype: VarType::I32,
-                uniargs: [arg0, arg1],
-            },
-            Instruction::I32DivS(arg0, arg1) => Opcode::Bin {
-                class: BinOp::SignedDiv,
-                vtype: VarType::I32,
-                uniargs: [arg0, arg1],
-            },
-            Instruction::I32DivU(arg0, arg1) => Opcode::Bin {
-                class: BinOp::UnsignedDiv,
-                vtype: VarType::I32,
-                uniargs: [arg0, arg1],
-            },
-            Instruction::I32RemS(arg0, arg1) => Opcode::Bin {
-                class: BinOp::SignedRem,
-                vtype: VarType::I32,
-                uniargs: [arg0, arg1],
-            },
-            Instruction::I32RemU(arg0, arg1) => Opcode::Bin {
-                class: BinOp::UnsignedRem,
-                vtype: VarType::I32,
-                uniargs: [arg0, arg1],
-            },
+
             Instruction::I32And(arg0, arg1) => Opcode::BinBit {
                 class: BitOp::And,
                 vtype: VarType::I32,

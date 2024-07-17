@@ -556,7 +556,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                         * is_stack_read.clone(),
                     // stack_offset = if is_pop { sp + 1 + previous_popped } else { sp + constant_offset }
                     stack_offset_cell.expr(meta)
-                        - sp_cell.expr(meta)
+                        - sp_cell.expr(meta) * is_stack_read.clone()
                         - is_pop_cell.expr(meta) * pop_sp_offset_expr
                         - is_local_get_cell.expr(meta) * local_get_offset_cell.expr(meta),
                     // on memory read
@@ -939,7 +939,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                             + uniarg_config.is_local_get_cell.expr(meta)
                                 * uniarg_config.local_get_offset_cell.expr(meta)
                             + uniarg_config.is_const_cell.expr(meta)
-                                * constant_from_bn!(&UniArg::i32_const_tag())
+                                * constant_from_bn!(&UniArg::i64_const_tag())
                             + uniarg_config.is_const_cell.expr(meta)
                                 * uniarg_config.is_i32_cell.expr(meta)
                                 * constant_from_bn!(&UniArg::i64_i32_const_tag())
