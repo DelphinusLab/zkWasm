@@ -892,40 +892,61 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[*result as u32 as u64],
         ),
 
-        StepInfo::I32WrapI64 { value, result } => mem_op_from_stack_only_step(
+        StepInfo::I32WrapI64 {
+            value,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I64,
-            VarType::I32,
-            &[*value as u64],
-            &[*result as u32 as u64],
+            &[(VarType::I64, *uniarg, *value as u64)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
-        StepInfo::I64ExtendI32 { value, result, .. } => mem_op_from_stack_only_step(
+        StepInfo::I64ExtendI32 {
+            value,
+            result,
+            uniarg,
+            ..
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I32,
-            VarType::I64,
-            &[*value as u32 as u64],
-            &[*result as u64],
+            &[(VarType::I32, *uniarg, *value as u32 as u64)],
+            Some((VarType::I64, *result as u64)),
         ),
-        StepInfo::I32SignExtendI8 { value, result }
-        | StepInfo::I32SignExtendI16 { value, result } => mem_op_from_stack_only_step(
+        StepInfo::I32SignExtendI8 {
+            value,
+            result,
+            uniarg,
+        }
+        | StepInfo::I32SignExtendI16 {
+            value,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I32,
-            VarType::I32,
-            &[*value as u32 as u64],
-            &[*result as u32 as u64],
+            &[(VarType::I32, *uniarg, *value as u32 as u64)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
-        StepInfo::I64SignExtendI8 { value, result }
-        | StepInfo::I64SignExtendI16 { value, result }
-        | StepInfo::I64SignExtendI32 { value, result } => mem_op_from_stack_only_step(
+        StepInfo::I64SignExtendI8 {
+            value,
+            result,
+            uniarg,
+        }
+        | StepInfo::I64SignExtendI16 {
+            value,
+            result,
+            uniarg,
+        }
+        | StepInfo::I64SignExtendI32 {
+            value,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I64,
-            VarType::I64,
-            &[*value as u64],
-            &[*result as u64],
+            &[(VarType::I64, *uniarg, *value as u64)],
+            Some((VarType::I64, *result as u64)),
         ),
     }
 }

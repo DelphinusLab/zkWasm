@@ -120,7 +120,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
                 if let specs::itable::Opcode::Select { uniargs, .. } =
                     entry.eentry.get_instruction(step.current.itable).opcode
                 {
-                    let mut memory_entries = entry.memory_rw_entires.iter();
+                    let mut memory_entries = entry.memory_rw_entries.iter();
 
                     self.cond_arg
                         .assign(ctx, &uniargs[0], &mut memory_entries)?;

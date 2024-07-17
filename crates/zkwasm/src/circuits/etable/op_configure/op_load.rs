@@ -534,7 +534,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 if let specs::itable::Opcode::Load { uniarg, .. } =
                     entry.eentry.get_instruction(step.current.itable).opcode
                 {
-                    let mut memory_entries = entry.memory_rw_entires.iter();
+                    let mut memory_entries = entry.memory_rw_entries.iter();
 
                     self.load_base_arg
                         .assign(ctx, &uniarg, &mut memory_entries)?;
@@ -545,9 +545,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
 
                 self.memory_table_lookup_heap_read1.assign(
                     ctx,
-                    entry.memory_rw_entires[i].start_eid,
+                    entry.memory_rw_entries[i].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[i].end_eid,
+                    entry.memory_rw_entries[i].end_eid,
                     effective_address >> 3,
                     LocationType::Heap,
                     false,
@@ -558,9 +558,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 if is_cross_block {
                     self.memory_table_lookup_heap_read2.assign(
                         ctx,
-                        entry.memory_rw_entires[i].start_eid,
+                        entry.memory_rw_entries[i].start_eid,
                         step.current.eid,
-                        entry.memory_rw_entires[i].end_eid,
+                        entry.memory_rw_entries[i].end_eid,
                         (effective_address >> 3) + 1,
                         LocationType::Heap,
                         false,
@@ -572,7 +572,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[i].end_eid,
+                    entry.memory_rw_entries[i].end_eid,
                     step.current.sp + 1,
                     LocationType::Stack,
                     vtype == VarType::I32,

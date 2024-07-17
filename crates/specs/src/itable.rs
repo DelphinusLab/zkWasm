@@ -905,7 +905,7 @@ impl InstructionTable {
                 Opcode::Const { .. } | Opcode::Drop => (),
                 Opcode::Return { .. } => (),
 
-                Opcode::CallIndirect { uniarg, .. } => {
+                Opcode::CallIndirect { uniarg, .. } | Opcode::Conversion { uniarg, .. } => {
                     set.insert(uniarg.get_const_value());
                 }
 
@@ -977,7 +977,6 @@ impl InstructionTable {
                     size,
                     uniargs,
                 } => todo!(),
-                Opcode::Conversion { class, uniarg } => todo!(),
             }
         }
 

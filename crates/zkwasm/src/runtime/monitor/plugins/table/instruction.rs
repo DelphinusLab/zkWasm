@@ -752,6 +752,8 @@ pub(super) enum RunInstructionTracePre {
 
     GrowMemory(i32),
 
+    I32(i32),
+    I64(i64),
     I32BinOp {
         left: i32,
         right: i32,
@@ -773,27 +775,9 @@ pub(super) enum RunInstructionTracePre {
         right: i64,
     },
 
-    I32WrapI64 {
-        value: i64,
-    },
     I64ExtendI32 {
         value: i32,
         sign: bool,
-    },
-    I32SignExtendI8 {
-        value: i32,
-    },
-    I32SignExtendI16 {
-        value: i32,
-    },
-    I64SignExtendI8 {
-        value: i64,
-    },
-    I64SignExtendI16 {
-        value: i64,
-    },
-    I64SignExtendI32 {
-        value: i64,
     },
 
     UnaryOp {
@@ -1121,32 +1105,27 @@ pub(super) fn run_instruction_pre(
             vtype: VarType::I64,
         }),
 
-        isa::Instruction::I32WrapI64(..) => Some(RunInstructionTracePre::I32WrapI64 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
-        isa::Instruction::I64ExtendUI32(..) => Some(RunInstructionTracePre::I64ExtendI32 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
+        isa::Instruction::I32WrapI64(uniarg) => Some(RunInstructionTracePre::I64(
+            <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
+        )),
+        isa::Instruction::I64ExtendUI32(uniarg) => Some(RunInstructionTracePre::I64ExtendI32 {
+            value: <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
             sign: false,
         }),
-        isa::Instruction::I64ExtendSI32(..) => Some(RunInstructionTracePre::I64ExtendI32 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
+        isa::Instruction::I64ExtendSI32(uniarg) => Some(RunInstructionTracePre::I64ExtendI32 {
+            value: <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
             sign: true,
         }),
-        isa::Instruction::I32Extend8S(..) => Some(RunInstructionTracePre::I32SignExtendI8 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
-        isa::Instruction::I32Extend16S(..) => Some(RunInstructionTracePre::I32SignExtendI16 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
-        isa::Instruction::I64Extend8S(..) => Some(RunInstructionTracePre::I64SignExtendI8 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
-        isa::Instruction::I64Extend16S(..) => Some(RunInstructionTracePre::I64SignExtendI16 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
-        isa::Instruction::I64Extend32S(..) => Some(RunInstructionTracePre::I64SignExtendI32 {
-            value: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
+        isa::Instruction::I32Extend8S(uniarg) | isa::Instruction::I32Extend16S(uniarg) => {
+            Some(RunInstructionTracePre::I32(<_>::from_value_internal(
+                value_from_uniargs(&[uniarg], value_stack)[0],
+            )))
+        }
+        isa::Instruction::I64Extend8S(uniarg)
+        | isa::Instruction::I64Extend16S(uniarg)
+        | isa::Instruction::I64Extend32S(uniarg) => Some(RunInstructionTracePre::I64(
+            <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
+        )),
 
         _ => {
             println!("{:?}", *instructions);
@@ -1915,73 +1894,80 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I32WrapI64(..) => {
-                if let RunInstructionTracePre::I32WrapI64 { value } = current_event.unwrap() {
+            isa::Instruction::I32WrapI64(uniarg) => {
+                if let RunInstructionTracePre::I64(value) = current_event.unwrap() {
                     StepInfo::I32WrapI64 {
                         value,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64ExtendSI32(..) | isa::Instruction::I64ExtendUI32(..) => {
+            isa::Instruction::I64ExtendSI32(uniarg) | isa::Instruction::I64ExtendUI32(uniarg) => {
                 if let RunInstructionTracePre::I64ExtendI32 { value, sign } = current_event.unwrap()
                 {
                     StepInfo::I64ExtendI32 {
                         value,
                         result: <_>::from_value_internal(*value_stack.top()),
                         sign,
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Extend8S(..) => {
-                if let RunInstructionTracePre::I32SignExtendI8 { value } = current_event.unwrap() {
+            isa::Instruction::I32Extend8S(uniarg) => {
+                if let RunInstructionTracePre::I32(value) = current_event.unwrap() {
                     StepInfo::I32SignExtendI8 {
                         value,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Extend16S(..) => {
-                if let RunInstructionTracePre::I32SignExtendI16 { value } = current_event.unwrap() {
+            isa::Instruction::I32Extend16S(uniarg) => {
+                if let RunInstructionTracePre::I32(value) = current_event.unwrap() {
                     StepInfo::I32SignExtendI16 {
                         value,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Extend8S(..) => {
-                if let RunInstructionTracePre::I64SignExtendI8 { value } = current_event.unwrap() {
+            isa::Instruction::I64Extend8S(uniarg) => {
+                if let RunInstructionTracePre::I64(value) = current_event.unwrap() {
                     StepInfo::I64SignExtendI8 {
                         value,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Extend16S(..) => {
-                if let RunInstructionTracePre::I64SignExtendI16 { value } = current_event.unwrap() {
+            isa::Instruction::I64Extend16S(uniarg) => {
+                if let RunInstructionTracePre::I64(value) = current_event.unwrap() {
                     StepInfo::I64SignExtendI16 {
                         value,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::I64Extend32S(..) => {
-                if let RunInstructionTracePre::I64SignExtendI32 { value } = current_event.unwrap() {
+            isa::Instruction::I64Extend32S(uniarg) => {
+                if let RunInstructionTracePre::I64(value) = current_event.unwrap() {
                     StepInfo::I64SignExtendI32 {
                         value,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()

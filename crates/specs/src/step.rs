@@ -195,30 +195,37 @@ pub enum StepInfo {
     I32WrapI64 {
         value: i64,
         result: i32,
+        uniarg: UniArg,
     },
     I64ExtendI32 {
         value: i32,
         result: i64,
         sign: bool,
+        uniarg: UniArg,
     },
     I32SignExtendI8 {
         value: i32,
         result: i32,
+        uniarg: UniArg,
     },
     I32SignExtendI16 {
         value: i32,
         result: i32,
+        uniarg: UniArg,
     },
     I64SignExtendI8 {
         value: i64,
         result: i64,
+        uniarg: UniArg,
     },
     I64SignExtendI16 {
         value: i64,
         result: i64,
+        uniarg: UniArg,
     },
     I64SignExtendI32 {
         value: i64,
         result: i64,
+        uniarg: UniArg,
     },
 }

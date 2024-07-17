@@ -538,7 +538,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 if let specs::itable::Opcode::Store { uniargs, .. } =
                     entry.eentry.get_instruction(step.current.itable).opcode
                 {
-                    let mut memory_entries = entry.memory_rw_entires.iter();
+                    let mut memory_entries = entry.memory_rw_entries.iter();
 
                     self.val_arg.assign(ctx, &uniargs[0], &mut memory_entries)?;
                     self.pos_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
@@ -548,9 +548,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 self.memory_table_lookup_heap_read1.assign(
                     ctx,
-                    entry.memory_rw_entires[2].start_eid,
+                    entry.memory_rw_entries[2].start_eid,
                     step.current.eid,
-                    entry.memory_rw_entires[2].end_eid,
+                    entry.memory_rw_entries[2].end_eid,
                     effective_address >> 3,
                     LocationType::Heap,
                     false,
@@ -560,7 +560,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.memory_table_lookup_heap_write1.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[3].end_eid,
+                    entry.memory_rw_entries[3].end_eid,
                     effective_address >> 3,
                     LocationType::Heap,
                     false,
@@ -570,9 +570,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 if is_cross_block {
                     self.memory_table_lookup_heap_read2.assign(
                         ctx,
-                        entry.memory_rw_entires[4].start_eid,
+                        entry.memory_rw_entries[4].start_eid,
                         step.current.eid,
-                        entry.memory_rw_entires[4].end_eid,
+                        entry.memory_rw_entries[4].end_eid,
                         (effective_address >> 3) + 1,
                         LocationType::Heap,
                         false,
@@ -582,7 +582,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                     self.memory_table_lookup_heap_write2.assign(
                         ctx,
                         step.current.eid,
-                        entry.memory_rw_entires[5].end_eid,
+                        entry.memory_rw_entries[5].end_eid,
                         (effective_address >> 3) + 1,
                         LocationType::Heap,
                         false,

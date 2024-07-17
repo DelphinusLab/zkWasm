@@ -150,7 +150,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                 if let specs::itable::Opcode::BrIfEqz { uniarg, .. } =
                     entry.eentry.get_instruction(step.current.itable).opcode
                 {
-                    let mut memory_entries = entry.memory_rw_entires.iter();
+                    let mut memory_entries = entry.memory_rw_entries.iter();
 
                     self.cond_arg.assign(ctx, &uniarg, &mut memory_entries)?;
                 } else {
@@ -167,9 +167,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                     if *condition == 0 {
                         self.memory_table_lookup_stack_read_return_value.assign(
                             ctx,
-                            entry.memory_rw_entires[1].start_eid,
+                            entry.memory_rw_entries[1].start_eid,
                             step.current.eid,
-                            entry.memory_rw_entires[1].end_eid,
+                            entry.memory_rw_entries[1].end_eid,
                             step.current.sp + 2,
                             LocationType::Stack,
                             VarType::from(keep[0]) == VarType::I32,
@@ -179,7 +179,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                         self.memory_table_lookup_stack_write_return_value.assign(
                             ctx,
                             step.current.eid,
-                            entry.memory_rw_entires[2].end_eid,
+                            entry.memory_rw_entries[2].end_eid,
                             step.current.sp + *drop + 2,
                             LocationType::Stack,
                             VarType::from(keep[0]) == VarType::I32,
