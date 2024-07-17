@@ -850,7 +850,7 @@ impl InstructionTable {
 
         for instruction in self.iter() {
             match &instruction.opcode {
-                Opcode::Drop => (),
+                Opcode::Const { .. } | Opcode::Drop => (),
                 Opcode::Return { .. } => (),
 
                 Opcode::LocalGet { vtype, offset } => todo!(),
@@ -864,7 +864,6 @@ impl InstructionTable {
                 Opcode::GlobalSet { idx, uniarg } => todo!(),
                 Opcode::MemorySize => todo!(),
                 Opcode::MemoryGrow { uniarg } => todo!(),
-                Opcode::Const { vtype, value } => todo!(),
                 Opcode::Select { uniargs } => todo!(),
                 Opcode::Bin {
                     class,
