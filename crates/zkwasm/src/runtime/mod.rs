@@ -400,19 +400,12 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
         StepInfo::Call { index: _ } => {
             vec![]
         }
-        StepInfo::CallIndirect { offset, .. } => {
-            let stack_read = MemoryTableEntry {
-                eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *offset as u64,
-            };
-
-            vec![stack_read]
-        }
+        StepInfo::CallIndirect { offset, uniarg, .. } => mem_ops_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            &[(VarType::I32, *uniarg, *offset as u64)],
+            None,
+        ),
         StepInfo::CallHost {
             args,
             ret_val,
@@ -824,7 +817,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 (VarType::I32, *lhs_uniarg, *left as u32 as u64),
                 (VarType::I32, *rhs_uniarg, *right as u32 as u64),
             ],
-            (VarType::I32, *value as u32 as u64),
+            Some((VarType::I32, *value as u32 as u64)),
         ),
         StepInfo::I32Comp {
             left, right, value, ..
@@ -851,7 +844,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 (VarType::I64, *lhs_uniarg, *left as u64),
                 (VarType::I64, *rhs_uniarg, *right as u64),
             ],
-            (VarType::I64, *value as u64),
+            Some((VarType::I64, *value as u64)),
         ),
 
         StepInfo::I64Const { value } => mem_op_from_stack_only_step(
@@ -941,7 +934,7 @@ fn mem_ops_from_stack_only_step(
     sp_before_execution: u32,
     eid: u32,
     inputs: &[(VarType, UniArg, u64)],
-    output: (VarType, u64),
+    output: Option<(VarType, u64)>,
 ) -> Vec<MemoryTableEntry> {
     let (sp, mut ops) = inputs.iter().rev().fold(
         (sp_before_execution, vec![]),
@@ -980,15 +973,17 @@ fn mem_ops_from_stack_only_step(
         },
     );
 
-    ops.push(MemoryTableEntry {
-        eid,
-        offset: sp,
-        ltype: LocationType::Stack,
-        atype: AccessType::Write,
-        vtype: output.0,
-        is_mutable: true,
-        value: output.1,
-    });
+    if let Some((vtype, value)) = output {
+        ops.push(MemoryTableEntry {
+            eid,
+            offset: sp,
+            ltype: LocationType::Stack,
+            atype: AccessType::Write,
+            vtype,
+            is_mutable: true,
+            value,
+        });
+    }
 
     ops
 }
