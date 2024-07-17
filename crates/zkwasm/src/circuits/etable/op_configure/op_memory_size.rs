@@ -67,7 +67,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemorySizeConfig<F> {
                 self.memory_table_lookup_stack_write.assign(
                     ctx,
                     step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
+                    entry.memory_rw_entries[0].end_eid,
                     step.current.sp,
                     LocationType::Stack,
                     true,

@@ -12,6 +12,7 @@ use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
+use specs::itable::UniArg;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::state::InitializationState;
@@ -281,6 +282,7 @@ impl TablePlugin {
                     StepInfo::I32WrapI64 {
                         value: keep_value.unwrap() as i64,
                         result: keep_value.unwrap() as i32,
+                        uniarg: UniArg::Pop,
                     },
                 );
 

@@ -537,7 +537,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             _ => {}
         }
 
-        let mut memory_entries = entry.memory_rw_entires.iter();
+        let mut memory_entries = entry.memory_rw_entries.iter();
         self.rhs_arg.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
         self.lhs_arg.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
         self.memory_table_lookup_stack_write

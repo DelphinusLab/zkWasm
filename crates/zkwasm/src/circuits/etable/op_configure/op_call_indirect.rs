@@ -154,7 +154,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                     ),
                 )?;
 
-                let mut memory_entries = entry.memory_rw_entires.iter();
+                let mut memory_entries = entry.memory_rw_entries.iter();
                 self.offset_arg.assign(ctx, &uniarg, &mut memory_entries)?;
 
                 self.frame_table_lookup.cell.assign_bn(

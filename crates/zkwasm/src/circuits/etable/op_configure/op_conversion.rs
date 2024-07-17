@@ -217,12 +217,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (is_sign_op, value, _value_type, result, result_type, padding, shift) =
+        let (is_sign_op, value, _value_type, result_type, padding, shift, uniarg) =
             match &entry.eentry.step_info {
-                StepInfo::I32WrapI64 { value, result } => {
+                StepInfo::I32WrapI64 { value, uniarg, .. } => {
                     self.value_is_i64.assign_bool(ctx, true)?;
                     self.res_is_i32.assign_bool(ctx, true)?;
                     self.is_i32_wrap_i64.assign_bool(ctx, true)?;
@@ -231,16 +231,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         false,
                         *value as u64,
                         VarType::I64,
-                        *result as u32 as u64,
                         VarType::I32,
                         0,
                         1u64 << 31, // To meet `op_conversion: sign extension` constraint
+                        uniarg,
                     )
                 }
                 StepInfo::I64ExtendI32 {
                     value,
-                    result,
                     sign,
+                    uniarg,
+                    ..
                 } => {
                     self.value_is_i32.assign_bool(ctx, true)?;
                     self.res_is_i64.assign_bool(ctx, true)?;
@@ -249,13 +250,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         *sign,
                         *value as u32 as u64,
                         VarType::I32,
-                        *result as u64,
                         VarType::I64,
                         u64::MAX << 32,
                         1 << 31,
+                        uniarg,
                     )
                 }
-                StepInfo::I32SignExtendI8 { value, result } => {
+                StepInfo::I32SignExtendI8 { value, uniarg, .. } => {
                     self.value_is_i8.assign_bool(ctx, true)?;
                     self.res_is_i32.assign_bool(ctx, true)?;
 
@@ -263,13 +264,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         true,
                         *value as u32 as u64,
                         VarType::I32,
-                        *result as u32 as u64,
                         VarType::I32,
                         (u32::MAX << 8) as u64,
                         1 << 7,
+                        uniarg,
                     )
                 }
-                StepInfo::I32SignExtendI16 { value, result } => {
+                StepInfo::I32SignExtendI16 { value, uniarg, .. } => {
                     self.value_is_i16.assign_bool(ctx, true)?;
                     self.res_is_i32.assign_bool(ctx, true)?;
 
@@ -277,13 +278,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         true,
                         *value as u32 as u64,
                         VarType::I32,
-                        *result as u32 as u64,
                         VarType::I32,
                         (u32::MAX << 16) as u64,
                         1 << 15,
+                        uniarg,
                     )
                 }
-                StepInfo::I64SignExtendI8 { value, result } => {
+                StepInfo::I64SignExtendI8 { value, uniarg, .. } => {
                     self.value_is_i8.assign_bool(ctx, true)?;
                     self.res_is_i64.assign_bool(ctx, true)?;
 
@@ -291,13 +292,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         true,
                         *value as u64,
                         VarType::I64,
-                        *result as u64,
                         VarType::I64,
                         u64::MAX << 8,
                         1 << 7,
+                        uniarg,
                     )
                 }
-                StepInfo::I64SignExtendI16 { value, result } => {
+                StepInfo::I64SignExtendI16 { value, uniarg, .. } => {
                     self.value_is_i16.assign_bool(ctx, true)?;
                     self.res_is_i64.assign_bool(ctx, true)?;
 
@@ -305,13 +306,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         true,
                         *value as u64,
                         VarType::I64,
-                        *result as u64,
                         VarType::I64,
                         u64::MAX << 16,
                         1 << 15,
+                        uniarg,
                     )
                 }
-                StepInfo::I64SignExtendI32 { value, result } => {
+                StepInfo::I64SignExtendI32 { value, uniarg, .. } => {
                     self.value_is_i32.assign_bool(ctx, true)?;
                     self.res_is_i64.assign_bool(ctx, true)?;
 
@@ -319,10 +320,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
                         true,
                         *value as u64,
                         VarType::I64,
-                        *result as u64,
                         VarType::I64,
                         u64::MAX << 32,
                         1 << 31,
+                        uniarg,
                     )
                 }
                 _ => unreachable!(),
@@ -345,25 +346,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
             .assign(ctx, bn_to_field(&BigUint::from(modulus)))?;
         self.padding.assign(ctx, F::from(padding))?;
 
-        if let specs::itable::Opcode::Conversion { uniarg, .. } =
-            entry.eentry.get_instruction(step.current.itable).opcode
-        {
-            let mut memory_entries = entry.memory_rw_entires.iter();
-
-            self.value_arg.assign(ctx, &uniarg, &mut memory_entries)?;
-        } else {
-            unreachable!();
-        }
-
-        self.memory_table_lookup_stack_write.assign(
-            ctx,
-            step.current.eid,
-            entry.memory_rw_entires[1].end_eid,
-            step.current.sp + 1,
-            LocationType::Stack,
-            result_type == VarType::I32,
-            result,
-        )?;
+        let mut memory_rw_entries = entry.memory_rw_entries.iter();
+        self.value_arg
+            .assign(ctx, &uniarg, &mut memory_rw_entries)?;
+        self.memory_table_lookup_stack_write
+            .assign_with_memory_entry(ctx, &mut memory_rw_entries)?;
 
         Ok(())
     }

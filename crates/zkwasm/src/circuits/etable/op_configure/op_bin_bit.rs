@@ -168,7 +168,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
             }
         };
 
-        let mut memory_entries = entry.memory_rw_entires.iter();
+        let mut memory_entries = entry.memory_rw_entries.iter();
         self.rhs.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
         self.lhs.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
         self.memory_table_lookup_stack_write

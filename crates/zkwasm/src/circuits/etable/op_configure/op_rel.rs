@@ -423,7 +423,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         if let specs::itable::Opcode::Rel { uniargs, .. } =
             entry.eentry.get_instruction(step.current.itable).opcode
         {
-            let mut memory_entries = entry.memory_rw_entires.iter();
+            let mut memory_entries = entry.memory_rw_entries.iter();
 
             self.rhs_arg.assign(ctx, &uniargs[0], &mut memory_entries)?;
             self.lhs_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
@@ -434,7 +434,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         self.memory_table_lookup_stack_write.assign(
             ctx,
             step.current.eid,
-            entry.memory_rw_entires[2].end_eid,
+            entry.memory_rw_entries[2].end_eid,
             step.current.sp + 2,
             LocationType::Stack,
             true,
