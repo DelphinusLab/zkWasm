@@ -370,7 +370,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                     let value = *value as u32 as u64;
 
                     (
-                        class, var_type, 32, left, right, lhs_uniarg, rhs_uniarg, value,
+                        class.as_bin_op(),
+                        var_type,
+                        32,
+                        left,
+                        right,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                        value,
                     )
                 }
 
@@ -388,7 +395,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                     let value = *value as u64;
 
                     (
-                        class, var_type, 64, left, right, lhs_uniarg, rhs_uniarg, value,
+                        class.as_bin_op(),
+                        var_type,
+                        64,
+                        left,
+                        right,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                        value,
                     )
                 }
 

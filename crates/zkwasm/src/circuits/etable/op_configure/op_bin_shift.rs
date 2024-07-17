@@ -323,15 +323,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (class, left, right, value, power, is_eight_bytes, _is_sign) =
+        let (class, left, right, value, power, is_eight_bytes, _is_sign, lhs_uniarg, rhs_uniarg) =
             match entry.eentry.step_info {
-                StepInfo::I32BinShiftOp {
+                StepInfo::I32BinOp {
                     class,
                     left,
+                    lhs_uniarg,
                     right,
+                    rhs_uniarg,
                     value,
                 } => {
                     let left = left as u32 as u64;
@@ -340,13 +342,25 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     let power = right % 32;
                     let is_eight_bytes = false;
                     let is_sign = true;
-                    (class, left, right, value, power, is_eight_bytes, is_sign)
+                    (
+                        class.as_shift_op(),
+                        left,
+                        right,
+                        value,
+                        power,
+                        is_eight_bytes,
+                        is_sign,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
                 }
 
-                StepInfo::I64BinShiftOp {
+                StepInfo::I64BinOp {
                     class,
                     left,
+                    lhs_uniarg,
                     right,
+                    rhs_uniarg,
                     value,
                 } => {
                     let left = left as u64;
@@ -355,7 +369,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     let power = right % 64;
                     let is_eight_bytes = true;
                     let is_sign = true;
-                    (class, left, right, value, power, is_eight_bytes, is_sign)
+                    (
+                        class.as_shift_op(),
+                        left,
+                        right,
+                        value,
+                        power,
+                        is_eight_bytes,
+                        is_sign,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
                 }
 
                 _ => {
@@ -456,18 +480,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             }
         }
 
-        if let specs::itable::Opcode::BinShift { uniargs, .. } =
-            entry.eentry.get_instruction(step.current.itable).opcode
-        {
-            let mut memory_entries = entry.memory_rw_entires.iter();
+        let mut memory_entries = entry.memory_rw_entires.iter();
 
-            self.rhs_arg.assign(ctx, &uniargs[0], &mut memory_entries)?;
-            self.lhs_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
-            self.memory_table_lookup_stack_write
-                .assign_with_memory_entry(ctx, &mut memory_entries)?;
-        } else {
-            unreachable!();
-        }
+        self.rhs_arg.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
+        self.lhs_arg.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
+        self.memory_table_lookup_stack_write
+            .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
         Ok(())
     }

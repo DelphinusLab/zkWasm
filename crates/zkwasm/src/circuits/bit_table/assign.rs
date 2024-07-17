@@ -29,25 +29,27 @@ impl BitTableTrait for EventTableWithMemoryInfo {
         self.0
             .iter()
             .filter_map(|entry| match &entry.eentry.step_info {
-                StepInfo::I32BinBitOp {
+                StepInfo::I32BinOp {
                     class,
                     left,
                     right,
                     value,
-                } => Some(BitTableAssign {
-                    op: BitTableOp::BinaryBit(*class),
+                    ..
+                } if class.is_bit_op() => Some(BitTableAssign {
+                    op: BitTableOp::BinaryBit((*class).as_bit_op()),
                     left: *left as u32 as u64,
                     right: *right as u32 as u64,
                     result: *value as u32 as u64,
                 }),
 
-                StepInfo::I64BinBitOp {
+                StepInfo::I64BinOp {
                     class,
                     left,
                     right,
                     value,
-                } => Some(BitTableAssign {
-                    op: BitTableOp::BinaryBit(*class),
+                    ..
+                } if class.is_bit_op() => Some(BitTableAssign {
+                    op: BitTableOp::BinaryBit((*class).as_bit_op()),
                     left: *left as u64,
                     right: *right as u64,
                     result: *value as u64,
