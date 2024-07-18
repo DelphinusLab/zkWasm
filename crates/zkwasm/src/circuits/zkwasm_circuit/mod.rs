@@ -592,6 +592,14 @@ macro_rules! impl_zkwasm_circuit {
                         // 6. fixed part(instructions, br_tables, padding) within pre image chip and post image chip
                         if let Some((post_image_table_cells, _)) = post_image_table_cells.as_ref() {
                             for (l, r) in pre_image_table_cells
+                                .constants
+                                .iter()
+                                .zip(post_image_table_cells.constants.iter())
+                            {
+                                region.constrain_equal(l.cell(), r.cell())?;
+                            }
+
+                            for (l, r) in pre_image_table_cells
                                 .instructions
                                 .iter()
                                 .zip(post_image_table_cells.instructions.iter())

@@ -233,6 +233,18 @@ impl<F: FieldExt> PostImageTableChip<F> {
                     Ok(cells.try_into().unwrap())
                 };
 
+                let constant_handler = |base_offset| {
+                    ctx.borrow_mut().offset = base_offset;
+
+                    Ok(post_image_table
+                        .constants
+                        .iter()
+                        .map(|entry| Ok(assign!(ctx, self.config.post_image_table, *entry)?))
+                        .collect::<Result<Vec<_>, Error>>()?
+                        .try_into()
+                        .unwrap())
+                };
+
                 let instruction_handler = |base_offset| {
                     ctx.borrow_mut().offset = base_offset;
 
@@ -417,6 +429,7 @@ impl<F: FieldExt> PostImageTableChip<F> {
                 let layouter = image_table_assigner.exec(
                     initialization_state_handler,
                     inherited_frame_entries_handler,
+                    constant_handler,
                     instruction_handler,
                     br_table_handler,
                     padding_handler,
