@@ -1,4 +1,4 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_memory_size() {
@@ -6,12 +6,12 @@ fn test_memory_size() {
         (module
             (memory 2)
 
-            (func (export "test")
+            (func (export "zkmain")
                 (memory.size)
                 (drop)
             )
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

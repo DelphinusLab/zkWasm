@@ -59,20 +59,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemorySizeConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
             StepInfo::MemorySize => {
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entries[0].end_eid,
-                    step.current.sp,
-                    LocationType::Stack,
-                    true,
-                    step.current.allocated_memory_pages as u64,
-                )?;
+                let mut memory_rw_entries = entry.memory_rw_entries.iter();
+
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_rw_entries)?;
 
                 Ok(())
             }

@@ -1,4 +1,4 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_memory_grow() {
@@ -6,14 +6,14 @@ fn test_memory_grow() {
         (module
             (memory 1 2)
 
-            (func (export "test")
+            (func (export "zkmain")
                 (memory.grow (i32.const 1))
                 (drop)
             )
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
@@ -22,14 +22,14 @@ fn test_memory_grow_fail() {
         (module
             (memory 1 2)
 
-            (func (export "test")
+            (func (export "zkmain")
                 (memory.grow (i32.const 2))
                 (drop)
             )
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn test_memory_grow_lazy_init() {
         (module
             (memory 0 1)
 
-            (func (export "test")
+            (func (export "zkmain")
                 (memory.grow (i32.const 1))
                 (drop)
                 (i32.const 0)
@@ -48,7 +48,7 @@ fn test_memory_grow_lazy_init() {
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn test_memory_grow_lazy_init_2() {
         (module
             (memory 1 2)
 
-            (func (export "test")
+            (func (export "zkmain")
                 (memory.grow (i32.const 1))
                 (drop)
                 (i32.const 65536)
@@ -67,5 +67,5 @@ fn test_memory_grow_lazy_init_2() {
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

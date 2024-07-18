@@ -905,9 +905,10 @@ impl InstructionTable {
                 Opcode::LocalGet { .. }
                 | Opcode::LocalTee { .. }
                 | Opcode::GlobalGet { .. }
+                | Opcode::MemorySize
                 | Opcode::Const { .. }
-                | Opcode::Drop => (),
-                Opcode::Return { .. } => (),
+                | Opcode::Drop
+                | Opcode::Return { .. } => (),
 
                 Opcode::LocalSet { uniarg, .. }
                 | Opcode::GlobalSet { uniarg, .. }
@@ -918,7 +919,6 @@ impl InstructionTable {
                     set.insert(uniarg.get_const_value());
                 }
 
-                Opcode::MemorySize => todo!(),
                 Opcode::Select { uniargs } => todo!(),
                 Opcode::Bin { uniargs, .. }
                 | Opcode::BinShift { uniargs, .. }
