@@ -1006,8 +1006,8 @@ pub(super) fn run_instruction_pre(
         }
 
         isa::Instruction::CurrentMemory => None,
-        isa::Instruction::GrowMemory(_) => Some(RunInstructionTracePre::GrowMemory(
-            <_>::from_value_internal(*value_stack.pick(1)),
+        isa::Instruction::GrowMemory(uniarg) => Some(RunInstructionTracePre::GrowMemory(
+            <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
         )),
 
         isa::Instruction::I32Const(_) => None,
@@ -1546,11 +1546,12 @@ impl TablePlugin {
             }
 
             isa::Instruction::CurrentMemory => StepInfo::MemorySize,
-            isa::Instruction::GrowMemory(..) => {
+            isa::Instruction::GrowMemory(uniarg) => {
                 if let RunInstructionTracePre::GrowMemory(grow_size) = current_event.unwrap() {
                     StepInfo::MemoryGrow {
                         grow_size,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()

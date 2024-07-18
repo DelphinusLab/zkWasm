@@ -115,7 +115,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::MemoryGrow { grow_size, result } => {
+            StepInfo::MemoryGrow {
+                grow_size,
+                result,
+                uniarg,
+            } => {
                 let success = *result != -1;
 
                 self.result.assign(ctx, *result as u32 as u64)?;
@@ -131,26 +135,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
                     )?;
                 }
 
-                if let specs::itable::Opcode::MemoryGrow { uniarg, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entries.iter();
-
-                    self.grow_size_arg
-                        .assign(ctx, &uniarg, &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
-
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entries[1].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    *result as u32 as u64,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.grow_size_arg
+                    .assign(ctx, &uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }
