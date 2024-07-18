@@ -907,6 +907,7 @@ impl InstructionTable {
 
                 Opcode::GlobalSet { uniarg, .. }
                 | Opcode::CallIndirect { uniarg, .. }
+                | Opcode::Load { uniarg, .. }
                 | Opcode::Conversion { uniarg, .. } => {
                     set.insert(uniarg.get_const_value());
                 }
@@ -965,12 +966,7 @@ impl InstructionTable {
                     op_index_in_plugin,
                 } => todo!(),
                 Opcode::ExternalHostCall { op, sig } => todo!(),
-                Opcode::Load {
-                    offset,
-                    vtype,
-                    size,
-                    uniarg,
-                } => todo!(),
+
                 Opcode::Store {
                     offset,
                     vtype,
