@@ -183,6 +183,7 @@ pub enum BinaryOp {
     BinOp(BinOp),
     ShiftOp(ShiftOp),
     BitOp(BitOp),
+    RelOp(RelOp),
 }
 
 impl From<BinOp> for BinaryOp {
@@ -203,9 +204,19 @@ impl From<BitOp> for BinaryOp {
     }
 }
 
+impl From<RelOp> for BinaryOp {
+    fn from(value: RelOp) -> Self {
+        BinaryOp::RelOp(value)
+    }
+}
+
 impl BinaryOp {
     pub fn is_bit_op(&self) -> bool {
         matches!(self, BinaryOp::BitOp(_))
+    }
+
+    pub fn is_rel_op(&self) -> bool {
+        matches!(self, BinaryOp::RelOp(_))
     }
 
     pub fn as_bin_op(self) -> BinOp {
@@ -226,6 +237,13 @@ impl BinaryOp {
         match self {
             BinaryOp::BitOp(op) => op,
             _ => panic!("Not a bit op"),
+        }
+    }
+
+    pub fn as_rel_op(self) -> RelOp {
+        match self {
+            BinaryOp::RelOp(op) => op,
+            _ => panic!("Not a rel op"),
         }
     }
 }
@@ -922,7 +940,8 @@ impl InstructionTable {
                 Opcode::Select { uniargs } => todo!(),
                 Opcode::Bin { uniargs, .. }
                 | Opcode::BinShift { uniargs, .. }
-                | Opcode::BinBit { uniargs, .. } => uniargs.iter().for_each(|x| {
+                | Opcode::BinBit { uniargs, .. }
+                | Opcode::Rel { uniargs, .. } => uniargs.iter().for_each(|x| {
                     set.insert(x.get_const_value());
                 }),
 
@@ -935,11 +954,6 @@ impl InstructionTable {
                     class,
                     vtype,
                     uniarg,
-                } => todo!(),
-                Opcode::Rel {
-                    class,
-                    vtype,
-                    uniargs,
                 } => todo!(),
                 Opcode::Br { drop, keep, dst_pc } => todo!(),
                 Opcode::BrIf {

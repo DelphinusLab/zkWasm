@@ -802,21 +802,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             ],
             Some((VarType::I32, *value as u32 as u64)),
         ),
-        StepInfo::I32Comp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            VarType::I32,
-            VarType::I32,
-            &[*right as u32 as u64, *left as u32 as u64],
-            &[*value as u32 as u64],
-        ),
-
         StepInfo::I64BinOp {
             left,
             right,
             value,
+            value_type,
             lhs_uniarg,
             rhs_uniarg,
             ..
@@ -827,7 +817,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 (VarType::I64, *lhs_uniarg, *left as u64),
                 (VarType::I64, *rhs_uniarg, *right as u64),
             ],
-            Some((VarType::I64, *value as u64)),
+            Some((*value_type, *value as u64)),
         ),
 
         StepInfo::I64Const { value } => mem_op_from_stack_only_step(
@@ -837,16 +827,6 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             VarType::I64,
             &[],
             &[*value as u64],
-        ),
-        StepInfo::I64Comp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            VarType::I64,
-            VarType::I32,
-            &[*right as u64, *left as u64],
-            &[*value as u32 as u64],
         ),
         StepInfo::UnaryOp {
             vtype,

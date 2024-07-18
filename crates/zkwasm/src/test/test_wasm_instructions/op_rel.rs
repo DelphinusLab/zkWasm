@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_op_rel() {
@@ -28,7 +28,7 @@ fn test_op_rel() {
 
     let mut textual_repr = r#"
             (module
-                (func (export "test")"#
+                (func (export "zkmain")"#
         .to_owned();
 
     for (t, values) in tys {
@@ -50,5 +50,5 @@ fn test_op_rel() {
     }
 
     textual_repr = format!("{}))", textual_repr);
-    test_circuit_noexternal(&textual_repr).unwrap()
+    test_instruction(&textual_repr).unwrap()
 }

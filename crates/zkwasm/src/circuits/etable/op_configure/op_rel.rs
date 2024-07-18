@@ -191,7 +191,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
 
         let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
-            "op_bin stack read",
+            "op_rel stack read",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
@@ -303,37 +303,61 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
-        let (class, var_type, lhs, rhs, value, diff) = match entry.eentry.step_info {
-            StepInfo::I32Comp {
-                class,
-                left,
-                right,
-                value,
-            } => {
-                let var_type = VarType::I32;
-                let lhs = left as u32 as u64;
-                let rhs = right as u32 as u64;
-                let diff = if lhs < rhs { rhs - lhs } else { lhs - rhs };
+        let (class, var_type, lhs, rhs, value, diff, lhs_uniarg, rhs_uniarg) =
+            match entry.eentry.step_info {
+                StepInfo::I32BinOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                    lhs_uniarg,
+                    rhs_uniarg,
+                } => {
+                    let var_type = VarType::I32;
+                    let lhs = left as u32 as u64;
+                    let rhs = right as u32 as u64;
+                    let diff = if lhs < rhs { rhs - lhs } else { lhs - rhs };
 
-                (class, var_type, lhs, rhs, value, diff)
-            }
+                    (
+                        class.as_rel_op(),
+                        var_type,
+                        lhs,
+                        rhs,
+                        value as u32 as u64,
+                        diff,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
+                }
 
-            StepInfo::I64Comp {
-                class,
-                left,
-                right,
-                value,
-            } => {
-                let var_type = VarType::I64;
-                let lhs = left as u64;
-                let rhs = right as u64;
-                let diff = if lhs < rhs { rhs - lhs } else { lhs - rhs };
+                StepInfo::I64BinOp {
+                    class,
+                    left,
+                    right,
+                    value,
+                    lhs_uniarg,
+                    rhs_uniarg,
+                    ..
+                } => {
+                    let var_type = VarType::I64;
+                    let lhs = left as u64;
+                    let rhs = right as u64;
+                    let diff = if lhs < rhs { rhs - lhs } else { lhs - rhs };
 
-                (class, var_type, lhs, rhs, value, diff)
-            }
+                    (
+                        class.as_rel_op(),
+                        var_type,
+                        lhs,
+                        rhs,
+                        value as u64,
+                        diff,
+                        lhs_uniarg,
+                        rhs_uniarg,
+                    )
+                }
 
-            _ => unreachable!(),
-        };
+                _ => unreachable!(),
+            };
 
         let op_is_sign = vec![
             RelOp::SignedGt,
@@ -384,8 +408,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
             self.res_is_gt.assign_bool(ctx, lhs > rhs)?;
             self.res_is_lt.assign_bool(ctx, lhs < rhs)?;
         }
-        self.res
-            .assign(ctx, if value { F::one() } else { F::zero() })?;
+        self.res.assign(ctx, F::from(value))?;
 
         match class {
             RelOp::Eq => {
@@ -420,26 +443,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
             }
         };
 
-        if let specs::itable::Opcode::Rel { uniargs, .. } =
-            entry.eentry.get_instruction(step.current.itable).opcode
-        {
-            let mut memory_entries = entry.memory_rw_entries.iter();
-
-            self.rhs_arg.assign(ctx, &uniargs[0], &mut memory_entries)?;
-            self.lhs_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
-        } else {
-            unreachable!();
-        }
-
-        self.memory_table_lookup_stack_write.assign(
-            ctx,
-            step.current.eid,
-            entry.memory_rw_entries[2].end_eid,
-            step.current.sp + 2,
-            LocationType::Stack,
-            true,
-            value as u64,
-        )?;
+        let mut memory_entries = entry.memory_rw_entries.iter();
+        self.rhs_arg.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
+        self.lhs_arg.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
+        self.memory_table_lookup_stack_write
+            .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
         Ok(())
     }
