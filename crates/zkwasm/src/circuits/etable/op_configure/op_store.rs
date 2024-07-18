@@ -444,10 +444,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 offset,
                 effective_address,
                 pre_block_value1,
-                updated_block_value1,
                 pre_block_value2,
-                updated_block_value2,
                 value,
+                val_uniarg,
+                pos_uniarg,
                 ..
             } => {
                 let len = store_size.byte_size() as u32;
@@ -535,59 +535,19 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                         - (block_start_index + is_cross_block as u32 + 1),
                 )?;
 
-                if let specs::itable::Opcode::Store { uniargs, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entries.iter();
-
-                    self.val_arg.assign(ctx, &uniargs[0], &mut memory_entries)?;
-                    self.pos_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
-
-                self.memory_table_lookup_heap_read1.assign(
-                    ctx,
-                    entry.memory_rw_entries[2].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entries[2].end_eid,
-                    effective_address >> 3,
-                    LocationType::Heap,
-                    false,
-                    pre_block_value1,
-                )?;
-
-                self.memory_table_lookup_heap_write1.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entries[3].end_eid,
-                    effective_address >> 3,
-                    LocationType::Heap,
-                    false,
-                    updated_block_value1,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.val_arg.assign(ctx, &val_uniarg, &mut memory_entries)?;
+                self.pos_arg.assign(ctx, &pos_uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_heap_read1
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                self.memory_table_lookup_heap_write1
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 if is_cross_block {
-                    self.memory_table_lookup_heap_read2.assign(
-                        ctx,
-                        entry.memory_rw_entries[4].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entries[4].end_eid,
-                        (effective_address >> 3) + 1,
-                        LocationType::Heap,
-                        false,
-                        pre_block_value2,
-                    )?;
-
-                    self.memory_table_lookup_heap_write2.assign(
-                        ctx,
-                        step.current.eid,
-                        entry.memory_rw_entries[5].end_eid,
-                        (effective_address >> 3) + 1,
-                        LocationType::Heap,
-                        false,
-                        updated_block_value2,
-                    )?;
+                    self.memory_table_lookup_heap_read2
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                    self.memory_table_lookup_heap_write2
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
                 }
                 Ok(())
             }
