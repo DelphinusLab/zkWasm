@@ -111,6 +111,7 @@ pub enum StepInfo {
         vtype: VarType,
         is_mutable: bool,
         value: u64,
+        uniarg: UniArg,
     },
 
     Load {

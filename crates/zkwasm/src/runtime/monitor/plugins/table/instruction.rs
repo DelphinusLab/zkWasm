@@ -1186,7 +1186,7 @@ impl TablePlugin {
                     value,
                 }
             }
-            isa::Instruction::SetGlobal(idx, ..) => {
+            isa::Instruction::SetGlobal(idx, uniarg) => {
                 let global_ref = context.module().global_by_index(idx).unwrap();
                 let is_mutable = global_ref.is_mutable();
                 let vtype: VarType = global_ref.value_type().into_elements().into();
@@ -1200,6 +1200,7 @@ impl TablePlugin {
                     vtype,
                     is_mutable,
                     value,
+                    uniarg,
                 }
             }
 

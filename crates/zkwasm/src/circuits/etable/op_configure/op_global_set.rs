@@ -17,7 +17,6 @@ use specs::encode::opcode::encode_global_set;
 use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct GlobalSetConfig<F: FieldExt> {
@@ -69,34 +68,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::SetGlobal {
-                idx, vtype, value, ..
-            } => {
+            StepInfo::SetGlobal { idx, uniarg, .. } => {
                 self.idx_cell.assign(ctx, F::from(*idx as u64))?;
 
-                if let specs::itable::Opcode::GlobalSet { uniarg, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entries.iter();
-
-                    self.value_arg.assign(ctx, &uniarg, &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
-
-                self.memory_table_lookup_global_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entries[1].end_eid,
-                    *idx,
-                    LocationType::Global,
-                    *vtype == VarType::I32,
-                    *value,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.value_arg.assign(ctx, &uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_global_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }

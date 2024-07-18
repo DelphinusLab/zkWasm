@@ -591,16 +591,14 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             vtype,
             is_mutable,
             value,
+            uniarg,
         } => {
-            let stack_read = MemoryTableEntry {
+            let mut ops = mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+                &[(*vtype, *uniarg, *value)],
+                None,
+            );
 
             let global_set = MemoryTableEntry {
                 eid,
@@ -612,7 +610,9 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 value: *value,
             };
 
-            vec![stack_read, global_set]
+            ops.push(global_set);
+
+            ops
         }
 
         StepInfo::Load {
