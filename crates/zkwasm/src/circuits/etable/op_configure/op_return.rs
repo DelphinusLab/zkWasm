@@ -146,26 +146,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                         .assign(ctx, (VarType::from(keep[0]) as u64).into())?;
                     self.value.assign(ctx, keep_values[0])?;
 
-                    self.memory_table_lookup_stack_read.assign(
-                        ctx,
-                        entry.memory_rw_entries[0].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entries[0].end_eid,
-                        step.current.sp + 1,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
-
-                    self.memory_table_lookup_stack_write.assign(
-                        ctx,
-                        step.current.eid,
-                        entry.memory_rw_entries[1].end_eid,
-                        step.current.sp + drop + 1,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
+                    let mut memory_rw_entries = entry.memory_rw_entries.iter();
+                    self.memory_table_lookup_stack_read
+                        .assign_with_memory_entry(ctx, &mut memory_rw_entries)?;
+                    self.memory_table_lookup_stack_write
+                        .assign_with_memory_entry(ctx, &mut memory_rw_entries)?;
                 }
 
                 self.frame_table_lookup.cell.assign_bn(
