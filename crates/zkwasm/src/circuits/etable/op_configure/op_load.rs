@@ -433,6 +433,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 value,
                 block_value1,
                 block_value2,
+                uniarg,
                 ..
             } => {
                 let len = load_size.byte_size();
@@ -530,54 +531,21 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                         - (block_start_index + is_cross_block as u32 + 1),
                 )?;
 
-                let mut i = 0;
-                if let specs::itable::Opcode::Load { uniarg, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entries.iter();
+                let mut memory_entries = entry.memory_rw_entries.iter();
 
-                    self.load_base_arg
-                        .assign(ctx, &uniarg, &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
-                i += 1;
+                self.load_base_arg
+                    .assign(ctx, &uniarg, &mut memory_entries)?;
 
-                self.memory_table_lookup_heap_read1.assign(
-                    ctx,
-                    entry.memory_rw_entries[i].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entries[i].end_eid,
-                    effective_address >> 3,
-                    LocationType::Heap,
-                    false,
-                    block_value1,
-                )?;
-                i += 1;
+                self.memory_table_lookup_heap_read1
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 if is_cross_block {
-                    self.memory_table_lookup_heap_read2.assign(
-                        ctx,
-                        entry.memory_rw_entries[i].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entries[i].end_eid,
-                        (effective_address >> 3) + 1,
-                        LocationType::Heap,
-                        false,
-                        block_value2,
-                    )?;
-                    i += 1;
+                    self.memory_table_lookup_heap_read2
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
                 }
 
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entries[i].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    vtype == VarType::I32,
-                    value,
-                )?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }

@@ -845,11 +845,11 @@ pub(super) fn run_instruction_pre(
             val1: from_value_internal_to_u64_with_typ(vtype.into(), *value_stack.pick(3)),
         }),
 
-        isa::Instruction::I32Load(offset, ..)
-        | isa::Instruction::I32Load8S(offset, ..)
-        | isa::Instruction::I32Load8U(offset, ..)
-        | isa::Instruction::I32Load16S(offset, ..)
-        | isa::Instruction::I32Load16U(offset, ..) => {
+        isa::Instruction::I32Load(offset, uniarg)
+        | isa::Instruction::I32Load8S(offset, uniarg)
+        | isa::Instruction::I32Load8U(offset, uniarg)
+        | isa::Instruction::I32Load16S(offset, uniarg)
+        | isa::Instruction::I32Load16U(offset, uniarg) => {
             let load_size = match *instructions {
                 isa::Instruction::I32Load(..) => MemoryReadSize::U32,
                 isa::Instruction::I32Load8S(..) => MemoryReadSize::S8,
@@ -859,7 +859,8 @@ pub(super) fn run_instruction_pre(
                 _ => unreachable!(),
             };
 
-            let raw_address = <_>::from_value_internal(*value_stack.top());
+            let raw_address =
+                <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]);
             let address = effective_address(offset, raw_address).ok();
 
             Some(RunInstructionTracePre::Load {
@@ -870,13 +871,13 @@ pub(super) fn run_instruction_pre(
                 load_size,
             })
         }
-        isa::Instruction::I64Load(offset, ..)
-        | isa::Instruction::I64Load8S(offset, ..)
-        | isa::Instruction::I64Load8U(offset, ..)
-        | isa::Instruction::I64Load16S(offset, ..)
-        | isa::Instruction::I64Load16U(offset, ..)
-        | isa::Instruction::I64Load32S(offset, ..)
-        | isa::Instruction::I64Load32U(offset, ..) => {
+        isa::Instruction::I64Load(offset, uniarg)
+        | isa::Instruction::I64Load8S(offset, uniarg)
+        | isa::Instruction::I64Load8U(offset, uniarg)
+        | isa::Instruction::I64Load16S(offset, uniarg)
+        | isa::Instruction::I64Load16U(offset, uniarg)
+        | isa::Instruction::I64Load32S(offset, uniarg)
+        | isa::Instruction::I64Load32U(offset, uniarg) => {
             let load_size = match *instructions {
                 isa::Instruction::I64Load(..) => MemoryReadSize::I64,
                 isa::Instruction::I64Load8S(..) => MemoryReadSize::S8,
@@ -887,7 +888,8 @@ pub(super) fn run_instruction_pre(
                 isa::Instruction::I64Load32U(..) => MemoryReadSize::U32,
                 _ => unreachable!(),
             };
-            let raw_address = <_>::from_value_internal(*value_stack.top());
+            let raw_address =
+                <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]);
             let address = effective_address(offset, raw_address).ok();
 
             Some(RunInstructionTracePre::Load {
@@ -1419,18 +1421,18 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I32Load(..)
-            | isa::Instruction::I32Load8U(..)
-            | isa::Instruction::I32Load8S(..)
-            | isa::Instruction::I32Load16U(..)
-            | isa::Instruction::I32Load16S(..)
-            | isa::Instruction::I64Load(..)
-            | isa::Instruction::I64Load8U(..)
-            | isa::Instruction::I64Load8S(..)
-            | isa::Instruction::I64Load16U(..)
-            | isa::Instruction::I64Load16S(..)
-            | isa::Instruction::I64Load32U(..)
-            | isa::Instruction::I64Load32S(..) => {
+            isa::Instruction::I32Load(_offset, uniarg)
+            | isa::Instruction::I32Load8U(_offset, uniarg)
+            | isa::Instruction::I32Load8S(_offset, uniarg)
+            | isa::Instruction::I32Load16U(_offset, uniarg)
+            | isa::Instruction::I32Load16S(_offset, uniarg)
+            | isa::Instruction::I64Load(_offset, uniarg)
+            | isa::Instruction::I64Load8U(_offset, uniarg)
+            | isa::Instruction::I64Load8S(_offset, uniarg)
+            | isa::Instruction::I64Load16U(_offset, uniarg)
+            | isa::Instruction::I64Load16S(_offset, uniarg)
+            | isa::Instruction::I64Load32U(_offset, uniarg)
+            | isa::Instruction::I64Load32S(_offset, uniarg) => {
                 if let RunInstructionTracePre::Load {
                     offset,
                     raw_address,
@@ -1476,6 +1478,7 @@ impl TablePlugin {
                         ),
                         block_value1,
                         block_value2,
+                        uniarg,
                     }
                 } else {
                     unreachable!()

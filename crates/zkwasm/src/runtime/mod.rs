@@ -623,19 +623,20 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             value,
             block_value1,
             block_value2,
+            uniarg,
             ..
         } => {
-            let load_address_from_stack = MemoryTableEntry {
+            let mut ops = mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *raw_address as u64,
-            };
+                &[(VarType::I32, *uniarg, *raw_address as u64)],
+                Some((*vtype, *value)),
+            );
 
-            let load_value1 = MemoryTableEntry {
+            let write_result = ops.pop().unwrap();
+
+            // load first block
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: (*effective_address) / 8,
                 ltype: LocationType::Heap,
@@ -645,10 +646,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *block_value1,
-            };
+            });
 
-            let load_value2 = if *effective_address % 8 + load_size.byte_size() > 8 {
-                Some(MemoryTableEntry {
+            // load second block if it is cross access
+            if *effective_address % 8 + load_size.byte_size() > 8 {
+                ops.push(MemoryTableEntry {
                     eid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
@@ -659,26 +661,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     // The value will be used to lookup within imtable, hence block_value is given here
                     value: *block_value2,
                 })
-            } else {
-                None
-            };
+            }
 
-            let push_value = MemoryTableEntry {
-                eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Write,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+            ops.push(write_result);
 
-            vec![
-                vec![load_address_from_stack, load_value1],
-                load_value2.map_or(vec![], |v| vec![v]),
-                vec![push_value],
-            ]
-            .concat()
+            ops
         }
         StepInfo::Store {
             vtype,

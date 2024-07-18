@@ -123,6 +123,7 @@ pub enum StepInfo {
         value: u64,
         block_value1: u64,
         block_value2: u64,
+        uniarg: UniArg,
     },
     Store {
         vtype: VarType,
