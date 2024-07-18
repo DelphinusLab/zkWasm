@@ -908,18 +908,14 @@ impl InstructionTable {
                 | Opcode::Drop => (),
                 Opcode::Return { .. } => (),
 
-                Opcode::GlobalSet { uniarg, .. }
+                Opcode::LocalSet { uniarg, .. }
+                | Opcode::GlobalSet { uniarg, .. }
                 | Opcode::CallIndirect { uniarg, .. }
                 | Opcode::Load { uniarg, .. }
                 | Opcode::Conversion { uniarg, .. } => {
                     set.insert(uniarg.get_const_value());
                 }
 
-                Opcode::LocalSet {
-                    vtype,
-                    offset,
-                    uniarg,
-                } => todo!(),
                 Opcode::LocalTee { vtype, offset } => todo!(),
                 Opcode::MemorySize => todo!(),
                 Opcode::MemoryGrow { uniarg } => todo!(),

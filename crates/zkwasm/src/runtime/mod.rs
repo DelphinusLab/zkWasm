@@ -502,22 +502,16 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             vtype,
             depth,
             value,
+            uniarg,
         } => {
-            let mut sp = sp_before_execution;
-
-            let read = MemoryTableEntry {
+            let (sp, mut ops) = _mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+                &[(*vtype, *uniarg, *value)],
+                None,
+            );
 
-            sp += 1;
-
-            let write = MemoryTableEntry {
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: sp + depth,
                 ltype: LocationType::Stack,
@@ -525,9 +519,9 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 vtype: *vtype,
                 is_mutable: true,
                 value: *value,
-            };
+            });
 
-            vec![read, write]
+            ops
         }
         StepInfo::TeeLocal {
             vtype,
@@ -938,12 +932,12 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
     }
 }
 
-fn mem_ops_from_stack_only_step(
+fn _mem_ops_from_stack_only_step(
     sp_before_execution: u32,
     eid: u32,
     inputs: &[(VarType, UniArg, u64)],
     output: Option<(VarType, u64)>,
-) -> Vec<MemoryTableEntry> {
+) -> (u32, Vec<MemoryTableEntry>) {
     let (sp, mut ops) = inputs.iter().rev().fold(
         (sp_before_execution, vec![]),
         |(sp, mut ops), (vtype, arg, input)| {
@@ -981,7 +975,7 @@ fn mem_ops_from_stack_only_step(
         },
     );
 
-    if let Some((vtype, value)) = output {
+    let sp = if let Some((vtype, value)) = output {
         ops.push(MemoryTableEntry {
             eid,
             offset: sp,
@@ -991,9 +985,22 @@ fn mem_ops_from_stack_only_step(
             is_mutable: true,
             value,
         });
-    }
 
-    ops
+        sp - 1
+    } else {
+        sp
+    };
+
+    (sp, ops)
+}
+
+fn mem_ops_from_stack_only_step(
+    sp_before_execution: u32,
+    eid: u32,
+    inputs: &[(VarType, UniArg, u64)],
+    output: Option<(VarType, u64)>,
+) -> Vec<MemoryTableEntry> {
+    _mem_ops_from_stack_only_step(sp_before_execution, eid, inputs, output).1
 }
 
 pub(crate) fn mem_op_from_stack_only_step(
