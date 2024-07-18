@@ -765,15 +765,7 @@ pub(super) enum RunInstructionTracePre {
     },
 
     I32Single(i32),
-    I32Comp {
-        left: i32,
-        right: i32,
-    },
     I64Single(i64),
-    I64Comp {
-        left: i64,
-        right: i64,
-    },
 
     I64ExtendI32 {
         value: i32,
@@ -1020,35 +1012,17 @@ pub(super) fn run_instruction_pre(
             <_>::from_value_internal(*value_stack.pick(1)),
         )),
 
-        isa::Instruction::I32Eq(..)
-        | isa::Instruction::I32Ne(..)
-        | isa::Instruction::I32GtS(..)
-        | isa::Instruction::I32GtU(..)
-        | isa::Instruction::I32GeS(..)
-        | isa::Instruction::I32GeU(..)
-        | isa::Instruction::I32LtU(..)
-        | isa::Instruction::I32LeU(..)
-        | isa::Instruction::I32LtS(..)
-        | isa::Instruction::I32LeS(..) => Some(RunInstructionTracePre::I32Comp {
-            left: <_>::from_value_internal(*value_stack.pick(2)),
-            right: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
-
-        isa::Instruction::I64Eq(..)
-        | isa::Instruction::I64Ne(..)
-        | isa::Instruction::I64GtS(..)
-        | isa::Instruction::I64GtU(..)
-        | isa::Instruction::I64GeS(..)
-        | isa::Instruction::I64GeU(..)
-        | isa::Instruction::I64LtU(..)
-        | isa::Instruction::I64LeU(..)
-        | isa::Instruction::I64LtS(..)
-        | isa::Instruction::I64LeS(..) => Some(RunInstructionTracePre::I64Comp {
-            left: <_>::from_value_internal(*value_stack.pick(2)),
-            right: <_>::from_value_internal(*value_stack.pick(1)),
-        }),
-
-        isa::Instruction::I32Add(lhs, rhs)
+        isa::Instruction::I32Eq(lhs, rhs)
+        | isa::Instruction::I32Ne(lhs, rhs)
+        | isa::Instruction::I32GtS(lhs, rhs)
+        | isa::Instruction::I32GtU(lhs, rhs)
+        | isa::Instruction::I32GeS(lhs, rhs)
+        | isa::Instruction::I32GeU(lhs, rhs)
+        | isa::Instruction::I32LtU(lhs, rhs)
+        | isa::Instruction::I32LeU(lhs, rhs)
+        | isa::Instruction::I32LtS(lhs, rhs)
+        | isa::Instruction::I32LeS(lhs, rhs)
+        | isa::Instruction::I32Add(lhs, rhs)
         | isa::Instruction::I32Sub(lhs, rhs)
         | isa::Instruction::I32Mul(lhs, rhs)
         | isa::Instruction::I32DivS(lhs, rhs)
@@ -1071,7 +1045,17 @@ pub(super) fn run_instruction_pre(
             })
         }
 
-        isa::Instruction::I64Add(lhs, rhs)
+        isa::Instruction::I64Eq(lhs, rhs)
+        | isa::Instruction::I64Ne(lhs, rhs)
+        | isa::Instruction::I64GtS(lhs, rhs)
+        | isa::Instruction::I64GtU(lhs, rhs)
+        | isa::Instruction::I64GeS(lhs, rhs)
+        | isa::Instruction::I64GeU(lhs, rhs)
+        | isa::Instruction::I64LtU(lhs, rhs)
+        | isa::Instruction::I64LeU(lhs, rhs)
+        | isa::Instruction::I64LtS(lhs, rhs)
+        | isa::Instruction::I64LeS(lhs, rhs)
+        | isa::Instruction::I64Add(lhs, rhs)
         | isa::Instruction::I64Sub(lhs, rhs)
         | isa::Instruction::I64Mul(lhs, rhs)
         | isa::Instruction::I64DivS(lhs, rhs)
@@ -1572,126 +1556,6 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Eq(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::Eq,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32Ne(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::Ne,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32GtS(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::SignedGt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32GtU(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::UnsignedGt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32GeS(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::SignedGe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32GeU(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::UnsignedGe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32LtS(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::SignedLt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32LtU(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::UnsignedLt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32LeS(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::SignedLe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I32LeU(..) => {
-                if let RunInstructionTracePre::I32Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I32Comp {
-                        class: RelOp::UnsignedLe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
 
             isa::Instruction::I64Eqz(..) => {
                 if let RunInstructionTracePre::I64Single(value) = current_event.unwrap() {
@@ -1699,126 +1563,6 @@ impl TablePlugin {
                         vtype: VarType::I64,
                         value: value as u64,
                         result: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Eq(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::Eq,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64Ne(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::Ne,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64GtS(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::SignedGt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64GtU(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::UnsignedGt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64LtU(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::UnsignedLt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64LtS(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::SignedLt,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64LeU(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::UnsignedLe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64LeS(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::SignedLe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64GeU(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::UnsignedGe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-            isa::Instruction::I64GeS(..) => {
-                if let RunInstructionTracePre::I64Comp { left, right } = current_event.unwrap() {
-                    StepInfo::I64Comp {
-                        class: RelOp::SignedGe,
-                        left,
-                        right,
-                        value: <_>::from_value_internal(*value_stack.top()),
                     }
                 } else {
                     unreachable!()
@@ -1839,7 +1583,17 @@ impl TablePlugin {
             | isa::Instruction::I32ShrU(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I32ShrS(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I32Rotl(lhs_uniarg, rhs_uniarg)
-            | isa::Instruction::I32Rotr(lhs_uniarg, rhs_uniarg) => {
+            | isa::Instruction::I32Rotr(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Eq(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32Ne(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32GtS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32GtU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32GeS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32GeU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32LtS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32LtU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32LeS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I32LeU(lhs_uniarg, rhs_uniarg) => {
                 if let RunInstructionTracePre::I32BinOp { left, right } = current_event.unwrap() {
                     StepInfo::I32BinOp {
                         class: BinaryOp::from(instruction),
@@ -1867,15 +1621,33 @@ impl TablePlugin {
             | isa::Instruction::I64ShrU(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I64ShrS(lhs_uniarg, rhs_uniarg)
             | isa::Instruction::I64Rotl(lhs_uniarg, rhs_uniarg)
-            | isa::Instruction::I64Rotr(lhs_uniarg, rhs_uniarg) => {
+            | isa::Instruction::I64Rotr(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Eq(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64Ne(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64GtS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64GtU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64GeS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64GeU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64LtS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64LtU(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64LeS(lhs_uniarg, rhs_uniarg)
+            | isa::Instruction::I64LeU(lhs_uniarg, rhs_uniarg) => {
                 if let RunInstructionTracePre::I64BinOp { left, right } = current_event.unwrap() {
+                    let class: BinaryOp = BinaryOp::from(instruction).into();
+                    let value_type = if class.is_rel_op() {
+                        VarType::I32
+                    } else {
+                        VarType::I64
+                    };
+
                     StepInfo::I64BinOp {
-                        class: BinaryOp::from(instruction).into(),
+                        class,
                         left,
                         lhs_uniarg,
                         right,
                         rhs_uniarg,
                         value: <_>::from_value_internal(*value_stack.top()),
+                        value_type,
                     }
                 } else {
                     unreachable!()

@@ -169,6 +169,8 @@ pub enum StepInfo {
         right: i64,
         rhs_uniarg: UniArg,
         value: i64,
+        // rel should return i32, otherwise i64
+        value_type: VarType,
     },
 
     UnaryOp {
@@ -182,18 +184,6 @@ pub enum StepInfo {
         vtype: VarType,
         value: u64,
         result: i32,
-    },
-    I32Comp {
-        class: RelOp,
-        left: i32,
-        right: i32,
-        value: bool,
-    },
-    I64Comp {
-        class: RelOp,
-        left: i64,
-        right: i64,
-        value: bool,
     },
 
     I32WrapI64 {

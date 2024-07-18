@@ -135,6 +135,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinBitConfig<F> {
                     value,
                     lhs_uniarg,
                     rhs_uniarg,
+                    ..
                 } => {
                     let vtype = VarType::I64;
                     let left = left as u64;

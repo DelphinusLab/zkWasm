@@ -362,6 +362,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     right,
                     rhs_uniarg,
                     value,
+                    ..
                 } => {
                     let left = left as u64;
                     let right = right as u64;
