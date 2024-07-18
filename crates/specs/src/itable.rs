@@ -940,7 +940,8 @@ impl InstructionTable {
                 Opcode::Bin { uniargs, .. }
                 | Opcode::BinShift { uniargs, .. }
                 | Opcode::BinBit { uniargs, .. }
-                | Opcode::Rel { uniargs, .. } => uniargs.iter().for_each(|x| {
+                | Opcode::Rel { uniargs, .. }
+                | Opcode::Store { uniargs, .. } => uniargs.iter().for_each(|x| {
                     set.insert(x.get_const_value());
                 }),
 
@@ -981,13 +982,6 @@ impl InstructionTable {
                     op_index_in_plugin,
                 } => todo!(),
                 Opcode::ExternalHostCall { op, sig } => todo!(),
-
-                Opcode::Store {
-                    offset,
-                    vtype,
-                    size,
-                    uniargs,
-                } => todo!(),
             }
         }
 

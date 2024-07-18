@@ -636,29 +636,22 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             updated_block_value1,
             pre_block_value2,
             updated_block_value2,
+            val_uniarg,
+            pos_uniarg,
             ..
         } => {
-            let load_value_from_stack = MemoryTableEntry {
+            let mut ops = mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+                &[
+                    (*vtype, *val_uniarg, *value),
+                    (VarType::I32, *pos_uniarg, *raw_address as u64),
+                ],
+                None,
+            );
 
-            let load_address_from_stack = MemoryTableEntry {
-                eid,
-                offset: sp_before_execution + 2,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *raw_address as u64,
-            };
-
-            let load_value1 = MemoryTableEntry {
+            // load first block
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: effective_address / 8,
                 ltype: LocationType::Heap,
@@ -668,9 +661,10 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *pre_block_value1,
-            };
+            });
 
-            let write_value1 = MemoryTableEntry {
+            // write first block
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: effective_address / 8,
                 ltype: LocationType::Heap,
@@ -680,10 +674,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *updated_block_value1,
-            };
+            });
 
             if *effective_address % 8 + store_size.byte_size() as u32 > 8 {
-                let load_value2 = MemoryTableEntry {
+                // load second block if cross
+                ops.push(MemoryTableEntry {
                     eid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
@@ -693,9 +688,10 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     is_mutable: true,
                     // The value will be used to lookup within imtable, hence block_value is given here
                     value: *pre_block_value2,
-                };
+                });
 
-                let write_value2 = MemoryTableEntry {
+                // write second block if cross
+                ops.push(MemoryTableEntry {
                     eid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
@@ -705,23 +701,10 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     is_mutable: true,
                     // The value will be used to lookup within imtable, hence block_value is given here
                     value: *updated_block_value2,
-                };
-                vec![
-                    load_value_from_stack,
-                    load_address_from_stack,
-                    load_value1,
-                    write_value1,
-                    load_value2,
-                    write_value2,
-                ]
-            } else {
-                vec![
-                    load_value_from_stack,
-                    load_address_from_stack,
-                    load_value1,
-                    write_value1,
-                ]
+                });
             }
+
+            ops
         }
 
         StepInfo::MemorySize => mem_op_from_stack_only_step(

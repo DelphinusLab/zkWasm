@@ -140,6 +140,8 @@ pub enum StepInfo {
         pre_block_value2: u64,
         updated_block_value2: u64,
         value: u64,
+        pos_uniarg: UniArg,
+        val_uniarg: UniArg,
     },
 
     MemorySize,

@@ -896,9 +896,9 @@ pub(super) fn run_instruction_pre(
                 load_size,
             })
         }
-        isa::Instruction::I32Store(offset, ..)
-        | isa::Instruction::I32Store8(offset, ..)
-        | isa::Instruction::I32Store16(offset, ..) => {
+        isa::Instruction::I32Store(offset, pos_uniarg, val_uniarg)
+        | isa::Instruction::I32Store8(offset, pos_uniarg, val_uniarg)
+        | isa::Instruction::I32Store16(offset, pos_uniarg, val_uniarg) => {
             let store_size = match *instructions {
                 isa::Instruction::I32Store8(..) => MemoryStoreSize::Byte8,
                 isa::Instruction::I32Store16(..) => MemoryStoreSize::Byte16,
@@ -906,8 +906,10 @@ pub(super) fn run_instruction_pre(
                 _ => unreachable!(),
             };
 
-            let value: u32 = <_>::from_value_internal(*value_stack.pick(1));
-            let raw_address = <_>::from_value_internal(*value_stack.pick(2));
+            let values = value_from_uniargs(&[val_uniarg, pos_uniarg], value_stack);
+
+            let value: u32 = <_>::from_value_internal(values[0]);
+            let raw_address = <_>::from_value_internal(values[1]);
             let address = effective_address(offset, raw_address).ok();
 
             let pre_block_value1 = address.map(|address| {
@@ -947,10 +949,10 @@ pub(super) fn run_instruction_pre(
                 pre_block_value2,
             })
         }
-        isa::Instruction::I64Store(offset, ..)
-        | isa::Instruction::I64Store8(offset, ..)
-        | isa::Instruction::I64Store16(offset, ..)
-        | isa::Instruction::I64Store32(offset, ..) => {
+        isa::Instruction::I64Store(offset, pos_uniarg, val_uniarg)
+        | isa::Instruction::I64Store8(offset, pos_uniarg, val_uniarg)
+        | isa::Instruction::I64Store16(offset, pos_uniarg, val_uniarg)
+        | isa::Instruction::I64Store32(offset, pos_uniarg, val_uniarg) => {
             let store_size = match *instructions {
                 isa::Instruction::I64Store(..) => MemoryStoreSize::Byte64,
                 isa::Instruction::I64Store8(..) => MemoryStoreSize::Byte8,
@@ -959,8 +961,10 @@ pub(super) fn run_instruction_pre(
                 _ => unreachable!(),
             };
 
-            let value = <_>::from_value_internal(*value_stack.pick(1));
-            let raw_address = <_>::from_value_internal(*value_stack.pick(2));
+            let values = value_from_uniargs(&[val_uniarg, pos_uniarg], value_stack);
+
+            let value = <_>::from_value_internal(values[0]);
+            let raw_address = <_>::from_value_internal(values[1]);
             let address = effective_address(offset, raw_address).ok();
 
             let pre_block_value1 = address.map(|address| {
@@ -1475,13 +1479,13 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::I32Store(..)
-            | isa::Instruction::I32Store8(..)
-            | isa::Instruction::I32Store16(..)
-            | isa::Instruction::I64Store(..)
-            | isa::Instruction::I64Store8(..)
-            | isa::Instruction::I64Store16(..)
-            | isa::Instruction::I64Store32(..) => {
+            isa::Instruction::I32Store(_, pos_uniarg, val_uniarg)
+            | isa::Instruction::I32Store8(_, pos_uniarg, val_uniarg)
+            | isa::Instruction::I32Store16(_, pos_uniarg, val_uniarg)
+            | isa::Instruction::I64Store(_, pos_uniarg, val_uniarg)
+            | isa::Instruction::I64Store8(_, pos_uniarg, val_uniarg)
+            | isa::Instruction::I64Store16(_, pos_uniarg, val_uniarg)
+            | isa::Instruction::I64Store32(_, pos_uniarg, val_uniarg) => {
                 if let RunInstructionTracePre::Store {
                     offset,
                     raw_address,
@@ -1529,6 +1533,8 @@ impl TablePlugin {
                         pre_block_value2: pre_block_value2.unwrap_or(0u64),
                         updated_block_value1,
                         updated_block_value2,
+                        pos_uniarg,
+                        val_uniarg,
                     }
                 } else {
                     unreachable!()
