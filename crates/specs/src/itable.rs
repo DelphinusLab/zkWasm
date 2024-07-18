@@ -903,6 +903,7 @@ impl InstructionTable {
         for instruction in self.iter() {
             match &instruction.opcode {
                 Opcode::LocalGet { .. }
+                | Opcode::LocalTee { .. }
                 | Opcode::GlobalGet { .. }
                 | Opcode::Const { .. }
                 | Opcode::Drop => (),
@@ -916,7 +917,6 @@ impl InstructionTable {
                     set.insert(uniarg.get_const_value());
                 }
 
-                Opcode::LocalTee { vtype, offset } => todo!(),
                 Opcode::MemorySize => todo!(),
                 Opcode::MemoryGrow { uniarg } => todo!(),
                 Opcode::Select { uniargs } => todo!(),

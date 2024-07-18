@@ -15,7 +15,6 @@ use halo2_proofs::plonk::VirtualCells;
 use specs::encode::opcode::encode_local_tee;
 use specs::etable::EventTableEntry;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct LocalTeeConfig<F: FieldExt> {
@@ -81,7 +80,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig<F> {
     fn assign(
         &self,
         ctx: &mut Context<'_, F>,
-        step: &mut StepStatus<F>,
+        _step: &mut StepStatus<F>,
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
@@ -94,26 +93,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LocalTeeConfig<F> {
                 self.value_cell.assign(ctx, *value)?;
                 self.offset_cell.assign(ctx, F::from(*depth as u64))?;
 
-                self.memory_table_lookup_stack_read.assign(
-                    ctx,
-                    entry.memory_rw_entries[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entries[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *value,
-                )?;
-
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entries[1].end_eid,
-                    step.current.sp + depth,
-                    LocationType::Stack,
-                    *vtype == VarType::I32,
-                    *value,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.memory_table_lookup_stack_read
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }
