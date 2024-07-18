@@ -344,59 +344,24 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
         }
         StepInfo::Drop { .. } => vec![],
         StepInfo::Select {
-            val1,
-            val2,
+            lhs,
+            lhs_uniarg,
+            rhs,
+            rhs_uniarg,
             cond,
+            cond_uniarg,
             result,
             vtype,
-        } => {
-            let mut sp = sp_before_execution + 1;
-            let mut ops = vec![];
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *cond,
-            });
-            sp += 1;
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *val2,
-            });
-            sp += 1;
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *val1,
-            });
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Write,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *result,
-            });
-
-            ops
-        }
+        } => mem_ops_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            &[
+                (VarType::I32, *cond_uniarg, *cond as u64),
+                (*vtype, *rhs_uniarg, *rhs as u64),
+                (*vtype, *lhs_uniarg, *lhs as u64),
+            ],
+            Some((*vtype, *result as u64)),
+        ),
         StepInfo::Call { index: _ } => {
             vec![]
         }

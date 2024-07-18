@@ -52,9 +52,12 @@ pub enum StepInfo {
 
     Drop,
     Select {
-        val1: u64,
-        val2: u64,
+        lhs: u64,
+        lhs_uniarg: UniArg,
+        rhs: u64,
+        rhs_uniarg: UniArg,
         cond: u64,
+        cond_uniarg: UniArg,
         result: u64,
         vtype: VarType,
     },
