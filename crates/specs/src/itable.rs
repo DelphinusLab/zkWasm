@@ -902,7 +902,10 @@ impl InstructionTable {
 
         for instruction in self.iter() {
             match &instruction.opcode {
-                Opcode::GlobalGet { .. } | Opcode::Const { .. } | Opcode::Drop => (),
+                Opcode::LocalGet { .. }
+                | Opcode::GlobalGet { .. }
+                | Opcode::Const { .. }
+                | Opcode::Drop => (),
                 Opcode::Return { .. } => (),
 
                 Opcode::GlobalSet { uniarg, .. }
@@ -912,7 +915,6 @@ impl InstructionTable {
                     set.insert(uniarg.get_const_value());
                 }
 
-                Opcode::LocalGet { vtype, offset } => todo!(),
                 Opcode::LocalSet {
                     vtype,
                     offset,
