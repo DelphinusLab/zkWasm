@@ -767,13 +767,15 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[],
             &[event.allocated_memory_pages as u64],
         ),
-        StepInfo::MemoryGrow { grow_size, result } => mem_op_from_stack_only_step(
+        StepInfo::MemoryGrow {
+            grow_size,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I32,
-            VarType::I32,
-            &[*grow_size as u32 as u64],
-            &[*result as u32 as u64],
+            &[(VarType::I32, *uniarg, *grow_size as u32 as u64)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
 
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(

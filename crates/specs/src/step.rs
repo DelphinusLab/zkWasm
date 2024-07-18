@@ -143,6 +143,7 @@ pub enum StepInfo {
     MemoryGrow {
         grow_size: i32,
         result: i32,
+        uniarg: UniArg,
     },
 
     I32Const {

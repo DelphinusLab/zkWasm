@@ -911,6 +911,7 @@ impl InstructionTable {
 
                 Opcode::LocalSet { uniarg, .. }
                 | Opcode::GlobalSet { uniarg, .. }
+                | Opcode::MemoryGrow { uniarg }
                 | Opcode::CallIndirect { uniarg, .. }
                 | Opcode::Load { uniarg, .. }
                 | Opcode::Conversion { uniarg, .. } => {
@@ -918,7 +919,6 @@ impl InstructionTable {
                 }
 
                 Opcode::MemorySize => todo!(),
-                Opcode::MemoryGrow { uniarg } => todo!(),
                 Opcode::Select { uniargs } => todo!(),
                 Opcode::Bin { uniargs, .. }
                 | Opcode::BinShift { uniargs, .. }
