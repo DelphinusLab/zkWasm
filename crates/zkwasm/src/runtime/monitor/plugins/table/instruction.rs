@@ -205,7 +205,7 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             },
             Instruction::Drop => Opcode::Drop,
             Instruction::Select(_, lhs, rhs, cond) => Opcode::Select {
-                uniargs: [cond, rhs, lhs],
+                uniargs: [lhs, rhs, cond],
             },
             Instruction::GetGlobal(idx, ..) => Opcode::GlobalGet { idx: idx as u64 },
             Instruction::SetGlobal(idx, uniarg) => Opcode::GlobalSet {
@@ -779,8 +779,8 @@ pub(super) enum RunInstructionTracePre {
 
     Drop,
     Select {
-        val1: u64,
-        val2: u64,
+        lhs: u64,
+        rhs: u64,
         cond: u64,
     },
 }
@@ -831,11 +831,15 @@ pub(super) fn run_instruction_pre(
         }
 
         isa::Instruction::Drop => Some(RunInstructionTracePre::Drop),
-        isa::Instruction::Select(vtype, ..) => Some(RunInstructionTracePre::Select {
-            cond: from_value_internal_to_u64_with_typ(VarType::I32, *value_stack.pick(1)),
-            val2: from_value_internal_to_u64_with_typ(vtype.into(), *value_stack.pick(2)),
-            val1: from_value_internal_to_u64_with_typ(vtype.into(), *value_stack.pick(3)),
-        }),
+        isa::Instruction::Select(vtype, lhs, rhs, cond) => {
+            let values = value_from_uniargs(&[cond, rhs, lhs], value_stack);
+
+            Some(RunInstructionTracePre::Select {
+                cond: from_value_internal_to_u64_with_typ(VarType::I32, values[0]),
+                rhs: from_value_internal_to_u64_with_typ(vtype.into(), values[1]),
+                lhs: from_value_internal_to_u64_with_typ(vtype.into(), values[2]),
+            })
+        }
 
         isa::Instruction::I32Load(offset, uniarg)
         | isa::Instruction::I32Load8S(offset, uniarg)
@@ -1308,13 +1312,15 @@ impl TablePlugin {
                     unreachable!()
                 }
             }
-            isa::Instruction::Select(vtype, ..) => {
-                if let RunInstructionTracePre::Select { val1, val2, cond } = current_event.unwrap()
-                {
+            isa::Instruction::Select(vtype, lhs_uniarg, rhs_uniarg, cond_uniarg) => {
+                if let RunInstructionTracePre::Select { lhs, rhs, cond } = current_event.unwrap() {
                     StepInfo::Select {
-                        val1,
-                        val2,
+                        lhs,
+                        lhs_uniarg,
+                        rhs,
+                        rhs_uniarg,
                         cond,
+                        cond_uniarg,
                         result: from_value_internal_to_u64_with_typ(
                             vtype.into(),
                             *value_stack.top(),

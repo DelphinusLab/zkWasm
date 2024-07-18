@@ -937,11 +937,14 @@ impl InstructionTable {
                     set.insert(uniarg.get_const_value());
                 }
 
-                Opcode::Select { uniargs } => todo!(),
                 Opcode::Bin { uniargs, .. }
                 | Opcode::BinShift { uniargs, .. }
                 | Opcode::BinBit { uniargs, .. }
                 | Opcode::Rel { uniargs, .. } => uniargs.iter().for_each(|x| {
+                    set.insert(x.get_const_value());
+                }),
+
+                Opcode::Select { uniargs } => uniargs.iter().for_each(|x| {
                     set.insert(x.get_const_value());
                 }),
 

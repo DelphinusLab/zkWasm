@@ -111,26 +111,26 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::Select { cond, result, .. } => {
+            StepInfo::Select {
+                cond,
+                result,
+                lhs_uniarg,
+                rhs_uniarg,
+                cond_uniarg,
+                ..
+            } => {
                 if *cond != 0 {
                     self.cond_inv.assign(ctx, step.field_helper.invert(*cond))?;
                 }
                 self.res.assign(ctx, F::from(*result))?;
 
-                if let specs::itable::Opcode::Select { uniargs, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entries.iter();
-
-                    self.cond_arg
-                        .assign(ctx, &uniargs[0], &mut memory_entries)?;
-                    self.rhs_arg.assign(ctx, &uniargs[1], &mut memory_entries)?;
-                    self.lhs_arg.assign(ctx, &uniargs[2], &mut memory_entries)?;
-                    self.memory_table_lookup_stack_write
-                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.cond_arg
+                    .assign(ctx, &cond_uniarg, &mut memory_entries)?;
+                self.rhs_arg.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
+                self.lhs_arg.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }
