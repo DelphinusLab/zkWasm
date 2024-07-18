@@ -1151,7 +1151,7 @@ impl TablePlugin {
                 value: from_value_internal_to_u64_with_typ(vtype.into(), *value_stack.top()),
                 vtype: vtype.into(),
             },
-            isa::Instruction::SetLocal(..) => {
+            isa::Instruction::SetLocal(_, _, uniarg) => {
                 if let RunInstructionTracePre::SetLocal {
                     depth,
                     value,
@@ -1162,6 +1162,7 @@ impl TablePlugin {
                         depth,
                         value: from_value_internal_to_u64_with_typ(vtype.into(), value),
                         vtype: vtype.into(),
+                        uniarg,
                     }
                 } else {
                     unreachable!()

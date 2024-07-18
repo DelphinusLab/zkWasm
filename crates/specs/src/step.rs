@@ -93,6 +93,7 @@ pub enum StepInfo {
         vtype: VarType,
         depth: u32,
         value: u64,
+        uniarg: UniArg,
     },
     TeeLocal {
         vtype: VarType,
