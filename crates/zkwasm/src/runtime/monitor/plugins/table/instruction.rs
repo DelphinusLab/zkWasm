@@ -286,49 +286,49 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
                 size: MemoryReadSize::U32,
                 uniarg,
             },
-            Instruction::I32Store(offset, arg0, arg1) => Opcode::Store {
+            Instruction::I32Store(offset, val, pos) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte32,
-                uniargs: [arg0, arg1],
+                uniargs: [val, pos],
             },
-            Instruction::I64Store(offset, arg0, arg1) => Opcode::Store {
+            Instruction::I64Store(offset, val, pos) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte64,
-                uniargs: [arg0, arg1],
+                uniargs: [val, pos],
             },
             Instruction::F32Store(_) => todo!(),
             Instruction::F64Store(_) => todo!(),
-            Instruction::I32Store8(offset, arg0, arg1) => Opcode::Store {
+            Instruction::I32Store8(offset, val, pos) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte8,
-                uniargs: [arg0, arg1],
+                uniargs: [val, pos],
             },
-            Instruction::I32Store16(offset, arg0, arg1) => Opcode::Store {
+            Instruction::I32Store16(offset, val, pos) => Opcode::Store {
                 offset,
                 vtype: VarType::I32,
                 size: MemoryStoreSize::Byte16,
-                uniargs: [arg0, arg1],
+                uniargs: [val, pos],
             },
-            Instruction::I64Store8(offset, arg0, arg1) => Opcode::Store {
+            Instruction::I64Store8(offset, val, pos) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte8,
-                uniargs: [arg0, arg1],
+                uniargs: [val, pos],
             },
-            Instruction::I64Store16(offset, arg0, arg1) => Opcode::Store {
+            Instruction::I64Store16(offset, val, pos) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte16,
-                uniargs: [arg0, arg1],
+                uniargs: [val, pos],
             },
-            Instruction::I64Store32(offset, arg0, arg1) => Opcode::Store {
+            Instruction::I64Store32(offset, val, pos) => Opcode::Store {
                 offset,
                 vtype: VarType::I64,
                 size: MemoryStoreSize::Byte32,
-                uniargs: [arg0, arg1],
+                uniargs: [val, pos],
             },
             Instruction::CurrentMemory => Opcode::MemorySize,
             Instruction::GrowMemory(uniarg) => Opcode::MemoryGrow { uniarg },

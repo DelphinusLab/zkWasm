@@ -626,8 +626,8 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 sp_before_execution,
                 eid,
                 &[
-                    (*vtype, *val_uniarg, *value),
                     (VarType::I32, *pos_uniarg, *raw_address as u64),
+                    (*vtype, *val_uniarg, *value),
                 ],
                 None,
             );
