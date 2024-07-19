@@ -189,6 +189,7 @@ pub enum StepInfo {
         vtype: VarType,
         value: u64,
         result: i32,
+        uniarg: UniArg,
     },
 
     I32WrapI64 {

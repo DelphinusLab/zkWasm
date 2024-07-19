@@ -794,13 +794,12 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             vtype,
             value,
             result,
-        } => mem_op_from_stack_only_step(
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            *vtype,
-            VarType::I32,
-            &[*value],
-            &[*result as u32 as u64],
+            &[(*vtype, *uniarg, *value)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
 
         StepInfo::I32WrapI64 {

@@ -931,6 +931,7 @@ impl InstructionTable {
                 Opcode::LocalSet { uniarg, .. }
                 | Opcode::GlobalSet { uniarg, .. }
                 | Opcode::MemoryGrow { uniarg }
+                | Opcode::Test { uniarg, .. }
                 | Opcode::CallIndirect { uniarg, .. }
                 | Opcode::Load { uniarg, .. }
                 | Opcode::Conversion { uniarg, .. } => {
@@ -954,11 +955,7 @@ impl InstructionTable {
                     vtype,
                     uniarg,
                 } => todo!(),
-                Opcode::Test {
-                    class,
-                    vtype,
-                    uniarg,
-                } => todo!(),
+
                 Opcode::Br { drop, keep, dst_pc } => todo!(),
                 Opcode::BrIf {
                     drop,
