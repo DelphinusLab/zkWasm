@@ -29,6 +29,7 @@ pub enum StepInfo {
         drop: u32,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
+        uniarg: UniArg,
     },
     BrIfNez {
         condition: i32,
@@ -36,6 +37,7 @@ pub enum StepInfo {
         drop: u32,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
+        uniarg: UniArg,
     },
     BrTable {
         index: i32,
@@ -43,6 +45,7 @@ pub enum StepInfo {
         drop: u32,
         keep: Vec<ValueType>,
         keep_values: Vec<u64>,
+        uniarg: UniArg,
     },
     Return {
         drop: u32,

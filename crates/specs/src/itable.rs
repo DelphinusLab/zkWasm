@@ -926,13 +926,21 @@ impl InstructionTable {
                 | Opcode::MemorySize
                 | Opcode::Const { .. }
                 | Opcode::Drop
-                | Opcode::Return { .. } => (),
+                | Opcode::Return { .. }
+                | Opcode::Br { .. }
+                | Opcode::Unreachable
+                | Opcode::Call { .. }
+                | Opcode::InternalHostCall { .. }
+                | Opcode::ExternalHostCall { .. } => (),
 
                 Opcode::LocalSet { uniarg, .. }
                 | Opcode::GlobalSet { uniarg, .. }
                 | Opcode::MemoryGrow { uniarg }
                 | Opcode::Unary { uniarg, .. }
                 | Opcode::Test { uniarg, .. }
+                | Opcode::BrIf { uniarg, .. }
+                | Opcode::BrIfEqz { uniarg, .. }
+                | Opcode::BrTable { uniarg, .. }
                 | Opcode::CallIndirect { uniarg, .. }
                 | Opcode::Load { uniarg, .. }
                 | Opcode::Conversion { uniarg, .. } => {
@@ -950,30 +958,6 @@ impl InstructionTable {
                 Opcode::Select { uniargs } => uniargs.iter().for_each(|x| {
                     set.insert(x.get_const_value());
                 }),
-
-                Opcode::Br { drop, keep, dst_pc } => todo!(),
-                Opcode::BrIf {
-                    drop,
-                    keep,
-                    dst_pc,
-                    uniarg,
-                } => todo!(),
-                Opcode::BrIfEqz {
-                    drop,
-                    keep,
-                    dst_pc,
-                    uniarg,
-                } => todo!(),
-                Opcode::BrTable { targets, uniarg } => todo!(),
-                Opcode::Unreachable => todo!(),
-                Opcode::Call { index } => todo!(),
-                Opcode::InternalHostCall {
-                    plugin,
-                    function_index,
-                    function_name,
-                    op_index_in_plugin,
-                } => todo!(),
-                Opcode::ExternalHostCall { op, sig } => todo!(),
             }
         }
 
