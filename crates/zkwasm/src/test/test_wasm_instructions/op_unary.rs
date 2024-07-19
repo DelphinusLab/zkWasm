@@ -1,10 +1,10 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
-fn test_ctz() {
+fn test_unary() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 0x00100000)
                 (i32.ctz)
                 (drop)
@@ -36,18 +36,7 @@ fn test_ctz() {
                 (i64.const 0x0000000000000000)
                 (i64.ctz)
                 (drop)
-            )
-        )
-        "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
-}
-
-#[test]
-fn test_clz() {
-    let textual_repr = r#"
-        (module
-            (func (export "test")
                 (i32.const 0x00000001)
                 (i32.clz)
                 (drop)
@@ -79,18 +68,7 @@ fn test_clz() {
                 (i64.const 0xffffffffffffffff)
                 (i64.clz)
                 (drop)
-            )
-        )
-        "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
-}
-
-#[test]
-fn test_popcnt() {
-    let textual_repr = r#"
-            (module
-                (func (export "test")
                   (i32.const 0x00000000)
                   (i32.popcnt)
                   (drop)
@@ -106,9 +84,9 @@ fn test_popcnt() {
                   (i64.const 0xffffffffffffffff)
                   (i64.popcnt)
                   (drop)
-                )
-               )
-            "#;
+            )
+        )
+        "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

@@ -1086,16 +1086,22 @@ pub(super) fn run_instruction_pre(
             })
         }
 
-        isa::Instruction::I32Ctz(..)
-        | isa::Instruction::I32Clz(..)
-        | isa::Instruction::I32Popcnt(..) => Some(RunInstructionTracePre::UnaryOp {
-            operand: from_value_internal_to_u64_with_typ(VarType::I32, *value_stack.pick(1)),
+        isa::Instruction::I32Ctz(uniarg)
+        | isa::Instruction::I32Clz(uniarg)
+        | isa::Instruction::I32Popcnt(uniarg) => Some(RunInstructionTracePre::UnaryOp {
+            operand: from_value_internal_to_u64_with_typ(
+                VarType::I32,
+                value_from_uniargs(&[uniarg], value_stack)[0],
+            ),
             vtype: VarType::I32,
         }),
-        isa::Instruction::I64Ctz(..)
-        | isa::Instruction::I64Clz(..)
-        | isa::Instruction::I64Popcnt(..) => Some(RunInstructionTracePre::UnaryOp {
-            operand: from_value_internal_to_u64_with_typ(VarType::I64, *value_stack.pick(1)),
+        isa::Instruction::I64Ctz(uniarg)
+        | isa::Instruction::I64Clz(uniarg)
+        | isa::Instruction::I64Popcnt(uniarg) => Some(RunInstructionTracePre::UnaryOp {
+            operand: from_value_internal_to_u64_with_typ(
+                VarType::I64,
+                value_from_uniargs(&[uniarg], value_stack)[0],
+            ),
             vtype: VarType::I64,
         }),
 
@@ -1668,18 +1674,19 @@ impl TablePlugin {
                 }
             }
 
-            isa::Instruction::I32Ctz(..)
-            | isa::Instruction::I32Clz(..)
-            | isa::Instruction::I32Popcnt(..)
-            | isa::Instruction::I64Ctz(..)
-            | isa::Instruction::I64Clz(..)
-            | isa::Instruction::I64Popcnt(..) => {
+            isa::Instruction::I32Ctz(uniarg)
+            | isa::Instruction::I32Clz(uniarg)
+            | isa::Instruction::I32Popcnt(uniarg)
+            | isa::Instruction::I64Ctz(uniarg)
+            | isa::Instruction::I64Clz(uniarg)
+            | isa::Instruction::I64Popcnt(uniarg) => {
                 if let RunInstructionTracePre::UnaryOp { operand, vtype } = current_event.unwrap() {
                     StepInfo::UnaryOp {
                         class: UnaryOp::from(instruction),
                         vtype,
                         operand,
                         result: from_value_internal_to_u64_with_typ(vtype, *value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
