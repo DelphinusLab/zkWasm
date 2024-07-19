@@ -183,6 +183,7 @@ pub enum StepInfo {
         vtype: VarType,
         operand: u64,
         result: u64,
+        uniarg: UniArg,
     },
 
     Test {

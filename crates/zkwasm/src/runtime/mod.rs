@@ -780,14 +780,13 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             vtype,
             operand,
             result,
+            uniarg,
             ..
-        } => mem_op_from_stack_only_step(
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            *vtype,
-            *vtype,
-            &[*operand],
-            &[*result],
+            &[(*vtype, *uniarg, *operand)],
+            Some((*vtype, *result)),
         ),
 
         StepInfo::Test {
