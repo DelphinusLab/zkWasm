@@ -471,6 +471,7 @@ pub enum Opcode {
         offset: u32,
         vtype: VarType,
         size: MemoryStoreSize,
+        // uniargs[0]: val, uniargs[1]: pos
         uniargs: [UniArg; 2],
     },
     Conversion {
