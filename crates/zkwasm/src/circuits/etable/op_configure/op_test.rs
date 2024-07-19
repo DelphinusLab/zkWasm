@@ -94,32 +94,22 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::Test { value, result, .. } => {
+            StepInfo::Test {
+                value,
+                result,
+                uniarg,
+                ..
+            } => {
                 if *value != 0 {
                     self.value_inv_cell
                         .assign(ctx, step.field_helper.invert(*value))?;
                 }
                 self.res_cell.assign_u32(ctx, *result as u32)?;
 
-                if let specs::itable::Opcode::Test { uniarg, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entries.iter();
-
-                    self.operand_arg.assign(ctx, &uniarg, &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
-
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entries[1].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    *result as u32 as u64,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.operand_arg.assign(ctx, &uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }

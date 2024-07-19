@@ -1013,11 +1013,11 @@ pub(super) fn run_instruction_pre(
         isa::Instruction::I32Const(_) => None,
         isa::Instruction::I64Const(_) => None,
 
-        isa::Instruction::I32Eqz(_) => Some(RunInstructionTracePre::I32Single(
-            <_>::from_value_internal(*value_stack.pick(1)),
+        isa::Instruction::I32Eqz(uniarg) => Some(RunInstructionTracePre::I32Single(
+            <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
         )),
-        isa::Instruction::I64Eqz(_) => Some(RunInstructionTracePre::I64Single(
-            <_>::from_value_internal(*value_stack.pick(1)),
+        isa::Instruction::I64Eqz(uniarg) => Some(RunInstructionTracePre::I64Single(
+            <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
         )),
 
         isa::Instruction::I32Eq(lhs, rhs)
@@ -1557,24 +1557,26 @@ impl TablePlugin {
             isa::Instruction::I32Const(value) => StepInfo::I32Const { value },
             isa::Instruction::I64Const(value) => StepInfo::I64Const { value },
 
-            isa::Instruction::I32Eqz(..) => {
+            isa::Instruction::I32Eqz(uniarg) => {
                 if let RunInstructionTracePre::I32Single(value) = current_event.unwrap() {
                     StepInfo::Test {
                         vtype: VarType::I32,
                         value: value as u32 as u64,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
 
-            isa::Instruction::I64Eqz(..) => {
+            isa::Instruction::I64Eqz(uniarg) => {
                 if let RunInstructionTracePre::I64Single(value) = current_event.unwrap() {
                     StepInfo::Test {
                         vtype: VarType::I64,
                         value: value as u64,
                         result: <_>::from_value_internal(*value_stack.top()),
+                        uniarg,
                     }
                 } else {
                     unreachable!()
