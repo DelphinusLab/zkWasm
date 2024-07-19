@@ -141,23 +141,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                 dst_pc,
                 drop,
                 keep,
-                keep_values,
+                uniarg,
+                ..
             } => {
                 assert!(keep.len() <= 1);
 
                 let cond = *condition as u32 as u64;
 
-                if let specs::itable::Opcode::BrIfEqz { uniarg, .. } =
-                    entry.eentry.get_instruction(step.current.itable).opcode
-                {
-                    let mut memory_entries = entry.memory_rw_entries.iter();
-
-                    self.cond_arg.assign(ctx, &uniarg, &mut memory_entries)?;
-                } else {
-                    unreachable!();
-                }
-
-                self.drop_cell.assign(ctx, F::from(*drop as u64))?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.cond_arg.assign(ctx, &uniarg, &mut memory_entries)?;
 
                 if !keep.is_empty() {
                     let keep_type: VarType = keep[0].into();
@@ -165,26 +157,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                     self.keep_cell.assign(ctx, F::one())?;
                     self.is_i32_cell.assign(ctx, F::from(keep_type as u64))?;
                     if *condition == 0 {
-                        self.memory_table_lookup_stack_read_return_value.assign(
-                            ctx,
-                            entry.memory_rw_entries[1].start_eid,
-                            step.current.eid,
-                            entry.memory_rw_entries[1].end_eid,
-                            step.current.sp + 2,
-                            LocationType::Stack,
-                            VarType::from(keep[0]) == VarType::I32,
-                            keep_values[0],
-                        )?;
-
-                        self.memory_table_lookup_stack_write_return_value.assign(
-                            ctx,
-                            step.current.eid,
-                            entry.memory_rw_entries[2].end_eid,
-                            step.current.sp + *drop + 2,
-                            LocationType::Stack,
-                            VarType::from(keep[0]) == VarType::I32,
-                            keep_values[0],
-                        )?;
+                        self.memory_table_lookup_stack_read_return_value
+                            .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                        self.memory_table_lookup_stack_write_return_value
+                            .assign_with_memory_entry(ctx, &mut memory_entries)?;
                     }
                 }
 
@@ -192,6 +168,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BrIfEqzConfig<F> {
                     self.cond_inv_cell
                         .assign(ctx, step.field_helper.invert(cond))?;
                 }
+                self.drop_cell.assign(ctx, F::from(*drop as u64))?;
                 self.cond_is_zero_cell
                     .assign(ctx, if cond == 0 { F::one() } else { F::zero() })?;
                 self.cond_is_not_zero_cell

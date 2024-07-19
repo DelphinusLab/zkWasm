@@ -792,11 +792,11 @@ pub(super) fn run_instruction_pre(
 ) -> Option<RunInstructionTracePre> {
     match *instructions {
         isa::Instruction::GetLocal(..) => None,
-        isa::Instruction::SetLocal(depth, vtype, ..) => {
-            let value = value_stack.top();
+        isa::Instruction::SetLocal(depth, vtype, uniarg) => {
+            let value = value_from_uniargs(&[uniarg], value_stack)[0];
             Some(RunInstructionTracePre::SetLocal {
                 depth,
-                value: *value,
+                value,
                 vtype,
             })
         }
@@ -805,14 +805,14 @@ pub(super) fn run_instruction_pre(
         isa::Instruction::SetGlobal(..) => Some(RunInstructionTracePre::SetGlobal),
 
         isa::Instruction::Br(_) => None,
-        isa::Instruction::BrIfEqz(..) => Some(RunInstructionTracePre::BrIfEqz {
-            value: <_>::from_value_internal(*value_stack.top()),
+        isa::Instruction::BrIfEqz(_, uniarg) => Some(RunInstructionTracePre::BrIfEqz {
+            value: <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
         }),
-        isa::Instruction::BrIfNez(..) => Some(RunInstructionTracePre::BrIfNez {
-            value: <_>::from_value_internal(*value_stack.top()),
+        isa::Instruction::BrIfNez(_, uniarg) => Some(RunInstructionTracePre::BrIfNez {
+            value: <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
         }),
-        isa::Instruction::BrTable(..) => Some(RunInstructionTracePre::BrTable {
-            index: <_>::from_value_internal(*value_stack.top()),
+        isa::Instruction::BrTable(_, uniarg) => Some(RunInstructionTracePre::BrTable {
+            index: <_>::from_value_internal(value_from_uniargs(&[uniarg], value_stack)[0]),
         }),
 
         isa::Instruction::Unreachable => None,
@@ -1221,7 +1221,7 @@ impl TablePlugin {
                     Keep::None => vec![],
                 },
             },
-            isa::Instruction::BrIfEqz(target, ..) => {
+            isa::Instruction::BrIfEqz(target, uniarg) => {
                 if let RunInstructionTracePre::BrIfEqz { value } = current_event.unwrap() {
                     StepInfo::BrIfEqz {
                         condition: value,
@@ -1239,12 +1239,13 @@ impl TablePlugin {
                             )],
                             Keep::None => vec![],
                         },
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::BrIfNez(target, ..) => {
+            isa::Instruction::BrIfNez(target, uniarg) => {
                 if let RunInstructionTracePre::BrIfNez { value } = current_event.unwrap() {
                     StepInfo::BrIfNez {
                         condition: value,
@@ -1262,12 +1263,13 @@ impl TablePlugin {
                             )],
                             Keep::None => vec![],
                         },
+                        uniarg,
                     }
                 } else {
                     unreachable!()
                 }
             }
-            isa::Instruction::BrTable(targets, ..) => {
+            isa::Instruction::BrTable(targets, uniarg) => {
                 if let RunInstructionTracePre::BrTable { index } = current_event.unwrap() {
                     StepInfo::BrTable {
                         index,
@@ -1285,6 +1287,7 @@ impl TablePlugin {
                             )],
                             Keep::None => vec![],
                         },
+                        uniarg,
                     }
                 } else {
                     unreachable!()
