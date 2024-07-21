@@ -4,7 +4,8 @@ use serde::Serialize;
 // A wasm page size is 64KB
 pub const WASM_BYTES_PER_PAGE: u64 = 64 * 1024_u64;
 
-const WASM_32_MAXIMAL_PAGES_DEFAULT: u32 = 65536;
+// Limit page size in u16 range
+pub const WASM_32_MAXIMAL_PAGES_DEFAULT: u32 = 65535;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct ConfigureTable {
