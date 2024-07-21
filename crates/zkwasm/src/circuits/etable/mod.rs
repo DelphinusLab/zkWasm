@@ -77,8 +77,12 @@ pub(crate) mod constraint_builder;
 
 #[cfg(feature = "continuation")]
 type AllocatedU32StateCell<F> = AllocatedU32PermutationCell<F>;
+#[cfg(feature = "continuation")]
+type AllocatedStateCell<F> = AllocatedU32Cell<F>;
 #[cfg(not(feature = "continuation"))]
 type AllocatedU32StateCell<F> = AllocatedCommonRangeCell<F>;
+#[cfg(not(feature = "continuation"))]
+type AllocatedStateCell<F> = AllocatedCommonRangeCell<F>;
 
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
 pub(crate) const OP_CAPABILITY: usize = 32;
@@ -198,13 +202,13 @@ pub struct EventTableCommonConfig<F: FieldExt> {
     pub(crate) context_input_index_cell: AllocatedCommonRangeCell<F>,
     pub(crate) context_output_index_cell: AllocatedCommonRangeCell<F>,
     external_host_call_index_cell: AllocatedCommonRangeCell<F>,
-    pub(crate) sp_cell: AllocatedCommonRangeCell<F>,
-    mpages_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) sp_cell: AllocatedU16Cell<F>,
+    mpages_cell: AllocatedU16Cell<F>,
     frame_id_cell: AllocatedU32StateCell<F>,
     pub(crate) eid_cell: AllocatedU32StateCell<F>,
-    fid_cell: AllocatedCommonRangeCell<F>,
-    iid_cell: AllocatedCommonRangeCell<F>,
-    maximal_memory_pages_cell: AllocatedCommonRangeCell<F>,
+    fid_cell: AllocatedU16Cell<F>,
+    iid_cell: AllocatedU16Cell<F>,
+    maximal_memory_pages_cell: AllocatedU16Cell<F>,
 
     itable_lookup_cell: AllocatedUnlimitedCell<F>,
     brtable_lookup_cell: AllocatedUnlimitedCell<F>,
@@ -282,7 +286,7 @@ pub(in crate::circuits::etable) trait EventTableOpcodeConfigBuilder<F: FieldExt>
     ) -> Box<dyn EventTableOpcodeConfig<F>>;
 
     fn sp_after_uniarg(
-        sp_cell: AllocatedCommonRangeCell<F>,
+        sp_cell: AllocatedU16Cell<F>,
         uniarg_configs: &[EventTableCommonArgsConfig<F>],
         meta: &mut VirtualCells<'_, F>,
     ) -> Expression<F> {
@@ -445,13 +449,13 @@ impl<F: FieldExt> EventTableConfig<F> {
         let context_input_index_cell = allocator.alloc_common_range_cell();
         let context_output_index_cell = allocator.alloc_common_range_cell();
         let external_host_call_index_cell = allocator.alloc_common_range_cell();
-        let sp_cell = allocator.alloc_common_range_cell(); // TODO: u16
-        let mpages_cell = allocator.alloc_common_range_cell(); // TODO: u16
+        let sp_cell = allocator.alloc_u16_cell();
+        let mpages_cell = allocator.alloc_u16_cell();
         let frame_id_cell = allocator.alloc_u32_state_cell();
         let eid_cell = allocator.alloc_u32_state_cell();
-        let fid_cell = allocator.alloc_common_range_cell(); // TODO: u16
-        let iid_cell = allocator.alloc_common_range_cell(); // TODO: u16
-        let maximal_memory_pages_cell = allocator.alloc_common_range_cell(); // TODO: u16
+        let fid_cell = allocator.alloc_u16_cell();
+        let iid_cell = allocator.alloc_u16_cell();
+        let maximal_memory_pages_cell = allocator.alloc_u16_cell();
 
         // We only need to enable equality for the cells of states
         let used_common_range_cells_for_state = allocator
@@ -473,6 +477,13 @@ impl<F: FieldExt> EventTableConfig<F> {
             meta,
             &EventTableCellType::Unlimited,
             used_unlimited_cells_for_state.0 + (used_unlimited_cells_for_state.1 != 0) as usize,
+        );
+
+        let used_u16_cells_for_state = allocator.free_cells.get(&EventTableCellType::U16).unwrap();
+        allocator.enable_equality(
+            meta,
+            &EventTableCellType::U16,
+            used_u16_cells_for_state.0 + (used_u16_cells_for_state.1 != 0) as usize,
         );
 
         let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
@@ -529,8 +540,8 @@ impl<F: FieldExt> EventTableConfig<F> {
                 end_eid_cell: cells[1],
                 encode_cell: cells[2],
                 value_cell: cells[3],
-                start_eid_diff_cell: allocator.alloc_u32_state_cell(),
-                end_eid_diff_cell: allocator.alloc_u32_state_cell(),
+                start_eid_diff_cell: allocator.alloc_state_cell(),
+                end_eid_diff_cell: allocator.alloc_state_cell(),
             };
 
             meta.create_gate("c_arg.1. memory read", |meta| {

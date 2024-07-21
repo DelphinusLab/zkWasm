@@ -1,3 +1,4 @@
+use super::AllocatedStateCell;
 use super::AllocatedU32StateCell;
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::bit_table::BitTableOp;
@@ -72,8 +73,8 @@ pub(crate) struct AllocatedMemoryTableLookupReadCell<F: FieldExt> {
     pub(crate) encode_cell: AllocatedUnlimitedCell<F>,
     pub(crate) start_eid_cell: AllocatedUnlimitedCell<F>,
     pub(crate) end_eid_cell: AllocatedUnlimitedCell<F>,
-    pub(crate) start_eid_diff_cell: AllocatedU32StateCell<F>,
-    pub(crate) end_eid_diff_cell: AllocatedU32StateCell<F>,
+    pub(crate) start_eid_diff_cell: AllocatedStateCell<F>,
+    pub(crate) end_eid_diff_cell: AllocatedStateCell<F>,
     pub(crate) value_cell: AllocatedUnlimitedCell<F>,
 }
 
@@ -199,18 +200,18 @@ pub(crate) enum EventTableCellType {
 
 const BIT_COLUMNS: usize = 15;
 const U8_COLUMNS: usize = 1;
-const U32_CELLS: usize = 2;
-const U32_PERMUTATION_CELLS: usize = if cfg!(feature = "continuation") {
+const U32_CELLS: usize = if cfg!(feature = "continuation") {
     10
 } else {
-    0
+    2
 };
+const U32_PERMUTATION_CELLS: usize = if cfg!(feature = "continuation") { 2 } else { 0 };
 const U64_CELLS: usize = 5;
 const U16_COLUMNS: usize =
-    U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2) + 1;
-const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 4 } else { 6 };
+    U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2) + 2;
+const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 3 } else { 5 };
 const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
-    12
+    10
 } else {
     9
 };
@@ -579,6 +580,16 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
+    pub(crate) fn alloc_state_cell(&mut self) -> AllocatedStateCell<F> {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "continuation")] {
+                self.alloc_u32_cell()
+            } else {
+                self.alloc_common_range_cell()
+            }
+        }
+    }
+
     pub(crate) fn alloc_u32_state_cell(&mut self) -> AllocatedU32StateCell<F> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "continuation")] {
@@ -635,8 +646,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             end_eid_cell: cells[1],
             encode_cell: cells[2],
             value_cell: cells[3],
-            start_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
-            end_eid_diff_cell: self.alloc_u32_state_cell(),   // TODO: u32
+            start_eid_diff_cell: self.alloc_state_cell(),
+            end_eid_diff_cell: self.alloc_state_cell(),
         };
 
         constraint_builder.constraints.push((
@@ -725,8 +736,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             end_eid_cell: cells[1],
             encode_cell: cells[2],
             value_cell: cells[3],
-            start_eid_diff_cell: self.alloc_u32_state_cell(), // TODO: u32
-            end_eid_diff_cell: self.alloc_u32_state_cell(),   // TODO: u32
+            start_eid_diff_cell: self.alloc_state_cell(),
+            end_eid_diff_cell: self.alloc_state_cell(),
         };
 
         constraint_builder.constraints.push((

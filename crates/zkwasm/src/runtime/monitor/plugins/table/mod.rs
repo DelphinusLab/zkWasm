@@ -6,6 +6,7 @@ use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
+use specs::configure_table::WASM_32_MAXIMAL_PAGES_DEFAULT;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
@@ -456,7 +457,9 @@ impl Monitor for TablePlugin {
             const ENTRIES: u32 = 8192;
 
             let init_memory_pages = memory_ref.initial().0 as u32;
-            let maximal_memory_pages = memory_ref.maximum().map_or(65536, |max| max.0 as u32);
+            let maximal_memory_pages = memory_ref
+                .maximum()
+                .map_or(WASM_32_MAXIMAL_PAGES_DEFAULT, |max| max.0 as u32);
 
             self.configure_table = ConfigureTable {
                 init_memory_pages,
