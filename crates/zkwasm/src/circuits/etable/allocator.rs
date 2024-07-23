@@ -198,6 +198,11 @@ pub(crate) enum EventTableCellType {
     ITableLookup,
 }
 
+const U16_PERMUTATION_CELLS: usize = 5;
+const COMMON_RANGE_PERMUTATION_CELLS: usize = 5;
+const UNLIMITED_PERMUTATION_CELLS: usize = 2;
+const U32_OR_COMMON_RANGE_PERMUTATION_CELLS: usize = 2;
+
 const BIT_COLUMNS: usize = 15;
 const U8_COLUMNS: usize = 1;
 const U32_CELLS: usize = if cfg!(feature = "continuation") {
@@ -247,7 +252,6 @@ impl<F: FieldExt> AllocatedBitTableLookupCells<F> {
 pub(crate) struct AllocatorFreeCellsProfiler {
     free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     free_u32_cells: usize,
-    free_u32_permutation_cells: usize,
     free_u64_cells: usize,
 }
 
@@ -256,7 +260,6 @@ impl AllocatorFreeCellsProfiler {
         Self {
             free_cells: allocator.free_cells.clone(),
             free_u32_cells: allocator.free_u32_cells.len(),
-            free_u32_permutation_cells: allocator.free_u32_permutation_cells.len(),
             free_u64_cells: allocator.free_u64_cells.len(),
         }
     }
@@ -276,10 +279,6 @@ impl AllocatorFreeCellsProfiler {
         }
 
         self.free_u32_cells = usize::min(self.free_u32_cells, allocator.free_u32_cells.len());
-        self.free_u32_permutation_cells = usize::min(
-            self.free_u32_permutation_cells,
-            allocator.free_u32_permutation_cells.len(),
-        );
         self.free_u64_cells = usize::min(self.free_u64_cells, allocator.free_u64_cells.len());
     }
 
@@ -295,15 +294,12 @@ impl AllocatorFreeCellsProfiler {
             );
         }
 
+        assert!(allocator.reserved_permutation_cells.is_empty());
+
         assert!(
             self.free_u32_cells == 0,
             "unused u32 cells should be removed: {:?}.",
             self.free_u32_cells
-        );
-        assert!(
-            self.free_u32_permutation_cells == 0,
-            "unused u32 permutation cells should be removed: {:?}.",
-            self.free_u32_permutation_cells
         );
         assert!(
             self.free_u64_cells == 0,
@@ -313,36 +309,41 @@ impl AllocatorFreeCellsProfiler {
     }
 }
 
+#[derive(Default, Debug, Clone)]
+struct ReservedPermutationCells<F: FieldExt> {
+    u16_cells: Vec<AllocatedU16Cell<F>>,
+    u32_or_common_range_cells: Vec<AllocatedU32StateCell<F>>,
+    common_range_cells: Vec<AllocatedCommonRangeCell<F>>,
+    unlimited_cells: Vec<AllocatedUnlimitedCell<F>>,
+}
+
+impl<F: FieldExt> ReservedPermutationCells<F> {
+    fn is_empty(&self) -> bool {
+        self.u16_cells.is_empty()
+            && self.u32_or_common_range_cells.is_empty()
+            && self.common_range_cells.is_empty()
+            && self.unlimited_cells.is_empty()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct EventTableCellAllocator<F: FieldExt> {
     pub(crate) free_cells: BTreeMap<EventTableCellType, (usize, u32)>,
     all_cols: BTreeMap<EventTableCellType, Vec<Vec<Column<Advice>>>>,
+    reserved_permutation_cells: ReservedPermutationCells<F>,
     free_u32_cells: Vec<AllocatedU32Cell<F>>,
-    free_u32_permutation_cells: Vec<AllocatedU32PermutationCell<F>>,
     free_u64_cells: Vec<AllocatedU64Cell<F>>,
     _mark: PhantomData<F>,
 }
 
 impl<F: FieldExt> EventTableCellAllocator<F> {
-    pub fn enable_equality(
-        &mut self,
-        meta: &mut ConstraintSystem<F>,
-        t: &EventTableCellType,
-        count: usize,
-    ) {
-        for c in self.all_cols.get(t).unwrap().iter().take(count) {
-            for c in c {
-                meta.enable_equality(*c);
-            }
-        }
-    }
-
     pub(super) fn prepare_alloc_u32_cell(&mut self) -> AllocatedU32Cell<F> {
         let u16_cells_le = [0; 2].map(|_| self.alloc_u16_cell());
 
         AllocatedU32Cell { u16_cells_le }
     }
 
+    #[allow(dead_code)]
     pub(super) fn prepare_alloc_u32_permutation_cell(
         &mut self,
         meta: &mut ConstraintSystem<F>,
@@ -407,15 +408,57 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             itable,
             cols,
         );
+
+        // Reserve permutation cells to make sure they are closed to each other.
+        {
+            for _ in 0..U16_PERMUTATION_CELLS {
+                let cell = allocator.alloc_u16_cell();
+                meta.enable_equality(cell.cell.col);
+                allocator.reserved_permutation_cells.u16_cells.push(cell);
+            }
+            for _ in 0..COMMON_RANGE_PERMUTATION_CELLS {
+                let cell = allocator.alloc_common_range_cell();
+                meta.enable_equality(cell.cell.col);
+                allocator
+                    .reserved_permutation_cells
+                    .common_range_cells
+                    .push(cell);
+            }
+            for _ in 0..UNLIMITED_PERMUTATION_CELLS {
+                let cell = allocator.alloc_unlimited_cell();
+                meta.enable_equality(cell.cell.col);
+                allocator
+                    .reserved_permutation_cells
+                    .unlimited_cells
+                    .push(cell);
+            }
+            for _ in 0..U32_OR_COMMON_RANGE_PERMUTATION_CELLS {
+                #[cfg(feature = "continuation")]
+                {
+                    let cell = allocator
+                        .prepare_alloc_u32_permutation_cell(meta, |meta| fixed_curr!(meta, sel));
+                    meta.enable_equality(cell.u32_cell.cell.col);
+                    allocator
+                        .reserved_permutation_cells
+                        .u32_or_common_range_cells
+                        .push(cell);
+                }
+
+                #[cfg(not(feature = "continuation"))]
+                {
+                    let cell = allocator.alloc_common_range_cell();
+                    meta.enable_equality(cell.cell.col);
+                    allocator
+                        .reserved_permutation_cells
+                        .u32_or_common_range_cells
+                        .push(cell);
+                };
+            }
+        }
+
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
-        }
-        #[allow(clippy::reversed_empty_ranges)]
-        for _ in 0..U32_PERMUTATION_CELLS {
-            let cell =
-                allocator.prepare_alloc_u32_permutation_cell(meta, |meta| fixed_curr!(meta, sel));
-            allocator.free_u32_permutation_cells.push(cell);
         }
         for _ in 0..U64_CELLS {
             let cell = allocator.prepare_alloc_u64_cell(meta, |meta| fixed_curr!(meta, sel));
@@ -523,8 +566,8 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
                 .into_iter(),
             ),
             free_u32_cells: vec![],
-            free_u32_permutation_cells: vec![],
             free_u64_cells: vec![],
+            reserved_permutation_cells: ReservedPermutationCells::default(),
             _mark: PhantomData,
         }
     }
@@ -580,6 +623,13 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
+    pub(crate) fn alloc_common_range_permutation_cell(&mut self) -> AllocatedCommonRangeCell<F> {
+        self.reserved_permutation_cells
+            .common_range_cells
+            .pop()
+            .unwrap()
+    }
+
     pub(crate) fn alloc_state_cell(&mut self) -> AllocatedStateCell<F> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "continuation")] {
@@ -591,13 +641,10 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
     }
 
     pub(crate) fn alloc_u32_state_cell(&mut self) -> AllocatedU32StateCell<F> {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "continuation")] {
-                self.alloc_u32_permutation_cell()
-            } else {
-                self.alloc_common_range_cell()
-            }
-        }
+        self.reserved_permutation_cells
+            .u32_or_common_range_cells
+            .pop()
+            .unwrap()
     }
 
     pub(crate) fn alloc_u8_cell(&mut self) -> AllocatedU8Cell<F> {
@@ -612,10 +659,21 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         }
     }
 
+    pub(crate) fn alloc_u16_permutation_cell(&mut self) -> AllocatedU16Cell<F> {
+        self.reserved_permutation_cells.u16_cells.pop().unwrap()
+    }
+
     pub(crate) fn alloc_unlimited_cell(&mut self) -> AllocatedUnlimitedCell<F> {
         AllocatedUnlimitedCell {
             cell: self.alloc(&EventTableCellType::Unlimited),
         }
+    }
+
+    pub(crate) fn alloc_unlimited_permutation_cell(&mut self) -> AllocatedUnlimitedCell<F> {
+        self.reserved_permutation_cells
+            .unlimited_cells
+            .pop()
+            .unwrap()
     }
 
     pub(crate) fn alloc_itable_lookup_cell(&mut self) -> AllocatedUnlimitedCell<F> {
@@ -804,13 +862,6 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
     pub(crate) fn alloc_u32_cell(&mut self) -> AllocatedU32Cell<F> {
         self.free_u32_cells.pop().expect("no more free u32 cells")
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn alloc_u32_permutation_cell(&mut self) -> AllocatedU32PermutationCell<F> {
-        self.free_u32_permutation_cells
-            .pop()
-            .expect("no more free u32 permutation cells")
     }
 
     pub(crate) fn alloc_u64_cell(&mut self) -> AllocatedU64Cell<F> {
