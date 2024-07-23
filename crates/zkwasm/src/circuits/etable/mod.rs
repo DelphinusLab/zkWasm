@@ -442,49 +442,23 @@ impl<F: FieldExt> EventTableConfig<F> {
         let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();
 
-        let rest_mops_cell = allocator.alloc_common_range_cell();
-        let rest_call_ops_cell = allocator.alloc_unlimited_cell();
-        let rest_return_ops_cell = allocator.alloc_unlimited_cell();
-        let input_index_cell = allocator.alloc_common_range_cell();
-        let context_input_index_cell = allocator.alloc_common_range_cell();
-        let context_output_index_cell = allocator.alloc_common_range_cell();
-        let external_host_call_index_cell = allocator.alloc_common_range_cell();
-        let sp_cell = allocator.alloc_u16_cell();
-        let mpages_cell = allocator.alloc_u16_cell();
-        let frame_id_cell = allocator.alloc_u32_state_cell();
+        // Rest State
+        let rest_mops_cell = allocator.alloc_common_range_permutation_cell();
+        let rest_call_ops_cell = allocator.alloc_unlimited_permutation_cell();
+        let rest_return_ops_cell = allocator.alloc_unlimited_permutation_cell();
+
+        // Initialization State
         let eid_cell = allocator.alloc_u32_state_cell();
-        let fid_cell = allocator.alloc_u16_cell();
-        let iid_cell = allocator.alloc_u16_cell();
-        let maximal_memory_pages_cell = allocator.alloc_u16_cell();
-
-        // We only need to enable equality for the cells of states
-        let used_common_range_cells_for_state = allocator
-            .free_cells
-            .get(&EventTableCellType::CommonRange)
-            .unwrap();
-        allocator.enable_equality(
-            meta,
-            &EventTableCellType::CommonRange,
-            used_common_range_cells_for_state.0
-                + (used_common_range_cells_for_state.1 != 0) as usize,
-        );
-
-        let used_unlimited_cells_for_state = allocator
-            .free_cells
-            .get(&EventTableCellType::Unlimited)
-            .unwrap();
-        allocator.enable_equality(
-            meta,
-            &EventTableCellType::Unlimited,
-            used_unlimited_cells_for_state.0 + (used_unlimited_cells_for_state.1 != 0) as usize,
-        );
-
-        let used_u16_cells_for_state = allocator.free_cells.get(&EventTableCellType::U16).unwrap();
-        allocator.enable_equality(
-            meta,
-            &EventTableCellType::U16,
-            used_u16_cells_for_state.0 + (used_u16_cells_for_state.1 != 0) as usize,
-        );
+        let fid_cell = allocator.alloc_u16_permutation_cell();
+        let iid_cell = allocator.alloc_u16_permutation_cell();
+        let frame_id_cell = allocator.alloc_u32_state_cell();
+        let sp_cell = allocator.alloc_u16_permutation_cell();
+        let input_index_cell = allocator.alloc_common_range_permutation_cell();
+        let context_input_index_cell = allocator.alloc_common_range_permutation_cell();
+        let context_output_index_cell = allocator.alloc_common_range_permutation_cell();
+        let external_host_call_index_cell = allocator.alloc_common_range_permutation_cell();
+        let mpages_cell = allocator.alloc_u16_permutation_cell();
+        let maximal_memory_pages_cell = allocator.alloc_u16_permutation_cell();
 
         let mut foreign_table_reserved_lookup_cells = [(); FOREIGN_LOOKUP_CAPABILITY]
             .map(|_| allocator.alloc_unlimited_cell())

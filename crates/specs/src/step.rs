@@ -1,11 +1,7 @@
 use crate::external_host_call_table::ExternalHostCallSignature;
 use crate::host_function::HostPlugin;
 use crate::host_function::Signature;
-use crate::itable::BinOp;
 use crate::itable::BinaryOp;
-use crate::itable::BitOp;
-use crate::itable::RelOp;
-use crate::itable::ShiftOp;
 use crate::itable::UnaryOp;
 use crate::itable::UniArg;
 use crate::mtable::MemoryReadSize;
