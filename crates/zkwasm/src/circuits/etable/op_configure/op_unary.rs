@@ -44,6 +44,10 @@ pub struct UnaryConfig<F: FieldExt> {
     bit_table_lookup: AllocatedBitTableLookupCells<F>,
 
     ctz_degree_helper: AllocatedUnlimitedCell<F>,
+    is_clz_and_operand_is_zero: AllocatedUnlimitedCell<F>,
+    is_clz_and_operand_is_not_zero: AllocatedUnlimitedCell<F>,
+    is_ctz_and_operand_is_zero: AllocatedUnlimitedCell<F>,
+    is_ctz_and_operand_is_not_zero: AllocatedUnlimitedCell<F>,
 
     operand_arg: EventTableCommonArgsConfig<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
@@ -69,6 +73,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
         let aux2 = allocator.alloc_u64_cell();
 
         let ctz_degree_helper = allocator.alloc_unlimited_cell();
+        let is_clz_and_operand_is_zero = allocator.alloc_unlimited_cell();
+        let is_clz_and_operand_is_not_zero = allocator.alloc_unlimited_cell();
+        let is_ctz_and_operand_is_zero = allocator.alloc_unlimited_cell();
+        let is_ctz_and_operand_is_not_zero = allocator.alloc_unlimited_cell();
 
         let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
         let lookup_pow_power = common_config.pow_table_lookup_power_cell;
@@ -128,44 +136,42 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
                 let operand_is_not_zero = constant_from!(1) - operand_is_zero.expr(meta);
 
                 vec![
-                    operand_is_zero.expr(meta) * (result.expr(meta) - bits.expr(meta)),
-                    operand_is_not_zero.clone()
+                    is_clz_and_operand_is_zero.expr(meta)
+                        - is_clz.expr(meta) * operand_is_zero.expr(meta),
+                    is_clz_and_operand_is_not_zero.expr(meta)
+                        - is_clz.expr(meta) * operand_is_not_zero,
+                    is_clz_and_operand_is_zero.expr(meta) * (result.expr(meta) - bits.expr(meta)),
+                    is_clz_and_operand_is_not_zero.expr(meta)
                         * (lookup_pow_modulus.expr(meta) + aux1.u64_cell.expr(meta)
                             - operand.expr(meta)),
-                    operand_is_not_zero.clone()
+                    is_clz_and_operand_is_not_zero.expr(meta)
                         * (aux1.u64_cell.expr(meta) + aux2.u64_cell.expr(meta) + constant_from!(1)
                             - lookup_pow_modulus.expr(meta)),
-                    operand_is_not_zero
+                    is_clz_and_operand_is_not_zero.expr(meta)
                         * (lookup_pow_power.expr(meta)
                             - pow_table_power_encode(
                                 bits.expr(meta) - result.expr(meta) - constant_from!(1),
                             )),
                 ]
-                .into_iter()
-                .map(|constraint| constraint * is_clz.expr(meta))
-                .collect()
             }),
         );
 
         constraint_builder.push(
             "op_unary: ctz",
             Box::new(move |meta| {
-                let operand_is_not_zero = constant_from!(1) - operand_is_zero.expr(meta);
-
                 vec![
-                    ctz_degree_helper.expr(meta)
+                    // no `* is_ctz.expr(meta)` to reduce degree, but ctz_degree_helper should assign for all op.
+                    (ctz_degree_helper.expr(meta)
                         - (aux1.u64_cell.expr(meta)
                             * lookup_pow_modulus.expr(meta)
-                            * constant_from!(2)),
-                    operand_is_zero.expr(meta) * (result.expr(meta) - bits.expr(meta)),
-                    operand_is_not_zero
+                            * constant_from!(2))),
+                    is_ctz_and_operand_is_zero.expr(meta) * (result.expr(meta) - bits.expr(meta)),
+                    is_ctz_and_operand_is_not_zero.expr(meta)
                         * (ctz_degree_helper.expr(meta) + lookup_pow_modulus.expr(meta)
                             - operand.expr(meta)),
-                    lookup_pow_power.expr(meta) - pow_table_power_encode(result.expr(meta)),
+                    is_ctz.expr(meta)
+                        * (lookup_pow_power.expr(meta) - pow_table_power_encode(result.expr(meta))),
                 ]
-                .into_iter()
-                .map(|constraint| constraint * is_ctz.expr(meta))
-                .collect()
             }),
         );
 
@@ -195,6 +201,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for UnaryConfigBuilder {
             lookup_pow_modulus,
             lookup_pow_power,
             ctz_degree_helper,
+            is_clz_and_operand_is_zero,
+            is_clz_and_operand_is_not_zero,
+            is_ctz_and_operand_is_zero,
+            is_ctz_and_operand_is_not_zero,
             bit_table_lookup: lookup_popcnt,
             operand_arg,
             memory_table_lookup_stack_write,
@@ -251,6 +261,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                 match class {
                     UnaryOp::Ctz => {
                         self.is_ctz.assign_bool(ctx, true)?;
+                        self.is_ctz_and_operand_is_zero
+                            .assign(ctx, F::from(*operand == 0))?;
+                        self.is_ctz_and_operand_is_not_zero
+                            .assign(ctx, F::from(*operand != 0))?;
 
                         /*
                          * 0000 0100 0000 1000
@@ -276,6 +290,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                     }
                     UnaryOp::Clz => {
                         self.is_clz.assign_bool(ctx, true)?;
+                        self.is_clz_and_operand_is_zero
+                            .assign(ctx, F::from(*operand == 0))?;
+                        self.is_clz_and_operand_is_not_zero
+                            .assign(ctx, F::from(*operand != 0))?;
 
                         /*
                          * operand:
@@ -290,7 +308,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                         let boundary = max.checked_shr(1 + *result as u32).unwrap_or(0) as u64;
                         let tail = *operand ^ boundary;
 
-                        self.lookup_pow_modulus.assign(ctx, F::from(boundary))?;
                         self.aux1.assign(ctx, tail)?;
                         // If `operand = 0``, then `boundary == tail == 0`` and therefore `- 1` will panic in debug mode.
                         // Since `aux2`` is useless when `operand = 0`, we give 0.
@@ -304,6 +321,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
                                     bits - *result - 1,
                                 ))),
                             )?;
+                            self.ctz_degree_helper
+                                .assign(ctx, F::from(tail) * F::from(boundary) * F::from(2))?;
                         }
                     }
                     UnaryOp::Popcnt => {
