@@ -6,6 +6,8 @@ use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
+use specs::external_host_call_table::ExternalHostCallEntry;
+use specs::external_host_call_table::ExternalHostCallTable;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
@@ -41,6 +43,8 @@ use wasmi::Trap;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::compute_slice_capability;
+use crate::foreign::context::try_get_context_input_from_step_info;
+use crate::foreign::context::try_get_context_output_from_step_info;
 
 use self::etable::ETable;
 use self::frame_table::FrameTable;
@@ -75,8 +79,11 @@ pub struct TablePlugin {
 
     etable: ETable,
     frame_table: FrameTable,
-    last_jump_eid: Vec<u32>,
+    external_host_call_table: ExternalHostCallTable,
+    context_input_table: Vec<u64>,
+    context_output_table: Vec<u64>,
 
+    last_jump_eid: Vec<u32>,
     module_ref: Option<wasmi::ModuleRef>,
     unresolved_event: Option<RunInstructionTracePre>,
 }
@@ -109,6 +116,9 @@ impl TablePlugin {
             last_jump_eid: vec![],
             etable: ETable::new(capacity, trace_backend.clone()),
             frame_table: FrameTable::new(trace_backend),
+            external_host_call_table: ExternalHostCallTable::default(),
+            context_input_table: vec![],
+            context_output_table: vec![],
 
             module_ref: None,
             unresolved_event: None,
@@ -154,6 +164,9 @@ impl TablePlugin {
             execution_tables: ExecutionTable {
                 etable: self.etable.finalized(),
                 frame_table: self.frame_table.finalized(),
+                external_host_call_table: self.external_host_call_table,
+                context_input_table: self.context_input_table,
+                context_output_table: self.context_output_table,
             },
         }
     }
@@ -686,6 +699,17 @@ impl Monitor for TablePlugin {
                 }
                 _ => unreachable!(),
             }
+        }
+
+        let fixed_step_info = &self.etable.entries().last().unwrap().step_info;
+        if let Some(v) = try_get_context_input_from_step_info(fixed_step_info) {
+            self.context_input_table.push(v)
+        }
+        if let Some(v) = try_get_context_output_from_step_info(fixed_step_info) {
+            self.context_output_table.push(v)
+        }
+        if let Ok(v) = ExternalHostCallEntry::try_from(fixed_step_info) {
+            self.external_host_call_table.push(v)
         }
     }
 }

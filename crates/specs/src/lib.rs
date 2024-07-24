@@ -71,6 +71,9 @@ pub struct CompilationTable {
 pub struct ExecutionTable {
     pub etable: Vec<TableBackend<EventTable>>,
     pub frame_table: Vec<TableBackend<FrameTable>>,
+    pub external_host_call_table: ExternalHostCallTable,
+    pub context_input_table: Vec<u64>,
+    pub context_output_table: Vec<u64>,
 }
 
 pub struct Tables {
@@ -79,38 +82,13 @@ pub struct Tables {
 }
 
 impl Tables {
-    pub fn write(
-        &self,
-        dir: &Path,
-        name_of_etable_slice: impl Fn(usize) -> String,
-        name_of_frame_table_slice: impl Fn(usize) -> String,
-    ) {
+    pub fn write(&self, dir: &Path, name_of_frame_table_slice: impl Fn(usize) -> String) {
         fn write_file(folder: &Path, filename: &str, buf: &String) {
             let folder = folder.join(filename);
             let mut fd = File::create(folder.as_path()).unwrap();
 
             fd.write_all(buf.as_bytes()).unwrap();
         }
-
-        let mut external_host_call_table = vec![];
-        self.execution_tables
-            .etable
-            .iter()
-            .enumerate()
-            .for_each(|(slice, e)| match e {
-                TableBackend::Memory(etable) => {
-                    external_host_call_table.extend(etable.filter_external_host_call_table().0);
-
-                    let path = dir.join(name_of_etable_slice(slice));
-
-                    etable.write(&path).unwrap();
-                }
-                TableBackend::Json(path) => {
-                    let etable = EventTable::read(path).unwrap();
-                    external_host_call_table.extend(etable.filter_external_host_call_table().0);
-                }
-            });
-        let external_host_call_table = ExternalHostCallTable::new(external_host_call_table);
 
         write_file(
             dir,
@@ -133,7 +111,7 @@ impl Tables {
         write_file(
             dir,
             "external_host_table.json",
-            &serde_json::to_string_pretty(&external_host_call_table).unwrap(),
+            &serde_json::to_string_pretty(&self.execution_tables.external_host_call_table).unwrap(),
         );
     }
 }
