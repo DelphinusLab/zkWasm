@@ -1,5 +1,3 @@
-use crate::foreign::context::ContextOutput;
-
 use self::default_env::ExecutionArg;
 use self::host_env::HostEnv;
 use downcast_rs::impl_downcast;
@@ -96,10 +94,6 @@ struct HostFunctionExecutionEnv {
 struct HostFunction {
     desc: HostFunctionDesc,
     execution_env: HostFunctionExecutionEnv,
-}
-
-pub trait HostEnvArg {
-    fn get_context_output(&self) -> ContextOutput;
 }
 
 /// Implement `HostEnvBuilder` to support customized foreign plugins.

@@ -1,11 +1,6 @@
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
-use specs::etable::EventTable;
-use specs::host_function::HostPlugin;
-use specs::step::StepInfo;
-
-use crate::foreign::context::Op;
 
 use super::ContextContHelperTableConfig;
 
@@ -50,54 +45,5 @@ impl<F: FieldExt> ContextContHelperTableChip<F> {
         )?;
 
         Ok(())
-    }
-}
-
-pub trait ExtractContextFromTrace {
-    fn get_context_inputs(&self) -> Vec<u64>;
-    fn get_context_outputs(&self) -> Vec<u64>;
-}
-
-impl ExtractContextFromTrace for EventTable {
-    fn get_context_inputs(&self) -> Vec<u64> {
-        self.entries()
-            .iter()
-            .filter_map(|e| match &e.step_info {
-                StepInfo::CallHost {
-                    plugin: HostPlugin::Context,
-                    op_index_in_plugin,
-                    ret_val,
-                    ..
-                } => {
-                    if *op_index_in_plugin == Op::ReadContext as usize {
-                        *ret_val
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect()
-    }
-
-    fn get_context_outputs(&self) -> Vec<u64> {
-        self.entries()
-            .iter()
-            .filter_map(|e| match &e.step_info {
-                StepInfo::CallHost {
-                    plugin: HostPlugin::Context,
-                    op_index_in_plugin,
-                    args,
-                    ..
-                } => {
-                    if *op_index_in_plugin == Op::WriteContext as usize {
-                        Some(args[0])
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect()
     }
 }

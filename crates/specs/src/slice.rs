@@ -11,6 +11,7 @@ use crate::brtable::ElemTable;
 use crate::configure_table::ConfigureTable;
 use crate::etable::EventTable;
 use crate::etable::EventTableEntry;
+use crate::external_host_call_table::ExternalHostCallTable;
 use crate::imtable::InitMemoryTable;
 use crate::itable::InstructionTable;
 use crate::jtable::CalledFrameTable;
@@ -71,6 +72,10 @@ pub struct Slice {
     pub initialization_state: Arc<InitializationState<u32>>,
     pub post_initialization_state: Arc<InitializationState<u32>>,
 
+    pub external_host_call_table: Arc<ExternalHostCallTable>,
+    pub context_input_table: Arc<Vec<u64>>,
+    pub context_output_table: Arc<Vec<u64>>,
+
     pub is_last_slice: bool,
 }
 
@@ -98,6 +103,10 @@ impl Slice {
 
             initialization_state: compilation_table.initialization_state.clone(),
             post_initialization_state: compilation_table.initialization_state.clone(),
+
+            external_host_call_table: ExternalHostCallTable::default().into(),
+            context_input_table: Arc::new(Vec::new()),
+            context_output_table: Arc::new(Vec::new()),
 
             is_last_slice,
         }

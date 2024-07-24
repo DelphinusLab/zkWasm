@@ -3,6 +3,7 @@ use specs::brtable::BrTable;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
 use specs::etable::EventTable;
+use specs::external_host_call_table::ExternalHostCallTable;
 use specs::imtable::InitMemoryTable;
 use specs::itable::InstructionTable;
 use specs::jtable::CalledFrameTable;
@@ -37,6 +38,10 @@ pub struct Slices<F: FieldExt> {
     imtable: Arc<InitMemoryTable>,
     initialization_state: Arc<InitializationState<u32>>,
     etables: VecDeque<TableBackend<EventTable>>,
+
+    external_host_call_table: Arc<ExternalHostCallTable>,
+    context_input_table: Arc<Vec<u64>>,
+    context_output_table: Arc<Vec<u64>>,
 
     _marker: std::marker::PhantomData<F>,
 }
@@ -75,6 +80,9 @@ impl<F: FieldExt> Slices<F> {
             initialization_state: tables.compilation_tables.initialization_state,
 
             etables: tables.execution_tables.etable.into(),
+            external_host_call_table: tables.execution_tables.external_host_call_table.into(),
+            context_input_table: tables.execution_tables.context_input_table.into(),
+            context_output_table: tables.execution_tables.context_output_table.into(),
 
             _marker: std::marker::PhantomData,
         })
@@ -130,6 +138,10 @@ impl<F: FieldExt> Slices<F> {
             post_initialization_state: self.initialization_state.clone(),
 
             etable: Arc::new(EventTable::new(vec![])),
+            external_host_call_table: self.external_host_call_table.clone(),
+            context_input_table: self.context_input_table.clone(),
+            context_output_table: self.context_output_table.clone(),
+
             is_last_slice: false,
         };
 
@@ -210,6 +222,10 @@ impl<F: FieldExt> Iterator for Slices<F> {
             post_initialization_state: post_initialization_state.clone(),
 
             etable: Arc::new(etable),
+            external_host_call_table: self.external_host_call_table.clone(),
+            context_input_table: self.context_input_table.clone(),
+            context_output_table: self.context_output_table.clone(),
+
             is_last_slice: self.etables.is_empty(),
         };
 

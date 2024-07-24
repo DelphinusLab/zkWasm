@@ -16,6 +16,7 @@ use halo2_proofs::plonk::Fixed;
 use log::debug;
 use log::info;
 use specs::etable::EventTable;
+use specs::external_host_call_table::ExternalHostCallTable;
 use specs::jtable::CalledFrameTable;
 use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
 use specs::slice::FrameTableSlice;
@@ -45,7 +46,6 @@ use crate::circuits::utils::table_entry::EventTableWithMemoryInfo;
 use crate::circuits::utils::table_entry::MemoryWritingTable;
 use crate::exec_with_profile;
 use crate::foreign::context::circuits::assign::ContextContHelperTableChip;
-use crate::foreign::context::circuits::assign::ExtractContextFromTrace;
 use crate::foreign::context::circuits::ContextContHelperTableConfig;
 use crate::foreign::context::circuits::CONTEXT_FOREIGN_TABLE_KEY;
 use crate::foreign::foreign_table_enable_lines;
@@ -134,6 +134,10 @@ macro_rules! impl_zkwasm_circuit {
 
                         initialization_state: self.slice.initialization_state.clone(),
                         post_initialization_state: self.slice.initialization_state.clone(),
+
+                        external_host_call_table: ExternalHostCallTable::default().into(),
+                        context_input_table: Arc::new(Vec::new()),
+                        context_output_table: Arc::new(Vec::new()),
 
                         is_last_slice: self.slice.is_last_slice,
                     },
@@ -392,10 +396,7 @@ macro_rules! impl_zkwasm_circuit {
                         exec_with_profile!(
                             || "Assign external host call table",
                             external_host_call_chip
-                                .assign(
-                                    _layouter,
-                                    &self.slice.etable.filter_external_host_call_table(),
-                                )
+                                .assign(_layouter, &self.slice.external_host_call_table,)
                                 .unwrap()
                         );
                     });
@@ -407,8 +408,8 @@ macro_rules! impl_zkwasm_circuit {
                             context_chip
                                 .assign(
                                     _layouter,
-                                    &self.slice.etable.get_context_inputs(),
-                                    &self.slice.etable.get_context_outputs()
+                                    &self.slice.context_input_table,
+                                    &self.slice.context_output_table
                                 )
                                 .unwrap()
                         );
