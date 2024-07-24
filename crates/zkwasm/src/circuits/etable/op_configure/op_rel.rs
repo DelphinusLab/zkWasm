@@ -53,6 +53,9 @@ pub struct RelConfig<F: FieldExt> {
     l_neg_r_pos: AllocatedUnlimitedCell<F>,
     l_neg_r_neg: AllocatedUnlimitedCell<F>,
 
+    same_sign_lt: AllocatedUnlimitedCell<F>,
+    same_sign_gt: AllocatedUnlimitedCell<F>,
+
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -105,6 +108,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
         let op_is_gt = allocator.alloc_bit_cell();
         let op_is_le = allocator.alloc_bit_cell();
         let op_is_ge = allocator.alloc_bit_cell();
+
+        // (l_pos_r_pos || l_neg_r_neg) && left < right
+        let same_sign_lt = allocator.alloc_unlimited_cell();
+        // (l_pos_r_pos || l_neg_r_neg) && left > right
+        let same_sign_gt = allocator.alloc_unlimited_cell();
 
         constraint_builder.push(
             "rel: selector",
@@ -160,27 +168,23 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
                     op_is_eq.expr(meta) * (res.expr(meta) - res_is_eq.expr(meta)),
                     op_is_ne.expr(meta)
                         * (res.expr(meta) - constant_from!(1) + res_is_eq.expr(meta)),
+                    same_sign_lt.expr(meta)
+                        - (l_pos_r_pos.expr(meta) + l_neg_r_neg.expr(meta)) * res_is_lt.expr(meta),
+                    same_sign_gt.expr(meta)
+                        - (l_pos_r_pos.expr(meta) + l_neg_r_neg.expr(meta)) * res_is_gt.expr(meta),
                     op_is_lt.expr(meta)
-                        * (res.expr(meta)
-                            - l_neg_r_pos.expr(meta)
-                            - l_pos_r_pos.expr(meta) * res_is_lt.expr(meta)
-                            - l_neg_r_neg.expr(meta) * res_is_lt.expr(meta)),
+                        * (res.expr(meta) - l_neg_r_pos.expr(meta) - same_sign_lt.expr(meta)),
                     op_is_le.expr(meta)
                         * (res.expr(meta)
                             - l_neg_r_pos.expr(meta)
-                            - l_pos_r_pos.expr(meta) * res_is_lt.expr(meta)
-                            - l_neg_r_neg.expr(meta) * res_is_lt.expr(meta)
+                            - same_sign_lt.expr(meta)
                             - res_is_eq.expr(meta)),
                     op_is_gt.expr(meta)
-                        * (res.expr(meta)
-                            - l_pos_r_neg.expr(meta)
-                            - l_pos_r_pos.expr(meta) * res_is_gt.expr(meta)
-                            - l_neg_r_neg.expr(meta) * res_is_gt.expr(meta)),
+                        * (res.expr(meta) - l_pos_r_neg.expr(meta) - same_sign_gt.expr(meta)),
                     op_is_ge.expr(meta)
                         * (res.expr(meta)
                             - l_pos_r_neg.expr(meta)
-                            - l_pos_r_pos.expr(meta) * res_is_gt.expr(meta)
-                            - l_neg_r_neg.expr(meta) * res_is_gt.expr(meta)
+                            - same_sign_gt.expr(meta)
                             - res_is_eq.expr(meta)),
                 ]
             }),
@@ -223,6 +227,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for RelConfigBuilder {
             l_neg_r_pos,
             l_pos_r_neg,
             l_neg_r_neg,
+            same_sign_lt,
+            same_sign_gt,
             memory_table_lookup_stack_write,
         })
     }
@@ -392,6 +398,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
             self.l_pos_r_neg.assign(ctx, F::from(!l_neg && r_neg))?;
             self.l_neg_r_pos.assign(ctx, F::from(l_neg && !r_neg))?;
             self.l_neg_r_neg.assign(ctx, F::from(l_neg && r_neg))?;
+
+            self.same_sign_lt
+                .assign(ctx, F::from(l_neg == r_neg && lhs < rhs))?;
+            self.same_sign_gt
+                .assign(ctx, F::from(l_neg == r_neg && lhs > rhs))?;
         }
 
         self.lhs
