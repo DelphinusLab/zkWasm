@@ -203,7 +203,7 @@ const COMMON_RANGE_PERMUTATION_CELLS: usize = 5;
 const UNLIMITED_PERMUTATION_CELLS: usize = 2;
 const U32_OR_COMMON_RANGE_PERMUTATION_CELLS: usize = 2;
 
-const BIT_COLUMNS: usize = 15;
+const BIT_COLUMNS: usize = 10;
 const U8_COLUMNS: usize = 1;
 const U32_CELLS: usize = if cfg!(feature = "continuation") {
     10

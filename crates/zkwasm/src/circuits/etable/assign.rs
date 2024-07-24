@@ -19,6 +19,7 @@ use super::EventTableChip;
 use super::OpcodeConfig;
 use super::EVENT_TABLE_ENTRY_ROWS;
 use crate::circuits::cell::CellExpression;
+use crate::circuits::etable::op_to_index;
 use crate::circuits::jtable::FrameEtablePermutationCells;
 use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::FieldHelper;
@@ -414,7 +415,10 @@ impl<F: FieldExt> EventTableChip<F> {
                     {
                         let class: OpcodeClassPlain = (&instruction.opcode).into();
 
-                        let op = self.config.common_config.ops[class.index()];
+                        let (ops_l1, ops_l2) = op_to_index(&class);
+                        let op = self.config.common_config.ops_l1[ops_l1];
+                        assign_advice_cell!(&mut ctx, op, F::one());
+                        let op = self.config.common_config.ops_l2[ops_l2];
                         assign_advice_cell!(&mut ctx, op, F::one());
                     }
 

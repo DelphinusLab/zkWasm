@@ -85,9 +85,15 @@ type AllocatedU32StateCell<F> = AllocatedCommonRangeCell<F>;
 type AllocatedStateCell<F> = AllocatedCommonRangeCell<F>;
 
 pub(crate) const EVENT_TABLE_ENTRY_ROWS: i32 = 4;
-pub(crate) const OP_CAPABILITY: usize = 32;
+const OP_CAPABILITY_LAYER: usize = 6;
 
 const FOREIGN_LOOKUP_CAPABILITY: usize = 6;
+
+pub(self) fn op_to_index(op: &OpcodeClassPlain) -> (usize, usize) {
+    let index = op.index();
+
+    (index / OP_CAPABILITY_LAYER, index % OP_CAPABILITY_LAYER)
+}
 
 #[derive(Clone)]
 pub struct EventTableCommonArgsConfig<F: FieldExt> {
@@ -193,7 +199,8 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
 #[derive(Clone)]
 pub struct EventTableCommonConfig<F: FieldExt> {
     enabled_cell: AllocatedBitCell<F>,
-    ops: [AllocatedBitCell<F>; OP_CAPABILITY],
+    ops_l1: [AllocatedBitCell<F>; OP_CAPABILITY_LAYER],
+    ops_l2: [AllocatedBitCell<F>; OP_CAPABILITY_LAYER],
 
     rest_mops_cell: AllocatedCommonRangeCell<F>,
     rest_call_ops_cell: AllocatedUnlimitedCell<F>,
@@ -439,7 +446,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             cols,
         );
 
-        let ops = [0; OP_CAPABILITY].map(|_| allocator.alloc_bit_cell());
+        let ops_l1 = [0; OP_CAPABILITY_LAYER].map(|_| allocator.alloc_bit_cell());
+        let ops_l2 = [0; OP_CAPABILITY_LAYER].map(|_| allocator.alloc_bit_cell());
         let enabled_cell = allocator.alloc_bit_cell();
 
         // Rest State
@@ -585,7 +593,8 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         let common_config = EventTableCommonConfig {
             enabled_cell,
-            ops,
+            ops_l1,
+            ops_l2,
             rest_mops_cell,
             rest_call_ops_cell,
             rest_return_ops_cell,
@@ -611,7 +620,7 @@ impl<F: FieldExt> EventTableConfig<F> {
             uniarg_configs: uniarg_configs.clone(),
         };
 
-        let mut op_bitmaps: BTreeMap<OpcodeClassPlain, usize> = BTreeMap::new();
+        let mut op_bitmaps: BTreeMap<OpcodeClassPlain, (usize, usize)> = BTreeMap::new();
         let mut op_configs: BTreeMap<OpcodeClassPlain, OpcodeConfig<F>> = BTreeMap::new();
 
         let mut profiler = AllocatorFreeCellsProfiler::new(&allocator);
@@ -619,6 +628,7 @@ impl<F: FieldExt> EventTableConfig<F> {
         macro_rules! configure {
             ($op:expr, $x:ident, $uniargs_nr:expr) => {
                 let op = OpcodeClassPlain($op as usize);
+                let (op_layer1, op_layer2) = op_to_index(&op);
 
                 let foreign_table_configs = BTreeMap::new();
                 let mut constraint_builder = ConstraintBuilder::new(meta, &foreign_table_configs);
@@ -632,10 +642,13 @@ impl<F: FieldExt> EventTableConfig<F> {
                 );
 
                 constraint_builder.finalize(|meta| {
-                    (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
+                    (
+                        fixed_curr!(meta, step_sel),
+                        ops_l1[op_layer1].curr_expr(meta) * ops_l2[op_layer2].curr_expr(meta),
+                    )
                 });
 
-                op_bitmaps.insert(op, op.index());
+                op_bitmaps.insert(op, (op_layer1, op_layer2));
                 op_configs.insert(op, OpcodeConfig::<F>(config));
 
                 profiler.update(&allocator);
@@ -686,6 +699,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 let builder = $x::new($i);
                 let op = OpcodeClass::ForeignPluginStart as usize + $i;
                 let op = OpcodeClassPlain(op);
+                let (op_layer1, op_layer2) = op_to_index(&op);
 
                 let mut constraint_builder = ConstraintBuilder::new(meta, foreign_table_configs);
                 let mut allocator = allocators[0].clone();
@@ -698,10 +712,13 @@ impl<F: FieldExt> EventTableConfig<F> {
                 );
 
                 constraint_builder.finalize(|meta| {
-                    (fixed_curr!(meta, step_sel), ops[op.index()].curr_expr(meta))
+                    (
+                        fixed_curr!(meta, step_sel),
+                        ops_l1[op_layer1].curr_expr(meta) * ops_l2[op_layer2].curr_expr(meta),
+                    )
                 });
 
-                op_bitmaps.insert(op, op.index());
+                op_bitmaps.insert(op, (op_layer1, op_layer2));
                 op_configs.insert(op, OpcodeConfig(config));
 
                 profiler.update(&allocator);
@@ -723,7 +740,14 @@ impl<F: FieldExt> EventTableConfig<F> {
 
         meta.create_gate("c4. opcode_bit lvl sum equals to 1", |meta| {
             vec![
-                ops.map(|x| x.curr_expr(meta))
+                ops_l1
+                    .map(|x| x.curr_expr(meta))
+                    .into_iter()
+                    .reduce(|acc, x| acc + x)
+                    .unwrap()
+                    - enabled_cell.curr_expr(meta),
+                ops_l2
+                    .map(|x| x.curr_expr(meta))
                     .into_iter()
                     .reduce(|acc, x| acc + x)
                     .unwrap()
@@ -748,8 +772,10 @@ impl<F: FieldExt> EventTableConfig<F> {
             op_bitmaps
                 .iter()
                 .filter_map(|(op, op_index)| {
-                    get_expr(meta, op_configs.get(op).unwrap())
-                        .map(|expr| expr * ops[*op_index].curr_expr(meta))
+                    get_expr(meta, op_configs.get(op).unwrap()).map(|expr| {
+                        expr * ops_l1[op_index.0].curr_expr(meta)
+                            * ops_l2[op_index.1].curr_expr(meta)
+                    })
                 })
                 .fold(init, |acc, x| acc + x)
                 * fixed_curr!(meta, step_sel)
@@ -763,8 +789,10 @@ impl<F: FieldExt> EventTableConfig<F> {
             op_bitmaps
                 .iter()
                 .filter_map(|(op, op_index)| {
-                    get_expr(meta, op_configs.get(op).unwrap())
-                        .map(|expr| expr * ops[*op_index].curr_expr(meta))
+                    get_expr(meta, op_configs.get(op).unwrap()).map(|expr| {
+                        expr * ops_l1[op_index.0].curr_expr(meta)
+                            * ops_l2[op_index.1].curr_expr(meta)
+                    })
                 })
                 .reduce(|acc, x| acc + x)
                 .unwrap()
