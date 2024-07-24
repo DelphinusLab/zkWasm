@@ -105,6 +105,7 @@ pub(crate) struct AllocatedU64CellWithFlagBitDynSign<F: FieldExt> {
     pub(crate) flag_bit_cell: AllocatedBitCell<F>,
     pub(crate) flag_u16_rem_cell: AllocatedCommonRangeCell<F>,
     pub(crate) flag_u16_rem_diff_cell: AllocatedCommonRangeCell<F>,
+    pub(crate) flag_u16: AllocatedUnlimitedCell<F>,
 }
 
 macro_rules! define_cell {
@@ -246,6 +247,14 @@ impl<F: FieldExt> AllocatedU64CellWithFlagBitDynSign<F> {
             self.u16_cells_le[i].assign(ctx, ((value >> (i * 16)) & 0xffffu64).into())?;
         }
         self.u64_cell.assign(ctx, value.into())?;
+        self.flag_u16.assign(
+            ctx,
+            F::from(if is_i32 {
+                (value >> 16) & 0xffffu64
+            } else {
+                (value >> 48) & 0xffffu64
+            }),
+        )?;
 
         if is_sign {
             let pos = if is_i32 { 1 } else { 3 };

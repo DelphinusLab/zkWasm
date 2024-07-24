@@ -65,7 +65,7 @@ use super::OngoingCircuit;
 pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
     38
 } else {
-    39
+    40
 };
 
 // Reserve 128 rows(greater than step size of all tables) to keep usable rows away from

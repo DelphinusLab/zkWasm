@@ -215,11 +215,7 @@ const U64_CELLS: usize = 5;
 const U16_COLUMNS: usize =
     U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2) + 2;
 const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 3 } else { 5 };
-const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
-    10
-} else {
-    9
-};
+const UNLIMITED_COLUMNS: usize = 10;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const IMAGE_TABLE_LOOKUP_COLUMNS: usize = 1;
 
@@ -913,22 +909,30 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         let flag_bit_cell = self.alloc_bit_cell();
         let flag_u16_rem_cell = self.alloc_common_range_cell(); // TODO: u16
         let flag_u16_rem_diff_cell = self.alloc_common_range_cell(); // TODO: u16
+        let flag_u16 = self.alloc_unlimited_cell();
 
         constraint_builder.push(
             "flag bit dyn sign",
             Box::new(move |meta| {
-                let flag_u16 = value.u16_cells_le[3].expr(meta)
-                    + is_i32(meta)
-                        * (value.u16_cells_le[1].expr(meta) - value.u16_cells_le[3].expr(meta));
                 let is_sign = is_sign(meta);
                 vec![
+                    // Select the most significant 16 bits based on the type of the value.
+                    flag_u16.expr(meta)
+                        - (value.u16_cells_le[3].expr(meta)
+                            + is_i32(meta)
+                                * (value.u16_cells_le[1].expr(meta)
+                                    - value.u16_cells_le[3].expr(meta))),
+                    // If op is signed, decompose the most significant 16 bits to sign bit and remainder.
                     is_sign.clone()
                         * (flag_bit_cell.expr(meta) * constant_from!(1 << 15)
                             + flag_u16_rem_cell.expr(meta)
-                            - flag_u16),
+                            - flag_u16.expr(meta)),
+                    // If op is signed, make sure the most significant 16 bits are decomposed, otherwise
+                    // a malicious attacker can set sign bit to 0 and remainder to the most significant 16 bits.
                     is_sign.clone()
                         * (flag_u16_rem_cell.expr(meta) + flag_u16_rem_diff_cell.expr(meta)
                             - constant_from!((1 << 15) - 1)),
+                    // If op is unsigned, don't decompose the most significant 16 bits.
                     (is_sign - constant_from!(1)) * flag_bit_cell.expr(meta),
                 ]
             }),
@@ -940,6 +944,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
             flag_bit_cell,
             flag_u16_rem_cell,
             flag_u16_rem_diff_cell,
+            flag_u16,
         }
     }
 
