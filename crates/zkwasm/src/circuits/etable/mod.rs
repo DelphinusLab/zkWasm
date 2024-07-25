@@ -58,6 +58,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::VirtualCells;
+use num_bigint::BigUint;
 use specs::encode::instruction_table::encode_instruction_table_entry;
 use specs::etable::EventTableEntry;
 use specs::itable::OpcodeClass;
@@ -108,6 +109,8 @@ pub struct EventTableCommonArgsConfig<F: FieldExt> {
     pub(crate) is_i32_cell: AllocatedBitCell<F>,
     pub(crate) const_value_cell: AllocatedUnlimitedCell<F>,
 
+    pub(crate) instruction_encode_cell: AllocatedUnlimitedCell<F>,
+
     pub(crate) is_stack_read_cell: AllocatedUnlimitedCell<F>,
     pub(crate) stack_offset_cell: AllocatedUnlimitedCell<F>,
     pub(crate) value_cell: AllocatedUnlimitedCell<F>,
@@ -126,10 +129,14 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
         match arg_type {
             UniArg::Pop => {
                 self.is_pop_cell.assign_bool(ctx, true)?;
+                self.instruction_encode_cell
+                    .assign_bn(ctx, &UniArg::pop_tag())?;
             }
             UniArg::Stack(offset) => {
                 self.is_local_get_cell.assign_bool(ctx, true)?;
                 self.local_get_offset_cell.assign_u32(ctx, *offset as u32)?;
+                self.instruction_encode_cell
+                    .assign_bn(ctx, &(UniArg::stack_tag() + BigUint::from(*offset as u64)))?;
             }
             UniArg::IConst(v) => {
                 self.is_const_cell.assign_bool(ctx, true)?;
@@ -138,10 +145,19 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
                 self.value_cell
                     .assign(ctx, arg_type.get_const_value().into())?;
                 match v {
-                    specs::types::Value::I32(_) => {
+                    specs::types::Value::I32(value) => {
                         self.is_i32_cell.assign_bool(ctx, true)?;
+                        self.instruction_encode_cell.assign_bn(
+                            ctx,
+                            &(UniArg::i32_const_tag() + BigUint::from(*value as u32 as u64)),
+                        )?;
                     }
-                    specs::types::Value::I64(_) => {}
+                    specs::types::Value::I64(value) => {
+                        self.instruction_encode_cell.assign_bn(
+                            ctx,
+                            &(UniArg::i64_const_tag() + BigUint::from(*value as u64)),
+                        )?;
+                    }
                 }
             }
         }
@@ -494,6 +510,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             let const_value_cell = allocator.alloc_itable_lookup_cell();
             let local_get_offset_cell = allocator.alloc_u16_cell();
 
+            let instruction_encode_cell = allocator.alloc_unlimited_cell();
+
             let is_i32_cell = allocator.alloc_bit_cell();
             let value_cell = allocator.alloc_unlimited_cell();
             let stack_offset_cell = allocator.alloc_unlimited_cell();
@@ -511,6 +529,24 @@ impl<F: FieldExt> EventTableConfig<F> {
                 .collect::<Vec<_>>()
             });
 
+            meta.create_gate("c_arg.1. instruction encode", |meta| {
+                vec![
+                    (instruction_encode_cell.expr(meta)
+                        - arg_is_enabled_cell.expr(meta)
+                            * (is_pop_cell.expr(meta) * constant_from_bn!(&UniArg::pop_tag())
+                                + is_local_get_cell.expr(meta)
+                                    * constant_from_bn!(&UniArg::stack_tag())
+                                + is_local_get_cell.expr(meta) * local_get_offset_cell.expr(meta)
+                                + is_const_cell.expr(meta)
+                                    * constant_from_bn!(&UniArg::i64_const_tag())
+                                + is_const_cell.expr(meta)
+                                    * is_i32_cell.expr(meta)
+                                    * constant_from_bn!(&UniArg::i64_i32_const_tag())
+                                + is_const_cell.expr(meta) * const_value_cell.expr(meta)))
+                        * fixed_curr!(meta, step_sel),
+                ]
+            });
+
             let cells: Vec<_> = allocator
                 .alloc_group(&EventTableCellType::MTableLookup)
                 .into_iter()
@@ -526,7 +562,7 @@ impl<F: FieldExt> EventTableConfig<F> {
                 end_eid_diff_cell: allocator.alloc_state_cell(),
             };
 
-            meta.create_gate("c_arg.1. memory read", |meta| {
+            meta.create_gate("c_arg.2. memory read", |meta| {
                 // By default, pop take the value on sp + 1
                 let mut pop_sp_offset_expr = constant_from!(1);
 
@@ -583,6 +619,7 @@ impl<F: FieldExt> EventTableConfig<F> {
 
                 is_stack_read_cell,
                 stack_offset_cell,
+                instruction_encode_cell,
 
                 is_i32_cell,
                 value_cell,
@@ -943,22 +980,8 @@ impl<F: FieldExt> EventTableConfig<F> {
             let mut shift = F::one();
             let arg_shift = num_bigint::BigUint::from(1u64) << 66;
             for uniarg_config in uniarg_configs.iter().take(3) {
-                opcode = opcode
-                    + uniarg_config.is_enabled_cell.expr(meta)
-                        * (uniarg_config.is_pop_cell.expr(meta)
-                            * constant_from_bn!(&UniArg::pop_tag())
-                            + uniarg_config.is_local_get_cell.expr(meta)
-                                * constant_from_bn!(&UniArg::stack_tag())
-                            + uniarg_config.is_local_get_cell.expr(meta)
-                                * uniarg_config.local_get_offset_cell.expr(meta)
-                            + uniarg_config.is_const_cell.expr(meta)
-                                * constant_from_bn!(&UniArg::i64_const_tag())
-                            + uniarg_config.is_const_cell.expr(meta)
-                                * uniarg_config.is_i32_cell.expr(meta)
-                                * constant_from_bn!(&UniArg::i64_i32_const_tag())
-                            + uniarg_config.is_const_cell.expr(meta)
-                                * uniarg_config.const_value_cell.expr(meta))
-                        * constant!(shift);
+                opcode =
+                    opcode + uniarg_config.instruction_encode_cell.expr(meta) * constant!(shift);
 
                 shift *= bn_to_field::<F>(&arg_shift);
             }
