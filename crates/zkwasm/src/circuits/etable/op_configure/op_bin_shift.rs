@@ -52,6 +52,14 @@ pub struct BinShiftConfig<F: FieldExt> {
     is_r: AllocatedBitCell<F>,
 
     degree_helper: AllocatedUnlimitedCell<F>,
+    right_operand_significant_bits_helper: AllocatedUnlimitedCell<F>,
+    right_result_significant_bits_helper: AllocatedUnlimitedCell<F>,
+    right_result_mul_modulus_helper: AllocatedUnlimitedCell<F>,
+    left_operand_mul_modulus_helper: AllocatedUnlimitedCell<F>,
+    left_operand_significant_bits_helper: AllocatedUnlimitedCell<F>,
+    padding_helper: AllocatedUnlimitedCell<F>,
+    padding_helper2: AllocatedUnlimitedCell<F>,
+
     lookup_pow_modulus: AllocatedUnlimitedCell<F>,
     lookup_pow_power: AllocatedUnlimitedCell<F>,
 
@@ -105,6 +113,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         let is_r = allocator.alloc_bit_cell();
 
         let degree_helper = allocator.alloc_unlimited_cell();
+        let right_operand_significant_bits_helper = allocator.alloc_unlimited_cell();
+        let right_result_significant_bits_helper = allocator.alloc_unlimited_cell();
+        let right_result_mul_modulus_helper = allocator.alloc_unlimited_cell();
+        let left_operand_mul_modulus_helper = allocator.alloc_unlimited_cell();
+        let left_operand_significant_bits_helper = allocator.alloc_unlimited_cell();
+        let padding_helper = allocator.alloc_unlimited_cell();
+        let padding_helper2 = allocator.alloc_unlimited_cell();
 
         let lookup_pow_modulus = common_config.pow_table_lookup_modulus_cell;
         let lookup_pow_power = common_config.pow_table_lookup_power_cell;
@@ -177,12 +192,15 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         // 1: (round, rem) = lhs div lookup_pow_modulus
         // 1.helper: rem < lookup_pow_modulus
         constraint_builder.push(
-            "bin_shift is_r",
+            "bin_shift: is_r",
             Box::new(move |meta| {
                 vec![
+                    right_operand_significant_bits_helper.expr(meta)
+                        - (round.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)),
+                    // decompose value to round and rem
                     is_r.expr(meta)
                         * (rem.u64_cell.expr(meta)
-                            + round.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
+                            + right_operand_significant_bits_helper.expr(meta)
                             - lhs.u64_cell.expr(meta)),
                     is_r.expr(meta)
                         * (rem.u64_cell.expr(meta) + diff.u64_cell.expr(meta) + constant_from!(1)
@@ -202,8 +220,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
 
         // cs is_shr_s:
         // let size = if is_i32 { 32 } else { 64 }
-        // 1. pad = flag * ((1 << rhs_rem) - 1)) << (size - rhs_rem)
-        // 2: res = pad + round
+        // 1. degree_helper = ((1 << rhs_rem) - 1))
+        // 2. padding_helper = flag * degree_helper = flag * ((1 << rhs_rem) - 1))
+        // 3. padding_helper2 = pad << rhs_rem
+        // 4. pad << rhs_rem = padding_helper << size
+        // 5: res = pad + round
         constraint_builder.push(
             "bin_shift shr_s",
             Box::new(move |meta| {
@@ -211,9 +232,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
                     degree_helper.expr(meta)
                         - (lookup_pow_modulus.expr(meta) - constant_from!(1))
                             * size_modulus.expr(meta),
-                    is_shr_s.expr(meta)
-                        * (pad.expr(meta) * lookup_pow_modulus.expr(meta)
-                            - lhs.flag_bit_cell.expr(meta) * degree_helper.expr(meta)),
+                    padding_helper.expr(meta)
+                        - (lhs.flag_bit_cell.expr(meta) * degree_helper.expr(meta)),
+                    padding_helper2.expr(meta) - (pad.expr(meta) * lookup_pow_modulus.expr(meta)),
+                    is_shr_s.expr(meta) * (padding_helper2.expr(meta) - padding_helper.expr(meta)),
                     is_shr_s.expr(meta)
                         * (res.expr(meta) - round.u64_cell.expr(meta) - pad.expr(meta)),
                 ]
@@ -221,29 +243,38 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
         );
 
         // cs is_rotr:
-        // 1: res = round + rem * size_modulus / lookup_pow_modulus
+        // 1: res * modulus = lhs << rhs (in F or BigUint) = round * modulus + rem * size_modulus
+        //   where modulus = 1 << (rhs % 32 or rhs % 64)
         constraint_builder.push(
             "bin_shift rotr",
             Box::new(move |meta| {
                 vec![
+                    right_result_significant_bits_helper.expr(meta)
+                        - (rem.u64_cell.expr(meta) * size_modulus.expr(meta)),
+                    right_result_mul_modulus_helper.expr(meta)
+                        - res.expr(meta) * lookup_pow_modulus.expr(meta),
                     is_rotr.expr(meta)
-                        * (res.expr(meta) * lookup_pow_modulus.expr(meta)
-                            - round.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
-                            - rem.u64_cell.expr(meta) * size_modulus.expr(meta)),
+                        * (right_result_mul_modulus_helper.expr(meta)
+                            - right_operand_significant_bits_helper.expr(meta)
+                            - right_result_significant_bits_helper.expr(meta)),
                 ]
             }),
         );
 
         // cs is_l:
-        // 1: (round, rem) = (lhs << rhs_rem) div size_modulus
-        // 1.helper: rem < size_modulus
+        // 1. round * size_modulus + rem = lhs << rhs_rem
+        // 2. helper: rem < size_modulus
         constraint_builder.push(
-            "bin_shift shl",
+            "bin_shift: is_l",
             Box::new(move |meta| {
                 vec![
+                    left_operand_mul_modulus_helper.expr(meta)
+                        - (lhs.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)),
+                    left_operand_significant_bits_helper.expr(meta)
+                        - (round.u64_cell.expr(meta) * size_modulus.expr(meta)),
                     is_l.expr(meta)
-                        * (lhs.u64_cell.expr(meta) * lookup_pow_modulus.expr(meta)
-                            - round.u64_cell.expr(meta) * size_modulus.expr(meta)
+                        * (left_operand_mul_modulus_helper.expr(meta)
+                            - left_operand_significant_bits_helper.expr(meta)
                             - rem.u64_cell.expr(meta)),
                     is_l.expr(meta)
                         * (rem.u64_cell.expr(meta) + diff.u64_cell.expr(meta) + constant_from!(1)
@@ -299,6 +330,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinShiftConfigBuilder {
             rhs_modulus,
             size_modulus,
             degree_helper,
+            right_operand_significant_bits_helper,
+            right_result_significant_bits_helper,
+            right_result_mul_modulus_helper,
+            left_operand_mul_modulus_helper,
+            left_operand_significant_bits_helper,
+            padding_helper,
+            padding_helper2,
         })
     }
 }
@@ -416,33 +454,48 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
             .assign_u32(ctx, if is_eight_bytes { 64 } else { 32 })?;
         self.size_modulus.assign_bn(ctx, &size_modulus)?;
         self.degree_helper
-            .assign_bn(ctx, &(size_modulus * (modulus - 1)))?;
+            .assign_bn(ctx, &(&size_modulus * (modulus - 1)))?;
+        self.padding_helper.assign_bn(
+            ctx,
+            &(BigUint::from(if is_eight_bytes {
+                left >> 63
+            } else {
+                left >> 31
+            }) * (&size_modulus * (modulus - 1))),
+        )?;
 
-        match class {
+        let (round, rem) = match class {
             ShiftOp::Shl => {
+                let round = if power != 0 {
+                    left >> (size - power)
+                } else {
+                    0
+                };
                 self.is_l.assign(ctx, 1.into())?;
                 self.is_shl.assign(ctx, 1.into())?;
-                if power != 0 {
-                    self.round.assign(ctx, left >> (size - power))?;
-                } else {
-                    self.round.assign(ctx, 0)?;
-                }
+                self.round.assign(ctx, round)?;
                 let rem = (left << power) & size_mask;
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, size_mask - rem)?;
+
+                (round, rem)
             }
             ShiftOp::UnsignedShr => {
+                let round = left >> power;
                 self.is_r.assign(ctx, 1.into())?;
                 self.is_shr_u.assign(ctx, 1.into())?;
-                self.round.assign(ctx, left >> power)?;
+                self.round.assign(ctx, round)?;
                 let rem = left & ((1 << power) - 1);
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, (1u64 << power) - rem - 1)?;
+
+                (round, rem)
             }
             ShiftOp::SignedShr => {
+                let round = left >> power;
                 self.is_r.assign(ctx, 1.into())?;
                 self.is_shr_s.assign(ctx, 1.into())?;
-                self.round.assign(ctx, left >> power)?;
+                self.round.assign(ctx, round)?;
                 let rem = left & ((1 << power) - 1);
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, (1u64 << power) - 1 - rem)?;
@@ -453,36 +506,56 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinShiftConfig<F> {
                     left >> 31
                 };
                 if flag_bit == 1 && power != 0 {
-                    self.pad
-                        .assign(ctx, (((1 << power) - 1) << (size - power)).into())?;
+                    let pad = ((1 << power) - 1) << (size - power);
+                    self.pad.assign(ctx, pad.into())?;
+                    self.padding_helper2
+                        .assign_bn(ctx, &(BigUint::from(pad) * BigUint::from(modulus)))?;
                 }
+
+                (round, rem)
             }
             ShiftOp::Rotl => {
                 // same as shl
+                let round = if power != 0 {
+                    left >> (size - power)
+                } else {
+                    0
+                };
                 self.is_l.assign(ctx, 1.into())?;
                 self.is_rotl.assign(ctx, 1.into())?;
-                if power != 0 {
-                    self.round.assign(ctx, left >> (size - power))?;
-                } else {
-                    self.round.assign(ctx, 0)?;
-                }
+                self.round.assign(ctx, round)?;
                 let rem = (left << power) & size_mask;
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, size_mask - rem)?;
+
+                (round, rem)
             }
             ShiftOp::Rotr => {
                 // same as shr_u
+                let round = left >> power;
                 self.is_r.assign(ctx, 1.into())?;
                 self.is_rotr.assign(ctx, 1.into())?;
-                self.round.assign(ctx, left >> power)?;
+                self.round.assign(ctx, round)?;
                 let rem = left & ((1 << power) - 1);
                 self.rem.assign(ctx, rem)?;
                 self.diff.assign(ctx, (1u64 << power) - rem - 1)?;
+
+                (round, rem)
             }
-        }
+        };
+
+        self.right_operand_significant_bits_helper
+            .assign_bn(ctx, &(BigUint::from(round) * BigUint::from(modulus)))?;
+        self.right_result_significant_bits_helper
+            .assign_bn(ctx, &(BigUint::from(rem) * &size_modulus))?;
+        self.right_result_mul_modulus_helper
+            .assign_bn(ctx, &(BigUint::from(value) * modulus))?;
+        self.left_operand_mul_modulus_helper
+            .assign_bn(ctx, &(BigUint::from(left) * BigUint::from(modulus)))?;
+        self.left_operand_significant_bits_helper
+            .assign_bn(ctx, &(BigUint::from(round) * size_modulus))?;
 
         let mut memory_entries = entry.memory_rw_entries.iter();
-
         self.rhs_arg.assign(ctx, &rhs_uniarg, &mut memory_entries)?;
         self.lhs_arg.assign(ctx, &lhs_uniarg, &mut memory_entries)?;
         self.memory_table_lookup_stack_write
