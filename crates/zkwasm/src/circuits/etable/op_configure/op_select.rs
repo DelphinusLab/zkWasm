@@ -22,6 +22,7 @@ use specs::step::StepInfo;
 
 pub struct SelectConfig<F: FieldExt> {
     cond_inv: AllocatedUnlimitedCell<F>,
+    cond_bit: AllocatedBitCell<F>,
     res: AllocatedUnlimitedCell<F>,
 
     cond_arg: EventTableCommonArgsConfig<F>,
@@ -40,6 +41,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
         let cond_inv = allocator.alloc_unlimited_cell();
         let res = allocator.alloc_unlimited_cell();
+        let cond_bit = allocator.alloc_bit_cell();
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
@@ -62,18 +64,22 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
         );
 
         constraint_builder.push(
+            "select: cond_bit",
+            Box::new(move |meta| {
+                vec![cond_bit.expr(meta) - (cond.expr(meta) * cond_inv.expr(meta))]
+            }),
+        );
+
+        constraint_builder.push(
             "select: cond is zero",
             Box::new(move |meta| {
-                vec![
-                    (constant_from!(1) - cond.expr(meta) * cond_inv.expr(meta))
-                        * (res.expr(meta) - rhs.expr(meta)),
-                ]
+                vec![(constant_from!(1) - cond_bit.expr(meta)) * (res.expr(meta) - rhs.expr(meta))]
             }),
         );
 
         constraint_builder.push(
             "select: cond is not zero",
-            Box::new(move |meta| vec![cond.expr(meta) * (res.expr(meta) - lhs.expr(meta))]),
+            Box::new(move |meta| vec![cond_bit.expr(meta) * (res.expr(meta) - lhs.expr(meta))]),
         );
 
         let uniarg_configs = common_config.uniarg_configs.clone();
@@ -90,6 +96,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for SelectConfigBuilder {
 
         Box::new(SelectConfig {
             cond_inv,
+            cond_bit,
             res,
             cond_arg,
             rhs_arg,
@@ -121,6 +128,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for SelectConfig<F> {
             } => {
                 if *cond != 0 {
                     self.cond_inv.assign(ctx, step.field_helper.invert(*cond))?;
+                    self.cond_bit.assign(ctx, F::one())?;
                 }
                 self.res.assign(ctx, F::from(*result))?;
 
