@@ -52,6 +52,7 @@ pub struct StoreConfig<F: FieldExt> {
     unchanged_value: AllocatedUnlimitedCell<F>,
     bytes: AllocatedUnlimitedCell<F>,
     len_modulus: AllocatedUnlimitedCell<F>,
+    leading_modulus: AllocatedUnlimitedCell<F>,
 
     store_value: AllocatedU64Cell<F>,
     store_value_tailing_u16_u8_high: AllocatedU8Cell<F>,
@@ -97,6 +98,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
 
         let bytes = allocator.alloc_unlimited_cell();
         let len_modulus = allocator.alloc_unlimited_cell();
+        let leading_modulus = allocator.alloc_unlimited_cell();
 
         let load_tailing = allocator.alloc_u64_cell();
         let load_tailing_diff = allocator.alloc_u64_cell();
@@ -261,11 +263,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             "op_store pick value1",
             Box::new(move |meta| {
                 vec![
+                    leading_modulus.expr(meta)
+                        - (lookup_pow_modulus.expr(meta) * len_modulus.expr(meta)),
                     unchanged_value.expr(meta)
                         - load_tailing.expr(meta)
-                        - load_leading.expr(meta)
-                            * lookup_pow_modulus.expr(meta)
-                            * len_modulus.expr(meta),
+                        - load_leading.expr(meta) * leading_modulus.expr(meta),
                 ]
             }),
         );
@@ -413,6 +415,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             load_tailing_diff,
             bytes,
             len_modulus,
+            leading_modulus,
         })
     }
 }
@@ -466,8 +469,9 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
 
                 let len_modulus = BigUint::from(1u64) << (len * 8);
                 self.len_modulus.assign_bn(ctx, &len_modulus)?;
-
                 let pos_modulus = 1 << (inner_byte_index * 8);
+                self.leading_modulus
+                    .assign_bn(ctx, &(len_modulus * BigUint::from(pos_modulus)))?;
                 self.lookup_pow_modulus.assign(ctx, pos_modulus.into())?;
                 self.lookup_pow_power.assign_bn(
                     ctx,
