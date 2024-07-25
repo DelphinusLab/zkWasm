@@ -8,6 +8,7 @@ use specs::itable::ConversionOp;
 use specs::itable::Opcode;
 use specs::itable::RelOp;
 use specs::itable::ShiftOp;
+use specs::itable::SignOp;
 use specs::itable::TestOp;
 use specs::itable::UnaryOp;
 use specs::itable::UniArg;
@@ -349,51 +350,61 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             },
             Instruction::I32Eq(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Eq,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32Ne(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Ne,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32LtS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedLt,
+                class: RelOp::Lt,
+                sign: SignOp::Signed,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32LtU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedLt,
+                class: RelOp::Lt,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32GtS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedGt,
+                class: RelOp::Gt,
+                sign: SignOp::Signed,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32GtU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedGt,
+                class: RelOp::Gt,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32LeS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedLe,
+                class: RelOp::Le,
+                sign: SignOp::Signed,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32LeU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedLe,
+                class: RelOp::Le,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32GeS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedGe,
+                class: RelOp::Ge,
+                sign: SignOp::Signed,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
             Instruction::I32GeU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedGe,
+                class: RelOp::Ge,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I32,
                 uniargs: [arg0, arg1],
             },
@@ -404,51 +415,61 @@ impl<'a> InstructionIntoOpcode for wasmi::isa::Instruction<'a> {
             },
             Instruction::I64Eq(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Eq,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64Ne(arg0, arg1) => Opcode::Rel {
                 class: RelOp::Ne,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64LtS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedLt,
+                class: RelOp::Lt,
+                sign: SignOp::Signed,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64LtU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedLt,
+                class: RelOp::Lt,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64GtS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedGt,
+                class: RelOp::Gt,
+                sign: SignOp::Signed,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64GtU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedGt,
+                class: RelOp::Gt,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64LeS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedLe,
+                class: RelOp::Le,
+                sign: SignOp::Signed,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64LeU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedLe,
+                class: RelOp::Le,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64GeS(arg0, arg1) => Opcode::Rel {
-                class: RelOp::SignedGe,
+                class: RelOp::Ge,
+                sign: SignOp::Signed,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },
             Instruction::I64GeU(arg0, arg1) => Opcode::Rel {
-                class: RelOp::UnsignedGe,
+                class: RelOp::Ge,
+                sign: SignOp::Unsigned,
                 vtype: VarType::I64,
                 uniargs: [arg0, arg1],
             },

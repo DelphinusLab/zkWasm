@@ -226,10 +226,14 @@ pub fn encode_test<T: FromBn>(class: T, vtype: T, uniarg: UniArgEncode<1, T>) ->
     )
 }
 
-pub fn encode_rel<T: FromBn>(class: T, vtype: T, uniargs: UniArgEncode<2, T>) -> T {
+pub fn encode_rel<T: FromBn>(class: T, sign: T, vtype: T, uniargs: UniArgEncode<2, T>) -> T {
     Encoder::encode(
         OpcodeClass::Rel,
-        vec![(class, EncoderType::U32), (vtype, EncoderType::Bit)],
+        vec![
+            (class, EncoderType::U32),
+            (sign, EncoderType::Bit),
+            (vtype, EncoderType::Bit),
+        ],
         uniargs,
     )
 }

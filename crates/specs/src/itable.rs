@@ -183,7 +183,7 @@ pub enum BinaryOp {
     BinOp(BinOp),
     ShiftOp(ShiftOp),
     BitOp(BitOp),
-    RelOp(RelOp),
+    RelOp(RelOp, SignOp),
 }
 
 impl From<BinOp> for BinaryOp {
@@ -204,9 +204,9 @@ impl From<BitOp> for BinaryOp {
     }
 }
 
-impl From<RelOp> for BinaryOp {
-    fn from(value: RelOp) -> Self {
-        BinaryOp::RelOp(value)
+impl From<(RelOp, SignOp)> for BinaryOp {
+    fn from(value: (RelOp, SignOp)) -> Self {
+        BinaryOp::RelOp(value.0, value.1)
     }
 }
 
@@ -216,7 +216,7 @@ impl BinaryOp {
     }
 
     pub fn is_rel_op(&self) -> bool {
-        matches!(self, BinaryOp::RelOp(_))
+        matches!(self, BinaryOp::RelOp(_, _))
     }
 
     pub fn as_bin_op(self) -> BinOp {
@@ -240,9 +240,9 @@ impl BinaryOp {
         }
     }
 
-    pub fn as_rel_op(self) -> RelOp {
+    pub fn as_rel_op(self) -> (RelOp, SignOp) {
         match self {
-            BinaryOp::RelOp(op) => op,
+            BinaryOp::RelOp(op, sign) => (op, sign),
             _ => panic!("Not a rel op"),
         }
     }
@@ -252,14 +252,17 @@ impl BinaryOp {
 pub enum RelOp {
     Eq,
     Ne,
-    SignedGt,
-    UnsignedGt,
-    SignedGe,
-    UnsignedGe,
-    SignedLt,
-    UnsignedLt,
-    SignedLe,
-    UnsignedLe,
+    Gt,
+    Ge,
+    Lt,
+    Le,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SignOp {
+    // SignOp is encoded as bit, therefore it must start from 0
+    Unsigned = 0,
+    Signed,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, EnumIter, PartialEq, Eq, PartialOrd, Ord)]
@@ -419,6 +422,7 @@ pub enum Opcode {
     },
     Rel {
         class: RelOp,
+        sign: SignOp,
         vtype: VarType,
         uniargs: [UniArg; 2],
     },
@@ -588,10 +592,12 @@ impl From<&Opcode> for BigUint {
             ),
             Opcode::Rel {
                 class,
+                sign,
                 vtype,
                 uniargs,
             } => encode_rel(
                 BigUint::from(*class as u64),
+                BigUint::from(*sign as u64),
                 BigUint::from(*vtype as u64),
                 uniargs.into(),
             ),

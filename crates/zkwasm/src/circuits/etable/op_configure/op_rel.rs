@@ -20,6 +20,7 @@ use specs::encode::opcode::encode_rel;
 use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
 use specs::itable::RelOp;
+use specs::itable::SignOp;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -242,62 +243,31 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         let subop_ne = |meta: &mut VirtualCells<F>| {
             self.op_is_ne.expr(meta) * constant!(bn_to_field(&(BigUint::from(RelOp::Ne as u64))))
         };
-        let subop_gt_u = |meta: &mut VirtualCells<F>| {
-            self.op_is_gt.expr(meta)
-                * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedGt as u64))))
+        let subop_gt = |meta: &mut VirtualCells<F>| {
+            self.op_is_gt.expr(meta) * constant!(bn_to_field(&(BigUint::from(RelOp::Gt as u64))))
         };
-        let subop_ge_u = |meta: &mut VirtualCells<F>| {
-            self.op_is_ge.expr(meta)
-                * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedGe as u64))))
+        let subop_ge = |meta: &mut VirtualCells<F>| {
+            self.op_is_ge.expr(meta) * constant!(bn_to_field(&(BigUint::from(RelOp::Ge as u64))))
         };
-        let subop_lt_u = |meta: &mut VirtualCells<F>| {
-            self.op_is_lt.expr(meta)
-                * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedLt as u64))))
+        let subop_lt = |meta: &mut VirtualCells<F>| {
+            self.op_is_lt.expr(meta) * constant!(bn_to_field(&(BigUint::from(RelOp::Lt as u64))))
         };
-        let subop_le_u = |meta: &mut VirtualCells<F>| {
-            self.op_is_le.expr(meta)
-                * (constant_from!(1) - self.op_is_sign.expr(meta))
-                * constant!(bn_to_field(&(BigUint::from(RelOp::UnsignedLe as u64))))
-        };
-        let subop_gt_s = |meta: &mut VirtualCells<F>| {
-            self.op_is_gt.expr(meta)
-                * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedGt as u64))))
-        };
-        let subop_ge_s = |meta: &mut VirtualCells<F>| {
-            self.op_is_ge.expr(meta)
-                * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedGe as u64))))
-        };
-        let subop_lt_s = |meta: &mut VirtualCells<F>| {
-            self.op_is_lt.expr(meta)
-                * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedLt as u64))))
-        };
-        let subop_le_s = |meta: &mut VirtualCells<F>| {
-            self.op_is_le.expr(meta)
-                * self.op_is_sign.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(RelOp::SignedLe as u64))))
+        let subop_le = |meta: &mut VirtualCells<F>| {
+            self.op_is_le.expr(meta) * constant!(bn_to_field(&(BigUint::from(RelOp::Le as u64))))
         };
 
         let class = |meta: &mut VirtualCells<F>| {
             subop_eq(meta)
                 + subop_ne(meta)
-                + subop_ge_u(meta)
-                + subop_gt_u(meta)
-                + subop_le_u(meta)
-                + subop_lt_u(meta)
-                + subop_ge_s(meta)
-                + subop_gt_s(meta)
-                + subop_le_s(meta)
-                + subop_lt_s(meta)
+                + subop_ge(meta)
+                + subop_gt(meta)
+                + subop_le(meta)
+                + subop_lt(meta)
         };
 
         encode_rel(
             class(meta),
+            self.op_is_sign.expr(meta),
             self.lhs_arg.is_i32_cell.expr(meta),
             UniArgEncode::Reserve,
         )
@@ -365,14 +335,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
                 _ => unreachable!(),
             };
 
-        let op_is_sign = vec![
-            RelOp::SignedGt,
-            RelOp::SignedGe,
-            RelOp::SignedLt,
-            RelOp::SignedLe,
-        ]
-        .contains(&class);
-
+        let op_is_sign = matches!(class, (_, SignOp::Signed));
         if op_is_sign {
             self.op_is_sign.assign(ctx, F::one())?;
         }
@@ -422,34 +385,22 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
         self.res.assign(ctx, F::from(value))?;
 
         match class {
-            RelOp::Eq => {
+            (RelOp::Eq, _) => {
                 self.op_is_eq.assign(ctx, F::one())?;
             }
-            RelOp::Ne => {
+            (RelOp::Ne, _) => {
                 self.op_is_ne.assign(ctx, F::one())?;
             }
-            RelOp::SignedGt => {
+            (RelOp::Gt, _) => {
                 self.op_is_gt.assign(ctx, F::one())?;
             }
-            RelOp::UnsignedGt => {
-                self.op_is_gt.assign(ctx, F::one())?;
-            }
-            RelOp::SignedGe => {
+            (RelOp::Ge, _) => {
                 self.op_is_ge.assign(ctx, F::one())?;
             }
-            RelOp::UnsignedGe => {
-                self.op_is_ge.assign(ctx, F::one())?;
-            }
-            RelOp::SignedLt => {
+            (RelOp::Lt, _) => {
                 self.op_is_lt.assign(ctx, F::one())?;
             }
-            RelOp::UnsignedLt => {
-                self.op_is_lt.assign(ctx, F::one())?;
-            }
-            RelOp::SignedLe => {
-                self.op_is_le.assign(ctx, F::one())?;
-            }
-            RelOp::UnsignedLe => {
+            (RelOp::Le, _) => {
                 self.op_is_le.assign(ctx, F::one())?;
             }
         };
