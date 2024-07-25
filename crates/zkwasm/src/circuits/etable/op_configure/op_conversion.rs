@@ -47,6 +47,8 @@ pub struct ConversionConfig<F: FieldExt> {
     shift: AllocatedUnlimitedCell<F>,
     padding: AllocatedUnlimitedCell<F>,
 
+    result_needs_sign_extension: AllocatedUnlimitedCell<F>,
+
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -79,6 +81,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
         let rem = allocator.alloc_u64_cell();
         let rem_helper = allocator.alloc_u64_cell();
         let modulus = allocator.alloc_unlimited_cell();
+
+        // flag_bit && sign_op
+        let result_needs_sign_extension = allocator.alloc_unlimited_cell();
 
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
@@ -167,8 +172,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             "op_conversion: sign extension",
             Box::new(move |meta| {
                 vec![
+                    result_needs_sign_extension.expr(meta)
+                        - flag_bit.expr(meta) * sign_op.expr(meta),
                     // Compose Result for all extend instructions
-                    flag_bit.expr(meta) * padding.expr(meta) * sign_op.expr(meta)
+                    result_needs_sign_extension.expr(meta) * padding.expr(meta)
                         + flag_bit.expr(meta) * shift.expr(meta)
                         + rem.expr(meta)
                         - res.expr(meta),
@@ -194,6 +201,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ConversionConfigBuilder {
             modulus,
             shift,
             padding,
+            result_needs_sign_extension,
             memory_table_lookup_stack_write,
         })
     }
@@ -345,6 +353,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ConversionConfig<F> {
         self.modulus
             .assign(ctx, bn_to_field(&BigUint::from(modulus)))?;
         self.padding.assign(ctx, F::from(padding))?;
+        self.result_needs_sign_extension
+            .assign(ctx, F::from((flag_bit != 0 && is_sign_op) as u64))?;
 
         let mut memory_rw_entries = entry.memory_rw_entries.iter();
         self.value_arg
