@@ -68,6 +68,7 @@ pub struct LoadConfig<F: FieldExt> {
     is_eight_bytes: AllocatedBitCell<F>,
     bytes: AllocatedUnlimitedCell<F>,
     len_modulus: AllocatedUnlimitedCell<F>,
+    leading_modulus: AllocatedUnlimitedCell<F>,
 
     is_sign: AllocatedBitCell<F>,
     is_i32: AllocatedBitCell<F>,
@@ -82,6 +83,7 @@ pub struct LoadConfig<F: FieldExt> {
     address_within_allocated_pages_helper: AllocatedCommonRangeCell<F>,
 
     degree_helper: AllocatedBitCell<F>,
+    padding: AllocatedUnlimitedCell<F>,
 }
 
 pub struct LoadConfigBuilder;
@@ -108,6 +110,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_eight_bytes = allocator.alloc_bit_cell();
         let bytes = allocator.alloc_unlimited_cell();
         let len_modulus = allocator.alloc_unlimited_cell();
+        let leading_modulus = allocator.alloc_unlimited_cell();
 
         let load_tailing = allocator.alloc_u64_cell();
         let load_tailing_diff = allocator.alloc_u64_cell();
@@ -131,6 +134,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
         let is_i32 = allocator.alloc_bit_cell();
 
         let degree_helper = allocator.alloc_bit_cell();
+        let padding = allocator.alloc_unlimited_cell();
 
         let sp = common_config.sp_cell;
         let eid = common_config.eid_cell;
@@ -244,11 +248,20 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
                         - is_four_bytes.expr(meta) * constant_from!(1u64 << 32)
                         - is_eight_bytes.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
+                    leading_modulus.expr(meta)
+                        - (lookup_pow_modulus.expr(meta) * len_modulus.expr(meta)),
+                    /*
+                     * |    u64 memory block   |  u64 memory block     |
+                     * | (load_value_in_heap2) | (load_value_in_heap1) |
+                     * |           |                       |
+                     * * leading   * u64 picked value      * tailing
+                     *             |                       ｜
+                     *             |                       * lookup_pow_modulus
+                     *             * leading modulus
+                     */
                     load_tailing.expr(meta)
                         + load_picked.expr(meta) * lookup_pow_modulus.expr(meta)
-                        + load_leading.expr(meta)
-                            * lookup_pow_modulus.expr(meta)
-                            * len_modulus.expr(meta)
+                        + load_leading.expr(meta) * leading_modulus.expr(meta)
                         - load_value_in_heap1.expr(meta)
                         - load_value_in_heap2.expr(meta)
                             * constant_from_bn!(&(BigUint::from(1u64) << 64)),
@@ -321,13 +334,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             Box::new(move |meta| {
                 vec![
                     load_picked_flag.expr(meta) * is_sign.expr(meta) - degree_helper.expr(meta),
-                    degree_helper.expr(meta)
-                        * (is_one_byte.expr(meta) * constant_from!(0xffffff00)
-                            + is_two_bytes.expr(meta) * constant_from!(0xffff0000)
-                            + (constant_from!(1) - is_eight_bytes.expr(meta))
-                                * (constant_from!(1) - is_i32.expr(meta))
-                                * constant_from!(0xffffffff00000000))
-                        + load_picked.expr(meta)
+                    (is_one_byte.expr(meta) * constant_from!(0xffffff00)
+                        + is_two_bytes.expr(meta) * constant_from!(0xffff0000)
+                        + (constant_from!(1) - is_eight_bytes.expr(meta))
+                            * (constant_from!(1) - is_i32.expr(meta))
+                            * constant_from!(0xffffffff00000000))
+                        - padding.expr(meta),
+                    degree_helper.expr(meta) * padding.expr(meta) + load_picked.expr(meta)
                         - res.expr(meta),
                 ]
             }),
@@ -387,6 +400,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             is_eight_bytes,
             bytes,
             len_modulus,
+            leading_modulus,
             is_sign,
             is_i32,
             memory_table_lookup_heap_read1,
@@ -398,6 +412,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for LoadConfigBuilder {
             load_tailing_diff,
 
             degree_helper,
+            padding,
         })
     }
 }
@@ -514,8 +529,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
                 self.bytes.assign(ctx, (len as u64).into())?;
-                self.len_modulus
-                    .assign_bn(ctx, &(BigUint::from(1u64) << (len * 8)))?;
+                let len_modulus = BigUint::from(1u64) << (len * 8);
+                self.len_modulus.assign_bn(ctx, &len_modulus)?;
+                self.leading_modulus
+                    .assign_bn(ctx, &(len_modulus * BigUint::from(pos_modulus)))?;
 
                 self.is_sign.assign_bool(ctx, load_size.is_sign())?;
                 self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
@@ -523,6 +540,17 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for LoadConfig<F> {
                 self.degree_helper.assign(
                     ctx,
                     F::from(load_size.is_sign()) * F::from(load_picked_leading_u8 >> 7),
+                )?;
+                self.padding.assign(
+                    ctx,
+                    F::from(
+                        if len != 8 && vtype == VarType::I64 {
+                            0xffffffff00000000u64
+                        } else {
+                            0x0
+                        } + if len == 2 { 0xffff0000 } else { 0x0 }
+                            + if len == 1 { 0xffffff00 } else { 0x0 },
+                    ),
                 )?;
 
                 self.address_within_allocated_pages_helper.assign_u32(
