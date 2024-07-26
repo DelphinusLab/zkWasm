@@ -55,6 +55,9 @@ pub struct BinConfig<F: FieldExt> {
     d_leading_u16: AllocatedUnlimitedCell<F>,
 
     overflow_mul_size_modulus: AllocatedUnlimitedCell<F>,
+    rhs_mul_d: AllocatedUnlimitedCell<F>,
+    lhs_mul_rhs: AllocatedUnlimitedCell<F>,
+    aux1_mul_size_modulus: AllocatedUnlimitedCell<F>,
     degree_helper1: AllocatedUnlimitedCell<F>,
     degree_helper2: AllocatedUnlimitedCell<F>,
 
@@ -91,6 +94,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let d = allocator.alloc_u64_cell();
         let d_flag_helper_diff = allocator.alloc_common_range_cell(); // TODO: u16??
 
+        // mul: overflow bits
+        // div/mod: remainder
         let aux1 = allocator.alloc_u64_cell();
         let aux2 = allocator.alloc_u64_cell();
 
@@ -112,6 +117,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let size_modulus = allocator.alloc_unlimited_cell();
 
         let overflow_mul_size_modulus = allocator.alloc_unlimited_cell();
+        let rhs_mul_d = allocator.alloc_unlimited_cell();
+        let lhs_mul_rhs = allocator.alloc_unlimited_cell();
+        let aux1_mul_size_modulus = allocator.alloc_unlimited_cell();
         let degree_helper1 = allocator.alloc_unlimited_cell();
         let degree_helper2 = allocator.alloc_unlimited_cell();
 
@@ -160,11 +168,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         );
 
         constraint_builder.push(
-            "bin: normalized lhs",
+            "bin: degree helper",
             Box::new(move |meta| {
                 vec![
                     overflow_mul_size_modulus.expr(meta)
                         - overflow.expr(meta) * size_modulus.expr(meta),
+                    aux1_mul_size_modulus.expr(meta)
+                        - aux1.u64_cell.expr(meta) * size_modulus.expr(meta),
                 ]
             }),
         );
@@ -200,9 +210,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             Box::new(move |meta| {
                 // The range of res can be limited with is_i32 in memory table
                 vec![
-                    (lhs.u64_cell.expr(meta) * rhs.u64_cell.expr(meta)
-                        - aux1.u64_cell.expr(meta) * size_modulus.expr(meta)
-                        - res.expr(meta))
+                    lhs_mul_rhs.expr(meta) - lhs.u64_cell.expr(meta) * rhs.u64_cell.expr(meta),
+                    (lhs_mul_rhs.expr(meta) - aux1_mul_size_modulus.expr(meta) - res.expr(meta))
                         * is_mul.expr(meta),
                 ]
             }),
@@ -212,10 +221,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             "bin: div_u/rem_u constraints",
             Box::new(move |meta| {
                 vec![
-                    (lhs.u64_cell.expr(meta)
-                        - rhs.u64_cell.expr(meta) * d.u64_cell.expr(meta)
-                        - aux1.u64_cell.expr(meta))
+                    rhs_mul_d.expr(meta) - rhs.u64_cell.expr(meta) * d.u64_cell.expr(meta),
+                    // lhs = rhs * d + r
+                    (lhs.u64_cell.expr(meta) - rhs_mul_d.expr(meta) - aux1.u64_cell.expr(meta))
                         * (is_rem_u.expr(meta) + is_div_u.expr(meta)),
+                    // r < rhs
                     (aux1.u64_cell.expr(meta) + aux2.u64_cell.expr(meta) + constant_from!(1)
                         - rhs.u64_cell.expr(meta))
                         * (is_rem_u.expr(meta) + is_div_u.expr(meta)),
@@ -339,6 +349,9 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             normalized_rhs,
             d_leading_u16,
             overflow_mul_size_modulus,
+            rhs_mul_d,
+            lhs_mul_rhs,
+            aux1_mul_size_modulus,
             degree_helper1,
             degree_helper2,
         })
@@ -487,9 +500,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 overflow
             }
             BinOp::Mul => {
+                let overflow = ((left as u128 * right as u128) >> shift) as u64;
                 self.is_mul.assign(ctx, F::one())?;
-                self.aux1
-                    .assign(ctx, ((left as u128 * right as u128) >> shift) as u64)?;
+                self.aux1.assign(ctx, overflow)?;
+                self.aux1_mul_size_modulus
+                    .assign_bn(ctx, &(BigUint::from(overflow) << shift))?;
 
                 BigUint::zero()
             }
@@ -519,12 +534,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
 
         self.overflow_mul_size_modulus
             .assign_bn(ctx, &(overflow << shift))?;
+        self.lhs_mul_rhs
+            .assign_bn(ctx, &(BigUint::from(left) * BigUint::from(right)))?;
 
         match class {
             BinOp::UnsignedDiv | BinOp::UnsignedRem => {
+                let rem = left % right;
                 self.d.assign(ctx, left / right)?;
-                self.aux1.assign(ctx, left % right)?;
+                self.aux1.assign(ctx, rem)?;
+                self.aux1_mul_size_modulus
+                    .assign_bn(ctx, &(BigUint::from(rem) << shift))?;
                 self.aux2.assign(ctx, right - left % right - 1)?;
+                self.rhs_mul_d.assign(ctx, F::from(left / right * right))?;
             }
             BinOp::SignedDiv | BinOp::SignedRem => {
                 let left_flag = left >> (shift - 1) != 0;
@@ -563,7 +584,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 )?;
                 self.d.assign(ctx, d)?;
                 self.aux1.assign(ctx, rem)?;
+                self.aux1_mul_size_modulus
+                    .assign_bn(ctx, &(BigUint::from(rem) << shift))?;
                 self.aux2.assign(ctx, normalized_rhs - rem - 1)?;
+                self.rhs_mul_d.assign(ctx, F::from(right * d))?;
             }
             _ => {}
         }
