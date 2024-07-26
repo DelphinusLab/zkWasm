@@ -17,6 +17,7 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use num_traits::Zero;
 use specs::encode::opcode::encode_bin;
 use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
@@ -52,6 +53,8 @@ pub struct BinConfig<F: FieldExt> {
     normalized_lhs: AllocatedUnlimitedCell<F>,
     normalized_rhs: AllocatedUnlimitedCell<F>,
     d_leading_u16: AllocatedUnlimitedCell<F>,
+
+    overflow_mul_size_modulus: AllocatedUnlimitedCell<F>,
     degree_helper1: AllocatedUnlimitedCell<F>,
     degree_helper2: AllocatedUnlimitedCell<F>,
 
@@ -107,6 +110,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         let normalized_rhs = allocator.alloc_unlimited_cell();
         let res_flag = allocator.alloc_unlimited_cell();
         let size_modulus = allocator.alloc_unlimited_cell();
+
+        let overflow_mul_size_modulus = allocator.alloc_unlimited_cell();
         let degree_helper1 = allocator.alloc_unlimited_cell();
         let degree_helper2 = allocator.alloc_unlimited_cell();
 
@@ -155,13 +160,23 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
         );
 
         constraint_builder.push(
+            "bin: normalized lhs",
+            Box::new(move |meta| {
+                vec![
+                    overflow_mul_size_modulus.expr(meta)
+                        - overflow.expr(meta) * size_modulus.expr(meta),
+                ]
+            }),
+        );
+
+        constraint_builder.push(
             "c.bin.add",
             Box::new(move |meta| {
                 // The range of res can be limited with is_i32 in memory table
                 vec![
                     (lhs.u64_cell.expr(meta) + rhs.u64_cell.expr(meta)
                         - res.expr(meta)
-                        - overflow.expr(meta) * size_modulus.expr(meta))
+                        - overflow_mul_size_modulus.expr(meta))
                         * is_add.expr(meta),
                 ]
             }),
@@ -174,7 +189,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                 vec![
                     (rhs.u64_cell.expr(meta) + res.expr(meta)
                         - lhs.u64_cell.expr(meta)
-                        - overflow.expr(meta) * size_modulus.expr(meta))
+                        - overflow_mul_size_modulus.expr(meta))
                         * is_sub.expr(meta),
                 ]
             }),
@@ -323,6 +338,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             normalized_lhs,
             normalized_rhs,
             d_leading_u16,
+            overflow_mul_size_modulus,
             degree_helper1,
             degree_helper2,
         })
@@ -454,41 +470,55 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
             (lhs_flag, res_flag)
         };
 
-        match class {
+        let overflow = match class {
             BinOp::Add => {
+                let overflow = (BigUint::from(left) + BigUint::from(right)) >> shift;
                 self.is_add.assign(ctx, F::one())?;
-                self.overflow.assign_bn(
-                    ctx,
-                    &((BigUint::from(left) + BigUint::from(right)) >> shift),
-                )?;
+                self.overflow.assign_bn(ctx, &overflow)?;
+
+                overflow
             }
             BinOp::Sub => {
+                let overflow = (BigUint::from(right) + BigUint::from(value)) >> shift;
+
                 self.is_sub.assign(ctx, F::one())?;
-                self.overflow.assign_bn(
-                    ctx,
-                    &((BigUint::from(right) + BigUint::from(value)) >> shift),
-                )?;
+                self.overflow.assign_bn(ctx, &overflow)?;
+
+                overflow
             }
             BinOp::Mul => {
                 self.is_mul.assign(ctx, F::one())?;
                 self.aux1
                     .assign(ctx, ((left as u128 * right as u128) >> shift) as u64)?;
+
+                BigUint::zero()
             }
             BinOp::UnsignedDiv => {
                 self.is_div_u.assign(ctx, F::one())?;
+
+                BigUint::zero()
             }
             BinOp::UnsignedRem => {
                 self.is_rem_u.assign(ctx, F::one())?;
+
+                BigUint::zero()
             }
             BinOp::SignedDiv => {
                 self.is_div_s.assign(ctx, F::one())?;
                 self.is_div_s_or_rem_s.assign(ctx, F::one())?;
+
+                BigUint::zero()
             }
             BinOp::SignedRem => {
                 self.is_rem_s.assign(ctx, F::one())?;
                 self.is_div_s_or_rem_s.assign(ctx, F::one())?;
+
+                BigUint::zero()
             }
         };
+
+        self.overflow_mul_size_modulus
+            .assign_bn(ctx, &(overflow << shift))?;
 
         match class {
             BinOp::UnsignedDiv | BinOp::UnsignedRem => {
