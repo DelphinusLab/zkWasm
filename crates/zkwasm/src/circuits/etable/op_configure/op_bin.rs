@@ -56,6 +56,7 @@ pub struct BinConfig<F: FieldExt> {
 
     overflow_mul_size_modulus: AllocatedUnlimitedCell<F>,
     rhs_mul_d: AllocatedUnlimitedCell<F>,
+    normalized_rhs_mul_d: AllocatedUnlimitedCell<F>,
     lhs_mul_rhs: AllocatedUnlimitedCell<F>,
     aux1_mul_size_modulus: AllocatedUnlimitedCell<F>,
     degree_helper1: AllocatedUnlimitedCell<F>,
@@ -118,6 +119,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
 
         let overflow_mul_size_modulus = allocator.alloc_unlimited_cell();
         let rhs_mul_d = allocator.alloc_unlimited_cell();
+        let normalized_rhs_mul_d = allocator.alloc_unlimited_cell();
         let lhs_mul_rhs = allocator.alloc_unlimited_cell();
         let aux1_mul_size_modulus = allocator.alloc_unlimited_cell();
         let degree_helper1 = allocator.alloc_unlimited_cell();
@@ -175,6 +177,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                         - overflow.expr(meta) * size_modulus.expr(meta),
                     aux1_mul_size_modulus.expr(meta)
                         - aux1.u64_cell.expr(meta) * size_modulus.expr(meta),
+                    normalized_rhs_mul_d.expr(meta)
+                        - normalized_rhs.expr(meta) * d.u64_cell.expr(meta),
                 ]
             }),
         );
@@ -269,14 +273,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
                     normalized_lhs.expr(meta) - normalized_lhs_expr,
                     normalized_rhs.expr(meta) - normalized_rhs_expr,
                     (d_leading_u16.expr(meta) - d_leading_u16_expr),
-                    // bad
+                    // d_leading_u16 <= 0x7fff if res_flag is zero
                     (d_leading_u16.expr(meta) + d_flag_helper_diff.expr(meta)
                         - constant_from!(0x7fff))
-                        * (constant_from!(1) - res_flag.expr(meta))
-                        * is_div_s_or_rem_s.expr(meta),
-                    // bad
+                        * (constant_from!(1) - res_flag.expr(meta)),
                     (normalized_lhs.expr(meta)
-                        - normalized_rhs.expr(meta) * d.u64_cell.expr(meta)
+                        - normalized_rhs_mul_d.expr(meta)
                         - aux1.u64_cell.expr(meta))
                         * is_div_s_or_rem_s.expr(meta),
                     (aux1.u64_cell.expr(meta) + aux2.u64_cell.expr(meta) + constant_from!(1)
@@ -352,6 +354,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             d_leading_u16,
             overflow_mul_size_modulus,
             rhs_mul_d,
+            normalized_rhs_mul_d,
             lhs_mul_rhs,
             aux1_mul_size_modulus,
             degree_helper1,
@@ -545,11 +548,18 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 let rem = left % right;
                 let d_leading_u16 = d >> (shift - 16);
 
-                self.d.assign(ctx, left / right)?;
+                self.d.assign(ctx, d)?;
                 self.d_leading_u16.assign(ctx, d_leading_u16.into())?;
+                if d_leading_u16 < 0x7fff {
+                    self.d_flag_helper_diff
+                        .assign(ctx, F::from(0x7fff - d_leading_u16))?;
+                }
+
                 self.aux1.assign(ctx, rem)?;
                 self.aux1_mul_size_modulus
                     .assign_bn(ctx, &(BigUint::from(rem) << shift))?;
+                self.normalized_rhs_mul_d
+                    .assign_bn(ctx, &(BigUint::from(normalized_rhs) * BigUint::from(d)))?;
                 self.aux2.assign(ctx, right - left % right - 1)?;
                 self.rhs_mul_d.assign(ctx, F::from(left / right * right))?;
             }
@@ -580,22 +590,23 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                     &((BigUint::from(rem) + BigUint::from(value)) * lhs_flag),
                 )?;
                 self.d_leading_u16.assign(ctx, d_leading_u16.into())?;
-                self.d_flag_helper_diff.assign(
-                    ctx,
-                    if d_leading_u16 >= 0x7fff {
-                        F::from(0)
-                    } else {
-                        F::from(0x7fff - d_leading_u16)
-                    },
-                )?;
+                if d_leading_u16 < 0x7fff {
+                    self.d_flag_helper_diff
+                        .assign(ctx, F::from(0x7fff - d_leading_u16))?;
+                }
                 self.d.assign(ctx, d)?;
+                self.normalized_rhs_mul_d
+                    .assign_bn(ctx, &(BigUint::from(normalized_rhs) * BigUint::from(d)))?;
                 self.aux1.assign(ctx, rem)?;
                 self.aux1_mul_size_modulus
                     .assign_bn(ctx, &(BigUint::from(rem) << shift))?;
                 self.aux2.assign(ctx, normalized_rhs - rem - 1)?;
                 self.rhs_mul_d.assign(ctx, F::from(right * d))?;
             }
-            _ => {}
+            _ => {
+                // assign to make other ops happy
+                self.d_flag_helper_diff.assign(ctx, F::from(0x7fff))?;
+            }
         }
 
         let mut memory_entries = entry.memory_rw_entries.iter();
