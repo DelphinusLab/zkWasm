@@ -215,11 +215,7 @@ const U64_CELLS: usize = 5;
 const U16_COLUMNS: usize =
     U64_CELLS + ((U32_CELLS + U32_PERMUTATION_CELLS).next_multiple_of(2) / 2) + 2;
 const COMMON_RANGE_COLUMNS: usize = if cfg!(feature = "continuation") { 3 } else { 5 };
-const UNLIMITED_COLUMNS: usize = if cfg!(feature = "continuation") {
-    11
-} else {
-    10
-};
+const UNLIMITED_COLUMNS: usize = 11;
 const MEMORY_TABLE_LOOKUP_COLUMNS: usize = 2;
 const IMAGE_TABLE_LOOKUP_COLUMNS: usize = 1;
 

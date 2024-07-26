@@ -48,11 +48,11 @@ pub struct BinConfig<F: FieldExt> {
     is_rem_s: AllocatedBitCell<F>,
     is_div_s_or_rem_s: AllocatedBitCell<F>,
 
-    res_flag: AllocatedUnlimitedCell<F>,
+    res_flag: AllocatedBitCell<F>,
     size_modulus: AllocatedUnlimitedCell<F>,
     normalized_lhs: AllocatedUnlimitedCell<F>,
     normalized_rhs: AllocatedUnlimitedCell<F>,
-    d_leading_u16: AllocatedUnlimitedCell<F>,
+    d_leading_u16: AllocatedU16Cell<F>,
 
     overflow_mul_size_modulus: AllocatedUnlimitedCell<F>,
     rhs_mul_d: AllocatedUnlimitedCell<F>,
@@ -61,6 +61,10 @@ pub struct BinConfig<F: FieldExt> {
     aux1_mul_size_modulus: AllocatedUnlimitedCell<F>,
     degree_helper1: AllocatedUnlimitedCell<F>,
     degree_helper2: AllocatedUnlimitedCell<F>,
+    degree_helper3: AllocatedUnlimitedCell<F>,
+    degree_helper4: AllocatedUnlimitedCell<F>,
+    res_equals_d_div_s: AllocatedUnlimitedCell<F>,
+    res_equals_rem_rem_s: AllocatedUnlimitedCell<F>,
 
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
@@ -111,10 +115,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
 
         let is_div_s_or_rem_s = allocator.alloc_bit_cell();
 
-        let d_leading_u16 = allocator.alloc_unlimited_cell();
+        let d_leading_u16 = allocator.alloc_u16_cell();
         let normalized_lhs = allocator.alloc_unlimited_cell();
         let normalized_rhs = allocator.alloc_unlimited_cell();
-        let res_flag = allocator.alloc_unlimited_cell();
+        let res_flag = allocator.alloc_bit_cell();
         let size_modulus = allocator.alloc_unlimited_cell();
 
         let overflow_mul_size_modulus = allocator.alloc_unlimited_cell();
@@ -288,42 +292,46 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             }),
         );
 
+        let res_equals_d_div_s = allocator.alloc_unlimited_cell();
+        let degree_helper3 = allocator.alloc_unlimited_cell();
         constraint_builder.push(
             "bin: div_s constraints res",
             Box::new(move |meta| {
                 vec![
-                    (res.expr(meta) - d.u64_cell.expr(meta))
-                        * (constant_from!(1) - res_flag.expr(meta))
-                        * is_div_s.expr(meta),
-                    (degree_helper1.expr(meta)
-                        - (d.u64_cell.expr(meta) + res.expr(meta)) * res_flag.expr(meta))
-                        * is_div_s.expr(meta),
+                    res_equals_d_div_s.expr(meta)
+                        - (res.expr(meta) - d.u64_cell.expr(meta)) * is_div_s.expr(meta),
+                    // if result is positive, res = d
+                    res_equals_d_div_s.expr(meta) * (constant_from!(1) - res_flag.expr(meta)),
+                    degree_helper1.expr(meta)
+                        - (d.u64_cell.expr(meta) + res.expr(meta)) * res_flag.expr(meta),
+                    degree_helper3.expr(meta) - degree_helper1.expr(meta) * is_div_s.expr(meta),
                     /*
                      * If only one of the left and the right is negative,
                      * `res` must equal to `size_modulus - normalized quotient(d)`, or
                      * `res` and `d` are both zero.
                      */
                     (res.expr(meta) + d.u64_cell.expr(meta) - size_modulus.expr(meta))
-                        * degree_helper1.expr(meta)
-                        * is_div_s.expr(meta),
+                        * degree_helper3.expr(meta),
                 ]
             }),
         );
 
+        let res_equals_rem_rem_s = allocator.alloc_unlimited_cell();
+        let degree_helper4 = allocator.alloc_unlimited_cell();
         constraint_builder.push(
             "bin: rem_s constraints res",
             Box::new(move |meta| {
                 vec![
-                    (res.expr(meta) - aux1.u64_cell.expr(meta))
-                        * (constant_from!(1) - lhs.flag_bit_cell.expr(meta))
-                        * is_rem_s.expr(meta),
+                    res_equals_rem_rem_s.expr(meta)
+                        - (res.expr(meta) - aux1.u64_cell.expr(meta)) * is_rem_s.expr(meta),
+                    res_equals_rem_rem_s.expr(meta)
+                        * (constant_from!(1) - lhs.flag_bit_cell.expr(meta)),
                     (degree_helper2.expr(meta)
                         - (aux1.u64_cell.expr(meta) + res.expr(meta))
-                            * lhs.flag_bit_cell.expr(meta)) // The sign of the left operator determines the flag bit of the result value.
-                        * is_rem_s.expr(meta),
+                            * lhs.flag_bit_cell.expr(meta)), // The sign of the left operator determines the flag bit of the result value.
+                    degree_helper4.expr(meta) - degree_helper2.expr(meta) * is_rem_s.expr(meta),
                     (res.expr(meta) + aux1.u64_cell.expr(meta) - size_modulus.expr(meta))
-                        * degree_helper2.expr(meta)
-                        * is_rem_s.expr(meta),
+                        * degree_helper4.expr(meta),
                 ]
             }),
         );
@@ -359,6 +367,10 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for BinConfigBuilder {
             aux1_mul_size_modulus,
             degree_helper1,
             degree_helper2,
+            degree_helper3,
+            degree_helper4,
+            res_equals_d_div_s,
+            res_equals_rem_rem_s,
         })
     }
 }
@@ -510,6 +522,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                 self.aux1.assign(ctx, overflow)?;
                 self.aux1_mul_size_modulus
                     .assign_bn(ctx, &(BigUint::from(overflow) << shift))?;
+                self.degree_helper2.assign_bn(
+                    ctx,
+                    &((BigUint::from(overflow) + BigUint::from(value)) * BigUint::from(lhs_flag)),
+                )?;
 
                 BigUint::zero()
             }
@@ -562,6 +578,14 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                     .assign_bn(ctx, &(BigUint::from(normalized_rhs) * BigUint::from(d)))?;
                 self.aux2.assign(ctx, right - left % right - 1)?;
                 self.rhs_mul_d.assign(ctx, F::from(left / right * right))?;
+
+                // useless but make other ops happy
+                self.degree_helper1
+                    .assign(ctx, (F::from(d) + F::from(value)) * F::from(res_flag))?;
+                self.degree_helper2.assign_bn(
+                    ctx,
+                    &((BigUint::from(rem) + BigUint::from(value)) * lhs_flag),
+                )?;
             }
             BinOp::SignedDiv | BinOp::SignedRem => {
                 let left_flag = left >> (shift - 1) != 0;
@@ -602,10 +626,28 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for BinConfig<F> {
                     .assign_bn(ctx, &(BigUint::from(rem) << shift))?;
                 self.aux2.assign(ctx, normalized_rhs - rem - 1)?;
                 self.rhs_mul_d.assign(ctx, F::from(right * d))?;
+
+                if class == BinOp::SignedDiv {
+                    self.res_equals_d_div_s
+                        .assign(ctx, F::from(value) - F::from(d))?;
+                    self.degree_helper3
+                        .assign(ctx, (F::from(d) + F::from(value)) * F::from(res_flag))?;
+                } else {
+                    self.res_equals_rem_rem_s
+                        .assign(ctx, F::from(value) - F::from(rem))?;
+                    self.degree_helper4.assign_bn(
+                        ctx,
+                        &((BigUint::from(rem) + BigUint::from(value)) * lhs_flag),
+                    )?;
+                }
             }
             _ => {
                 // assign to make other ops happy
                 self.d_flag_helper_diff.assign(ctx, F::from(0x7fff))?;
+                self.degree_helper1.assign(ctx, F::from(value * res_flag))?;
+                if class != BinOp::Mul {
+                    self.degree_helper2.assign(ctx, F::from(value * lhs_flag))?;
+                }
             }
         }
 
