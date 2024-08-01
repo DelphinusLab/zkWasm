@@ -71,7 +71,7 @@ pub struct CompilationTable {
 pub struct ExecutionTable {
     pub etable: Vec<TableBackend<EventTable>>,
     pub frame_table: Vec<TableBackend<FrameTable>>,
-    pub external_host_call_table: ExternalHostCallTable,
+    pub external_host_call_table: Vec<ExternalHostCallTable>,
     pub context_input_table: Vec<u64>,
     pub context_output_table: Vec<u64>,
 }

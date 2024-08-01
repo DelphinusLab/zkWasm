@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use external_host_call_table::ExternalHostCallTable;
 use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
 use specs::external_host_call_table::ExternalHostCallEntry;
-use specs::external_host_call_table::ExternalHostCallTable;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
@@ -57,6 +57,7 @@ use self::instruction::RunInstructionTracePre;
 use super::phantom::PhantomHelper;
 
 mod etable;
+mod external_host_call_table;
 mod frame_table;
 mod instruction;
 
@@ -141,7 +142,6 @@ impl TablePlugin {
             host_public_inputs: 1,
             context_in_index: 1,
             context_out_index: 1,
-            external_host_call_call_index: 1,
 
             initial_memory_pages: configure_table.init_memory_pages,
             maximal_memory_pages: configure_table.maximal_memory_pages,
@@ -164,7 +164,7 @@ impl TablePlugin {
             execution_tables: ExecutionTable {
                 etable: self.etable.finalized(),
                 frame_table: self.frame_table.finalized(),
-                external_host_call_table: self.external_host_call_table,
+                external_host_call_table: self.external_host_call_table.finalized(),
                 context_input_table: self.context_input_table,
                 context_output_table: self.context_output_table,
             },
@@ -185,6 +185,7 @@ impl TablePlugin {
         if self.etable.entries().len() == self.capacity as usize {
             self.etable.flush();
             self.frame_table.flush();
+            self.external_host_call_table.flush();
         }
 
         self.etable.push(

@@ -64,7 +64,6 @@ impl UpdateInitializationState for InitializationState<u32> {
         let mut host_public_inputs = self.host_public_inputs;
         let mut context_in_index = self.context_in_index;
         let mut context_out_index = self.context_out_index;
-        let mut external_host_call_call_index = self.external_host_call_call_index;
 
         for entry in execution_table.entries() {
             match &entry.step_info {
@@ -89,7 +88,6 @@ impl UpdateInitializationState for InitializationState<u32> {
                         }
                     }
                 }
-                StepInfo::ExternalHostCall { .. } => external_host_call_call_index += 1,
                 _ => (),
             }
         }
@@ -105,7 +103,6 @@ impl UpdateInitializationState for InitializationState<u32> {
                 host_public_inputs,
                 context_in_index,
                 context_out_index,
-                external_host_call_call_index,
 
                 initial_memory_pages: next_entry.allocated_memory_pages,
                 maximal_memory_pages: configure_table.maximal_memory_pages,
@@ -129,7 +126,6 @@ impl UpdateInitializationState for InitializationState<u32> {
                 host_public_inputs,
                 context_in_index,
                 context_out_index,
-                external_host_call_call_index,
 
                 initial_memory_pages: last_entry.allocated_memory_pages,
                 maximal_memory_pages: configure_table.maximal_memory_pages,
