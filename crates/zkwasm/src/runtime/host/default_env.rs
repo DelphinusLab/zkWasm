@@ -1,3 +1,9 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
+use zkwasm_host_circuits::host::db::TreeDB;
+
 use crate::foreign::context::runtime::register_context_foreign;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
@@ -6,8 +12,6 @@ use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
 use super::host_env::HostEnv;
 use super::HostEnvBuilder;
 
-// TODO: remove me after refine tracer
-#[derive(Clone)]
 pub struct ExecutionArg {
     /// Public inputs for `wasm_input(1)`
     pub public_inputs: Vec<u64>,
@@ -15,6 +19,10 @@ pub struct ExecutionArg {
     pub private_inputs: Vec<u64>,
     /// Context inputs for `wasm_read_context()`
     pub context_inputs: Vec<u64>,
+    /// indexed witness context
+    pub indexed_witness: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
+    /// db src
+    pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
 }
 
 pub struct DefaultHostEnvBuilder;

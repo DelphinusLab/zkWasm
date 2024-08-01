@@ -18,26 +18,13 @@ use std::collections::HashMap;
 use zkwasm_host_circuits::host::db::TreeDB;
 use zkwasm_host_circuits::proof::OpType;
 
-pub struct StandardExecutionArg {
-    /// Public inputs for `wasm_input(1)`
-    pub public_inputs: Vec<u64>,
-    /// Private inputs for `wasm_input(0)`
-    pub private_inputs: Vec<u64>,
-    /// Context inputs for `wasm_read_context()`
-    pub context_inputs: Vec<u64>,
-    /// indexed witness context
-    pub indexed_witness: Rc<RefCell<HashMap<u64, Vec<u64>>>>,
-    /// db src
-    pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HostEnvConfig {
     pub ops: Vec<OpType>,
 }
 
 impl HostEnvConfig {
-    fn register_op(op: &OpType, env: &mut HostEnv) {
+    fn register_op(op: &OpType, env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
         match op {
             OpType::BLS381PAIR => host::ecc_helper::bls381::pair::register_blspair_foreign(env),
             OpType::BLS381SUM => host::ecc_helper::bls381::sum::register_blssum_foreign(env),
@@ -45,17 +32,17 @@ impl HostEnvConfig {
             OpType::BN256SUM => host::ecc_helper::bn254::sum::register_bn254sum_foreign(env),
             OpType::POSEIDONHASH => host::hash_helper::poseidon::register_poseidon_foreign(env),
             OpType::MERKLE => {
-                host::merkle_helper::merkle::register_merkle_foreign(env, None);
-                host::merkle_helper::datacache::register_datacache_foreign(env, None);
+                host::merkle_helper::merkle::register_merkle_foreign(env, tree_db.clone());
+                host::merkle_helper::datacache::register_datacache_foreign(env, tree_db);
             }
             OpType::JUBJUBSUM => host::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign(env),
             OpType::KECCAKHASH => host::hash_helper::keccak256::register_keccak_foreign(env),
         }
     }
 
-    fn register_ops(&self, env: &mut HostEnv) {
+    fn register_ops(&self, env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
         for op in &self.ops {
-            Self::register_op(op, env);
+            Self::register_op(op, env, tree_db.clone());
         }
     }
 }
@@ -92,7 +79,7 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
             &mut env,
             Rc::new(RefCell::new(HashMap::new())),
         );
-        host_env_config.register_ops(&mut env);
+        host_env_config.register_ops(&mut env, None);
 
         env.finalize();
 
@@ -104,20 +91,13 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         let host_env_config = HostEnvConfig {
             ops: self.ops.clone(),
         };
-        let arg = StandardExecutionArg {
-            public_inputs: arg.public_inputs,
-            private_inputs: arg.private_inputs,
-            context_inputs: arg.context_inputs,
-            indexed_witness: Rc::new(RefCell::new(HashMap::new())),
-            tree_db: None,
-        };
 
         register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
         register_context_foreign(&mut env, arg.context_inputs);
         host::witness_helper::register_witness_foreign(&mut env, arg.indexed_witness);
-        host_env_config.register_ops(&mut env);
+        host_env_config.register_ops(&mut env, arg.tree_db);
 
         env.finalize();
 

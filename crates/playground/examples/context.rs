@@ -8,6 +8,9 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use delphinus_zkwasm::runtime::monitor::table_monitor::TableMonitor;
 use pairing_bn256::bn256::Fr;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 const K: u32 = MIN_K;
 
@@ -22,6 +25,8 @@ fn main() -> Result<()> {
                 public_inputs: vec![],
                 private_inputs: vec![],
                 context_inputs: vec![2, 1],
+                indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                tree_db: None,
             },
         );
 
@@ -44,6 +49,8 @@ fn main() -> Result<()> {
                 public_inputs: vec![],
                 private_inputs: vec![],
                 context_inputs: context_output.0,
+                indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                tree_db: None,
             },
         );
 
