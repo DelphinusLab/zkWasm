@@ -1,8 +1,11 @@
 #![deny(warnings)]
 #![allow(clippy::too_many_arguments, clippy::while_let_on_iterator)]
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use anyhow::Result;
 use app_builder::app;
@@ -82,6 +85,8 @@ fn main() -> Result<()> {
                     public_inputs,
                     private_inputs,
                     context_inputs,
+                    indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                    tree_db: None,
                 },
                 arg.running_arg.context_output,
                 arg.instruction_limit,
@@ -152,6 +157,8 @@ fn main() -> Result<()> {
                     public_inputs,
                     private_inputs,
                     context_inputs,
+                    indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                    tree_db: None,
                 },
                 arg.running_arg.context_output,
                 arg.mock_test,
