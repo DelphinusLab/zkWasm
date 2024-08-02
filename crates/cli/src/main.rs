@@ -57,8 +57,8 @@ fn main() -> Result<()> {
     match cli.subcommand {
         Subcommands::Setup(arg) => {
             let env_builder: Box<dyn HostEnvBuilder> = match arg.host_mode {
-                HostMode::Default => Box::new(DefaultHostEnvBuilder),
-                HostMode::Standard => Box::<StandardHostEnvBuilder>::default(),
+                HostMode::Default => Box::new(DefaultHostEnvBuilder::new(arg.k)),
+                HostMode::Standard => Box::new(StandardHostEnvBuilder::new(arg.k)),
             };
 
             arg.setup(&*env_builder, &cli.name, &cli.params_dir)?;
@@ -73,8 +73,8 @@ fn main() -> Result<()> {
             let context_inputs = parse_args(&arg.running_arg.context_inputs);
 
             let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
-                HostMode::Default => Box::new(DefaultHostEnvBuilder),
-                HostMode::Standard => Box::<StandardHostEnvBuilder>::default(),
+                HostMode::Default => Box::new(DefaultHostEnvBuilder::new(config.k)),
+                HostMode::Standard => Box::new(StandardHostEnvBuilder::new(config.k)),
             };
 
             config.dry_run(
@@ -144,8 +144,8 @@ fn main() -> Result<()> {
             };
 
             let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
-                HostMode::Default => Box::new(DefaultHostEnvBuilder),
-                HostMode::Standard => Box::<StandardHostEnvBuilder>::default(),
+                HostMode::Default => Box::new(DefaultHostEnvBuilder::new(config.k)),
+                HostMode::Standard => Box::new(StandardHostEnvBuilder::new(config.k)),
             };
 
             config.prove(
