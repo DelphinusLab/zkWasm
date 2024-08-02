@@ -64,8 +64,28 @@ mod instruction;
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
+// Reserved instruction numbers that trigger a flush
+const WATERMARK: usize = 40960;
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum FlushHint {
+    // No hint
+    No,
+    // Suggest to flush but not necessary, the monitor will flush if exceed the watermark
+    Suggest,
+    // Demand to flush immediately
+    Demand,
+}
+
+pub trait FlushStrategy {
+    fn notify(&mut self, op: usize);
+    fn reset(&mut self);
+    fn hint(&self) -> FlushHint;
+}
+
 pub struct TablePlugin {
     capacity: u32,
+    flush_strategy: Box<dyn FlushStrategy>,
 
     phantom_helper: PhantomHelper,
 
@@ -92,6 +112,7 @@ pub struct TablePlugin {
 impl TablePlugin {
     pub fn new(
         k: u32,
+        flush_strategy: Box<dyn FlushStrategy>,
         host_function_desc: HashMap<usize, HostFunctionDesc>,
         phantom_regex: &[String],
         wasm_input: FuncRef,
@@ -102,6 +123,7 @@ impl TablePlugin {
 
         Self {
             capacity,
+            flush_strategy,
 
             host_function_desc,
 
@@ -173,6 +195,28 @@ impl TablePlugin {
 }
 
 impl TablePlugin {
+    fn flush(&mut self) {
+        self.etable.flush();
+        self.frame_table.flush();
+        self.external_host_call_table.flush();
+
+        self.flush_strategy.reset();
+    }
+
+    fn try_flush(&mut self) {
+        let hint = self.flush_strategy.hint();
+        let current = self.etable.entries().len();
+        let capacity = self.capacity as usize;
+
+        if hint == FlushHint::Demand {
+            self.flush();
+        } else if current + WATERMARK >= capacity && hint == FlushHint::Suggest {
+            self.flush();
+        } else if current == capacity {
+            self.flush();
+        }
+    }
+
     fn push_event(
         &mut self,
         fid: u32,
@@ -182,11 +226,7 @@ impl TablePlugin {
         last_jump_eid: u32,
         step_info: StepInfo,
     ) {
-        if self.etable.entries().len() == self.capacity as usize {
-            self.etable.flush();
-            self.frame_table.flush();
-            self.external_host_call_table.flush();
-        }
+        self.try_flush();
 
         self.etable.push(
             fid,
@@ -710,6 +750,7 @@ impl Monitor for TablePlugin {
             self.context_output_table.push(v)
         }
         if let Ok(v) = ExternalHostCallEntry::try_from(fixed_step_info) {
+            self.flush_strategy.notify(v.op);
             self.external_host_call_table.push(v)
         }
     }
