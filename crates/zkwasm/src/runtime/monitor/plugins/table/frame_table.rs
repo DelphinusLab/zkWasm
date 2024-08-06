@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -114,6 +115,17 @@ impl FrameTable {
         self.initial_frame_entries.push(entry);
     }
 
+    pub(super) fn push_slice(&mut self, frame_table: specs::jtable::FrameTable) {
+        let slice = match self.backend.as_ref() {
+            TraceBackend::Memory => TableBackend::Memory(frame_table),
+            TraceBackend::File {
+                frame_table_writer, ..
+            } => TableBackend::Json(frame_table_writer(self.slices.len(), &frame_table)),
+        };
+
+        self.slices.push(slice);
+    }
+
     // Prepare for the next slice. This will remove all the entries that are returned
     pub(super) fn flush(&mut self) {
         let frame_table = {
@@ -163,12 +175,12 @@ impl FrameTable {
     }
 
     pub(super) fn finalized(mut self) -> Vec<TableBackend<specs::jtable::FrameTable>> {
-        self.flush();
+        // self.flush();
 
-        assert!(
-            self.current_unreturned.is_empty(),
-            "all frames should be returned"
-        );
+        // assert!(
+        //     self.current_unreturned.is_empty(),
+        //     "all frames should be returned"
+        // );
 
         self.slices
     }

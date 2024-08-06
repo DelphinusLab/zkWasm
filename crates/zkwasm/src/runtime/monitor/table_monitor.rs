@@ -18,10 +18,10 @@ use wasmi::Trap;
 use wasmi::ValueType;
 
 use crate::runtime::host::host_env::HostEnv;
-use crate::runtime::monitor::plugins::table::FlushStrategy;
 
 use super::observer::Observer;
 use super::plugins::statistic::StatisticPlugin;
+use super::plugins::table::FlushStrategy;
 use super::plugins::table::TablePlugin;
 use super::WasmiMonitor;
 
@@ -63,7 +63,7 @@ impl TableMonitor {
     }
 
     pub fn into_tables(self) -> Tables {
-        self.table_plugin.into_tables()
+        self.table_plugin.into_tables().unwrap()
     }
 }
 
