@@ -8,7 +8,8 @@ use crate::foreign::context::runtime::register_context_foreign;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
-use crate::runtime::monitor::plugins::table::FlushHint;
+use crate::runtime::monitor::plugins::table::Command;
+use crate::runtime::monitor::plugins::table::Event;
 use crate::runtime::monitor::plugins::table::FlushStrategy;
 
 use super::host_env::HostEnv;
@@ -32,12 +33,8 @@ pub struct DefaultHostEnvBuilder;
 struct DefaultFlushStrategy;
 
 impl FlushStrategy for DefaultFlushStrategy {
-    fn notify(&mut self, _op: usize) {}
-
-    fn reset(&mut self) {}
-
-    fn hint(&self) -> FlushHint {
-        FlushHint::No
+    fn notify(&mut self, _event: Event) -> Command {
+        Command::Noop
     }
 }
 

@@ -395,7 +395,7 @@ impl<F: FieldExt> EventTableChip<F> {
         };
 
         const THREAD: usize = 16;
-        let chunk_size = if event_table.0.len() == 0 {
+        let chunk_size = if event_table.0.is_empty() {
             1
         } else {
             (event_table.0.len() + THREAD - 1) / THREAD

@@ -66,29 +66,26 @@ impl UpdateInitializationState for InitializationState<u32> {
         let mut context_out_index = self.context_out_index;
 
         for entry in execution_table.entries() {
-            match &entry.step_info {
-                // TODO: fix hard code
-                StepInfo::CallHost {
-                    plugin,
-                    function_name,
-                    args,
-                    ..
-                } => {
-                    if *plugin == HostPlugin::HostInput {
-                        if (function_name == "wasm_input" && args[0] != 0)
-                            || function_name == "wasm_output"
-                        {
-                            host_public_inputs += 1;
-                        }
-                    } else if *plugin == HostPlugin::Context {
-                        if function_name == "wasm_read_context" {
-                            context_in_index += 1;
-                        } else if function_name == "wasm_write_context" {
-                            context_out_index += 1;
-                        }
+            if let StepInfo::CallHost {
+                plugin,
+                function_name,
+                args,
+                ..
+            } = &entry.step_info
+            {
+                if *plugin == HostPlugin::HostInput {
+                    if (function_name == "wasm_input" && args[0] != 0)
+                        || function_name == "wasm_output"
+                    {
+                        host_public_inputs += 1;
+                    }
+                } else if *plugin == HostPlugin::Context {
+                    if function_name == "wasm_read_context" {
+                        context_in_index += 1;
+                    } else if function_name == "wasm_write_context" {
+                        context_out_index += 1;
                     }
                 }
-                _ => (),
             }
         }
 

@@ -1,13 +1,12 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
-use external_host_call_table::ExternalHostCallTable;
 use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
-use specs::external_host_call_table::ExternalHostCallEntry;
+use specs::etable::EventTable;
+use specs::etable::EventTableEntry;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
@@ -24,6 +23,8 @@ use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
 use specs::TraceBackend;
+use transaction::HostTransaction;
+use transaction::TransactionId;
 use wasmi::func::FuncInstanceInternal;
 
 use wasmi::isa::Instruction;
@@ -46,8 +47,6 @@ use crate::circuits::compute_slice_capability;
 use crate::foreign::context::try_get_context_input_from_step_info;
 use crate::foreign::context::try_get_context_output_from_step_info;
 
-use self::etable::ETable;
-use self::frame_table::FrameTable;
 use self::instruction::run_instruction_pre;
 use self::instruction::FuncDesc;
 use self::instruction::InstructionIntoOpcode;
@@ -56,37 +55,42 @@ use self::instruction::RunInstructionTracePre;
 
 use super::phantom::PhantomHelper;
 
-mod etable;
-mod external_host_call_table;
-mod frame_table;
+pub mod transaction;
+
+mod frame_table_builder;
 mod instruction;
+mod slice_builder;
 
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
-// Reserved instruction numbers that trigger a flush
-const WATERMARK: usize = 40960;
+#[derive(PartialEq)]
+pub enum Command {
+    Noop,
+    // Start a new transaction from current instruction
+    Start(TransactionId),
+    // Commit the transaction including the current instruction
+    Commit(TransactionId),
+    // Flush the table at next host call instruction
+    Abort,
+}
 
-#[derive(Copy, Clone, PartialEq)]
-pub enum FlushHint {
-    // No hint
-    No,
-    // Suggest to flush but not necessary, the monitor will flush if exceed the watermark
-    Suggest,
-    // Demand to flush immediately
-    Demand,
+pub enum Event {
+    HostCall(usize),
+    Reset,
 }
 
 pub trait FlushStrategy {
-    fn notify(&mut self, op: usize);
-    fn reset(&mut self);
-    fn hint(&self) -> FlushHint;
+    fn notify(&mut self, op: Event) -> Command;
+}
+
+struct Slice {
+    etable: EventTable,
+    frame_table: specs::jtable::FrameTable,
+    external_host_call_table: specs::external_host_call_table::ExternalHostCallTable,
 }
 
 pub struct TablePlugin {
-    capacity: u32,
-    flush_strategy: Box<dyn FlushStrategy>,
-
     phantom_helper: PhantomHelper,
 
     host_function_desc: HashMap<usize, HostFunctionDesc>,
@@ -98,15 +102,16 @@ pub struct TablePlugin {
     init_memory_table: Vec<InitMemoryTableEntry>,
     start_fid: Option<u32>,
 
-    etable: ETable,
-    frame_table: FrameTable,
-    external_host_call_table: ExternalHostCallTable,
     context_input_table: Vec<u64>,
     context_output_table: Vec<u64>,
 
+    host_transaction: HostTransaction,
+
+    eid: u32,
     last_jump_eid: Vec<u32>,
     module_ref: Option<wasmi::ModuleRef>,
     unresolved_event: Option<RunInstructionTracePre>,
+    unresolved_host_call: Option<EventTableEntry>,
 }
 
 impl TablePlugin {
@@ -119,12 +124,8 @@ impl TablePlugin {
         trace_backend: TraceBackend,
     ) -> Self {
         let capacity = compute_slice_capability(k);
-        let trace_backend = Rc::new(trace_backend);
 
         Self {
-            capacity,
-            flush_strategy,
-
             host_function_desc,
 
             phantom_helper: PhantomHelper::new(phantom_regex, wasm_input),
@@ -136,15 +137,16 @@ impl TablePlugin {
             function_table: vec![],
             start_fid: None,
 
+            eid: 0,
             last_jump_eid: vec![],
-            etable: ETable::new(capacity, trace_backend.clone()),
-            frame_table: FrameTable::new(trace_backend),
-            external_host_call_table: ExternalHostCallTable::default(),
             context_input_table: vec![],
             context_output_table: vec![],
 
+            host_transaction: HostTransaction::new(trace_backend, capacity, flush_strategy),
+
             module_ref: None,
             unresolved_event: None,
+            unresolved_host_call: None,
         }
     }
 
@@ -175,18 +177,26 @@ impl TablePlugin {
             br_table,
             elem_table,
             configure_table,
-            initial_frame_table: Arc::new(self.frame_table.build_initial_frame_table()),
+            initial_frame_table: Arc::new(
+                self.host_transaction
+                    .slice_builder
+                    .frame_table_builder
+                    .build_initial_frame_table(),
+            ),
             initialization_state,
         }
     }
 
     pub fn into_tables(self) -> Tables {
+        let compilation_tables = self.into_compilation_table();
+        let slices = self.host_transaction.finalized();
+
         Tables {
-            compilation_tables: self.into_compilation_table(),
+            compilation_tables,
             execution_tables: ExecutionTable {
-                etable: self.etable.finalized(),
-                frame_table: self.frame_table.finalized(),
-                external_host_call_table: self.external_host_call_table.finalized(),
+                etable: slices.etable,
+                frame_table: slices.frame_table,
+                external_host_call_table: slices.external_host_call_table,
                 context_input_table: self.context_input_table,
                 context_output_table: self.context_output_table,
             },
@@ -195,29 +205,7 @@ impl TablePlugin {
 }
 
 impl TablePlugin {
-    fn flush(&mut self) {
-        self.etable.flush();
-        self.frame_table.flush();
-        self.external_host_call_table.flush();
-
-        self.flush_strategy.reset();
-    }
-
-    fn try_flush(&mut self) {
-        let hint = self.flush_strategy.hint();
-        let current = self.etable.entries().len();
-        let capacity = self.capacity as usize;
-
-        if hint == FlushHint::Demand {
-            self.flush();
-        } else if current + WATERMARK >= capacity && hint == FlushHint::Suggest {
-            self.flush();
-        } else if current == capacity {
-            self.flush();
-        }
-    }
-
-    fn push_event(
+    fn append_log(
         &mut self,
         fid: u32,
         iid: u32,
@@ -226,50 +214,59 @@ impl TablePlugin {
         last_jump_eid: u32,
         step_info: StepInfo,
     ) {
-        self.try_flush();
+        self.eid += 1;
 
-        self.etable.push(
+        let sp = (DEFAULT_VALUE_STACK_LIMIT as u32)
+            .checked_sub(sp)
+            .unwrap()
+            .checked_sub(1)
+            .unwrap();
+
+        let event = EventTableEntry {
+            eid: self.eid,
             fid,
             iid,
             sp,
             allocated_memory_pages,
             last_jump_eid,
             step_info,
-        )
+        };
+
+        self.host_transaction.insert(event);
     }
 
     fn push_frame(
         &mut self,
         frame_id: u32,
-        next_frame_id: u32,
-        callee_fid: u32,
-        fid: u32,
-        iid: u32,
+        // next_frame_id: u32,
+        // callee_fid: u32,
+        // fid: u32,
+        // iid: u32,
     ) {
-        self.frame_table
-            .push(frame_id, next_frame_id, callee_fid, fid, iid);
+        // self.frame_table
+        //     .push(frame_id, next_frame_id, callee_fid, fid, iid);
 
         self.last_jump_eid.push(frame_id);
     }
 
-    fn push_static_frame(
-        &mut self,
-        frame_id: u32,
-        next_frame_id: u32,
-        callee_fid: u32,
-        fid: u32,
-        iid: u32,
-    ) {
-        self.frame_table
-            .push_static_entry(frame_id, next_frame_id, callee_fid, fid, iid);
-    }
+    // fn push_static_frame(
+    //     &mut self,
+    //     frame_id: u32,
+    //     next_frame_id: u32,
+    //     callee_fid: u32,
+    //     fid: u32,
+    //     iid: u32,
+    // ) {
+    //     self.frame_table
+    //         .push_static_entry(frame_id, next_frame_id, callee_fid, fid, iid);
+    // }
 
     fn pop_frame(&mut self) {
-        self.frame_table.pop();
+        //self.frame_table.pop();
         self.last_jump_eid.pop();
     }
 
-    pub fn fill_trace(
+    fn fill_trace(
         &mut self,
         current_sp: u32,
         allocated_memory_pages: u32,
@@ -292,7 +289,7 @@ impl TablePlugin {
         };
 
         if has_return_value {
-            self.push_event(
+            self.append_log(
                 fid,
                 iid,
                 current_sp,
@@ -303,7 +300,7 @@ impl TablePlugin {
 
             iid += 1;
 
-            self.push_event(
+            self.append_log(
                 fid,
                 iid,
                 current_sp + 1,
@@ -326,7 +323,7 @@ impl TablePlugin {
             iid += 1;
 
             if callee_sig.return_type() != Some(wasmi::ValueType::I64) {
-                self.push_event(
+                self.append_log(
                     fid,
                     iid,
                     current_sp + 1,
@@ -342,7 +339,7 @@ impl TablePlugin {
             }
         }
 
-        self.push_event(
+        self.append_log(
             fid,
             iid,
             current_sp + has_return_value as u32,
@@ -383,10 +380,16 @@ impl Monitor for TablePlugin {
                 _ => unreachable!(),
             };
 
-            self.push_static_frame(0, 0, *zkmain_idx as u32, 0, 0);
+            self.host_transaction
+                .slice_builder
+                .frame_table_builder
+                .push_static_entry(*zkmain_idx as u32, 0, 0);
 
             if let Some(start_idx) = module.start_section() {
-                self.push_static_frame(0, 0, start_idx, *zkmain_idx as u32, 0);
+                self.host_transaction
+                    .slice_builder
+                    .frame_table_builder
+                    .push_static_entry(start_idx, *zkmain_idx as u32, 0);
 
                 self.start_fid = Some(start_idx);
             } else {
@@ -596,6 +599,10 @@ impl Monitor for TablePlugin {
 
     fn invoke_exported_function_pre_hook(&mut self) {
         self.last_jump_eid.push(0);
+        self.host_transaction
+            .slice_builder
+            .frame_table_builder
+            .invoke_exported_function_pre_hook();
     }
 
     fn invoke_instruction_pre_hook(
@@ -625,7 +632,7 @@ impl Monitor for TablePlugin {
         if !self.phantom_helper.is_in_phantom_function() {
             let current_event = self.unresolved_event.take();
 
-            let event = self.run_instruction_post(
+            let step_info = self.run_instruction_post(
                 self.module_ref.as_ref().unwrap(),
                 current_event,
                 value_stack,
@@ -633,28 +640,42 @@ impl Monitor for TablePlugin {
                 instruction,
             );
 
-            self.push_event(
-                fid,
-                iid,
-                sp,
-                allocated_memory_pages,
-                *self.last_jump_eid.last().unwrap(),
-                event,
-            );
+            // Since we cannot get return value now, we store the incompete event
+            // and fix later.
+            if matches!(step_info, StepInfo::CallHost { .. })
+                || matches!(step_info, StepInfo::ExternalHostCall { .. })
+            {
+                self.unresolved_host_call = Some(EventTableEntry {
+                    eid: self.eid,
+                    fid,
+                    iid,
+                    sp,
+                    allocated_memory_pages,
+                    last_jump_eid: *self.last_jump_eid.last().unwrap(),
+                    step_info,
+                });
+            } else {
+                self.append_log(
+                    fid,
+                    iid,
+                    sp,
+                    allocated_memory_pages,
+                    *self.last_jump_eid.last().unwrap(),
+                    step_info,
+                );
+            }
         }
 
         match outcome {
             InstructionOutcome::ExecuteCall(func_ref) => {
                 if let FuncInstanceInternal::Internal { index, .. } = func_ref.as_internal() {
                     if !self.phantom_helper.is_in_phantom_function() {
-                        let eid = self.etable.entries().last().unwrap().eid;
-
                         self.push_frame(
-                            eid,
-                            *self.last_jump_eid.last().unwrap(),
-                            *index as u32,
-                            fid,
-                            iid + 1,
+                            self.eid,
+                            // *self.last_jump_eid.last().unwrap(),
+                            // *index as u32,
+                            // fid,
+                            // iid + 1,
                         );
                     }
 
@@ -726,8 +747,10 @@ impl Monitor for TablePlugin {
             return;
         }
 
+        let mut event = self.unresolved_host_call.take().unwrap();
+
         if let Some(return_value) = return_value {
-            match self.etable.entries_mut().last_mut().unwrap().step_info {
+            match &mut event.step_info {
                 StepInfo::CallHost {
                     ref mut ret_val, ..
                 } => {
@@ -742,16 +765,20 @@ impl Monitor for TablePlugin {
             }
         }
 
-        let fixed_step_info = &self.etable.entries().last().unwrap().step_info;
-        if let Some(v) = try_get_context_input_from_step_info(fixed_step_info) {
+        if let Some(v) = try_get_context_input_from_step_info(&event.step_info) {
             self.context_input_table.push(v)
         }
-        if let Some(v) = try_get_context_output_from_step_info(fixed_step_info) {
+        if let Some(v) = try_get_context_output_from_step_info(&event.step_info) {
             self.context_output_table.push(v)
         }
-        if let Ok(v) = ExternalHostCallEntry::try_from(fixed_step_info) {
-            self.flush_strategy.notify(v.op);
-            self.external_host_call_table.push(v)
-        }
+
+        self.append_log(
+            event.fid,
+            event.iid,
+            event.sp,
+            event.allocated_memory_pages,
+            event.last_jump_eid,
+            event.step_info,
+        );
     }
 }

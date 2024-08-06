@@ -12,7 +12,8 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
-use delphinus_zkwasm::runtime::monitor::plugins::table::FlushHint;
+use delphinus_zkwasm::runtime::monitor::plugins::table::Command;
+use delphinus_zkwasm::runtime::monitor::plugins::table::Event;
 use delphinus_zkwasm::runtime::monitor::plugins::table::FlushStrategy;
 use serde::Deserialize;
 use serde::Serialize;
@@ -67,43 +68,36 @@ impl Default for StandardHostEnvBuilder {
     }
 }
 
+#[derive(Default)]
 struct StandardHostEnvFlushStrategy {
     ops: HashMap<usize, usize>,
-    // avoid to scan ops for every event
-    hint: FlushHint,
-}
-
-impl Default for StandardHostEnvFlushStrategy {
-    fn default() -> Self {
-        Self {
-            ops: HashMap::new(),
-            hint: FlushHint::No,
-        }
-    }
 }
 
 impl FlushStrategy for StandardHostEnvFlushStrategy {
     #[allow(unreachable_code)]
-    fn notify(&mut self, op: usize) {
-        let count = self.ops.entry(op).or_insert(0);
-        *count += 1;
+    fn notify(&mut self, op: Event) -> Command {
+        match op {
+            Event::HostCall(op) => {
+                let count = self.ops.entry(op).or_insert(0);
+                *count += 1;
+                let _plugin_id = todo!("op to plugin id");
 
-        if todo!("host table is full to accommodate more ops") {
-            self.hint = FlushHint::Demand;
-        } else if todo!("an ops block is met") {
-            self.hint = FlushHint::Suggest;
-        } else {
-            self.hint = FlushHint::No;
+                if todo!("host table is full to accommodate more ops") {
+                    Command::Abort
+                } else if todo!("an ops block is met") {
+                    Command::Start(_plugin_id)
+                } else if todo!("finish a block") {
+                    Command::Commit(_plugin_id)
+                } else {
+                    Command::Noop
+                }
+            }
+            Event::Reset => {
+                self.ops.clear();
+                todo!("return Err if including uncommitted entries, otherwise reset self");
+                Command::Noop
+            }
         }
-    }
-
-    fn reset(&mut self) {
-        self.ops.clear();
-        self.hint = FlushHint::No;
-    }
-
-    fn hint(&self) -> FlushHint {
-        self.hint
     }
 }
 
@@ -147,6 +141,6 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
     }
 
     fn create_flush_strategy(&self) -> Box<dyn FlushStrategy> {
-        Box::new(StandardHostEnvFlushStrategy::default())
+        Box::<StandardHostEnvFlushStrategy>::default()
     }
 }
