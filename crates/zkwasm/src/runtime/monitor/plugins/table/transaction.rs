@@ -3,10 +3,12 @@ use std::usize;
 
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
+use specs::external_host_call_table::ExternalHostCallEntry;
 use specs::external_host_call_table::ExternalHostCallTable;
 use specs::jtable::FrameTable;
 use specs::step::StepInfo;
 
+use super::slice_builder::SliceBuilder;
 use super::Command;
 use super::Error;
 use super::Event;
@@ -15,12 +17,6 @@ use super::MonitorError;
 use super::Slice;
 
 pub(crate) type TransactionId = usize;
-
-impl From<&[EventTableEntry]> for Slice {
-    fn from(_value: &[EventTableEntry]) -> Self {
-        todo!()
-    }
-}
 
 #[derive(PartialEq, PartialOrd, Eq, Ord)]
 struct Checkpoint {
@@ -76,6 +72,8 @@ pub(super) struct HostTransaction {
     logs: Vec<EventTableEntry>,
     committed: BTreeMap<TransactionId, Checkpoint>,
     controller: Box<dyn FlushStrategy>,
+
+    pub(super) slice_builder: SliceBuilder,
 }
 
 impl HostTransaction {
@@ -84,6 +82,7 @@ impl HostTransaction {
             logs: Vec::new(),
             committed: BTreeMap::new(),
             controller,
+            slice_builder: SliceBuilder::new(),
         }
     }
 
@@ -121,8 +120,8 @@ impl HostTransaction {
         let mut logs = std::mem::take(&mut self.logs);
 
         let committed_logs = logs.drain(0..rollback);
-        let slice = self.create_slice(committed_logs.as_slice());
-        drop(committed_logs);
+
+        let slice = self.slice_builder.build(committed_logs.collect());
 
         self.controller.notify(Event::Reset)?;
         self.replay(logs);
@@ -148,35 +147,39 @@ impl HostTransaction {
         Ok(())
     }
 
-    pub(crate) fn append(&mut self, log: EventTableEntry) -> Result<(), MonitorError> {
+    pub(crate) fn append(&mut self, log: EventTableEntry) -> Result<Option<Slice>, MonitorError> {
         let command = match log.step_info {
             StepInfo::ExternalHostCall { op, .. } => self.controller.notify(Event::HostCall(op))?,
             _ => Command::Noop,
         };
 
-        match command {
+        let slice = match command {
             Command::Noop => {
                 self.logs.push(log);
+
+                None
             }
             Command::Start(id) => {
                 self.start(id);
                 self.logs.push(log);
+
+                None
             }
             Command::Commit(id) => {
                 self.commit(id);
                 self.logs.push(log);
+
+                None
             }
             Command::Abort => {
-                self.abort()?;
+                let slice = self.abort()?;
                 self.append(log)?;
+
+                Some(slice)
             }
-        }
+        };
 
-        Ok(())
-    }
-
-    fn create_slice(&self, entries: &[EventTableEntry]) -> Slice {
-        Slice::from(entries)
+        Ok(slice)
     }
 
     pub(super) fn nofity(&mut self, event: Event) -> Result<Command, MonitorError> {

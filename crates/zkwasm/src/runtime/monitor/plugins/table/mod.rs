@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
+use specs::jtable::FrameTable;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::state::InitializationState;
@@ -24,6 +26,7 @@ use specs::types::FunctionType;
 use specs::types::ValueType;
 use specs::CompilationTable;
 use specs::ExecutionTable;
+use specs::TableBackend;
 use specs::Tables;
 use specs::TraceBackend;
 use thiserror::Error;
@@ -52,7 +55,6 @@ use crate::foreign::context::try_get_context_input_from_step_info;
 use crate::foreign::context::try_get_context_output_from_step_info;
 
 use self::etable::ETable;
-use self::frame_table::FrameTable;
 use self::instruction::run_instruction_pre;
 use self::instruction::FuncDesc;
 use self::instruction::InstructionIntoOpcode;
@@ -65,8 +67,9 @@ pub mod transaction;
 
 mod etable;
 mod external_host_call_table;
-mod frame_table;
+mod frame_table_builder;
 mod instruction;
+mod slice_builder;
 
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
@@ -117,12 +120,13 @@ pub struct TablePlugin {
     start_fid: Option<u32>,
 
     etable: ETable,
-    frame_table: FrameTable,
+    frame_table: Vec<TableBackend<FrameTable>>,
     external_host_call_table: ExternalHostCallTable,
     context_input_table: Vec<u64>,
     context_output_table: Vec<u64>,
 
     host_transaction: HostTransaction,
+    backend: Rc<TraceBackend>,
 
     eid: u32,
     last_jump_eid: Vec<u32>,
@@ -160,12 +164,13 @@ impl TablePlugin {
             eid: 0,
             last_jump_eid: vec![],
             etable: ETable::new(capacity, trace_backend.clone()),
-            frame_table: FrameTable::new(trace_backend),
+            frame_table: vec![],
             external_host_call_table: ExternalHostCallTable::default(),
             context_input_table: vec![],
             context_output_table: vec![],
 
             host_transaction: HostTransaction::new(flush_strategy),
+            backend: trace_backend,
 
             module_ref: None,
             unresolved_event: None,
@@ -200,7 +205,12 @@ impl TablePlugin {
             br_table,
             elem_table,
             configure_table,
-            initial_frame_table: Arc::new(self.frame_table.build_initial_frame_table()),
+            initial_frame_table: Arc::new(
+                self.host_transaction
+                    .slice_builder
+                    .frame_table_builder
+                    .build_initial_frame_table(),
+            ),
             initialization_state,
         }
     }
@@ -212,8 +222,18 @@ impl TablePlugin {
             self.host_transaction.assert_empty()?;
         }
 
+        let frame_table = match self.backend.borrow() {
+            TraceBackend::File {
+                frame_table_writer, ..
+            } => TableBackend::Json(frame_table_writer(
+                self.frame_table.len(),
+                &slice.frame_table,
+            )),
+            TraceBackend::Memory => TableBackend::Memory(slice.frame_table),
+        };
+
         self.etable.push_slice(slice.etable);
-        self.frame_table.push_slice(slice.frame_table);
+        self.frame_table.push(frame_table);
         self.external_host_call_table
             .push_slice(slice.external_host_call_table);
 
@@ -227,7 +247,7 @@ impl TablePlugin {
             compilation_tables: self.into_compilation_table(),
             execution_tables: ExecutionTable {
                 etable: self.etable.finalized(),
-                frame_table: self.frame_table.finalized(),
+                frame_table: self.frame_table,
                 external_host_call_table: self.external_host_call_table.finalized(),
                 context_input_table: self.context_input_table,
                 context_output_table: self.context_output_table,
@@ -269,31 +289,31 @@ impl TablePlugin {
     fn push_frame(
         &mut self,
         frame_id: u32,
-        next_frame_id: u32,
-        callee_fid: u32,
-        fid: u32,
-        iid: u32,
+        // next_frame_id: u32,
+        // callee_fid: u32,
+        // fid: u32,
+        // iid: u32,
     ) {
-        self.frame_table
-            .push(frame_id, next_frame_id, callee_fid, fid, iid);
+        // self.frame_table
+        //     .push(frame_id, next_frame_id, callee_fid, fid, iid);
 
         self.last_jump_eid.push(frame_id);
     }
 
-    fn push_static_frame(
-        &mut self,
-        frame_id: u32,
-        next_frame_id: u32,
-        callee_fid: u32,
-        fid: u32,
-        iid: u32,
-    ) {
-        self.frame_table
-            .push_static_entry(frame_id, next_frame_id, callee_fid, fid, iid);
-    }
+    // fn push_static_frame(
+    //     &mut self,
+    //     frame_id: u32,
+    //     next_frame_id: u32,
+    //     callee_fid: u32,
+    //     fid: u32,
+    //     iid: u32,
+    // ) {
+    //     self.frame_table
+    //         .push_static_entry(frame_id, next_frame_id, callee_fid, fid, iid);
+    // }
 
     fn pop_frame(&mut self) {
-        self.frame_table.pop();
+        //self.frame_table.pop();
         self.last_jump_eid.pop();
     }
 
@@ -411,10 +431,16 @@ impl Monitor for TablePlugin {
                 _ => unreachable!(),
             };
 
-            self.push_static_frame(0, 0, *zkmain_idx as u32, 0, 0);
+            self.host_transaction
+                .slice_builder
+                .frame_table_builder
+                .push_static_entry(*zkmain_idx as u32, 0, 0);
 
             if let Some(start_idx) = module.start_section() {
-                self.push_static_frame(0, 0, start_idx, *zkmain_idx as u32, 0);
+                self.host_transaction
+                    .slice_builder
+                    .frame_table_builder
+                    .push_static_entry(start_idx, *zkmain_idx as u32, 0);
 
                 self.start_fid = Some(start_idx);
             } else {
@@ -693,10 +719,10 @@ impl Monitor for TablePlugin {
                     if !self.phantom_helper.is_in_phantom_function() {
                         self.push_frame(
                             self.eid,
-                            *self.last_jump_eid.last().unwrap(),
-                            *index as u32,
-                            fid,
-                            iid + 1,
+                            // *self.last_jump_eid.last().unwrap(),
+                            // *index as u32,
+                            // fid,
+                            // iid + 1,
                         );
                     }
 
@@ -753,9 +779,9 @@ impl Monitor for TablePlugin {
                     }
                 }
 
-                if !self.phantom_helper.is_in_phantom_function() {
-                    self.pop_frame();
-                }
+                // if !self.phantom_helper.is_in_phantom_function() {
+                //     self.pop_frame();
+                // }
             }
             _ => {}
         }
