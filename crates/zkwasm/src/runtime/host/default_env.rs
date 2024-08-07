@@ -11,7 +11,6 @@ use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
 use crate::runtime::monitor::plugins::table::Command;
 use crate::runtime::monitor::plugins::table::Event;
 use crate::runtime::monitor::plugins::table::FlushStrategy;
-use crate::runtime::monitor::plugins::table::MonitorError;
 
 use super::host_env::HostEnv;
 use super::HostEnvBuilder;
@@ -34,8 +33,8 @@ pub struct DefaultHostEnvBuilder;
 struct DefaultFlushStrategy;
 
 impl FlushStrategy for DefaultFlushStrategy {
-    fn notify(&mut self, event: Event) -> Result<Command, MonitorError> {
-        Ok(Command::Noop)
+    fn notify(&mut self, _event: Event) -> Command {
+        Command::Noop
     }
 }
 

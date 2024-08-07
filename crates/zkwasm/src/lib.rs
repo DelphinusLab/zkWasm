@@ -1,4 +1,4 @@
-// #![deny(warnings)]
+#![deny(warnings)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![feature(int_roundings)]

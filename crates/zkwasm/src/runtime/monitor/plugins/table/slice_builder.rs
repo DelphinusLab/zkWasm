@@ -1,13 +1,7 @@
-use std::rc::Rc;
-
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
-use specs::external_host_call_table;
 use specs::external_host_call_table::ExternalHostCallEntry;
 use specs::external_host_call_table::ExternalHostCallTable;
-use specs::jtable::FrameTable;
-use specs::step::StepInfo;
-use specs::TraceBackend;
 
 use super::frame_table_builder::FrameTableBuilder;
 use super::Slice;

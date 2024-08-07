@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use specs::etable::EventTableEntry;
@@ -9,8 +7,6 @@ use specs::jtable::FrameTableEntryInternal;
 use specs::jtable::InheritedFrameTable;
 use specs::jtable::InheritedFrameTableEntry;
 use specs::step::StepInfo;
-use specs::TableBackend;
-use specs::TraceBackend;
 
 #[derive(Clone)]
 struct FrameTableEntry {
@@ -72,6 +68,10 @@ impl FrameTableBuilder {
 
             last_jump_eid: Vec::new(),
         }
+    }
+
+    pub(super) fn invoke_exported_function_pre_hook(&mut self) {
+        self.last_jump_eid.push(0);
     }
 
     pub(super) fn push(&mut self, frame_id: u32, callee_fid: u32, fid: u32, iid: u32) {

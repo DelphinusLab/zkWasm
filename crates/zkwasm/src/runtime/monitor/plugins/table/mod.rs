@@ -1,23 +1,18 @@
-use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
-use external_host_call_table::ExternalHostCallTable;
 use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
 use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
-use specs::external_host_call_table::ExternalHostCallEntry;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
-use specs::jtable::FrameTable;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::state::InitializationState;
@@ -26,10 +21,8 @@ use specs::types::FunctionType;
 use specs::types::ValueType;
 use specs::CompilationTable;
 use specs::ExecutionTable;
-use specs::TableBackend;
 use specs::Tables;
 use specs::TraceBackend;
-use thiserror::Error;
 use transaction::HostTransaction;
 use transaction::TransactionId;
 use wasmi::func::FuncInstanceInternal;
@@ -54,7 +47,6 @@ use crate::circuits::compute_slice_capability;
 use crate::foreign::context::try_get_context_input_from_step_info;
 use crate::foreign::context::try_get_context_output_from_step_info;
 
-use self::etable::ETable;
 use self::instruction::run_instruction_pre;
 use self::instruction::FuncDesc;
 use self::instruction::InstructionIntoOpcode;
@@ -65,8 +57,6 @@ use super::phantom::PhantomHelper;
 
 pub mod transaction;
 
-mod etable;
-mod external_host_call_table;
 mod frame_table_builder;
 mod instruction;
 mod slice_builder;
@@ -74,12 +64,7 @@ mod slice_builder;
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
-#[derive(Debug, Error)]
-pub enum MonitorError {
-    #[error("Execution teminates with uncommitted transactions in host circuit")]
-    TerminateWithUncommitted,
-}
-
+#[derive(PartialEq)]
 pub enum Command {
     Noop,
     // Start a new transaction from current instruction
@@ -96,7 +81,7 @@ pub enum Event {
 }
 
 pub trait FlushStrategy {
-    fn notify(&mut self, op: Event) -> Result<Command, MonitorError>;
+    fn notify(&mut self, op: Event) -> Command;
 }
 
 struct Slice {
@@ -106,8 +91,6 @@ struct Slice {
 }
 
 pub struct TablePlugin {
-    capacity: u32,
-
     phantom_helper: PhantomHelper,
 
     host_function_desc: HashMap<usize, HostFunctionDesc>,
@@ -119,14 +102,10 @@ pub struct TablePlugin {
     init_memory_table: Vec<InitMemoryTableEntry>,
     start_fid: Option<u32>,
 
-    etable: ETable,
-    frame_table: Vec<TableBackend<FrameTable>>,
-    external_host_call_table: ExternalHostCallTable,
     context_input_table: Vec<u64>,
     context_output_table: Vec<u64>,
 
     host_transaction: HostTransaction,
-    backend: Rc<TraceBackend>,
 
     eid: u32,
     last_jump_eid: Vec<u32>,
@@ -145,11 +124,8 @@ impl TablePlugin {
         trace_backend: TraceBackend,
     ) -> Self {
         let capacity = compute_slice_capability(k);
-        let trace_backend = Rc::new(trace_backend);
 
         Self {
-            capacity,
-
             host_function_desc,
 
             phantom_helper: PhantomHelper::new(phantom_regex, wasm_input),
@@ -163,14 +139,10 @@ impl TablePlugin {
 
             eid: 0,
             last_jump_eid: vec![],
-            etable: ETable::new(capacity, trace_backend.clone()),
-            frame_table: vec![],
-            external_host_call_table: ExternalHostCallTable::default(),
             context_input_table: vec![],
             context_output_table: vec![],
 
-            host_transaction: HostTransaction::new(flush_strategy),
-            backend: trace_backend,
+            host_transaction: HostTransaction::new(trace_backend, capacity, flush_strategy),
 
             module_ref: None,
             unresolved_event: None,
@@ -215,44 +187,20 @@ impl TablePlugin {
         }
     }
 
-    fn flush(&mut self, terminate: bool) -> Result<(), MonitorError> {
-        let slice = self.host_transaction.abort()?;
+    pub fn into_tables(self) -> Tables {
+        let compilation_tables = self.into_compilation_table();
+        let slices = self.host_transaction.finalized();
 
-        if terminate {
-            self.host_transaction.assert_empty()?;
-        }
-
-        let frame_table = match self.backend.borrow() {
-            TraceBackend::File {
-                frame_table_writer, ..
-            } => TableBackend::Json(frame_table_writer(
-                self.frame_table.len(),
-                &slice.frame_table,
-            )),
-            TraceBackend::Memory => TableBackend::Memory(slice.frame_table),
-        };
-
-        self.etable.push_slice(slice.etable);
-        self.frame_table.push(frame_table);
-        self.external_host_call_table
-            .push_slice(slice.external_host_call_table);
-
-        Ok(())
-    }
-
-    pub fn into_tables(mut self) -> Result<Tables, MonitorError> {
-        self.flush(true)?;
-
-        Ok(Tables {
-            compilation_tables: self.into_compilation_table(),
+        Tables {
+            compilation_tables,
             execution_tables: ExecutionTable {
-                etable: self.etable.finalized(),
-                frame_table: self.frame_table,
-                external_host_call_table: self.external_host_call_table.finalized(),
+                etable: slices.etable,
+                frame_table: slices.frame_table,
+                external_host_call_table: slices.external_host_call_table,
                 context_input_table: self.context_input_table,
                 context_output_table: self.context_output_table,
             },
-        })
+        }
     }
 }
 
@@ -265,8 +213,14 @@ impl TablePlugin {
         allocated_memory_pages: u32,
         last_jump_eid: u32,
         step_info: StepInfo,
-    ) -> Result<(), MonitorError> {
+    ) {
         self.eid += 1;
+
+        let sp = (DEFAULT_VALUE_STACK_LIMIT as u32)
+            .checked_sub(sp)
+            .unwrap()
+            .checked_sub(1)
+            .unwrap();
 
         let event = EventTableEntry {
             eid: self.eid,
@@ -278,12 +232,7 @@ impl TablePlugin {
             step_info,
         };
 
-        self.host_transaction.append(event)?;
-        if self.host_transaction.len() == self.capacity as usize {
-            self.flush(false)?;
-        }
-
-        Ok(())
+        self.host_transaction.insert(event);
     }
 
     fn push_frame(
@@ -650,6 +599,10 @@ impl Monitor for TablePlugin {
 
     fn invoke_exported_function_pre_hook(&mut self) {
         self.last_jump_eid.push(0);
+        self.host_transaction
+            .slice_builder
+            .frame_table_builder
+            .invoke_exported_function_pre_hook();
     }
 
     fn invoke_instruction_pre_hook(
@@ -779,9 +732,9 @@ impl Monitor for TablePlugin {
                     }
                 }
 
-                // if !self.phantom_helper.is_in_phantom_function() {
-                //     self.pop_frame();
-                // }
+                if !self.phantom_helper.is_in_phantom_function() {
+                    self.pop_frame();
+                }
             }
             _ => {}
         }
@@ -826,7 +779,6 @@ impl Monitor for TablePlugin {
             event.allocated_memory_pages,
             event.last_jump_eid,
             event.step_info,
-        )
-        .unwrap();
+        );
     }
 }

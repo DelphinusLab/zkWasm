@@ -63,7 +63,7 @@ impl TableMonitor {
     }
 
     pub fn into_tables(self) -> Tables {
-        self.table_plugin.into_tables().unwrap()
+        self.table_plugin.into_tables()
     }
 }
 
