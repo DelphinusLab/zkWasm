@@ -156,6 +156,7 @@ impl TablePlugin {
         let br_table = Arc::new(itable.create_brtable());
         let elem_table = Arc::new(ElemTable::new(self.elements.clone()));
         let configure_table = Arc::new(self.configure_table);
+
         let initialization_state = Arc::new(InitializationState {
             eid: 1,
             fid: self.start_fid.unwrap(),
@@ -235,34 +236,11 @@ impl TablePlugin {
         self.host_transaction.insert(event);
     }
 
-    fn push_frame(
-        &mut self,
-        frame_id: u32,
-        // next_frame_id: u32,
-        // callee_fid: u32,
-        // fid: u32,
-        // iid: u32,
-    ) {
-        // self.frame_table
-        //     .push(frame_id, next_frame_id, callee_fid, fid, iid);
-
+    fn push_frame(&mut self, frame_id: u32) {
         self.last_jump_eid.push(frame_id);
     }
 
-    // fn push_static_frame(
-    //     &mut self,
-    //     frame_id: u32,
-    //     next_frame_id: u32,
-    //     callee_fid: u32,
-    //     fid: u32,
-    //     iid: u32,
-    // ) {
-    //     self.frame_table
-    //         .push_static_entry(frame_id, next_frame_id, callee_fid, fid, iid);
-    // }
-
     fn pop_frame(&mut self) {
-        //self.frame_table.pop();
         self.last_jump_eid.pop();
     }
 
@@ -599,10 +577,6 @@ impl Monitor for TablePlugin {
 
     fn invoke_exported_function_pre_hook(&mut self) {
         self.last_jump_eid.push(0);
-        self.host_transaction
-            .slice_builder
-            .frame_table_builder
-            .invoke_exported_function_pre_hook();
     }
 
     fn invoke_instruction_pre_hook(
@@ -646,7 +620,7 @@ impl Monitor for TablePlugin {
                 || matches!(step_info, StepInfo::ExternalHostCall { .. })
             {
                 self.unresolved_host_call = Some(EventTableEntry {
-                    eid: self.eid,
+                    eid: self.eid + 1,
                     fid,
                     iid,
                     sp,
@@ -670,13 +644,7 @@ impl Monitor for TablePlugin {
             InstructionOutcome::ExecuteCall(func_ref) => {
                 if let FuncInstanceInternal::Internal { index, .. } = func_ref.as_internal() {
                     if !self.phantom_helper.is_in_phantom_function() {
-                        self.push_frame(
-                            self.eid,
-                            // *self.last_jump_eid.last().unwrap(),
-                            // *index as u32,
-                            // fid,
-                            // iid + 1,
-                        );
+                        self.push_frame(self.eid);
                     }
 
                     if self.phantom_helper.is_phantom_function(*index as u32) {

@@ -11,13 +11,13 @@ pub(super) struct SliceBuilder {
 }
 
 impl SliceBuilder {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         SliceBuilder {
             frame_table_builder: FrameTableBuilder::new(),
         }
     }
 
-    pub fn build(&mut self, logs: Vec<EventTableEntry>) -> Slice {
+    pub(super) fn build(&mut self, logs: Vec<EventTableEntry>) -> Slice {
         let external_host_call_table = ExternalHostCallTable::new(
             logs.iter()
                 .filter_map(|entry| ExternalHostCallEntry::try_from(&entry.step_info).ok())

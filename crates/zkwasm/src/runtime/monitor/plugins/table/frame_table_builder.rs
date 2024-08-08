@@ -54,8 +54,6 @@ pub(super) struct FrameTableBuilder {
 
     current_unreturned: Vec<FrameTableEntry>,
     current_returned: Vec<FrameTableEntry>,
-
-    last_jump_eid: Vec<u32>,
 }
 
 impl FrameTableBuilder {
@@ -65,27 +63,19 @@ impl FrameTableBuilder {
 
             current_unreturned: Vec::new(),
             current_returned: Vec::new(),
-
-            last_jump_eid: Vec::new(),
         }
     }
 
-    pub(super) fn invoke_exported_function_pre_hook(&mut self) {
-        self.last_jump_eid.push(0);
-    }
-
-    pub(super) fn push(&mut self, frame_id: u32, callee_fid: u32, fid: u32, iid: u32) {
+    fn push(&mut self, frame_id: u32, next_frame_id: u32, callee_fid: u32, fid: u32, iid: u32) {
         self.current_unreturned.push(FrameTableEntry {
             frame_id,
-            next_frame_id: *self.last_jump_eid.last().unwrap(),
+            next_frame_id,
             callee_fid,
             fid,
             iid,
             inherited: false,
             returned: false,
         });
-
-        self.last_jump_eid.push(frame_id);
     }
 
     pub(super) fn push_static_entry(&mut self, callee_fid: u32, fid: u32, iid: u32) {
@@ -103,8 +93,14 @@ impl FrameTableBuilder {
         self.initial_frame_entries.push(entry);
     }
 
+    fn pop(&mut self) {
+        let mut entry = self.current_unreturned.pop().unwrap();
+        entry.returned = true;
+        self.current_returned.push(entry);
+    }
+
     // Prepare for the next slice. This will remove all the entries that are returned
-    pub(super) fn flush(&mut self) -> specs::jtable::FrameTable {
+    fn flush(&mut self) -> specs::jtable::FrameTable {
         let frame_table = {
             let inherited = self
                 .current_returned
@@ -126,13 +122,6 @@ impl FrameTableBuilder {
                 inherited: Arc::new(inherited.into()),
                 called: CalledFrameTable::new(called),
             }
-
-            // match self.backend.as_ref() {
-            //     TraceBackend::Memory => TableBackend::Memory(frame_table),
-            //     TraceBackend::File {
-            //         frame_table_writer, ..
-            //     } => TableBackend::Json(frame_table_writer(self.slices.len(), &frame_table)),
-            // }
         };
 
         self.current_returned.clear();
@@ -141,13 +130,6 @@ impl FrameTableBuilder {
         }
 
         frame_table
-    }
-
-    pub(super) fn pop(&mut self) {
-        let mut entry = self.current_unreturned.pop().unwrap();
-        entry.returned = true;
-        self.current_returned.push(entry);
-        self.last_jump_eid.pop();
     }
 
     pub(super) fn build_initial_frame_table(&self) -> InheritedFrameTable {
@@ -171,10 +153,20 @@ impl FrameTableBuilder {
     pub(super) fn build(&mut self, entries: &[EventTableEntry]) -> specs::jtable::FrameTable {
         for entry in entries {
             match entry.step_info {
-                StepInfo::Call { index } => self.push(entry.eid, index, entry.fid, entry.iid + 1),
-                StepInfo::CallIndirect { func_index, .. } => {
-                    self.push(entry.eid, func_index, entry.fid, entry.iid + 1)
-                }
+                StepInfo::Call { index } => self.push(
+                    entry.eid,
+                    entry.last_jump_eid,
+                    index,
+                    entry.fid,
+                    entry.iid + 1,
+                ),
+                StepInfo::CallIndirect { func_index, .. } => self.push(
+                    entry.eid,
+                    entry.last_jump_eid,
+                    func_index,
+                    entry.fid,
+                    entry.iid + 1,
+                ),
                 StepInfo::Return { .. } => {
                     self.pop();
                 }
