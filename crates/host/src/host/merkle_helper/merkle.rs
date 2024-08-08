@@ -124,14 +124,14 @@ impl MerkleContext {
             .mongo_merkle
             .as_ref()
             .expect("merkle db not initialized");
-        let (leaf, _) = mt
-            .get_leaf_with_proof(index)
-            .expect("Unexpected failure: get leaf fail");
-        let values = leaf.data_as_u64();
         if self.data_cursor == 0 {
+            let (leaf, _) = mt
+                .get_leaf_with_proof(index)
+                .expect("Unexpected failure: get leaf fail");
+            let values = leaf.data_as_u64();
             self.data = values;
         }
-        let v = values[self.data_cursor];
+        let v = self.data[self.data_cursor];
         self.data_cursor += 1;
         return v;
     }

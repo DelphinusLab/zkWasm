@@ -10,6 +10,9 @@ mod assign;
 mod configure;
 pub(crate) mod expression;
 
+// high 128 bit counts 'return' instructions, low 128 bit counts 'call' instructions.
+pub(crate) const JOPS_SEPARATE: usize = 128;
+
 pub enum JtableOffset {
     JtableOffsetEnable = 0,
     JtableOffsetRest = 1,

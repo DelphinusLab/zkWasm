@@ -71,9 +71,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.72"
+version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b13c32d80ecc7ab747b80c3784bce54ee8a7a0cc4fbda9bf4cda2cf6fe90854"
+checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 dependencies = [
  "backtrace",
 ]
@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#174d270816af2fd19fb28e509b84845325d70792"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git#b26f281c2f7e4d673e873f2c05accd29952eb332"
 dependencies = [
  "anyhow",
  "ark-std 0.4.0",
@@ -623,14 +623,13 @@ name = "delphinus-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "circuits-batcher",
  "clap",
  "delphinus-host",
  "delphinus-zkwasm",
  "env_logger",
  "halo2_proofs",
- "halo2aggregator-s",
  "hex",
  "log",
  "md5",
@@ -647,13 +646,12 @@ name = "delphinus-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "bitvec",
  "delphinus-zkwasm",
  "downcast-rs",
  "ff",
  "halo2_proofs",
- "halo2aggregator-s",
  "hex",
  "lazy_static",
  "log",
@@ -680,13 +678,12 @@ name = "delphinus-zkwasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.3.0",
+ "ark-std 0.4.0",
  "bitvec",
  "cfg-if 1.0.0",
  "downcast-rs",
  "ff",
  "halo2_proofs",
- "halo2aggregator-s",
  "hex",
  "lazy_static",
  "log",
@@ -1180,7 +1177,7 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.4.0#eef56995f5729083d54b89faa30d5f90277acc22"
+source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.4.0#eef56995f5729083d54b89faa30d5f90277acc22"
 dependencies = [
  "halo2_proofs",
  "num-bigint",
@@ -1191,8 +1188,9 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/lanbones/halo2ecc-s.git?tag=bisect-lookup-0.4.0#eef56995f5729083d54b89faa30d5f90277acc22"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.7#c6b5e8e190431c1206cbdc4b13228eb7bc409283"
 dependencies = [
+ "ark-std 0.4.0",
  "halo2_proofs",
  "num-bigint",
  "num-integer",
@@ -3490,15 +3488,16 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git#d32de5ec45141c030d335b473cf9333fa405aebc"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=xgao/dynamic-db-uri#5b253d62e68ef0c227cc4aa3fc99cf35f81c583d"
 dependencies = [
- "ark-std 0.3.0",
+ "anyhow",
+ "ark-std 0.4.0",
  "cfg-if 1.0.0",
  "circuits-batcher",
  "clap",
  "ff",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.4.0)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.7)",
  "hex",
  "itertools",
  "lazy_static",
@@ -3519,7 +3518,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+ssh://git@github.com/xgaozoyoe/zkWasm-prover.git#4e37b117d4976f2261b00de1cc72f864e5a933b9"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#5f352e1852cc27af47378c4a355d36d000edecb1"
 dependencies = [
  "ark-std 0.4.0",
  "cc",
@@ -3532,5 +3531,4 @@ dependencies = [
  "libc",
  "rand",
  "rayon",
- "thread_local",
 ]

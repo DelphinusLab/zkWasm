@@ -1,5 +1,6 @@
 use anyhow::Result;
 use circuits_batcher::args::HashType::Poseidon;
+use circuits_batcher::args::OpenSchema;
 use circuits_batcher::proof::ParamsCache;
 use circuits_batcher::proof::ProofGenerationInfo;
 use circuits_batcher::proof::ProofInfo;
@@ -8,12 +9,12 @@ use circuits_batcher::proof::ProvingKeyCache;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use halo2_proofs::pairing::bn256::Bn256;
-use halo2_proofs::plonk::verify_proof_with_shplonk;
-use halo2_proofs::plonk::SingleVerifier;
+use halo2_proofs::pairing::bn256::G1Affine;
+use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsVerifier;
-use halo2aggregator_s::circuits::utils::load_or_build_unsafe_params;
-use halo2aggregator_s::transcript::poseidon::PoseidonRead;
 use log::info;
+use std::fs::File;
+use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -29,22 +30,27 @@ pub fn exec_setup<Builder: HostEnvBuilder>(
 ) -> Result<()> {
     info!("Setup Params and VerifyingKey");
 
-    macro_rules! prepare_params {
-        ($k: expr) => {{
-            let params_path = &param_dir.join(format!("K{}.params", $k));
+    let prepare_params = |k: u32| {
+        let params_path = &param_dir.join(format!("K{}.params", k));
 
-            if params_path.exists() {
-                info!("Found Params with K = {} at {:?}", $k, params_path);
-            } else {
-                info!("Create Params with K = {} to {:?}", $k, params_path);
-            }
+        if params_path.exists() {
+            info!("Found Params with K = {} at {:?}", k, params_path);
 
-            load_or_build_unsafe_params::<Bn256>($k, Some(params_path))
-        }};
-    }
+            Ok::<_, io::Error>(Params::read(&mut File::open(params_path)?)?)
+        } else {
+            info!("Create Params with K = {} to {:?}", k, params_path);
 
-    let params = prepare_params!(zkwasm_k);
-    prepare_params!(aggregate_k);
+            let params = Params::<G1Affine>::unsafe_setup::<Bn256>(k);
+
+            let mut fd = std::fs::File::create(params_path)?;
+            params.write(&mut fd)?;
+
+            Ok(params)
+        }
+    };
+
+    let params = prepare_params(zkwasm_k)?;
+    prepare_params(aggregate_k)?;
 
     // Setup ZkWasm Vkey
     {
@@ -75,7 +81,7 @@ pub fn exec_image_checksum<Builder>(
     wasm_binary: Vec<u8>,
     hostenv: Builder::HostConfig,
     phantom_functions: Vec<String>,
-    output_dir: &PathBuf,
+    params_dir: &PathBuf,
 ) -> Result<()>
 where
     Builder: HostEnvBuilder,
@@ -86,10 +92,9 @@ where
         phantom_functions,
     )?;
 
-    let params = load_or_build_unsafe_params::<Bn256>(
-        zkwasm_k,
-        Some(&output_dir.join(format!("K{}.params", zkwasm_k))),
-    );
+    let params = Params::read(&mut File::open(
+        &params_dir.join(format!("K{}.params", zkwasm_k)),
+    )?)?;
 
     let checksum = loader.checksum(&params, hostenv)?;
     assert_eq!(checksum.len(), 1);
@@ -98,7 +103,7 @@ where
     println!("image checksum: {:?}", checksum);
 
     let mut fd =
-        std::fs::File::create(&output_dir.join(format!("checksum.data",)).as_path()).unwrap();
+        std::fs::File::create(&params_dir.join(format!("checksum.data",)).as_path()).unwrap();
 
     write!(fd, "{:?}", checksum)?;
 
@@ -193,10 +198,9 @@ pub fn exec_verify_proof(
     let proofloadinfo = ProofGenerationInfo::load(&load_info);
     let proofs: Vec<ProofInfo<Bn256>> =
         ProofInfo::load_proof(&output_dir, &param_dir, &proofloadinfo);
-    let params = load_or_build_unsafe_params::<Bn256>(
-        proofloadinfo.k as u32,
-        Some(&param_dir.join(format!("K{}.params", proofloadinfo.k))),
-    );
+    let params = Params::read(&mut File::open(
+        &param_dir.join(format!("K{}.params", proofloadinfo.k)),
+    )?)?;
     let mut public_inputs_size = 0;
     for proof in proofs.iter() {
         public_inputs_size = usize::max(
@@ -210,15 +214,7 @@ pub fn exec_verify_proof(
 
     let params_verifier: ParamsVerifier<Bn256> = params.verifier(public_inputs_size).unwrap();
     for (_, proof) in proofs.into_iter().enumerate() {
-        let strategy = SingleVerifier::new(&params_verifier);
-        verify_proof_with_shplonk::<Bn256, _, _, _>(
-            &params_verifier,
-            &proof.vkey,
-            strategy,
-            &[&proof.instances.iter().map(|x| &x[..]).collect::<Vec<_>>()[..]],
-            &mut PoseidonRead::init(&proof.transcripts[..]),
-        )
-        .unwrap();
+        proof.verify_proof(&params_verifier, OpenSchema::GWC)?;
     }
     info!("Verifing proof passed");
 
