@@ -12,6 +12,7 @@ use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
 use specs::slice::FrameTableSlice;
 use specs::state::InitializationState;
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -71,11 +72,18 @@ pub(in crate::circuits) struct EventTablePermutationCells<F: FieldExt> {
     pub(in crate::circuits) post_initialization_state: InitializationState<AssignedCell<F, F>>,
 }
 
+const EXTERNAL_HOST_CALL_START_INDEX: u32 = 1;
+
+struct ExtraStatus {
+    external_host_call_index: u32,
+}
+
 impl<F: FieldExt> EventTableChip<F> {
-    fn assign_step_state(
+    fn assign_step_state<T: Borrow<ExtraStatus>>(
         &self,
         ctx: &mut Context<'_, F>,
         state: &InitializationState<u32>,
+        extra_status: T,
     ) -> Result<InitializationState<AssignedCell<F, F>>, Error> {
         cfg_if::cfg_if! {
             if #[cfg(feature="continuation")] {
@@ -114,9 +122,10 @@ impl<F: FieldExt> EventTableChip<F> {
             assign_common_range_advice!(context_input_index_cell, state.context_in_index);
         let context_out_index =
             assign_common_range_advice!(context_output_index_cell, state.context_out_index);
-        let external_host_call_call_index = assign_common_range_advice!(
+
+        assign_common_range_advice!(
             external_host_call_index_cell,
-            state.external_host_call_call_index
+            extra_status.borrow().external_host_call_index
         );
 
         let initial_memory_pages =
@@ -136,7 +145,6 @@ impl<F: FieldExt> EventTableChip<F> {
             host_public_inputs,
             context_in_index,
             context_out_index,
-            external_host_call_call_index,
 
             initial_memory_pages,
             maximal_memory_pages,
@@ -168,6 +176,19 @@ impl<F: FieldExt> EventTableChip<F> {
     }
 
     fn init(&self, ctx: &mut Context<'_, F>) -> Result<(), Error> {
+        assert_eq!(ctx.offset, 0);
+
+        ctx.region.assign_advice_from_constant(
+            || "etable: external host call index",
+            self.config
+                .common_config
+                .external_host_call_index_cell
+                .cell
+                .col,
+            ctx.offset,
+            F::from(EXTERNAL_HOST_CALL_START_INDEX as u64),
+        )?;
+
         for _ in 0..self.capability {
             ctx.region.assign_fixed(
                 || "etable: step sel",
@@ -238,12 +259,13 @@ impl<F: FieldExt> EventTableChip<F> {
         &self,
         ctx: &mut Context<'_, F>,
         initialization_state: &InitializationState<u32>,
+        extra_status: &ExtraStatus,
     ) -> Result<InitializationState<AssignedCell<F, F>>, Error> {
         while ctx.offset < self.capability * EVENT_TABLE_ENTRY_ROWS as usize {
-            self.assign_step_state(ctx, initialization_state)?;
+            self.assign_step_state(ctx, initialization_state, extra_status)?;
         }
 
-        self.assign_step_state(ctx, initialization_state)
+        self.assign_step_state(ctx, initialization_state, extra_status)
     }
 
     fn assign_entries(
@@ -259,7 +281,7 @@ impl<F: FieldExt> EventTableChip<F> {
         rest_mops: u32,
         rest_call_ops: u32,
         rest_return_ops: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<ExtraStatus, Error> {
         macro_rules! assign_advice {
             ($ctx:expr, $cell:ident, $value:expr) => {
                 self.config
@@ -276,21 +298,13 @@ impl<F: FieldExt> EventTableChip<F> {
             };
         }
 
-        /*
-         * The length of event_table equals 0: without_witness
-         */
-        if event_table.0.is_empty() {
-            return Ok(());
-        }
-
         let frame_table_returned_lookup = frame_table.build_returned_lookup_mapping();
 
         let status = {
             let mut host_public_inputs = initialization_state.host_public_inputs;
             let mut context_in_index = initialization_state.context_in_index;
             let mut context_out_index = initialization_state.context_out_index;
-            let mut external_host_call_call_index =
-                initialization_state.external_host_call_call_index;
+            let mut external_host_call_call_index = EXTERNAL_HOST_CALL_START_INDEX;
 
             let mut rest_mops = rest_mops;
             let mut rest_call_ops = rest_call_ops;
@@ -354,10 +368,6 @@ impl<F: FieldExt> EventTableChip<F> {
                 post_initialization_state.context_out_index,
                 context_out_index
             );
-            assert_eq!(
-                post_initialization_state.external_host_call_call_index,
-                external_host_call_call_index
-            );
 
             let terminate_status = Status {
                 eid: post_initialization_state.eid,
@@ -370,8 +380,7 @@ impl<F: FieldExt> EventTableChip<F> {
                 host_public_inputs: post_initialization_state.host_public_inputs,
                 context_in_index: post_initialization_state.context_in_index,
                 context_out_index: post_initialization_state.context_out_index,
-                external_host_call_call_index: post_initialization_state
-                    .external_host_call_call_index,
+                external_host_call_call_index,
 
                 rest_mops,
                 rest_call_ops,
@@ -386,7 +395,11 @@ impl<F: FieldExt> EventTableChip<F> {
         };
 
         const THREAD: usize = 16;
-        let chunk_size = (event_table.0.len() + THREAD - 1) / THREAD;
+        let chunk_size = if event_table.0.is_empty() {
+            1
+        } else {
+            (event_table.0.len() + THREAD - 1) / THREAD
+        };
 
         event_table
             .0
@@ -461,18 +474,21 @@ impl<F: FieldExt> EventTableChip<F> {
                             host_public_inputs: status[index].host_public_inputs,
                             context_in_index: status[index].context_in_index,
                             context_out_index: status[index].context_out_index,
-                            external_host_call_call_index: status[index]
-                                .external_host_call_call_index,
 
                             initial_memory_pages: entry.eentry.allocated_memory_pages,
                             maximal_memory_pages: configure_table.maximal_memory_pages,
+                        },
+                        ExtraStatus {
+                            external_host_call_index: status[index].external_host_call_call_index,
                         },
                     )
                     .unwrap();
                 }
             });
 
-        Ok(())
+        Ok(ExtraStatus {
+            external_host_call_index: status.last().unwrap().external_host_call_call_index,
+        })
     }
 
     pub(in crate::circuits) fn assign(
@@ -498,8 +514,13 @@ impl<F: FieldExt> EventTableChip<F> {
                 self.init(&mut ctx)?;
                 ctx.reset();
 
-                let pre_initialization_state =
-                    self.assign_step_state(&mut ctx, initialization_state)?;
+                let pre_initialization_state = self.assign_step_state(
+                    &mut ctx,
+                    initialization_state,
+                    ExtraStatus {
+                        external_host_call_index: EXTERNAL_HOST_CALL_START_INDEX,
+                    },
+                )?;
                 ctx.reset();
 
                 let (rest_mops_cell, rest_frame_table_cells) =
@@ -511,7 +532,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     event_table,
                 );
 
-                self.assign_entries(
+                let termination_status = self.assign_entries(
                     region,
                     self.config.op_configs.clone(),
                     itable,
@@ -530,6 +551,7 @@ impl<F: FieldExt> EventTableChip<F> {
                     .assign_padding_and_post_initialization_state(
                         &mut ctx,
                         post_initialization_state,
+                        &termination_status,
                     )?;
 
                 Ok(EventTablePermutationCells {

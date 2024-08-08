@@ -8,6 +8,9 @@ use crate::foreign::context::runtime::register_context_foreign;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::runtime::monitor::plugins::table::Command;
+use crate::runtime::monitor::plugins::table::Event;
+use crate::runtime::monitor::plugins::table::FlushStrategy;
 
 use super::host_env::HostEnv;
 use super::HostEnvBuilder;
@@ -26,6 +29,14 @@ pub struct ExecutionArg {
 }
 
 pub struct DefaultHostEnvBuilder;
+
+struct DefaultFlushStrategy;
+
+impl FlushStrategy for DefaultFlushStrategy {
+    fn notify(&mut self, _event: Event) -> Command {
+        Command::Noop
+    }
+}
 
 impl HostEnvBuilder for DefaultHostEnvBuilder {
     fn create_env_without_value(&self, k: u32) -> HostEnv {
@@ -48,5 +59,9 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         env.finalize();
 
         env
+    }
+
+    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy> {
+        Box::new(DefaultFlushStrategy)
     }
 }

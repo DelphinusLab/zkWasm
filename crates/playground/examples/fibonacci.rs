@@ -28,7 +28,13 @@ fn main() -> Result<()> {
             tree_db: None,
         },
     );
-    let mut monitor = TableMonitor::new(K, &vec![], TraceBackend::Memory, &env);
+    let mut monitor = TableMonitor::new(
+        K,
+        DefaultHostEnvBuilder.create_flush_strategy(),
+        &vec![],
+        TraceBackend::Memory,
+        &env,
+    );
     let loader = ZkWasmLoader::new(K, env)?;
 
     let runner = loader.compile(&module, &mut monitor)?;

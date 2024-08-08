@@ -12,6 +12,9 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::monitor::plugins::table::Command;
+use delphinus_zkwasm::runtime::monitor::plugins::table::Event;
+use delphinus_zkwasm::runtime::monitor::plugins::table::FlushStrategy;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -65,6 +68,39 @@ impl Default for StandardHostEnvBuilder {
     }
 }
 
+#[derive(Default)]
+struct StandardHostEnvFlushStrategy {
+    ops: HashMap<usize, usize>,
+}
+
+impl FlushStrategy for StandardHostEnvFlushStrategy {
+    #[allow(unreachable_code)]
+    fn notify(&mut self, op: Event) -> Command {
+        match op {
+            Event::HostCall(op) => {
+                let count = self.ops.entry(op).or_insert(0);
+                *count += 1;
+                let _plugin_id = todo!("op to plugin id");
+
+                if todo!("host table is full to accommodate more ops") {
+                    Command::Abort
+                } else if todo!("an ops block is met") {
+                    Command::Start(_plugin_id)
+                } else if todo!("finish a block") {
+                    Command::Commit(_plugin_id)
+                } else {
+                    Command::Noop
+                }
+            }
+            Event::Reset => {
+                self.ops.clear();
+                todo!("return Err if including uncommitted entries, otherwise reset self");
+                Command::Noop
+            }
+        }
+    }
+}
+
 impl HostEnvBuilder for StandardHostEnvBuilder {
     fn create_env_without_value(&self, k: u32) -> HostEnv {
         let mut env = HostEnv::new(k);
@@ -102,5 +138,9 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         env.finalize();
 
         env
+    }
+
+    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy> {
+        Box::<StandardHostEnvFlushStrategy>::default()
     }
 }

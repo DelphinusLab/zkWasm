@@ -39,7 +39,7 @@ pub struct Slices<F: FieldExt> {
     initialization_state: Arc<InitializationState<u32>>,
     etables: VecDeque<TableBackend<EventTable>>,
 
-    external_host_call_table: Arc<ExternalHostCallTable>,
+    external_host_call_table: VecDeque<ExternalHostCallTable>,
     context_input_table: Arc<Vec<u64>>,
     context_output_table: Arc<Vec<u64>>,
 
@@ -137,8 +137,8 @@ impl<F: FieldExt> Slices<F> {
             initialization_state: self.initialization_state.clone(),
             post_initialization_state: self.initialization_state.clone(),
 
-            etable: Arc::new(EventTable::new(vec![])),
-            external_host_call_table: self.external_host_call_table.clone(),
+            etable: Arc::new(EventTable::default()),
+            external_host_call_table: Arc::new(ExternalHostCallTable::default()),
             context_input_table: self.context_input_table.clone(),
             context_output_table: self.context_output_table.clone(),
 
@@ -205,6 +205,8 @@ impl<F: FieldExt> Iterator for Slices<F> {
             },
         );
 
+        let external_host_call_table = self.external_host_call_table.pop_front().unwrap();
+
         let slice = Slice {
             itable: self.itable.clone(),
             br_table: self.br_table.clone(),
@@ -222,7 +224,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
             post_initialization_state: post_initialization_state.clone(),
 
             etable: Arc::new(etable),
-            external_host_call_table: self.external_host_call_table.clone(),
+            external_host_call_table: Arc::new(external_host_call_table),
             context_input_table: self.context_input_table.clone(),
             context_output_table: self.context_output_table.clone(),
 
