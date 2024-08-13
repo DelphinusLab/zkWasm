@@ -260,7 +260,7 @@ impl Config {
 
         let mut monitor = TableMonitor::new(
             self.k,
-            env_builder.create_flush_strategy(),
+            env_builder.create_flush_strategy(self.k),
             &self.phantom_functions,
             table_backend,
             &env,

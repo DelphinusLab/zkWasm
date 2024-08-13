@@ -70,12 +70,14 @@ impl Default for StandardHostEnvBuilder {
 
 #[derive(Default)]
 struct StandardHostEnvFlushStrategy {
+    k: u32,
     ops: HashMap<usize, usize>,
 }
 
 impl FlushStrategy for StandardHostEnvFlushStrategy {
     #[allow(unreachable_code)]
     fn notify(&mut self, op: Event) -> Command {
+        let _k = self.k;
         match op {
             Event::HostCall(op) => {
                 let count = self.ops.entry(op).or_insert(0);
@@ -140,7 +142,10 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         env
     }
 
-    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy> {
-        Box::<StandardHostEnvFlushStrategy>::default()
+    fn create_flush_strategy(&self, k: u32) -> Box<dyn FlushStrategy> {
+        Box::new(StandardHostEnvFlushStrategy {
+            k,
+            ops: HashMap::new(),
+        })
     }
 }

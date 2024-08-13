@@ -61,7 +61,7 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         env
     }
 
-    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy> {
+    fn create_flush_strategy(&self, _k: u32) -> Box<dyn FlushStrategy> {
         Box::new(DefaultFlushStrategy)
     }
 }
