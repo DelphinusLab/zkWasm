@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 pub mod host;
+use num_traits::FromPrimitive;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -15,16 +16,24 @@ use delphinus_zkwasm::runtime::host::HostEnvBuilder;
 use delphinus_zkwasm::runtime::monitor::plugins::table::Command;
 use delphinus_zkwasm::runtime::monitor::plugins::table::Event;
 use delphinus_zkwasm::runtime::monitor::plugins::table::FlushStrategy;
+use halo2_proofs::pairing::bn256::Fr;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
+use zkwasm_host_circuits::circuits::babyjub::AltJubChip;
+use zkwasm_host_circuits::circuits::host::HostOpSelector;
+use zkwasm_host_circuits::circuits::merkle::MerkleChip;
+use zkwasm_host_circuits::circuits::poseidon::PoseidonChip;
 use zkwasm_host_circuits::host::db::TreeDB;
+use zkwasm_host_circuits::host::ForeignInst;
 use zkwasm_host_circuits::proof::OpType;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HostEnvConfig {
     pub ops: Vec<OpType>,
 }
+
+pub const MERKLE_TREE_HEIGHT: usize = 32;
 
 impl HostEnvConfig {
     fn register_op(op: &OpType, env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
@@ -54,6 +63,32 @@ pub struct StandardHostEnvBuilder {
     ops: Vec<OpType>,
 }
 
+trait GroupedForeign {
+    fn get_optype(&self) -> Option<OpType>;
+}
+
+impl GroupedForeign for ForeignInst {
+    fn get_optype(&self) -> Option<OpType> {
+        match self {
+            ForeignInst::MerkleSet => Some(OpType::MERKLE),
+            ForeignInst::MerkleGet => Some(OpType::MERKLE),
+            ForeignInst::MerkleSetRoot => Some(OpType::MERKLE),
+            ForeignInst::MerkleGetRoot => Some(OpType::MERKLE),
+            ForeignInst::MerkleAddress => Some(OpType::MERKLE),
+
+            ForeignInst::PoseidonPush => Some(OpType::POSEIDONHASH),
+            ForeignInst::PoseidonNew => Some(OpType::POSEIDONHASH),
+            ForeignInst::PoseidonFinalize => Some(OpType::POSEIDONHASH),
+
+            ForeignInst::JubjubSumNew => Some(OpType::JUBJUBSUM),
+            ForeignInst::JubjubSumPush => Some(OpType::JUBJUBSUM),
+            ForeignInst::JubjubSumResult => Some(OpType::JUBJUBSUM),
+
+            _ => None,
+        }
+    }
+}
+
 impl Default for StandardHostEnvBuilder {
     fn default() -> Self {
         Self {
@@ -71,32 +106,55 @@ impl Default for StandardHostEnvBuilder {
 #[derive(Default)]
 struct StandardHostEnvFlushStrategy {
     k: u32,
-    ops: HashMap<usize, usize>,
+    ops: HashMap<usize, (usize, usize)>,
+}
+
+fn get_group_size(optype: &OpType) -> usize {
+    match optype {
+        OpType::MERKLE => 1 + 4 + 4 + 4,           // address + set_root + get/set + get_root
+        OpType::JUBJUBSUM => 1 + 4 + 8 + 8,        // new + scalar + point + result point
+        OpType::POSEIDONHASH => 1 + 4 * 8 + 4, // new + push + result
+        _ => unreachable!(),
+    }
+}
+
+fn get_max_bound(optype: &OpType, k: usize) -> usize {
+    match optype {
+        OpType::MERKLE => MerkleChip::<Fr, MERKLE_TREE_HEIGHT>::max_rounds(k as usize),
+        OpType::JUBJUBSUM => AltJubChip::<Fr>::max_rounds(k as usize),
+        OpType::POSEIDONHASH => PoseidonChip::max_rounds(k as usize),
+        _ => unreachable!(),
+    }
 }
 
 impl FlushStrategy for StandardHostEnvFlushStrategy {
     #[allow(unreachable_code)]
     fn notify(&mut self, op: Event) -> Command {
-        let _k = self.k;
         match op {
             Event::HostCall(op) => {
-                let count = self.ops.entry(op).or_insert(0);
-                *count += 1;
-                let _plugin_id = todo!("op to plugin id");
-
-                if todo!("host table is full to accommodate more ops") {
-                    Command::Abort
-                } else if todo!("an ops block is met") {
-                    Command::Start(_plugin_id)
-                } else if todo!("finish a block") {
-                    Command::Commit(_plugin_id)
+                let op_type = ForeignInst::from_usize(op).unwrap().get_optype();
+                if let Some(optype) = op_type {
+                    let (count, total) = self.ops.entry(optype.clone() as usize).or_insert((0, 0));
+                    if *total >= get_max_bound(&optype, self.k as usize) {
+                        Command::Abort
+                    } else if *count == 0 {
+                        Command::Start(optype as usize)
+                    } else {
+                        *count += 1;
+                        if *count == get_group_size(&optype) {
+                            *total += 1;
+                            *count = 0;
+                            Command::Commit(optype as usize)
+                        } else {
+                            Command::Noop
+                        }
+                    }
                 } else {
                     Command::Noop
                 }
             }
             Event::Reset => {
                 self.ops.clear();
-                todo!("return Err if including uncommitted entries, otherwise reset self");
                 Command::Noop
             }
         }

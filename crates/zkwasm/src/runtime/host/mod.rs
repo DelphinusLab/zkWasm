@@ -104,5 +104,5 @@ pub trait HostEnvBuilder {
     /// Create an env with execution parameters, this is used by dry-run, run
     fn create_env(&self, k: u32, env: ExecutionArg) -> HostEnv;
     // Create a flush strategy to hint the monitor when to flush the table
-    fn create_flush_strategy(&self, k:u32) -> Box<dyn FlushStrategy>;
+    fn create_flush_strategy(&self, k: u32) -> Box<dyn FlushStrategy>;
 }
