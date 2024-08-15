@@ -73,6 +73,9 @@ pub enum Command {
     Commit(TransactionId),
     // Flush the table at next host call instruction
     Abort,
+    // Commit the transaction with current instruction and flush the table
+    // at next host call instruction
+    CommitAndAbort(TransactionId),
 }
 
 pub enum Event {

@@ -111,9 +111,9 @@ impl Checkpoints {
     }
 }
 
-impl<T> From<BTreeMap<T, Checkpoint>> for Checkpoints {
-    fn from(value: BTreeMap<T, Checkpoint>) -> Self {
-        Self(value.into_values().collect())
+impl From<Vec<Checkpoint>> for Checkpoints {
+    fn from(value: Vec<Checkpoint>) -> Self {
+        Self(value)
     }
 }
 
@@ -170,7 +170,8 @@ pub(super) struct HostTransaction {
     capacity: u32,
 
     logs: Vec<EventTableEntry>,
-    committed: BTreeMap<TransactionId, Checkpoint>,
+    started: BTreeMap<TransactionId, Checkpoint>,
+    committed: Vec<Checkpoint>,
     controller: Box<dyn FlushStrategy>,
     host_is_full: bool,
 
@@ -189,7 +190,8 @@ impl HostTransaction {
             capacity,
 
             logs: Vec::new(),
-            committed: BTreeMap::new(),
+            started: BTreeMap::new(),
+            committed: vec![],
             controller,
             host_is_full: false,
         }
@@ -205,11 +207,11 @@ impl HostTransaction {
 
     // begin the transaction
     fn start(&mut self, idx: TransactionId) {
-        if self.committed.contains_key(&idx) {
+        if self.started.contains_key(&idx) {
             panic!("transaction id exists")
         }
 
-        self.committed.insert(
+        self.started.insert(
             idx,
             Checkpoint {
                 start: self.now(),
@@ -219,7 +221,9 @@ impl HostTransaction {
     }
 
     fn commit(&mut self, idx: TransactionId) {
-        self.committed.get_mut(&idx).unwrap().commit = Commit::Set(self.now())
+        let mut transaction = self.started.remove(&idx).unwrap();
+        transaction.commit = Commit::Set(self.now());
+        self.committed.push(transaction);
     }
 
     fn abort(&mut self) {
@@ -227,7 +231,11 @@ impl HostTransaction {
             return;
         }
 
-        let checkpoints = std::mem::take(&mut self.committed);
+        let mut checkpoints = std::mem::take(&mut self.started)
+            .into_values()
+            .collect::<Vec<_>>();
+        let mut committed = std::mem::take(&mut self.committed);
+        checkpoints.append(&mut committed);
         let rollback = Checkpoints::from(checkpoints).abort(self.len());
 
         let mut logs = std::mem::take(&mut self.logs);
@@ -288,6 +296,11 @@ impl HostTransaction {
             }
             Command::Abort => {
                 self.insert(log);
+                self.host_is_full = true;
+            }
+            Command::CommitAndAbort(id) => {
+                self.logs.push(log);
+                self.commit(id);
                 self.host_is_full = true;
             }
         }

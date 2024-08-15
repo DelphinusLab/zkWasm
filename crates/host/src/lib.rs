@@ -111,8 +111,8 @@ struct StandardHostEnvFlushStrategy {
 
 fn get_group_size(optype: &OpType) -> usize {
     match optype {
-        OpType::MERKLE => 1 + 4 + 4 + 4,           // address + set_root + get/set + get_root
-        OpType::JUBJUBSUM => 1 + 4 + 8 + 8,        // new + scalar + point + result point
+        OpType::MERKLE => 1 + 4 + 4 + 4, // address + set_root + get/set + get_root
+        OpType::JUBJUBSUM => 1 + 4 + 8 + 8, // new + scalar + point + result point
         OpType::POSEIDONHASH => 1 + 4 * 8 + 4, // new + push + result
         _ => unreachable!(),
     }
@@ -128,26 +128,29 @@ fn get_max_bound(optype: &OpType, k: usize) -> usize {
 }
 
 impl FlushStrategy for StandardHostEnvFlushStrategy {
-    #[allow(unreachable_code)]
     fn notify(&mut self, op: Event) -> Command {
         match op {
             Event::HostCall(op) => {
                 let op_type = ForeignInst::from_usize(op).unwrap().get_optype();
                 if let Some(optype) = op_type {
                     let (count, total) = self.ops.entry(optype.clone() as usize).or_insert((0, 0));
-                    if *total >= get_max_bound(&optype, self.k as usize) {
-                        Command::Abort
-                    } else if *count == 0 {
+                    let group_size = get_group_size(&optype);
+
+                    *count += 1;
+
+                    if *count == 1 {
                         Command::Start(optype as usize)
-                    } else {
-                        *count += 1;
-                        if *count == get_group_size(&optype) {
-                            *total += 1;
-                            *count = 0;
-                            Command::Commit(optype as usize)
+                    } else if *count == group_size {
+                        *total += 1;
+                        *count = 0;
+
+                        if *total >= get_max_bound(&optype, self.k as usize) {
+                            Command::CommitAndAbort(optype as usize)
                         } else {
-                            Command::Noop
+                            Command::Commit(optype as usize)
                         }
+                    } else {
+                        Command::Noop
                     }
                 } else {
                     Command::Noop
