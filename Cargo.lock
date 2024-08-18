@@ -3529,7 +3529,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#ed9ca0d33b6146e88280b1ef4d67283f1de1f919"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#e5d01ec27b1a9157644d538e404d3e058e7e6e6f"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -3561,7 +3561,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#d7244c637ca7d64afee4e66caea6f0cf4ccc6cc5"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#d3f62bf8e3a56839016a0dc1337fe6cccdfc011f"
 dependencies = [
  "ark-std",
  "cc",
