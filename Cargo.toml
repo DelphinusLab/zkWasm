@@ -15,7 +15,7 @@ regex = "1.10.2"
 static_assertions = "1.1.0"
 wasmi = { path = "third-party/wasmi" }
 zkwasm-host-circuits = { git = "https://github.com/DelphinusLab/zkWasm-host-circuits.git", branch="host-op-1.8" }
-circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git", tag="on-prove-pairing-2.0" }
+circuits-batcher = { git = "https://github.com/DelphinusLab/continuation-batcher.git", tag="on-prove-pairing-2.1" }
 poseidon = { git = "https://github.com/DelphinusLab/poseidon" }
 
 [profile.dev]
