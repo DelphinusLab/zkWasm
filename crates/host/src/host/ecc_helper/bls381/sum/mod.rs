@@ -14,7 +14,6 @@ use zkwasm_host_circuits::host::ForeignInst;
 
 #[derive(Default)]
 struct BlsSumContext {
-    pub k: u32,
     pub limbs: Vec<u64>,
     pub g1_identity: Vec<bool>,
     pub result_limbs: Option<Vec<u64>>,
@@ -38,10 +37,10 @@ impl BlsSumContext {
 }
 
 impl ForeignContext for BlsSumContext {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, k: u32) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: Bls381SumChip::max_rounds(self.k as usize),
+            max_round: Bls381SumChip::max_rounds(k as usize),
         })
     }
 }

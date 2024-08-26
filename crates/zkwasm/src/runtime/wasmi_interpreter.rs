@@ -34,7 +34,10 @@ impl Execution<RuntimeValue> for CompiledImage<wasmi::NotStartedModuleRef<'_>> {
 
         let result = instance.invoke_export_trace(&self.entry, &[], &mut exec_env, monitor)?;
 
-        let host_statics = exec_env.host_env.external_env.get_statics();
+        let host_statics = exec_env
+            .host_env
+            .external_env
+            .get_statics(exec_env.host_env.k);
         let public_inputs_and_outputs = exec_env
             .host_env
             .internal_env

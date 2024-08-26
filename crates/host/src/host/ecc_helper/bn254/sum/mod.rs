@@ -17,13 +17,25 @@ use super::fetch_fr;
 use super::fetch_g1;
 
 struct BN254SumContext {
-    pub k: u32,
     pub acc: G1Affine,
     pub limbs: Vec<u64>,
     pub coeffs: Vec<u64>,
     pub result_limbs: Option<Vec<u64>>,
     pub result_cursor: usize,
     pub used_round: usize,
+}
+
+impl Default for BN254SumContext {
+    fn default() -> Self {
+        Self {
+            acc: G1Affine::identity(),
+            limbs: vec![],
+            coeffs: vec![],
+            result_limbs: None,
+            result_cursor: 0,
+            used_round: 0,
+        }
+    }
 }
 
 impl BN254SumContext {
@@ -36,18 +48,6 @@ impl BN254SumContext {
             self.result_limbs.as_mut().unwrap().append(&mut vec![1u64]);
         } else {
             self.result_limbs.as_mut().unwrap().append(&mut vec![0u64]);
-        }
-    }
-
-    pub fn default(k: u32) -> Self {
-        BN254SumContext {
-            k,
-            acc: G1Affine::identity(),
-            limbs: vec![],
-            coeffs: vec![],
-            result_limbs: None,
-            result_cursor: 0,
-            used_round: 0,
         }
     }
 
@@ -75,10 +75,10 @@ impl BN254SumContext {
 }
 
 impl ForeignContext for BN254SumContext {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, k: u32) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: Bn256SumChip::max_rounds(self.k as usize),
+            max_round: Bn256SumChip::max_rounds(k as usize),
         })
     }
 }
@@ -92,10 +92,9 @@ impl ForeignContext for BN254SumContext {
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_bn254sum_foreign(env: &mut HostEnv) {
-    let foreign_bn254sum_plugin = env.external_env.register_plugin(
-        "foreign_bn254sum",
-        Box::new(BN254SumContext::default(env.k)),
-    );
+    let foreign_bn254sum_plugin = env
+        .external_env
+        .register_plugin("foreign_bn254sum", Box::new(BN254SumContext::default()));
 
     env.external_env.register_function(
         "bn254_sum_new",

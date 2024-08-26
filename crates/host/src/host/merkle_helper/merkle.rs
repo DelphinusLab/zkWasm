@@ -21,7 +21,6 @@ use zkwasm_host_circuits::host::ReduceRule;
 const MERKLE_TREE_HEIGHT: usize = 32;
 
 pub struct MerkleContext {
-    pub k: u32,
     pub set_root: Reduce<Fr>,
     pub get_root: Reduce<Fr>,
     pub address: Reduce<Fr>,
@@ -40,9 +39,8 @@ fn new_reduce(rules: Vec<ReduceRule<Fr>>) -> Reduce<Fr> {
 }
 
 impl MerkleContext {
-    pub fn new(k: u32, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) -> Self {
+    pub fn new(tree_db: Option<Rc<RefCell<dyn TreeDB>>>) -> Self {
         MerkleContext {
-            k,
             set_root: new_reduce(vec![ReduceRule::Bytes(vec![], 4)]),
             get_root: new_reduce(vec![ReduceRule::Bytes(vec![], 4)]),
             address: new_reduce(vec![ReduceRule::U64(0)]),
@@ -137,20 +135,19 @@ impl MerkleContext {
 impl MerkleContext {}
 
 impl ForeignContext for MerkleContext {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, k: u32) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: MerkleChip::<Fr, MERKLE_TREE_HEIGHT>::max_rounds(self.k as usize),
+            max_round: MerkleChip::<Fr, MERKLE_TREE_HEIGHT>::max_rounds(k as usize),
         })
     }
 }
 
 use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_merkle_foreign(env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
-    let foreign_merkle_plugin = env.external_env.register_plugin(
-        "foreign_merkle",
-        Box::new(MerkleContext::new(env.k, tree_db)),
-    );
+    let foreign_merkle_plugin = env
+        .external_env
+        .register_plugin("foreign_merkle", Box::new(MerkleContext::new(tree_db)));
 
     env.external_env.register_function(
         "merkle_setroot",
