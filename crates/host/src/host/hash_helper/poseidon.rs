@@ -126,7 +126,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_poseidon_foreign(env: &mut HostEnv) {
     let foreign_poseidon_plugin = env
         .external_env
-        .register_plugin("foreign_poseidon", Box::new(PoseidonContext::default()));
+        .register_plugin("foreign_poseidon", Box::<PoseidonContext>::default());
 
     env.external_env.register_function(
         "poseidon_new",

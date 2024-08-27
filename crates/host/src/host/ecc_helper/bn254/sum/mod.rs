@@ -94,7 +94,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_bn254sum_foreign(env: &mut HostEnv) {
     let foreign_bn254sum_plugin = env
         .external_env
-        .register_plugin("foreign_bn254sum", Box::new(BN254SumContext::default()));
+        .register_plugin("foreign_bn254sum", Box::<BN254SumContext>::default());
 
     env.external_env.register_function(
         "bn254_sum_new",

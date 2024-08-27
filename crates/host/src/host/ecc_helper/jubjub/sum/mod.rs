@@ -122,7 +122,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
     let foreign_babyjubjubsum_plugin = env.external_env.register_plugin(
         "foreign_babyjubjubsum",
-        Box::new(BabyJubjubSumContext::default()),
+        Box::<BabyJubjubSumContext>::default(),
     );
 
     env.external_env.register_function(

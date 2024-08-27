@@ -73,7 +73,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_keccak_foreign(env: &mut HostEnv) {
     let foreign_keccak_plugin = env
         .external_env
-        .register_plugin("foreign_keccak", Box::new(Keccak256Context::default()));
+        .register_plugin("foreign_keccak", Box::<Keccak256Context>::default());
 
     env.external_env.register_function(
         "keccak_new",
