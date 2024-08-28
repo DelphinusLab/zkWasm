@@ -64,7 +64,7 @@ mod slice_builder;
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum Command {
     Noop,
     // Start a new transaction from current instruction
@@ -78,6 +78,7 @@ pub enum Command {
     CommitAndAbort(TransactionId),
 }
 
+#[derive(Debug)]
 pub enum Event {
     HostCall(usize),
     Reset,

@@ -129,7 +129,7 @@ fn get_max_bound(optype: &OpType, k: usize) -> usize {
 
 impl FlushStrategy for StandardHostEnvFlushStrategy {
     fn notify(&mut self, op: Event) -> Command {
-        match op {
+        let ret = match op {
             Event::HostCall(op) => {
                 let op_type = ForeignInst::from_usize(op).unwrap().get_optype();
                 if let Some(optype) = op_type {
@@ -144,6 +144,7 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
                         *total += 1;
                         *count = 0;
 
+                        println!("total and max round are {} {}", *total, get_max_bound(&optype, self.k as usize));
                         if *total >= get_max_bound(&optype, self.k as usize) {
                             Command::CommitAndAbort(optype as usize)
                         } else {
@@ -160,7 +161,10 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
                 self.ops.clear();
                 Command::Noop
             }
-        }
+        };
+        println!("ret is {:?}", ret);
+        println!("op is {:?}", op);
+        ret
     }
 }
 
