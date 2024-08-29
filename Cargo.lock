@@ -62,22 +62,65 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.81"
+version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0952808a6c2afd1aa8947271f3a60f1a6763c7b912d210184c5149b5cf147247"
+checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 dependencies = [
  "backtrace",
 ]
 
 [[package]]
-name = "ark-std"
-version = "0.3.0"
+name = "ark-ff"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df2c09229cbc5a028b1d70e00fdb2acee28b1055dfb5ca73eea49c5a25c4e7c"
+checksum = "ec847af850f44ad29048935519032c33da8aa03340876d351dfab5660d2966ba"
 dependencies = [
- "colored",
+ "ark-ff-asm",
+ "ark-ff-macros",
+ "ark-serialize",
+ "ark-std",
+ "derivative",
+ "digest",
+ "itertools",
+ "num-bigint",
  "num-traits",
- "rand",
+ "paste",
+ "rustc_version 0.4.0",
+ "zeroize",
+]
+
+[[package]]
+name = "ark-ff-asm"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ed4aa4fe255d0bc6d79373f7e31d2ea147bcf486cba1be5ba7ea85abdb92348"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "ark-ff-macros"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7abe79b0e4288889c4574159ab790824d0033b9fdcb2a112a3182fac2e514565"
+dependencies = [
+ "num-bigint",
+ "num-traits",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "ark-serialize"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb7b85a02b83d2f22f89bd5cac66c9c89474240cb6207cb1efc16d098e822a5"
+dependencies = [
+ "ark-std",
+ "digest",
+ "num-bigint",
 ]
 
 [[package]]
@@ -354,10 +397,10 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git#12cefe8364f44c89afeb1f28fae701aeb90d06a0"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.2#3300127b830848585a8bc75e7e620d39f4fff486"
 dependencies = [
  "anyhow",
- "ark-std 0.4.0",
+ "ark-std",
  "bitvec",
  "clap",
  "downcast-rs",
@@ -627,7 +670,7 @@ name = "delphinus-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.4.0",
+ "ark-std",
  "bitvec",
  "delphinus-zkwasm",
  "downcast-rs",
@@ -659,7 +702,7 @@ name = "delphinus-zkwasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-std 0.4.0",
+ "ark-std",
  "bitvec",
  "cfg-if 1.0.0",
  "downcast-rs",
@@ -774,7 +817,7 @@ name = "ec-gpu-gen"
 version = "0.4.0"
 source = "git+https://github.com/lanbones/ec-gpu?branch=halo2-opt-v2#aedc591657644f047f25a2e089f0b489eba0bf38"
 dependencies = [
- "ark-std 0.4.0",
+ "ark-std",
  "bitvec",
  "crossbeam-channel",
  "ec-gpu",
@@ -1104,9 +1147,9 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#fe464bd14d7d1155964d39a029c9903b453aeac8"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#12655ca7406a8c21a154bfd36dd2f8e520c569b1"
 dependencies = [
- "ark-std 0.4.0",
+ "ark-std",
  "blake2b_simd",
  "bumpalo",
  "cfg-if 0.1.10",
@@ -1132,17 +1175,23 @@ dependencies = [
 
 [[package]]
 name = "halo2aggregator-s"
-version = "1.0.2"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=1.0.3#79bb1d5c491af63052c292713aa27e54a9432203"
+version = "1.1.0"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.2#f699aac4e726b7c27936741846975a5c199fce5a"
 dependencies = [
- "ark-std 0.4.0",
+ "ark-ff",
+ "ark-std",
  "blake2b_simd",
+ "ff",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.8)",
+ "halo2ecc-s",
  "lazy_static",
  "num-bigint",
  "num-integer",
+ "num-traits",
  "poseidon",
+ "rand_core",
+ "serde",
+ "serde_json",
  "sha2",
  "sha3",
  "tera",
@@ -1151,24 +1200,13 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f#3b8b424f009fd945fc982f530ed29b555f8002e6"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.2#15b3baefac2f950e448ff1dca7c8562bf10ba8a0"
 dependencies = [
- "ark-std 0.4.0",
+ "ark-std",
  "halo2_proofs",
  "num-bigint",
  "num-integer",
- "rayon",
-]
-
-[[package]]
-name = "halo2ecc-s"
-version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.8#ddad2af04c28c33c2aa1192f4529d59abdf624b8"
-dependencies = [
- "ark-std 0.4.0",
- "halo2_proofs",
- "num-bigint",
- "num-integer",
+ "num-traits",
  "rayon",
 ]
 
@@ -1702,11 +1740,10 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.4"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "608e7659b5c3d7cba262d894801b9ec9d00de989e8a82bd4bef91d08da45cdc0"
+checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
 dependencies = [
- "autocfg",
  "num-integer",
  "num-traits",
  "rand",
@@ -1829,12 +1866,14 @@ dependencies = [
 [[package]]
 name = "pairing_bn256"
 version = "0.1.1"
-source = "git+https://github.com/lanbones/pairing#5ab08062f53cd29c946f96572aefdb688952d725"
+source = "git+https://github.com/lanbones/pairing#30b052f29d7ec3e68e20528584d9495de678ea05"
 dependencies = [
  "bls12_381",
  "ec-gpu",
  "ff",
  "group",
+ "num-bigint",
+ "num-traits",
  "rand",
  "rand_core",
  "static_assertions",
@@ -1878,6 +1917,12 @@ checksum = "c705f256449c60da65e11ff6626e0c16a0a0b96aaa348de61376b249bc340f41"
 dependencies = [
  "regex",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pbkdf2"
@@ -3438,6 +3483,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "zeroize"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ced3678a2879b30306d323f4542626697a464a97c0a07c9aebf7ebca65cd4dde"
+dependencies = [
+ "zeroize_derive",
+]
+
+[[package]]
+name = "zeroize_derive"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
+]
+
+[[package]]
 name = "zkwasm-cli"
 version = "0.1.0"
 dependencies = [
@@ -3466,21 +3531,24 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git#924a0088929e4aa323827e74ae2bfe45fdf1c5b9"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#52c7ca4093ed845dad59bc2bfc020733bedc0634"
 dependencies = [
- "ark-std 0.3.0",
+ "anyhow",
+ "ark-std",
  "cfg-if 1.0.0",
  "circuits-batcher",
  "clap",
  "ff",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=bisect-lookup-0.5.6#3b8b424f)",
+ "halo2ecc-s",
  "hex",
  "itertools",
  "lazy_static",
  "lru",
  "mongodb",
  "num-bigint",
+ "num-derive",
+ "num-traits",
  "poseidon",
  "rand",
  "rand_core",
@@ -3495,9 +3563,9 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#d7244c637ca7d64afee4e66caea6f0cf4ccc6cc5"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#d3f62bf8e3a56839016a0dc1337fe6cccdfc011f"
 dependencies = [
- "ark-std 0.4.0",
+ "ark-std",
  "cc",
  "cuda-runtime-sys",
  "halo2_proofs",

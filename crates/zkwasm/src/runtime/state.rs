@@ -64,33 +64,28 @@ impl UpdateInitializationState for InitializationState<u32> {
         let mut host_public_inputs = self.host_public_inputs;
         let mut context_in_index = self.context_in_index;
         let mut context_out_index = self.context_out_index;
-        let mut external_host_call_call_index = self.external_host_call_call_index;
 
         for entry in execution_table.entries() {
-            match &entry.step_info {
-                // TODO: fix hard code
-                StepInfo::CallHost {
-                    plugin,
-                    function_name,
-                    args,
-                    ..
-                } => {
-                    if *plugin == HostPlugin::HostInput {
-                        if (function_name == "wasm_input" && args[0] != 0)
-                            || function_name == "wasm_output"
-                        {
-                            host_public_inputs += 1;
-                        }
-                    } else if *plugin == HostPlugin::Context {
-                        if function_name == "wasm_read_context" {
-                            context_in_index += 1;
-                        } else if function_name == "wasm_write_context" {
-                            context_out_index += 1;
-                        }
+            if let StepInfo::CallHost {
+                plugin,
+                function_name,
+                args,
+                ..
+            } = &entry.step_info
+            {
+                if *plugin == HostPlugin::HostInput {
+                    if (function_name == "wasm_input" && args[0] != 0)
+                        || function_name == "wasm_output"
+                    {
+                        host_public_inputs += 1;
+                    }
+                } else if *plugin == HostPlugin::Context {
+                    if function_name == "wasm_read_context" {
+                        context_in_index += 1;
+                    } else if function_name == "wasm_write_context" {
+                        context_out_index += 1;
                     }
                 }
-                StepInfo::ExternalHostCall { .. } => external_host_call_call_index += 1,
-                _ => (),
             }
         }
 
@@ -105,7 +100,6 @@ impl UpdateInitializationState for InitializationState<u32> {
                 host_public_inputs,
                 context_in_index,
                 context_out_index,
-                external_host_call_call_index,
 
                 initial_memory_pages: next_entry.allocated_memory_pages,
                 maximal_memory_pages: configure_table.maximal_memory_pages,
@@ -129,7 +123,6 @@ impl UpdateInitializationState for InitializationState<u32> {
                 host_public_inputs,
                 context_in_index,
                 context_out_index,
-                external_host_call_call_index,
 
                 initial_memory_pages: last_entry.allocated_memory_pages,
                 maximal_memory_pages: configure_table.maximal_memory_pages,

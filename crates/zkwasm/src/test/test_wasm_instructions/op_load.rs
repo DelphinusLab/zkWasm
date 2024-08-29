@@ -105,16 +105,16 @@ fn test_load_memory_overflow_circuit() {
 
 #[test]
 fn test_load_maximal_memory() {
-    // k18 support 25 pages at most.
+    // k18 support 21 pages at most.
     let textual_repr = r#"
         (module
-            (memory $0 25)
+            (memory $0 21)
             (func (export "test")
                 (i32.const 0)
-                (i64.load offset=1638392)
+                (i64.load offset=1376248)
                 (drop)
 
-                (i32.const 1638392)
+                (i32.const 1376248)
                 (i64.load offset=0)
                 (drop)
 

@@ -71,7 +71,7 @@ pub struct CompilationTable {
 pub struct ExecutionTable {
     pub etable: Vec<TableBackend<EventTable>>,
     pub frame_table: Vec<TableBackend<FrameTable>>,
-    pub external_host_call_table: ExternalHostCallTable,
+    pub external_host_call_table: Vec<ExternalHostCallTable>,
     pub context_input_table: Vec<u64>,
     pub context_output_table: Vec<u64>,
 }
@@ -108,10 +108,18 @@ impl Tables {
                     );
                 }
             });
-        write_file(
-            dir,
-            "external_host_table.json",
-            &serde_json::to_string_pretty(&self.execution_tables.external_host_call_table).unwrap(),
-        );
+
+        for (i, external_host_call_table) in self
+            .execution_tables
+            .external_host_call_table
+            .iter()
+            .enumerate()
+        {
+            write_file(
+                dir,
+                &format!("external_host_table.{}.json", i),
+                &serde_json::to_string_pretty(&external_host_call_table).unwrap(),
+            );
+        }
     }
 }
