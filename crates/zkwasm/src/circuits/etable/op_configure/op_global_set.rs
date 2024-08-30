@@ -76,7 +76,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for GlobalSetConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for GlobalSetConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        encode_global_set(self.idx_cell.expr(meta))
+        encode_global_set(self.idx_cell.expr(meta), todo!())
     }
 
     fn assign(

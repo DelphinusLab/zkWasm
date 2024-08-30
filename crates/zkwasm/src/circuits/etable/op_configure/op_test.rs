@@ -4,23 +4,17 @@ use crate::circuits::etable::ConstraintBuilder;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
+use specs::encode::opcode::encode_test;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
 use specs::itable::TestOp;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -97,12 +91,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for TestConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for TestConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Test as u64) << OPCODE_CLASS_SHIFT)
-        )) + constant_from!(TestOp::Eqz as u16)
-            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + self.is_i32_cell.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
+        encode_test(
+            constant_from!(TestOp::Eqz as u16),
+            self.is_i32_cell.expr(meta),
+            todo!(),
+        )
     }
 
     fn assign(

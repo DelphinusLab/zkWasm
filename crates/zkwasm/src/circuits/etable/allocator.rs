@@ -486,7 +486,7 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
         res
     }
 
-    fn alloc_group(&mut self, t: &EventTableCellType) -> Vec<AllocatedCell<F>> {
+    pub(crate) fn alloc_group(&mut self, t: &EventTableCellType) -> Vec<AllocatedCell<F>> {
         let v = self.free_cells.get_mut(t).unwrap();
 
         let res = self.all_cols.get(t).unwrap()[v.0]

@@ -17,12 +17,9 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::opcode::encode_unary;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
 use specs::itable::UnaryOp;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -217,23 +214,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for UnaryConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
         macro_rules! op_expr {
             ($op: expr, $field: ident) => {
-                self.$field.expr(meta)
-                    * constant!(bn_to_field(
-                        &(BigUint::from($op as u64) << OPCODE_ARG0_SHIFT)
-                    ))
+                self.$field.expr(meta) * constant!(bn_to_field(&(BigUint::from($op as u64))))
             };
         }
 
-        let opcode_class = constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Unary as u64) << OPCODE_CLASS_SHIFT)
-        ));
-        let var_type = self.is_i32.expr(meta)
-            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)));
         let op = op_expr!(UnaryOp::Ctz, is_ctz)
             + op_expr!(UnaryOp::Clz, is_clz)
             + op_expr!(UnaryOp::Popcnt, is_popcnt);
 
-        opcode_class + var_type + op
+        encode_unary(op, self.is_i32.expr(meta), todo!())
     }
 
     fn assign(
