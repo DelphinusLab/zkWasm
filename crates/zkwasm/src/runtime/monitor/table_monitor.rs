@@ -21,6 +21,7 @@ use crate::runtime::host::host_env::HostEnv;
 
 use super::observer::Observer;
 use super::plugins::statistic::StatisticPlugin;
+use super::plugins::table::FlushStrategy;
 use super::plugins::table::TablePlugin;
 use super::WasmiMonitor;
 
@@ -30,7 +31,13 @@ pub struct TableMonitor {
 }
 
 impl TableMonitor {
-    pub fn new(k: u32, phantom_regex: &[String], backend: TraceBackend, env: &HostEnv) -> Self {
+    pub fn new(
+        k: u32,
+        flush_strategy: Box<dyn FlushStrategy>,
+        phantom_regex: &[String],
+        backend: TraceBackend,
+        env: &HostEnv,
+    ) -> Self {
         let wasm_input = env
             .resolve_func(
                 "wasm_input",
@@ -41,6 +48,7 @@ impl TableMonitor {
         Self {
             table_plugin: TablePlugin::new(
                 k,
+                flush_strategy,
                 env.function_description_table(),
                 phantom_regex,
                 wasm_input.clone(),

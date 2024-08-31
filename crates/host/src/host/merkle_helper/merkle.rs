@@ -18,7 +18,7 @@ use zkwasm_host_circuits::host::ForeignInst::MerkleSetRoot;
 use zkwasm_host_circuits::host::Reduce;
 use zkwasm_host_circuits::host::ReduceRule;
 
-const MERKLE_TREE_HEIGHT: usize = 32;
+use crate::MERKLE_TREE_HEIGHT;
 
 pub struct MerkleContext {
     pub set_root: Reduce<Fr>,

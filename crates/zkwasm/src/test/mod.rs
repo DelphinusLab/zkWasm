@@ -28,16 +28,22 @@ pub fn test_circuit_with_env(
     private_inputs: Vec<u64>,
 ) -> Result<()> {
     let module = ZkWasmLoader::parse_module(&wasm)?;
+    let env_builder = DefaultHostEnvBuilder::new(k);
 
-    let env = DefaultHostEnvBuilder.create_env(
+    let env = env_builder.create_env(ExecutionArg {
+        public_inputs,
+        private_inputs,
+        context_inputs: vec![],
+        indexed_witness: Default::default(),
+        tree_db: None,
+    });
+    let mut monitor = TableMonitor::new(
         k,
-        ExecutionArg {
-            public_inputs,
-            private_inputs,
-            context_inputs: vec![],
-        },
+        env_builder.create_flush_strategy(),
+        &vec![],
+        TraceBackend::Memory,
+        &env,
     );
-    let mut monitor = TableMonitor::new(k, &vec![], TraceBackend::Memory, &env);
     let mut loader = ZkWasmLoader::new(k, env)?;
     loader.set_entry(function_name);
 

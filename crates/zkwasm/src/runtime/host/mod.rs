@@ -11,6 +11,7 @@ use wasmi::RuntimeValue;
 use wasmi::Signature;
 
 use super::monitor::observer::Observer;
+use super::monitor::plugins::table::FlushStrategy;
 
 pub mod default_env;
 pub mod external_circuit_plugin;
@@ -99,7 +100,9 @@ struct HostFunction {
 /// Implement `HostEnvBuilder` to support customized foreign plugins.
 pub trait HostEnvBuilder {
     /// Create an empty env without value, this is used by compiling, computing hash
-    fn create_env_without_value(&self, k: u32) -> HostEnv;
+    fn create_env_without_value(&self) -> HostEnv;
     /// Create an env with execution parameters, this is used by dry-run, run
-    fn create_env(&self, k: u32, env: ExecutionArg) -> HostEnv;
+    fn create_env(&self, env: ExecutionArg) -> HostEnv;
+    // Create a flush strategy to hint the monitor when to flush the table
+    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy>;
 }

@@ -8,6 +8,9 @@ use crate::foreign::context::runtime::register_context_foreign;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::runtime::monitor::plugins::table::Command;
+use crate::runtime::monitor::plugins::table::Event;
+use crate::runtime::monitor::plugins::table::FlushStrategy;
 
 use super::host_env::HostEnv;
 use super::HostEnvBuilder;
@@ -25,11 +28,27 @@ pub struct ExecutionArg {
     pub tree_db: Option<Rc<RefCell<dyn TreeDB>>>,
 }
 
-pub struct DefaultHostEnvBuilder;
+pub struct DefaultHostEnvBuilder {
+    k: u32,
+}
+
+impl DefaultHostEnvBuilder {
+    pub fn new(k: u32) -> Self {
+        Self { k }
+    }
+}
+
+struct DefaultFlushStrategy;
+
+impl FlushStrategy for DefaultFlushStrategy {
+    fn notify(&mut self, _event: Event) -> Command {
+        Command::Noop
+    }
+}
 
 impl HostEnvBuilder for DefaultHostEnvBuilder {
-    fn create_env_without_value(&self, k: u32) -> HostEnv {
-        let mut env = HostEnv::new(k);
+    fn create_env_without_value(&self) -> HostEnv {
+        let mut env = HostEnv::new(self.k);
         register_wasm_input_foreign(&mut env, vec![], vec![]);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
@@ -39,8 +58,8 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         env
     }
 
-    fn create_env(&self, k: u32, arg: ExecutionArg) -> HostEnv {
-        let mut env = HostEnv::new(k);
+    fn create_env(&self, arg: ExecutionArg) -> HostEnv {
+        let mut env = HostEnv::new(self.k);
         register_wasm_input_foreign(&mut env, arg.public_inputs, arg.private_inputs);
         register_require_foreign(&mut env);
         register_log_foreign(&mut env);
@@ -48,5 +67,9 @@ impl HostEnvBuilder for DefaultHostEnvBuilder {
         env.finalize();
 
         env
+    }
+
+    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy> {
+        Box::new(DefaultFlushStrategy)
     }
 }

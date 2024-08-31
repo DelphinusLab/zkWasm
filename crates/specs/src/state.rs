@@ -12,7 +12,6 @@ pub struct InitializationState<T> {
     pub host_public_inputs: T,
     pub context_in_index: T,
     pub context_out_index: T,
-    pub external_host_call_call_index: T,
 
     pub initial_memory_pages: T,
     pub maximal_memory_pages: T,
@@ -21,7 +20,7 @@ pub struct InitializationState<T> {
 impl<T> InitializationState<T> {
     // TODO: try to remove the magic number
     pub fn field_count() -> usize {
-        11
+        10
     }
 
     pub fn zip_for_each<U, E>(
@@ -38,10 +37,6 @@ impl<T> InitializationState<T> {
         closure(&self.host_public_inputs, &other.host_public_inputs)?;
         closure(&self.context_in_index, &other.context_in_index)?;
         closure(&self.context_out_index, &other.context_out_index)?;
-        closure(
-            &self.external_host_call_call_index,
-            &other.external_host_call_call_index,
-        )?;
 
         closure(&self.initial_memory_pages, &other.initial_memory_pages)?;
         closure(&self.maximal_memory_pages, &other.maximal_memory_pages)?;
@@ -64,7 +59,6 @@ impl<T> InitializationState<T> {
             host_public_inputs: f(&self.host_public_inputs),
             context_in_index: f(&self.context_in_index),
             context_out_index: f(&self.context_out_index),
-            external_host_call_call_index: f(&self.external_host_call_call_index),
 
             initial_memory_pages: f(&self.initial_memory_pages),
             maximal_memory_pages: f(&self.maximal_memory_pages),
@@ -84,7 +78,6 @@ impl Default for InitializationState<u32> {
             host_public_inputs: Default::default(),
             context_in_index: Default::default(),
             context_out_index: Default::default(),
-            external_host_call_call_index: Default::default(),
 
             initial_memory_pages: Default::default(),
             maximal_memory_pages: Default::default(),
@@ -103,7 +96,6 @@ impl<T: Clone> InitializationState<T> {
             self.host_public_inputs.clone(),
             self.context_in_index.clone(),
             self.context_out_index.clone(),
-            self.external_host_call_call_index.clone(),
             self.initial_memory_pages.clone(),
             self.maximal_memory_pages.clone(),
         ]
@@ -121,7 +113,6 @@ impl<T, E> InitializationState<Result<T, E>> {
             host_public_inputs: self.host_public_inputs?,
             context_in_index: self.context_in_index?,
             context_out_index: self.context_out_index?,
-            external_host_call_call_index: self.external_host_call_call_index?,
             initial_memory_pages: self.initial_memory_pages?,
             maximal_memory_pages: self.maximal_memory_pages?,
         })
