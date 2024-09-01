@@ -62,7 +62,7 @@ pub struct ForeignStatics {
 /// }
 /// ```
 pub trait ForeignContext: Downcast {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, _k: u32) -> Option<ForeignStatics> {
         None
     }
 

@@ -102,7 +102,7 @@ impl CacheContext {
 impl CacheContext {}
 
 impl ForeignContext for CacheContext {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, _k: u32) -> Option<ForeignStatics> {
         // pure witness function
         None
     }

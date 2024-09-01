@@ -68,7 +68,7 @@ impl Sha256Context {
 }
 
 impl ForeignContext for Sha256Context {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, _k: u32) -> Option<ForeignStatics> {
         // we did not support full sha256 as host yet
         None
     }

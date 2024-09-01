@@ -27,7 +27,6 @@ fn fetch_biguint(_limbs: &[u64]) -> BigUint {
 }
 
 pub struct BabyJubjubSumContext {
-    pub k: u32,
     pub acc: jubjub::Point,
     pub limbs: Vec<u64>,
     pub coeffs: Vec<u64>,
@@ -37,10 +36,9 @@ pub struct BabyJubjubSumContext {
     pub used_round: usize,
 }
 
-impl BabyJubjubSumContext {
-    pub fn default(k: u32) -> Self {
-        BabyJubjubSumContext {
-            k,
+impl Default for BabyJubjubSumContext {
+    fn default() -> Self {
+        Self {
             acc: jubjub::Point::identity(),
             limbs: vec![],
             coeffs: vec![],
@@ -50,7 +48,9 @@ impl BabyJubjubSumContext {
             used_round: 0,
         }
     }
+}
 
+impl BabyJubjubSumContext {
     pub fn babyjubjub_sum_new(&mut self, new: usize) {
         self.result_limbs = None;
         self.result_cursor = 0;
@@ -110,10 +110,10 @@ impl BabyJubjubSumContext {
 }
 
 impl ForeignContext for BabyJubjubSumContext {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, k: u32) -> Option<ForeignStatics> {
         Some(ForeignStatics {
             used_round: self.used_round,
-            max_round: AltJubChip::max_rounds(self.k as usize),
+            max_round: AltJubChip::max_rounds(k as usize),
         })
     }
 }
@@ -122,7 +122,7 @@ use specs::external_host_call_table::ExternalHostCallSignature;
 pub fn register_babyjubjubsum_foreign(env: &mut HostEnv) {
     let foreign_babyjubjubsum_plugin = env.external_env.register_plugin(
         "foreign_babyjubjubsum",
-        Box::new(BabyJubjubSumContext::default(env.k)),
+        Box::<BabyJubjubSumContext>::default(),
     );
 
     env.external_env.register_function(
