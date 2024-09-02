@@ -30,7 +30,6 @@ pub mod post_image_table;
 #[path = "./post_image_table/trivial.rs"]
 pub mod post_image_table;
 
-pub mod config;
 pub mod image_table;
 pub mod jtable;
 pub mod rtable;

@@ -1,5 +1,3 @@
-use super::config::common_range;
-use super::config::POW_TABLE_POWER_START;
 use super::utils::bn_to_field;
 use crate::circuits::bit_table::BitTableOp;
 use crate::constant_from;
@@ -17,6 +15,15 @@ use std::marker::PhantomData;
 use strum::IntoEnumIterator;
 
 const POW_OP: u64 = 4;
+const POW_TABLE_POWER_START: u64 = 128;
+
+fn common_range(k: u32) -> u32 {
+    (1 << k) - 256
+}
+
+pub(crate) fn common_range_max(k: u32) -> u32 {
+    common_range(k) - 1
+}
 
 /*
  * | Comment   | Op  | left(u8) | right                       | result   |

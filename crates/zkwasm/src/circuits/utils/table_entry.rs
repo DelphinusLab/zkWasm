@@ -1,4 +1,4 @@
-use crate::circuits::config::common_range_max;
+use crate::circuits::rtable::common_range_max;
 use crate::runtime::memory_event_of_step;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
