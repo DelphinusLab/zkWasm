@@ -54,7 +54,6 @@ use crate::foreign::wasm_input_helper::circuits::WASM_INPUT_FOREIGN_TABLE_KEY;
 use crate::foreign::ForeignTableConfig;
 use crate::runtime::memory_event_of_step;
 
-use super::config::zkwasm_k;
 use super::etable::assign::EventTablePermutationCells;
 use super::image_table::ImageTableConfig;
 use super::jtable::FrameEtablePermutationCells;
@@ -97,11 +96,7 @@ pub struct ZkWasmCircuitConfig<F: FieldExt> {
 
     foreign_table_from_zero_index: Column<Fixed>,
 
-    max_available_rows: usize,
-    circuit_maximal_pages: u32,
-    l_last: usize,
-
-    k: u32,
+    blinding_factors: usize,
 }
 
 macro_rules! impl_zkwasm_circuit {
@@ -146,8 +141,6 @@ macro_rules! impl_zkwasm_circuit {
             }
 
             fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-                let k = zkwasm_k();
-
                 /*
                  * Allocate a column to enable assign_advice_from_constant.
                  */
@@ -224,15 +217,6 @@ macro_rules! impl_zkwasm_circuit {
 
                 assert_eq!(cols.count(), 0);
 
-                let max_available_rows = (1 << k) - (meta.blinding_factors() + 1 + RESERVE_ROWS);
-                debug!("max_available_rows: {:?}", max_available_rows);
-
-                let circuit_maximal_pages = compute_maximal_pages(k);
-                info!(
-                    "Circuit K: {} supports up to {} pages.",
-                    k, circuit_maximal_pages
-                );
-
                 Self::Config {
                     shuffle_range_check_helper: (l_0, l_active, l_active_last),
                     rtable,
@@ -246,11 +230,7 @@ macro_rules! impl_zkwasm_circuit {
                     context_helper_table,
                     foreign_table_from_zero_index,
 
-                    max_available_rows,
-                    circuit_maximal_pages,
-                    l_last: (1 << k) - (meta.blinding_factors() + 1),
-
-                    k,
+                    blinding_factors: meta.blinding_factors(),
                 }
             }
 
@@ -261,22 +241,30 @@ macro_rules! impl_zkwasm_circuit {
             ) -> Result<(), Error> {
                 let timer = start_timer!(|| "Prepare assignment");
 
+                let l_last = (1 << self.k) - (config.blinding_factors + 1);
+                let max_available_rows =
+                    (1 << self.k) - (config.blinding_factors + 1 + RESERVE_ROWS);
+                debug!("max_available_rows: {:?}", max_available_rows);
+
+                let circuit_maximal_pages = compute_maximal_pages(self.k);
+                info!(
+                    "Circuit K: {} supports up to {} pages.",
+                    self.k, circuit_maximal_pages
+                );
+
                 let rchip = RangeTableChip::new(config.rtable);
                 let image_chip = ImageTableChip::new(config.image_table);
                 let post_image_chip = PostImageTableChip::new(config.post_image_table);
-                let mchip = MemoryTableChip::new(config.mtable, config.max_available_rows);
-                let frame_table_chip =
-                    JumpTableChip::new(config.frame_table, config.max_available_rows);
+                let mchip = MemoryTableChip::new(config.mtable, max_available_rows);
+                let frame_table_chip = JumpTableChip::new(config.frame_table, max_available_rows);
                 let echip = EventTableChip::new(
                     config.etable,
                     compute_slice_capability(self.k) as usize,
-                    config.max_available_rows,
+                    max_available_rows,
                 );
-                let bit_chip = BitTableChip::new(config.bit_table, config.max_available_rows);
-                let external_host_call_chip = ExternalHostCallChip::new(
-                    config.external_host_call_table,
-                    config.max_available_rows,
-                );
+                let bit_chip = BitTableChip::new(config.bit_table, max_available_rows);
+                let external_host_call_chip =
+                    ExternalHostCallChip::new(config.external_host_call_table, max_available_rows);
                 let context_chip = ContextContHelperTableChip::new(config.context_helper_table);
 
                 let image_table_assigner = exec_with_profile!(|| "Prepare image table assigner", {
@@ -286,14 +274,14 @@ macro_rules! impl_zkwasm_circuit {
                         self.slice.br_table.entries().len()
                             + self.slice.elem_table.entries().len()
                             + 1,
-                        config.circuit_maximal_pages,
+                        circuit_maximal_pages,
                     )
                 });
 
                 let memory_writing_table: MemoryWritingTable = exec_with_profile!(
                     || "Prepare mtable",
                     MemoryWritingTable::from(
-                        config.k,
+                        self.k,
                         self.slice.create_memory_table(memory_event_of_step),
                     )
                 );
@@ -331,12 +319,12 @@ macro_rules! impl_zkwasm_circuit {
                                             .assign_fixed(
                                                 || "l_active_last",
                                                 l_active_last,
-                                                config.l_last - 1,
+                                                l_last - 1,
                                                 || Ok(F::one()),
                                             )
                                             .unwrap();
 
-                                        for offset in 0..config.l_last {
+                                        for offset in 0..l_last {
                                             region
                                                 .assign_fixed(
                                                     || "l_active_last",
@@ -352,7 +340,7 @@ macro_rules! impl_zkwasm_circuit {
                                 )
                                 .unwrap();
 
-                            rchip.init(_layouter, config.k).unwrap()
+                            rchip.init(_layouter, self.k).unwrap()
                         });
                     });
 
@@ -364,7 +352,7 @@ macro_rules! impl_zkwasm_circuit {
                                 .assign_region(
                                     || "foreign helper",
                                     |region| {
-                                        for offset in 0..foreign_table_enable_lines(config.k) {
+                                        for offset in 0..foreign_table_enable_lines(self.k) {
                                             region.assign_fixed(
                                                 || "foreign table from zero index",
                                                 config.foreign_table_from_zero_index,
@@ -420,7 +408,7 @@ macro_rules! impl_zkwasm_circuit {
                     s.spawn(move |_| {
                         exec_with_profile!(|| "Assign pre image table chip", {
                             let pre_image_table =
-                                self.slice.encode_pre_compilation_table_values(config.k);
+                                self.slice.encode_pre_compilation_table_values(self.k);
 
                             let cells = image_chip
                                 .assign(_layouter, &image_table_assigner, pre_image_table)
@@ -436,7 +424,7 @@ macro_rules! impl_zkwasm_circuit {
                     s.spawn(move |_| {
                         exec_with_profile!(|| "Assign post image table chip", {
                             let post_image_table: ImageTableLayouter<F> =
-                                self.slice.encode_post_compilation_table_values(config.k);
+                                self.slice.encode_post_compilation_table_values(self.k);
 
                             let (rest_memory_writing_ops, memory_finalized_set) =
                                 _memory_writing_table.count_rest_memory_finalize_ops();
