@@ -28,10 +28,12 @@ use halo2_proofs::poly::commitment::Params;
 use indicatif::ProgressBar;
 use serde::Deserialize;
 use serde::Serialize;
-use specs::TraceBackend;
+use specs::slice_backend::SliceBackend;
 
 use crate::args::HostMode;
 use crate::names::name_of_circuit_data;
+use crate::names::name_of_etable_slice;
+use crate::names::name_of_external_host_call_table_slice;
 use crate::names::name_of_frame_table_slice;
 use crate::names::name_of_instance;
 use crate::names::name_of_loadinfo;
@@ -244,7 +246,7 @@ impl Config {
         arg: ExecutionArg,
         context_output_filename: Option<String>,
         mock_test: bool,
-        table_backend: TraceBackend,
+        slice_backend: Box<dyn SliceBackend>,
         skip: usize,
         padding: Option<usize>,
     ) -> anyhow::Result<()> {
@@ -261,8 +263,8 @@ impl Config {
         let mut monitor = TableMonitor::new(
             self.k,
             env_builder.create_flush_strategy(),
+            slice_backend,
             &self.phantom_functions,
-            table_backend,
             &env,
         );
 
@@ -308,7 +310,12 @@ impl Config {
                 style("[5/8]").bold().dim(),
                 dir
             );
-            tables.write(&dir, |slice| name_of_frame_table_slice(&self.name, slice));
+            tables.write(
+                &dir,
+                |index| name_of_frame_table_slice(&self.name, index),
+                |index| name_of_etable_slice(&self.name, index),
+                |index| name_of_external_host_call_table_slice(&self.name, index),
+            );
         }
 
         println!("{} Build circuit(s)...", style("[6/8]").bold().dim(),);
@@ -324,9 +331,9 @@ impl Config {
             ProofGenerationInfo::new(&self.name, self.k as usize, HashType::Poseidon);
 
         let progress_bar = ProgressBar::new(if let Some(padding) = padding {
-            usize::max(tables.execution_tables.etable.len(), padding) as u64
+            usize::max(tables.execution_tables.slice_backend.len(), padding) as u64
         } else {
-            tables.execution_tables.etable.len() as u64
+            tables.execution_tables.slice_backend.len() as u64
         });
 
         if skip != 0 {

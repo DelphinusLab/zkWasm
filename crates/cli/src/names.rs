@@ -47,3 +47,8 @@ pub(crate) fn name_of_etable_slice(name: &str, index: usize) -> String {
 pub(crate) fn name_of_frame_table_slice(name: &str, index: usize) -> String {
     format!("{}.frame_table.{}.data", name, index)
 }
+
+#[inline(always)]
+pub(crate) fn name_of_external_host_call_table_slice(_name: &str, index: usize) -> String {
+    format!("external_host_table.{}.json", index)
+}
