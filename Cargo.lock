@@ -397,44 +397,6 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.3#319404d226e5ef58f39010dde7a68bfd975f420c"
-dependencies = [
- "anyhow",
- "ark-std",
- "bitvec",
- "clap",
- "downcast-rs",
- "env_logger",
- "ff",
- "halo2_proofs",
- "halo2aggregator-s",
- "hex",
- "lazy_static",
- "log",
- "lru",
- "md5",
- "num",
- "num-bigint",
- "num-derive",
- "num-integer",
- "num-traits",
- "quote",
- "rand",
- "serde",
- "serde_json",
- "sha2",
- "sha3",
- "strum",
- "strum_macros",
- "uuid",
- "wabt",
- "wast",
- "zkwasm-prover",
-]
-
-[[package]]
-name = "circuits-batcher"
-version = "0.1.0"
 source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.4#a67898d14e9c8593b0b458ed66651b6591b768e0"
 dependencies = [
  "anyhow",
@@ -467,6 +429,7 @@ dependencies = [
  "uuid",
  "wabt",
  "wast",
+ "zkwasm-prover",
 ]
 
 [[package]]
@@ -3546,7 +3509,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "cfg-if 1.0.0",
- "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.3)",
+ "circuits-batcher",
  "clap",
  "console",
  "delphinus-host",
@@ -3573,7 +3536,7 @@ dependencies = [
  "anyhow",
  "ark-std",
  "cfg-if 1.0.0",
- "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.4)",
+ "circuits-batcher",
  "clap",
  "ff",
  "halo2_proofs",
