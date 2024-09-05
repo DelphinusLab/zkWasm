@@ -17,20 +17,18 @@ const K: u32 = MIN_K;
 fn main() -> Result<()> {
     let wasm = std::fs::read("wasm/binary_search.wasm")?;
     let module = ZkWasmLoader::parse_module(&wasm)?;
+    let env_builder = DefaultHostEnvBuilder::new(K);
 
-    let env = DefaultHostEnvBuilder.create_env(
-        K,
-        ExecutionArg {
-            public_inputs: vec![0],
-            private_inputs: vec![],
-            context_inputs: vec![],
-            indexed_witness: Rc::new(RefCell::new(HashMap::default())),
-            tree_db: None,
-        },
-    );
+    let env = env_builder.create_env(ExecutionArg {
+        public_inputs: vec![0],
+        private_inputs: vec![],
+        context_inputs: vec![],
+        indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+        tree_db: None,
+    });
     let mut monitor = TableMonitor::new(
         K,
-        DefaultHostEnvBuilder.create_flush_strategy(),
+        env_builder.create_flush_strategy(),
         &vec![],
         TraceBackend::Memory,
         &env,

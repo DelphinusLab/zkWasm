@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::usize;
 
@@ -19,102 +18,9 @@ use super::Slice;
 
 pub(crate) type TransactionId = usize;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Commit {
-    Unset,
-    Set(usize),
-}
-
-impl Ord for Commit {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match (self, other) {
-            (Commit::Unset, Commit::Unset) => Ordering::Equal,
-            (Commit::Unset, Commit::Set(_)) => Ordering::Greater,
-            (Commit::Set(_), Commit::Unset) => Ordering::Less,
-            (Commit::Set(a), Commit::Set(b)) => a.cmp(b),
-        }
-    }
-}
-
-impl PartialOrd for Commit {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 struct Checkpoint {
     // transaction start index
     start: usize,
-    commit: Commit,
-}
-
-#[test]
-fn test_checkpoints() {
-    let mut checkpoints = Checkpoints(vec![]);
-
-    checkpoints.0.push(Checkpoint {
-        start: 2,
-        commit: Commit::Set(4),
-    });
-
-    checkpoints.0.push(Checkpoint {
-        start: 3,
-        commit: Commit::Unset,
-    });
-
-    checkpoints.0.push(Checkpoint {
-        start: 3,
-        commit: Commit::Set(4),
-    });
-
-    checkpoints.0.sort_unstable();
-    checkpoints.merge();
-
-    println!("{:?}", checkpoints);
-}
-
-#[derive(Debug)]
-struct Checkpoints(Vec<Checkpoint>);
-
-impl Checkpoints {
-    fn merge(&mut self) {
-        let mut checkpoints = std::mem::take(&mut self.0);
-        checkpoints.sort_unstable();
-
-        let mut merged = vec![checkpoints.remove(0)];
-        checkpoints.into_iter().for_each(|checkpoint| {
-            let last = merged.last_mut().unwrap();
-
-            if Commit::Set(checkpoint.start) <= last.commit {
-                last.commit = last.commit.max(checkpoint.commit);
-            } else {
-                merged.push(checkpoint)
-            }
-        });
-
-        self.0 = merged;
-    }
-
-    fn abort(mut self, current: usize) -> usize {
-        if self.0.is_empty() {
-            return current;
-        }
-
-        self.merge();
-
-        if self.0.last().unwrap().commit > Commit::Set(current) {
-            self.0.last().unwrap().start
-        } else {
-            current
-        }
-    }
-}
-
-impl From<Vec<Checkpoint>> for Checkpoints {
-    fn from(value: Vec<Checkpoint>) -> Self {
-        Self(value)
-    }
 }
 
 pub(super) struct Slices {
@@ -165,13 +71,39 @@ impl Slices {
     }
 }
 
+struct SafelyAbortPosition {
+    capacity: u32,
+    cursor: Option<usize>,
+}
+
+impl SafelyAbortPosition {
+    fn new(capacity: u32) -> Self {
+        Self {
+            capacity,
+            cursor: None,
+        }
+    }
+
+    fn update(&mut self, len: usize) {
+        self.cursor = Some(len);
+    }
+
+    fn reset(&mut self) {
+        self.cursor = None;
+    }
+
+    fn finalize(&self) -> usize {
+        self.cursor.unwrap_or(self.capacity as usize)
+    }
+}
+
 pub(super) struct HostTransaction {
     slices: Slices,
     capacity: u32,
 
+    safely_abort_position: SafelyAbortPosition,
     logs: Vec<EventTableEntry>,
     started: BTreeMap<TransactionId, Checkpoint>,
-    committed: Vec<Checkpoint>,
     controller: Box<dyn FlushStrategy>,
     host_is_full: bool,
 
@@ -189,9 +121,9 @@ impl HostTransaction {
             slice_builder: SliceBuilder::new(),
             capacity,
 
+            safely_abort_position: SafelyAbortPosition::new(capacity),
             logs: Vec::new(),
             started: BTreeMap::new(),
-            committed: vec![],
             controller,
             host_is_full: false,
         }
@@ -211,19 +143,21 @@ impl HostTransaction {
             panic!("transaction id exists")
         }
 
-        self.started.insert(
-            idx,
-            Checkpoint {
-                start: self.now(),
-                commit: Commit::Unset,
-            },
-        );
+        let checkpoint = Checkpoint { start: self.now() };
+
+        if self.started.is_empty() {
+            self.safely_abort_position.update(checkpoint.start);
+        }
+
+        self.started.insert(idx, checkpoint);
     }
 
     fn commit(&mut self, idx: TransactionId) {
-        let mut transaction = self.started.remove(&idx).unwrap();
-        transaction.commit = Commit::Set(self.now());
-        self.committed.push(transaction);
+        self.started.remove(&idx).unwrap();
+
+        if self.started.is_empty() {
+            self.safely_abort_position.update(self.now());
+        }
     }
 
     fn abort(&mut self) {
@@ -231,25 +165,33 @@ impl HostTransaction {
             return;
         }
 
-        let mut checkpoints = std::mem::take(&mut self.started)
-            .into_values()
-            .collect::<Vec<_>>();
-        let mut committed = std::mem::take(&mut self.committed);
-        checkpoints.append(&mut committed);
-        let rollback = Checkpoints::from(checkpoints).abort(self.len());
+        if self.started.is_empty() {
+            let now = self.now();
+            self.safely_abort_position.update(now);
+        }
 
+        let rollback = self.safely_abort_position.finalize();
         let mut logs = std::mem::take(&mut self.logs);
 
-        let committed_logs = logs.drain(0..rollback);
+        {
+            let committed_logs = logs.drain(0..rollback);
 
-        let slice = self.slice_builder.build(committed_logs.collect());
-        self.slices.push(slice);
+            let slice = self.slice_builder.build(committed_logs.collect());
+            self.slices.push(slice);
+        }
+
+        {
+            self.host_is_full = false;
+            self.safely_abort_position.reset();
+            self.started.clear();
+        }
 
         // controller should be reset and we will replay the remaining logs
-        self.host_is_full = false;
-        let command = self.controller.notify(Event::Reset);
-        assert!(command == Command::Noop);
-        self.replay(logs);
+        {
+            let command = self.controller.notify(Event::Reset);
+            assert!(command == Command::Noop);
+            self.replay(logs);
+        }
     }
 
     pub(super) fn finalized(mut self) -> Slices {

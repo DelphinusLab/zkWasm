@@ -17,9 +17,9 @@ const K: u32 = MIN_K;
 fn main() -> Result<()> {
     let wasm = std::fs::read("wasm/phantom.wasm")?;
     let module = ZkWasmLoader::parse_module(&wasm)?;
+    let env_builder = DefaultHostEnvBuilder::new(K);
 
-    let env = DefaultHostEnvBuilder.create_env(
-        K,
+    let env = env_builder.create_env(
         ExecutionArg {
             public_inputs: vec![2],
             private_inputs: vec![],
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     );
     let mut monitor = TableMonitor::new(
         K,
-        DefaultHostEnvBuilder.create_flush_strategy(),
+        env_builder.create_flush_strategy(),
         &vec!["search".to_string()],
         TraceBackend::Memory,
         &env,

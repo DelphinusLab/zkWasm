@@ -156,10 +156,10 @@ impl SetupArg {
             }
         };
 
-        let env = env_builder.create_env_without_value(self.k);
+        let env = env_builder.create_env_without_value();
         let mut monitor = TableMonitor::new(
             self.k,
-            env_builder.create_flush_strategy(self.k),
+            env_builder.create_flush_strategy(),
             &self.phantom_functions,
             TraceBackend::Memory,
             &env,

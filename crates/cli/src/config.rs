@@ -193,7 +193,7 @@ impl Config {
     ) -> Result<()> {
         let module = self.read_wasm_image(wasm_image)?;
 
-        let env = env_builder.create_env(self.k, arg);
+        let env = env_builder.create_env(arg);
 
         let mut monitor = StatisticMonitor::new(&self.phantom_functions, &env, instruction_limit);
 
@@ -256,11 +256,11 @@ impl Config {
         println!("{} Load params...", style("[2/8]").bold().dim(),);
         let params = self.read_params(params_dir)?;
 
-        let env = env_builder.create_env(self.k, arg);
+        let env = env_builder.create_env(arg);
 
         let mut monitor = TableMonitor::new(
             self.k,
-            env_builder.create_flush_strategy(self.k),
+            env_builder.create_flush_strategy(),
             &self.phantom_functions,
             table_backend,
             &env,

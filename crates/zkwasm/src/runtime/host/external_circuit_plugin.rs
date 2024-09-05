@@ -68,13 +68,13 @@ impl ExternalCircuitEnv {
         );
     }
 
-    pub fn get_statics(&self) -> HashMap<String, ForeignStatics> {
+    pub fn get_statics(&self, k: u32) -> HashMap<String, ForeignStatics> {
         let mut m = HashMap::new();
         for v in self.functions.values() {
             let plugin_name = &v.plugin.name;
 
             if !m.contains_key(plugin_name) {
-                if let Some(stat) = (v.plugin.ctx).as_ref().borrow().get_statics() {
+                if let Some(stat) = (v.plugin.ctx).as_ref().borrow().get_statics(k) {
                     m.insert(plugin_name.to_string(), stat);
                 }
             }

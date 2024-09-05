@@ -60,6 +60,7 @@ impl HostEnvConfig {
 }
 
 pub struct StandardHostEnvBuilder {
+    k: u32,
     ops: Vec<OpType>,
 }
 
@@ -89,9 +90,10 @@ impl GroupedForeign for ForeignInst {
     }
 }
 
-impl Default for StandardHostEnvBuilder {
-    fn default() -> Self {
+impl StandardHostEnvBuilder {
+    pub fn new(k: u32) -> Self {
         Self {
+            k,
             ops: vec![
                 OpType::POSEIDONHASH,
                 OpType::MERKLE,
@@ -109,21 +111,28 @@ struct StandardHostEnvFlushStrategy {
     ops: HashMap<usize, (usize, usize)>,
 }
 
-fn get_group_size(optype: &OpType) -> usize {
-    match optype {
-        OpType::MERKLE => 1 + 4 + 4 + 4, // address + set_root + get/set + get_root
-        OpType::JUBJUBSUM => 1 + 4 + 8 + 8, // new + scalar + point + result point
-        OpType::POSEIDONHASH => 1 + 4 * 8 + 4, // new + push + result
-        _ => unreachable!(),
-    }
+trait OpTypeFlushHelper {
+    fn get_group_size(&self) -> usize;
+    fn get_max_bound(&self, k: usize) -> usize;
 }
 
-fn get_max_bound(optype: &OpType, k: usize) -> usize {
-    match optype {
-        OpType::MERKLE => MerkleChip::<Fr, MERKLE_TREE_HEIGHT>::max_rounds(k as usize),
-        OpType::JUBJUBSUM => AltJubChip::<Fr>::max_rounds(k as usize),
-        OpType::POSEIDONHASH => PoseidonChip::max_rounds(k as usize),
-        _ => unreachable!(),
+impl OpTypeFlushHelper for OpType {
+    fn get_group_size(&self) -> usize {
+        match self {
+            OpType::MERKLE => 1 + 4 + 4 + 4, // address + set_root + get/set + get_root
+            OpType::JUBJUBSUM => 1 + 4 + 8 + 8, // new + scalar + point + result point
+            OpType::POSEIDONHASH => 1 + 4 * 8 + 4, // new + push + result
+            _ => unreachable!(),
+        }
+    }
+
+    fn get_max_bound(&self, k: usize) -> usize {
+        match self {
+            OpType::MERKLE => MerkleChip::<Fr, MERKLE_TREE_HEIGHT>::max_rounds(k),
+            OpType::JUBJUBSUM => AltJubChip::<Fr>::max_rounds(k),
+            OpType::POSEIDONHASH => PoseidonChip::max_rounds(k),
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -133,18 +142,19 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
             Event::HostCall(op) => {
                 let op_type = ForeignInst::from_usize(op).unwrap().get_optype();
                 if let Some(optype) = op_type {
+                    // cargo clippy false positive
+                    #[allow(clippy::redundant_clone)]
                     let (count, total) = self.ops.entry(optype.clone() as usize).or_insert((0, 0));
-                    let group_size = get_group_size(&optype);
 
                     *count += 1;
 
                     if *count == 1 {
                         Command::Start(optype as usize)
-                    } else if *count == group_size {
+                    } else if *count == optype.get_group_size() {
                         *total += 1;
                         *count = 0;
 
-                        if *total >= get_max_bound(&optype, self.k as usize) {
+                        if *total >= optype.get_max_bound(self.k as usize) {
                             Command::CommitAndAbort(optype as usize)
                         } else {
                             Command::Commit(optype as usize)
@@ -165,8 +175,8 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
 }
 
 impl HostEnvBuilder for StandardHostEnvBuilder {
-    fn create_env_without_value(&self, k: u32) -> HostEnv {
-        let mut env = HostEnv::new(k);
+    fn create_env_without_value(&self) -> HostEnv {
+        let mut env = HostEnv::new(self.k);
         let host_env_config = HostEnvConfig {
             ops: self.ops.clone(),
         };
@@ -185,8 +195,8 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         env
     }
 
-    fn create_env(&self, k: u32, arg: ExecutionArg) -> HostEnv {
-        let mut env = HostEnv::new(k);
+    fn create_env(&self, arg: ExecutionArg) -> HostEnv {
+        let mut env = HostEnv::new(self.k);
         let host_env_config = HostEnvConfig {
             ops: self.ops.clone(),
         };
@@ -203,9 +213,9 @@ impl HostEnvBuilder for StandardHostEnvBuilder {
         env
     }
 
-    fn create_flush_strategy(&self, k: u32) -> Box<dyn FlushStrategy> {
+    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy> {
         Box::new(StandardHostEnvFlushStrategy {
-            k,
+            k: self.k,
             ops: HashMap::new(),
         })
     }

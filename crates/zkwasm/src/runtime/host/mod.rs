@@ -62,7 +62,7 @@ pub struct ForeignStatics {
 /// }
 /// ```
 pub trait ForeignContext: Downcast {
-    fn get_statics(&self) -> Option<ForeignStatics> {
+    fn get_statics(&self, _k: u32) -> Option<ForeignStatics> {
         None
     }
 
@@ -100,9 +100,9 @@ struct HostFunction {
 /// Implement `HostEnvBuilder` to support customized foreign plugins.
 pub trait HostEnvBuilder {
     /// Create an empty env without value, this is used by compiling, computing hash
-    fn create_env_without_value(&self, k: u32) -> HostEnv;
+    fn create_env_without_value(&self) -> HostEnv;
     /// Create an env with execution parameters, this is used by dry-run, run
-    fn create_env(&self, k: u32, env: ExecutionArg) -> HostEnv;
+    fn create_env(&self, env: ExecutionArg) -> HostEnv;
     // Create a flush strategy to hint the monitor when to flush the table
-    fn create_flush_strategy(&self, k: u32) -> Box<dyn FlushStrategy>;
+    fn create_flush_strategy(&self) -> Box<dyn FlushStrategy>;
 }

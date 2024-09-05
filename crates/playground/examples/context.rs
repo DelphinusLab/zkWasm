@@ -19,8 +19,9 @@ fn main() -> Result<()> {
     let module = ZkWasmLoader::parse_module(&wasm)?;
 
     let context_output = {
-        let env = DefaultHostEnvBuilder.create_env(
-            K,
+        let env_builder = DefaultHostEnvBuilder::new(K);
+
+        let env = env_builder.create_env(
             ExecutionArg {
                 public_inputs: vec![],
                 private_inputs: vec![],
@@ -32,7 +33,7 @@ fn main() -> Result<()> {
 
         let mut monitor = TableMonitor::new(
             K,
-            DefaultHostEnvBuilder.create_flush_strategy(),
+            env_builder.create_flush_strategy(),
             &vec![],
             TraceBackend::Memory,
             &env,
@@ -49,8 +50,9 @@ fn main() -> Result<()> {
     };
 
     {
-        let env = DefaultHostEnvBuilder.create_env(
-            K,
+        let env_builder = DefaultHostEnvBuilder::new(K);
+
+        let env = env_builder.create_env(
             ExecutionArg {
                 public_inputs: vec![],
                 private_inputs: vec![],
@@ -62,7 +64,7 @@ fn main() -> Result<()> {
 
         let mut monitor = TableMonitor::new(
             K,
-            DefaultHostEnvBuilder.create_flush_strategy(),
+            env_builder.create_flush_strategy(),
             &vec![],
             TraceBackend::Memory,
             &env,
