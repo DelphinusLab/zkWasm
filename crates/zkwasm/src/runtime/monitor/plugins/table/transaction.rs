@@ -1,74 +1,21 @@
 use std::collections::BTreeMap;
 use std::usize;
 
-use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
-use specs::external_host_call_table::ExternalHostCallTable;
-use specs::jtable::FrameTable;
+use specs::slice_backend::SliceBackend;
 use specs::step::StepInfo;
-use specs::TableBackend;
-use specs::TraceBackend;
 
 use crate::runtime::monitor::plugins::table::Event;
 
 use super::slice_builder::SliceBuilder;
 use super::Command;
 use super::FlushStrategy;
-use super::Slice;
 
 pub(crate) type TransactionId = usize;
 
 struct Checkpoint {
     // transaction start index
     start: usize,
-}
-
-pub(super) struct Slices {
-    backend: TraceBackend,
-    pub(super) etable: Vec<TableBackend<EventTable>>,
-    pub(super) frame_table: Vec<TableBackend<FrameTable>>,
-    pub(super) external_host_call_table: Vec<ExternalHostCallTable>,
-}
-
-impl Slices {
-    fn new(backend: TraceBackend) -> Self {
-        Self {
-            backend,
-
-            etable: Vec::new(),
-            frame_table: Vec::new(),
-            external_host_call_table: Vec::new(),
-        }
-    }
-
-    fn push(&mut self, slice: Slice) {
-        let (etable, frame_table) = match &self.backend {
-            TraceBackend::File {
-                event_table_writer,
-                frame_table_writer,
-            } => {
-                let etable =
-                    TableBackend::Json(event_table_writer(self.etable.len(), &slice.etable));
-                let frame_table = TableBackend::Json(frame_table_writer(
-                    self.frame_table.len(),
-                    &slice.frame_table,
-                ));
-
-                (etable, frame_table)
-            }
-            TraceBackend::Memory => {
-                let etable = TableBackend::Memory(slice.etable);
-                let frame_table = TableBackend::Memory(slice.frame_table);
-
-                (etable, frame_table)
-            }
-        };
-
-        self.etable.push(etable);
-        self.frame_table.push(frame_table);
-        self.external_host_call_table
-            .push(slice.external_host_call_table);
-    }
 }
 
 struct SafelyAbortPosition {
@@ -98,7 +45,7 @@ impl SafelyAbortPosition {
 }
 
 pub(super) struct HostTransaction {
-    slices: Slices,
+    slice_backend: Box<dyn SliceBackend>,
     capacity: u32,
 
     safely_abort_position: SafelyAbortPosition,
@@ -112,12 +59,12 @@ pub(super) struct HostTransaction {
 
 impl HostTransaction {
     pub(super) fn new(
-        backend: TraceBackend,
+        slice_backend: Box<dyn SliceBackend>,
         capacity: u32,
         controller: Box<dyn FlushStrategy>,
     ) -> Self {
         Self {
-            slices: Slices::new(backend),
+            slice_backend,
             slice_builder: SliceBuilder::new(),
             capacity,
 
@@ -177,7 +124,7 @@ impl HostTransaction {
             let committed_logs = logs.drain(0..rollback);
 
             let slice = self.slice_builder.build(committed_logs.collect());
-            self.slices.push(slice);
+            self.slice_backend.push(slice);
         }
 
         {
@@ -194,10 +141,10 @@ impl HostTransaction {
         }
     }
 
-    pub(super) fn finalized(mut self) -> Slices {
+    pub(super) fn finalized(mut self) -> Box<dyn SliceBackend> {
         self.abort();
 
-        self.slices
+        self.slice_backend
     }
 }
 

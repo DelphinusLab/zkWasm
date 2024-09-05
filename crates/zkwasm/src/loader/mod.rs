@@ -1,6 +1,5 @@
 use anyhow::Result;
 use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::arithmetic::MultiMillerLoop;
 use halo2_proofs::poly::commitment::Params;
 use log::warn;
 
@@ -13,7 +12,6 @@ use wasmi::RuntimeValue;
 use crate::checksum::ImageCheckSum;
 
 use crate::circuits::config::init_zkwasm_runtime;
-use crate::error::BuildingCircuitError;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
 
@@ -25,9 +23,6 @@ use crate::runtime::ExecutionResult;
 use crate::runtime::WasmInterpreter;
 use anyhow::anyhow;
 
-use self::slice::Slices;
-
-pub use specs::TraceBackend;
 pub use wasmi::Module;
 
 mod err;
@@ -129,15 +124,6 @@ impl ZkWasmLoader {
         monitor: &mut dyn WasmiMonitor,
     ) -> Result<ExecutionResult<RuntimeValue>> {
         compiled_module.run(monitor, self.env)
-    }
-
-    #[deprecated]
-    pub fn slice<E: MultiMillerLoop>(
-        &self,
-        _execution_result: ExecutionResult<RuntimeValue>,
-    ) -> Result<Slices<E::Scalar>, BuildingCircuitError> {
-        todo!()
-        // Slices::new(self.k, execution_result.tables)
     }
 
     fn init_env(&self) -> Result<()> {
