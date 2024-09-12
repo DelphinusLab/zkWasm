@@ -8,17 +8,17 @@ pub struct InMemoryBackend {
     slices: VecDeque<Slice>,
 }
 
-impl Iterator for InMemoryBackend {
-    type Item = Slice;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.slices.pop_front()
-    }
-}
-
 impl SliceBackend for InMemoryBackend {
     fn push(&mut self, slice: Slice) {
         self.slices.push_back(slice)
+    }
+
+    fn pop(&mut self) -> Option<Slice> {
+        self.slices.pop_front()
+    }
+
+    fn first(&mut self) -> Option<&Slice> {
+        self.slices.front()
     }
 
     fn len(&self) -> usize {
@@ -29,7 +29,7 @@ impl SliceBackend for InMemoryBackend {
         self.slices.is_empty()
     }
 
-    fn for_each1<'a>(&'a self, f: Box<dyn Fn((usize, &Slice)) + 'a>) {
+    fn for_each<'a>(&'a self, f: Box<dyn Fn((usize, &Slice)) + 'a>) {
         self.slices.iter().enumerate().for_each(f)
     }
 }
