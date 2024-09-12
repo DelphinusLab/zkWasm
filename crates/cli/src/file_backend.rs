@@ -17,12 +17,12 @@ struct SlicePath {
     external_host_call_table: PathBuf,
 }
 
-impl Into<Slice> for &SlicePath {
-    fn into(self) -> Slice {
+impl From<&SlicePath> for Slice {
+    fn from(val: &SlicePath) -> Self {
         Slice {
-            etable: EventTable::read(&self.event_table).unwrap(),
-            frame_table: FrameTable::read(&self.frame_table).unwrap(),
-            external_host_call_table: ExternalHostCallTable::read(&self.external_host_call_table)
+            etable: EventTable::read(&val.event_table).unwrap(),
+            frame_table: FrameTable::read(&val.frame_table).unwrap(),
+            external_host_call_table: ExternalHostCallTable::read(&val.external_host_call_table)
                 .unwrap(),
         }
     }
@@ -113,7 +113,7 @@ impl SliceBackend for FileBackend {
 
         if let Some(slice) = self.peeked.as_ref() {
             f((offset, slice));
-            offset = offset + 1;
+            offset += 1;
         }
 
         self.slices.iter().enumerate().for_each(|(index, slice)| {
