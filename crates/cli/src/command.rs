@@ -160,7 +160,7 @@ impl SetupArg {
         let mut monitor = TableMonitor::new(
             self.k,
             env_builder.create_flush_strategy(),
-            Box::new(InMemoryBackend::default()),
+            Box::<InMemoryBackend>::default(),
             &self.phantom_functions,
             &env,
         );

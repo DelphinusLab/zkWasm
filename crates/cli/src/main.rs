@@ -106,7 +106,7 @@ fn main() -> Result<()> {
             let trace_backend: Box<dyn SliceBackend> = if arg.file_backend {
                 Box::new(FileBackend::new(cli.name, trace_dir))
             } else {
-                Box::new(InMemoryBackend::default())
+                Box::<InMemoryBackend>::default()
             };
 
             let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
