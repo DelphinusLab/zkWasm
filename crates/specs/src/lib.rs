@@ -87,7 +87,7 @@ impl Tables {
 
         self.execution_tables
             .slice_backend
-            .for_each1(Box::new(|(index, slice)| {
+            .for_each(Box::new(|(index, slice)| {
                 if DEBUG {
                     let path = dir.join(name_of_event_table_slice(index));
                     slice.etable.write(&path).unwrap();

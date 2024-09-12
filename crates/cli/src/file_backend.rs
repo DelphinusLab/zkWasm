@@ -29,6 +29,8 @@ impl Into<Slice> for &SlicePath {
 }
 
 pub(crate) struct FileBackend {
+    peeked: Option<Slice>,
+
     dir_path: PathBuf,
     name: String,
     slices: VecDeque<SlicePath>,
@@ -37,18 +39,12 @@ pub(crate) struct FileBackend {
 impl FileBackend {
     pub(crate) fn new(name: String, dir_path: PathBuf) -> Self {
         FileBackend {
+            peeked: None,
+
             dir_path,
             name,
             slices: VecDeque::new(),
         }
-    }
-}
-
-impl Iterator for FileBackend {
-    type Item = Slice;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.slices.pop_front().map(|slice| (&slice).into())
     }
 }
 
@@ -89,18 +85,40 @@ impl SliceBackend for FileBackend {
         });
     }
 
+    fn pop(&mut self) -> Option<Slice> {
+        match self.peeked.take() {
+            Some(v) => Some(v),
+            None => self.slices.pop_front().map(|slice| (&slice).into()),
+        }
+    }
+
+    fn first(&mut self) -> Option<&Slice> {
+        if self.peeked.is_none() {
+            self.peeked = self.slices.pop_front().map(|slice| (&slice).into());
+        }
+
+        self.peeked.as_ref()
+    }
+
     fn len(&self) -> usize {
-        self.slices.len()
+        self.slices.len() + self.peeked.is_some() as usize
     }
 
     fn is_empty(&self) -> bool {
-        self.slices.is_empty()
+        self.slices.is_empty() && self.peeked.is_none()
     }
 
-    fn for_each1<'a>(&'a self, f: Box<dyn Fn((usize, &Slice)) + 'a>) {
+    fn for_each<'a>(&'a self, f: Box<dyn Fn((usize, &Slice)) + 'a>) {
+        let mut offset = 0usize;
+
+        if let Some(slice) = self.peeked.as_ref() {
+            f((offset, slice));
+            offset = offset + 1;
+        }
+
         self.slices.iter().enumerate().for_each(|(index, slice)| {
             let slice: Slice = slice.into();
-            f((index, &slice))
+            f((index + offset, &slice))
         })
     }
 }

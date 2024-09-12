@@ -13,7 +13,6 @@ use specs::slice::Slice;
 use specs::slice_backend::SliceBackend;
 use specs::state::InitializationState;
 use specs::Tables;
-use std::iter::Peekable;
 use std::sync::Arc;
 
 use crate::circuits::ZkWasmCircuit;
@@ -36,7 +35,7 @@ pub struct Slices<F: FieldExt> {
     imtable: Arc<InitMemoryTable>,
     initialization_state: Arc<InitializationState<u32>>,
 
-    slices: Peekable<Box<dyn SliceBackend<Item = specs::slice_backend::Slice>>>,
+    slices: Box<dyn SliceBackend>,
     context_input_table: Arc<Vec<u64>>,
     context_output_table: Arc<Vec<u64>>,
 
@@ -73,7 +72,7 @@ impl<F: FieldExt> Slices<F> {
             imtable: tables.compilation_tables.imtable,
             initialization_state: tables.compilation_tables.initialization_state,
 
-            slices: tables.execution_tables.slice_backend.into_iter().peekable(),
+            slices: tables.execution_tables.slice_backend,
             context_input_table: tables.execution_tables.context_input_table.into(),
             context_output_table: tables.execution_tables.context_output_table.into(),
 
@@ -146,8 +145,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
     type Item = Result<ZkWasmCircuit<F>, BuildingCircuitError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let slice = self.slices.peek();
-        if slice.is_none() {
+        if self.slices.is_empty() {
             return None;
         }
 
@@ -155,14 +153,14 @@ impl<F: FieldExt> Iterator for Slices<F> {
             return Some(self.trivial_slice());
         }
 
-        let slice = self.slices.next().unwrap();
+        let slice = self.slices.pop().unwrap();
         let frame_table = slice.frame_table.into();
         let external_host_call_table = slice.external_host_call_table;
         let etable = slice.etable;
 
         let post_imtable = Arc::new(self.imtable.update_init_memory_table(&etable));
         let post_initialization_state = Arc::new({
-            let next_event_entry = if let Some(slice) = self.slices.peek() {
+            let next_event_entry = if let Some(slice) = self.slices.first() {
                 slice.etable.entries().first().cloned()
             } else {
                 None
@@ -177,7 +175,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
 
         let post_inherited_frame_table =
             self.slices
-                .peek()
+                .first()
                 .map_or(Arc::new(InheritedFrameTable::default()), |slice| {
                     let post_inherited_frame_table = slice.frame_table.inherited.clone();
 
@@ -205,7 +203,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
             context_input_table: self.context_input_table.clone(),
             context_output_table: self.context_output_table.clone(),
 
-            is_last_slice: self.slices.peek().is_none(),
+            is_last_slice: self.slices.is_empty(),
         };
 
         self.imtable = post_imtable;

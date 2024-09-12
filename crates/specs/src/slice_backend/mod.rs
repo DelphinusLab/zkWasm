@@ -10,11 +10,11 @@ pub struct Slice {
     pub external_host_call_table: ExternalHostCallTable,
 }
 
-pub trait SliceBackend: Iterator<Item = Slice> {
+pub trait SliceBackend {
     fn push(&mut self, slice: Slice);
+    fn pop(&mut self) -> Option<Slice>;
+    fn first(&mut self) -> Option<&Slice>;
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
-    // An renaming for_each to avoid conflict with Iterator trait and
-    // to avoid consume self.
-    fn for_each1<'a>(&'a self, f: Box<dyn Fn((usize, &Slice)) + 'a>);
+    fn for_each<'a>(&'a self, f: Box<dyn Fn((usize, &Slice)) + 'a>);
 }
