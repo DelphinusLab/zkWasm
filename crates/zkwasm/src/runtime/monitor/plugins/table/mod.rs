@@ -60,6 +60,8 @@ mod frame_table_builder;
 mod instruction;
 mod slice_builder;
 
+pub use specs::slice_backend::memory::InMemoryBackend;
+
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 

@@ -72,7 +72,7 @@ impl Tables {
     ) {
         const DEBUG: bool = false;
 
-        fn write_file(folder: &Path, filename: String, buf: &String) {
+        fn write_file(folder: &Path, filename: &str, buf: &String) {
             let folder = folder.join(filename);
             let mut fd = File::create(folder.as_path()).unwrap();
 
@@ -81,7 +81,7 @@ impl Tables {
 
         write_file(
             dir,
-            "itable.json".to_string(),
+            "itable.json",
             &serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap(),
         );
 
