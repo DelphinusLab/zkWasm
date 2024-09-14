@@ -1,9 +1,13 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::etable::EventTable;
 use crate::external_host_call_table::ExternalHostCallTable;
 use crate::jtable::FrameTable;
 
 pub mod memory;
 
+#[derive(Serialize, Deserialize)]
 pub struct Slice {
     pub etable: EventTable,
     pub frame_table: FrameTable,

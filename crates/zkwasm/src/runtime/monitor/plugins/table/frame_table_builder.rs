@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
 use specs::etable::EventTableEntry;
 use specs::jtable::CalledFrameTable;
 use specs::jtable::CalledFrameTableEntry;
+use specs::jtable::FrameTable;
 use specs::jtable::FrameTableEntryInternal;
 use specs::jtable::InheritedFrameTable;
 use specs::jtable::InheritedFrameTableEntry;
@@ -38,14 +37,14 @@ impl From<&FrameTableEntry> for InheritedFrameTableEntry {
     fn from(entry: &FrameTableEntry) -> InheritedFrameTableEntry {
         assert!(entry.inherited);
 
-        InheritedFrameTableEntry(Some(FrameTableEntryInternal {
+        InheritedFrameTableEntry(FrameTableEntryInternal {
             frame_id: entry.frame_id,
             next_frame_id: entry.next_frame_id,
             callee_fid: entry.callee_fid,
             fid: entry.fid,
             iid: entry.iid,
             returned: entry.returned,
-        }))
+        })
     }
 }
 
@@ -100,7 +99,7 @@ impl FrameTableBuilder {
     }
 
     // Prepare for the next slice. This will remove all the entries that are returned
-    fn flush(&mut self) -> specs::jtable::FrameTable {
+    fn flush(&mut self) -> FrameTable {
         let frame_table = {
             let inherited = self
                 .current_returned
@@ -118,8 +117,8 @@ impl FrameTableBuilder {
                 .map(Into::into)
                 .collect::<Vec<CalledFrameTableEntry>>();
 
-            specs::jtable::FrameTable {
-                inherited: Arc::new(inherited.into()),
+            FrameTable {
+                inherited: InheritedFrameTable::new(inherited),
                 called: CalledFrameTable::new(called),
             }
         };
@@ -133,24 +132,15 @@ impl FrameTableBuilder {
     }
 
     pub(super) fn build_initial_frame_table(&self) -> InheritedFrameTable {
-        self.initial_frame_entries
-            .iter()
-            .map(|entry| {
-                InheritedFrameTableEntry(Some(FrameTableEntryInternal {
-                    frame_id: entry.frame_id,
-                    next_frame_id: entry.next_frame_id,
-                    callee_fid: entry.callee_fid,
-                    fid: entry.fid,
-                    iid: entry.iid,
-                    returned: false,
-                }))
-            })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
+        InheritedFrameTable::new(
+            self.initial_frame_entries
+                .iter()
+                .map(InheritedFrameTableEntry::from)
+                .collect::<Vec<_>>(),
+        )
     }
 
-    pub(super) fn build(&mut self, entries: &[EventTableEntry]) -> specs::jtable::FrameTable {
+    pub(super) fn build(&mut self, entries: &[EventTableEntry]) -> FrameTable {
         for entry in entries {
             match entry.step_info {
                 StepInfo::Call { index } => self.push(

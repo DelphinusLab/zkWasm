@@ -1,6 +1,8 @@
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
+use specs::host_function::ContextInputTable;
+use specs::host_function::ContextOutputTable;
 
 use super::ContextContHelperTableConfig;
 
@@ -16,8 +18,8 @@ impl<F: FieldExt> ContextContHelperTableChip<F> {
     pub fn assign(
         &self,
         layouter: impl Layouter<F>,
-        inputs: &[u64],
-        outputs: &[u64],
+        inputs: &ContextInputTable,
+        outputs: &ContextOutputTable,
     ) -> Result<(), Error> {
         layouter.assign_region(
             || "context cont helper assign",

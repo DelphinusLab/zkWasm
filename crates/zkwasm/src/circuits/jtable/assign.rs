@@ -2,10 +2,13 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::circuit::Layouter;
 use halo2_proofs::plonk::Error;
+use num_bigint::BigUint;
+use num_traits::Zero;
 use specs::jtable::CalledFrameTable;
+use specs::jtable::FrameTable;
 use specs::jtable::InheritedFrameTable;
+use specs::jtable::InheritedFrameTableEntry;
 use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
-use specs::slice::FrameTableSlice;
 use wasmi::DEFAULT_CALL_STACK_LIMIT;
 
 use super::FrameEtablePermutationCells;
@@ -139,12 +142,18 @@ impl<F: FieldExt> JumpTableChip<F> {
     ) -> Result<Box<[AssignedCell<F, F>; INHERITED_FRAME_TABLE_ENTRIES]>, Error> {
         let mut cells = vec![];
 
-        for entry in inherited_table.0.iter() {
+        assert_eq!(
+            InheritedFrameTableEntry::default().encode(),
+            BigUint::zero(),
+            "Encoding of default InheritedFrameTableEntry must equal to zero"
+        );
+
+        for entry in inherited_table.clone().into_iter() {
             let entry_cell = ctx.region.assign_advice(
                 || "frame table: encode",
                 self.config.value,
                 ctx.offset + FrameTableValueOffset::Encode as usize,
-                || Ok(bn_to_field(&entry.encode())),
+                || Ok(bn_to_field(&entry.unwrap_or_default().encode())),
             )?;
 
             ctx.region.assign_advice(
@@ -161,7 +170,7 @@ impl<F: FieldExt> JumpTableChip<F> {
                 || Ok(F::from(*rest_return_ops as u64)),
             )?;
 
-            if let Some(entry) = entry.0.as_ref() {
+            if let Some(entry) = entry {
                 ctx.region.assign_advice(
                     || "frame table: enable",
                     self.config.value,
@@ -169,7 +178,7 @@ impl<F: FieldExt> JumpTableChip<F> {
                     || Ok(F::one()),
                 )?;
 
-                if entry.returned {
+                if entry.0.returned {
                     ctx.region.assign_advice(
                         || "frame table: returned",
                         self.config.value,
@@ -249,15 +258,16 @@ impl<F: FieldExt> JumpTableChip<F> {
         Ok(())
     }
 
-    fn compute_call_ops(&self, frame_table: &FrameTableSlice) -> u32 {
+    fn compute_call_ops(&self, frame_table: &FrameTable) -> u32 {
         frame_table.called.len() as u32
     }
 
-    fn compute_returned_ops(&self, frame_table: &FrameTableSlice) -> u32 {
+    fn compute_returned_ops(&self, frame_table: &FrameTable) -> u32 {
         frame_table
             .inherited
-            .iter()
-            .filter(|e| e.0.as_ref().map_or(false, |entry| entry.returned))
+            .clone()
+            .into_iter()
+            .filter(|e| e.as_ref().map_or(false, |entry| entry.0.returned))
             .count() as u32
             + frame_table.called.iter().filter(|e| e.0.returned).count() as u32
     }
@@ -265,7 +275,7 @@ impl<F: FieldExt> JumpTableChip<F> {
     pub(crate) fn assign(
         &self,
         layouter: impl Layouter<F>,
-        frame_table: &FrameTableSlice,
+        frame_table: &FrameTable,
     ) -> Result<
         (
             FrameEtablePermutationCells<F>,

@@ -10,7 +10,7 @@ use rayon::prelude::ParallelSlice;
 use specs::configure_table::ConfigureTable;
 use specs::itable::InstructionTable;
 use specs::itable::OpcodeClassPlain;
-use specs::slice::FrameTableSlice;
+use specs::jtable::FrameTable;
 use specs::state::InitializationState;
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
@@ -275,7 +275,7 @@ impl<F: FieldExt> EventTableChip<F> {
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        frame_table: &FrameTableSlice,
+        frame_table: &FrameTable,
         initialization_state: &InitializationState<u32>,
         post_initialization_state: &InitializationState<u32>,
         rest_mops: u32,
@@ -497,7 +497,7 @@ impl<F: FieldExt> EventTableChip<F> {
         itable: &InstructionTable,
         event_table: &EventTableWithMemoryInfo,
         configure_table: &ConfigureTable,
-        frame_table: &FrameTableSlice,
+        frame_table: &FrameTable,
         initialization_state: &InitializationState<u32>,
         post_initialization_state: &InitializationState<u32>,
         _is_last_slice: bool,

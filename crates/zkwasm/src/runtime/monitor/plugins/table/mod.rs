@@ -6,6 +6,8 @@ use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
 use specs::etable::EventTableEntry;
+use specs::host_function::ContextInputTable;
+use specs::host_function::ContextOutputTable;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
@@ -100,8 +102,8 @@ pub struct TablePlugin {
     init_memory_table: Vec<InitMemoryTableEntry>,
     start_fid: Option<u32>,
 
-    context_input_table: Vec<u64>,
-    context_output_table: Vec<u64>,
+    context_input_table: ContextInputTable,
+    context_output_table: ContextOutputTable,
 
     host_transaction: HostTransaction,
 
@@ -137,8 +139,8 @@ impl TablePlugin {
 
             eid: 0,
             last_jump_eid: vec![],
-            context_input_table: vec![],
-            context_output_table: vec![],
+            context_input_table: ContextInputTable::default(),
+            context_output_table: ContextOutputTable::default(),
 
             host_transaction: HostTransaction::new(slice_backend, capacity, flush_strategy),
 
@@ -176,12 +178,11 @@ impl TablePlugin {
             br_table,
             elem_table,
             configure_table,
-            initial_frame_table: Arc::new(
-                self.host_transaction
-                    .slice_builder
-                    .frame_table_builder
-                    .build_initial_frame_table(),
-            ),
+            initial_frame_table: self
+                .host_transaction
+                .slice_builder
+                .frame_table_builder
+                .build_initial_frame_table(),
             initialization_state,
         }
     }

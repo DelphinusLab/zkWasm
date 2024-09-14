@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -12,6 +11,8 @@ use crate::configure_table::ConfigureTable;
 use crate::etable::EventTable;
 use crate::etable::EventTableEntry;
 use crate::external_host_call_table::ExternalHostCallTable;
+use crate::host_function::ContextInputTable;
+use crate::host_function::ContextOutputTable;
 use crate::imtable::InitMemoryTable;
 use crate::itable::InstructionTable;
 use crate::jtable::CalledFrameTable;
@@ -24,47 +25,16 @@ use crate::mtable::MemoryTableEntry;
 use crate::state::InitializationState;
 use crate::CompilationTable;
 
-#[derive(Debug)]
-pub struct FrameTableSlice {
-    pub inherited: Arc<InheritedFrameTable>,
-    pub called: CalledFrameTable,
-}
-
-impl From<FrameTable> for FrameTableSlice {
-    fn from(frame_table: FrameTable) -> Self {
-        FrameTableSlice {
-            inherited: Arc::new((*frame_table.inherited).clone().try_into().unwrap()),
-            called: frame_table.called,
-        }
-    }
-}
-
-impl FrameTableSlice {
-    pub fn build_returned_lookup_mapping(&self) -> HashMap<(u32, u32), bool> {
-        let mut lookup_table = HashMap::with_capacity(self.called.len() + self.inherited.0.len());
-        for entry in self.called.iter() {
-            lookup_table.insert((entry.0.frame_id, entry.0.callee_fid), entry.0.returned);
-        }
-        for entry in self.inherited.0.iter() {
-            if let Some(entry) = entry.0.as_ref() {
-                lookup_table.insert((entry.frame_id, entry.callee_fid), entry.returned);
-            }
-        }
-
-        lookup_table
-    }
-}
-
 pub struct Slice {
     pub itable: Arc<InstructionTable>,
     pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
-    pub initial_frame_table: Arc<InheritedFrameTable>,
+    pub initial_frame_table: InheritedFrameTable,
 
     pub etable: Arc<EventTable>,
-    pub frame_table: Arc<FrameTableSlice>,
-    pub post_inherited_frame_table: Arc<InheritedFrameTable>,
+    pub frame_table: Arc<FrameTable>,
+    pub post_inherited_frame_table: InheritedFrameTable,
 
     pub imtable: Arc<InitMemoryTable>,
     pub post_imtable: Arc<InitMemoryTable>,
@@ -73,8 +43,8 @@ pub struct Slice {
     pub post_initialization_state: Arc<InitializationState<u32>>,
 
     pub external_host_call_table: Arc<ExternalHostCallTable>,
-    pub context_input_table: Arc<Vec<u64>>,
-    pub context_output_table: Arc<Vec<u64>>,
+    pub context_input_table: Arc<ContextInputTable>,
+    pub context_output_table: Arc<ContextOutputTable>,
 
     pub is_last_slice: bool,
 }
@@ -92,7 +62,7 @@ impl Slice {
             initial_frame_table: compilation_table.initial_frame_table.clone(),
 
             etable: EventTable::default().into(),
-            frame_table: Arc::new(FrameTableSlice {
+            frame_table: Arc::new(FrameTable {
                 inherited: compilation_table.initial_frame_table.clone(),
                 called: CalledFrameTable::default(),
             }),
@@ -105,8 +75,8 @@ impl Slice {
             post_initialization_state: compilation_table.initialization_state.clone(),
 
             external_host_call_table: ExternalHostCallTable::default().into(),
-            context_input_table: Arc::new(Vec::new()),
-            context_output_table: Arc::new(Vec::new()),
+            context_input_table: Arc::new(ContextInputTable::default()),
+            context_output_table: Arc::new(ContextOutputTable::default()),
 
             is_last_slice,
         }
