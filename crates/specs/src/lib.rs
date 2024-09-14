@@ -14,9 +14,13 @@ use std::sync::Arc;
 use brtable::BrTable;
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
+use host_function::ContextInputTable;
+use host_function::ContextOutputTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
 use jtable::InheritedFrameTable;
+use serde::Deserialize;
+use serde::Serialize;
 use slice_backend::SliceBackend;
 use state::InitializationState;
 
@@ -40,21 +44,21 @@ pub mod state;
 pub mod step;
 pub mod types;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: Arc<InitMemoryTable>,
     pub br_table: Arc<BrTable>,
     pub elem_table: Arc<ElemTable>,
     pub configure_table: Arc<ConfigureTable>,
-    pub initial_frame_table: Arc<InheritedFrameTable>,
+    pub initial_frame_table: InheritedFrameTable,
     pub initialization_state: Arc<InitializationState<u32>>,
 }
 
 pub struct ExecutionTable {
     pub slice_backend: Box<dyn SliceBackend>,
-    pub context_input_table: Vec<u64>,
-    pub context_output_table: Vec<u64>,
+    pub context_input_table: ContextInputTable,
+    pub context_output_table: ContextOutputTable,
 }
 
 pub struct Tables {

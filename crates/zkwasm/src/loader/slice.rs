@@ -4,11 +4,13 @@ use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
 use specs::etable::EventTable;
 use specs::external_host_call_table::ExternalHostCallTable;
+use specs::host_function::ContextInputTable;
+use specs::host_function::ContextOutputTable;
 use specs::imtable::InitMemoryTable;
 use specs::itable::InstructionTable;
 use specs::jtable::CalledFrameTable;
+use specs::jtable::FrameTable;
 use specs::jtable::InheritedFrameTable;
-use specs::slice::FrameTableSlice;
 use specs::slice::Slice;
 use specs::slice_backend::SliceBackend;
 use specs::state::InitializationState;
@@ -30,14 +32,14 @@ pub struct Slices<F: FieldExt> {
     br_table: Arc<BrTable>,
     elem_table: Arc<ElemTable>,
     configure_table: Arc<ConfigureTable>,
-    initial_frame_table: Arc<InheritedFrameTable>,
+    initial_frame_table: InheritedFrameTable,
 
     imtable: Arc<InitMemoryTable>,
     initialization_state: Arc<InitializationState<u32>>,
 
     slices: Box<dyn SliceBackend>,
-    context_input_table: Arc<Vec<u64>>,
-    context_output_table: Arc<Vec<u64>>,
+    context_input_table: Arc<ContextInputTable>,
+    context_output_table: Arc<ContextOutputTable>,
 
     _marker: std::marker::PhantomData<F>,
 }
@@ -108,7 +110,7 @@ impl<F: FieldExt> Slices<F> {
     fn trivial_slice(&mut self) -> Result<ZkWasmCircuit<F>, BuildingCircuitError> {
         self.padding -= 1;
 
-        let frame_table = Arc::new(FrameTableSlice {
+        let frame_table = Arc::new(FrameTable {
             inherited: self.initial_frame_table.clone(),
             called: CalledFrameTable::default(),
         });
@@ -154,7 +156,6 @@ impl<F: FieldExt> Iterator for Slices<F> {
         }
 
         let slice = self.slices.pop().unwrap();
-        let frame_table = slice.frame_table.into();
         let external_host_call_table = slice.external_host_call_table;
         let etable = slice.etable;
 
@@ -173,14 +174,12 @@ impl<F: FieldExt> Iterator for Slices<F> {
             )
         });
 
-        let post_inherited_frame_table =
-            self.slices
-                .first()
-                .map_or(Arc::new(InheritedFrameTable::default()), |slice| {
-                    let post_inherited_frame_table = slice.frame_table.inherited.clone();
-
-                    Arc::new((*post_inherited_frame_table).clone().try_into().unwrap())
-                });
+        let post_inherited_frame_table = self
+            .slices
+            .first()
+            .map_or_else(InheritedFrameTable::default, |slice| {
+                slice.frame_table.inherited.clone()
+            });
 
         let slice = Slice {
             itable: self.itable.clone(),
@@ -189,7 +188,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
             configure_table: self.configure_table.clone(),
             initial_frame_table: self.initial_frame_table.clone(),
 
-            frame_table: Arc::new(frame_table),
+            frame_table: slice.frame_table.into(),
             post_inherited_frame_table,
 
             imtable: self.imtable.clone(),

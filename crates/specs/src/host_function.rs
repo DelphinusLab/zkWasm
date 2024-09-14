@@ -1,3 +1,5 @@
+use std::slice::Iter;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -44,4 +46,30 @@ pub enum HostPlugin {
     HostInput = 0,
     Context,
     Require,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct ContextInputTable(pub Vec<u64>);
+
+impl ContextInputTable {
+    pub fn push(&mut self, value: u64) {
+        self.0.push(value)
+    }
+
+    pub fn iter(&self) -> Iter<'_, u64> {
+        self.0.iter()
+    }
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct ContextOutputTable(pub Vec<u64>);
+
+impl ContextOutputTable {
+    pub fn push(&mut self, value: u64) {
+        self.0.push(value)
+    }
+
+    pub fn iter(&self) -> Iter<'_, u64> {
+        self.0.iter()
+    }
 }

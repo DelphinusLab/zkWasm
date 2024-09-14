@@ -242,8 +242,10 @@ pub(crate) fn encode_compilation_table_values<F: FieldExt>(
     let inherited_frame_entries_handler = |_| {
         let mut cells = Box::new([F::zero(); INHERITED_FRAME_TABLE_ENTRIES]);
 
-        for (index, entry) in inherited_frame_table.iter().enumerate() {
-            cells[index] = bn_to_field(&entry.encode());
+        for (index, entry) in inherited_frame_table.clone().into_iter().enumerate() {
+            if let Some(entry) = entry {
+                cells[index] = bn_to_field(&entry.encode());
+            }
         }
 
         Ok(cells)

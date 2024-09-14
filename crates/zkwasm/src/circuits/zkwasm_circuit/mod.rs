@@ -17,9 +17,11 @@ use log::debug;
 use log::info;
 use specs::etable::EventTable;
 use specs::external_host_call_table::ExternalHostCallTable;
+use specs::host_function::ContextInputTable;
+use specs::host_function::ContextOutputTable;
 use specs::jtable::CalledFrameTable;
+use specs::jtable::FrameTable;
 use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
-use specs::slice::FrameTableSlice;
 use specs::slice::Slice;
 
 use crate::circuits::bit_table::BitTableChip;
@@ -118,7 +120,7 @@ macro_rules! impl_zkwasm_circuit {
                         initial_frame_table: self.slice.initial_frame_table.clone(),
 
                         etable: Arc::new(EventTable::default()),
-                        frame_table: Arc::new(FrameTableSlice {
+                        frame_table: Arc::new(FrameTable {
                             inherited: self.slice.initial_frame_table.clone(),
                             called: CalledFrameTable::default(),
                         }),
@@ -131,8 +133,8 @@ macro_rules! impl_zkwasm_circuit {
                         post_initialization_state: self.slice.initialization_state.clone(),
 
                         external_host_call_table: ExternalHostCallTable::default().into(),
-                        context_input_table: Arc::new(Vec::new()),
-                        context_output_table: Arc::new(Vec::new()),
+                        context_input_table: ContextInputTable::default().into(),
+                        context_output_table: ContextOutputTable::default().into(),
 
                         is_last_slice: self.slice.is_last_slice,
                     },
