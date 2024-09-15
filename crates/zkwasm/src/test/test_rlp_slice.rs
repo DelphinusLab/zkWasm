@@ -1,4 +1,4 @@
-use crate::circuits::config::MIN_K;
+use crate::circuits::MIN_K;
 use crate::foreign::context::ContextOutput;
 use crate::loader::ZkWasmLoader;
 use crate::runtime::host::default_env::DefaultHostEnvBuilder;

@@ -39,6 +39,8 @@ pub mod zkwasm_circuit;
 pub type CompilationTable = specs::CompilationTable;
 pub type ExecutionTable = specs::ExecutionTable;
 
+pub const MIN_K: u32 = 18;
+
 pub(crate) fn compute_slice_capability(k: u32) -> u32 {
     ((1 << k) - RESERVE_ROWS as u32 - 1024) / EVENT_TABLE_ENTRY_ROWS as u32
 }
@@ -51,6 +53,8 @@ pub struct OngoingCircuit<F: FieldExt> {
 
 impl<F: FieldExt> OngoingCircuit<F> {
     pub fn new(k: u32, slice: Slice) -> Result<Self, BuildingCircuitError> {
+        assert!(k >= MIN_K);
+
         {
             // entries is empty when called by without_witness
             let allocated_memory_pages = slice
@@ -99,6 +103,8 @@ pub struct LastSliceCircuit<F: FieldExt> {
 
 impl<F: FieldExt> LastSliceCircuit<F> {
     pub fn new(k: u32, slice: Slice) -> Result<Self, BuildingCircuitError> {
+        assert!(k >= MIN_K);
+
         {
             // entries is empty when called by without_witness
             let allocated_memory_pages = slice

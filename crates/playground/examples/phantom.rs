@@ -1,5 +1,5 @@
 use anyhow::Result;
-use delphinus_zkwasm::circuits::config::MIN_K;
+use delphinus_zkwasm::circuits::MIN_K;
 use delphinus_zkwasm::loader::slice::Slices;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
