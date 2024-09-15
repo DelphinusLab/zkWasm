@@ -2,9 +2,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use parity_wasm::elements::Module;
+use specs::slice_backend::SliceBackend;
 use specs::CompilationTable;
 use specs::Tables;
-use specs::TraceBackend;
 use wasmi::isa::Instruction;
 use wasmi::monitor::Monitor;
 use wasmi::runner::FunctionContext;
@@ -34,8 +34,8 @@ impl TableMonitor {
     pub fn new(
         k: u32,
         flush_strategy: Box<dyn FlushStrategy>,
+        slice_backend: Box<dyn SliceBackend>,
         phantom_regex: &[String],
-        backend: TraceBackend,
         env: &HostEnv,
     ) -> Self {
         let wasm_input = env
@@ -49,10 +49,10 @@ impl TableMonitor {
             table_plugin: TablePlugin::new(
                 k,
                 flush_strategy,
+                slice_backend,
                 env.function_description_table(),
                 phantom_regex,
                 wasm_input.clone(),
-                backend,
             ),
             statistic_plugin: StatisticPlugin::new(phantom_regex, wasm_input, None),
         }

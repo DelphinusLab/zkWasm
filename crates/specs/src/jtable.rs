@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
@@ -26,58 +27,55 @@ pub struct FrameTableEntryInternal {
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-pub struct InheritedFrameTableEntry(pub Option<FrameTableEntryInternal>);
+pub struct InheritedFrameTableEntry(pub FrameTableEntryInternal);
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct InheritedFrameEntries(Vec<InheritedFrameTableEntry>);
-
-impl From<Vec<InheritedFrameTableEntry>> for InheritedFrameEntries {
-    fn from(value: Vec<InheritedFrameTableEntry>) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Debug)]
-pub struct InheritedFrameTable(pub Box<[InheritedFrameTableEntry; INHERITED_FRAME_TABLE_ENTRIES]>);
-
-impl Default for InheritedFrameTable {
-    fn default() -> Self {
-        Self(Box::new(
-            [InheritedFrameTableEntry::default(); INHERITED_FRAME_TABLE_ENTRIES],
-        ))
-    }
-}
-
-impl TryFrom<Vec<InheritedFrameTableEntry>> for InheritedFrameTable {
-    type Error = Vec<InheritedFrameTableEntry>;
-
-    fn try_from(value: Vec<InheritedFrameTableEntry>) -> Result<Self, Self::Error> {
-        let mut value = value;
-        if value.len() > INHERITED_FRAME_TABLE_ENTRIES {
-            return Err(value);
-        }
-        value.resize_with(INHERITED_FRAME_TABLE_ENTRIES, Default::default);
-        Ok(Self(Box::new(value.try_into()?)))
-    }
-}
-
-impl TryFrom<InheritedFrameEntries> for InheritedFrameTable {
-    type Error = InheritedFrameEntries;
-
-    fn try_from(value: InheritedFrameEntries) -> Result<Self, Self::Error> {
-        if value.0.len() > INHERITED_FRAME_TABLE_ENTRIES {
-            return Err(value);
-        }
-
-        let mut value = value.0;
-        value.resize_with(INHERITED_FRAME_TABLE_ENTRIES, Default::default);
-        Ok(Self(Box::new(value.try_into()?)))
-    }
-}
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct InheritedFrameTable(Arc<Vec<InheritedFrameTableEntry>>);
 
 impl InheritedFrameTable {
-    pub fn iter(&self) -> std::slice::Iter<'_, InheritedFrameTableEntry> {
-        self.0.iter()
+    pub fn new(entries: Vec<InheritedFrameTableEntry>) -> Self {
+        Self(Arc::new(entries))
+    }
+}
+
+pub struct InheritedFrameTableIter {
+    table: Arc<Vec<InheritedFrameTableEntry>>,
+    cursor: usize,
+}
+
+impl Iterator for InheritedFrameTableIter {
+    type Item = Option<InheritedFrameTableEntry>;
+
+    /*
+     * None: should stop
+     * Some(None): disabled inherited entry
+     * Some(Some(_)): enabled inherited entry
+     */
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cursor == INHERITED_FRAME_TABLE_ENTRIES {
+            return None;
+        }
+
+        let r = self.table.get(self.cursor).cloned();
+
+        self.cursor += 1;
+
+        Some(r)
+    }
+}
+
+impl IntoIterator for InheritedFrameTable {
+    type Item = Option<InheritedFrameTableEntry>;
+
+    type IntoIter = InheritedFrameTableIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        assert!(self.0.len() <= INHERITED_FRAME_TABLE_ENTRIES);
+
+        InheritedFrameTableIter {
+            table: self.0,
+            cursor: 0,
+        }
     }
 }
 
@@ -111,11 +109,23 @@ impl CalledFrameTable {
 
 #[derive(Serialize, Deserialize)]
 pub struct FrameTable {
-    pub inherited: Arc<InheritedFrameEntries>,
+    pub inherited: InheritedFrameTable,
     pub called: CalledFrameTable,
 }
 
 impl FrameTable {
+    pub fn build_returned_lookup_mapping(&self) -> HashMap<(u32, u32), bool> {
+        let mut lookup_table = HashMap::with_capacity(self.called.len() + self.inherited.0.len());
+        for entry in self.called.iter() {
+            lookup_table.insert((entry.0.frame_id, entry.0.callee_fid), entry.0.returned);
+        }
+        for entry in self.inherited.0.iter() {
+            lookup_table.insert((entry.0.frame_id, entry.0.callee_fid), entry.0.returned);
+        }
+
+        lookup_table
+    }
+
     pub fn read(path: &PathBuf) -> std::io::Result<Self> {
         let mut fd = std::fs::File::open(path)?;
         let mut buf = Vec::new();

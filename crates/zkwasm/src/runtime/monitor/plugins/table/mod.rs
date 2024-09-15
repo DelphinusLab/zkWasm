@@ -5,8 +5,9 @@ use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
-use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
+use specs::host_function::ContextInputTable;
+use specs::host_function::ContextOutputTable;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
 use specs::imtable::InitMemoryTable;
@@ -15,6 +16,7 @@ use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
+use specs::slice_backend::SliceBackend;
 use specs::state::InitializationState;
 use specs::step::StepInfo;
 use specs::types::FunctionType;
@@ -22,7 +24,6 @@ use specs::types::ValueType;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
-use specs::TraceBackend;
 use transaction::HostTransaction;
 use transaction::TransactionId;
 use wasmi::func::FuncInstanceInternal;
@@ -61,6 +62,8 @@ mod frame_table_builder;
 mod instruction;
 mod slice_builder;
 
+pub use specs::slice_backend::memory::InMemoryBackend;
+
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
@@ -87,12 +90,6 @@ pub trait FlushStrategy {
     fn notify(&mut self, op: Event) -> Command;
 }
 
-struct Slice {
-    etable: EventTable,
-    frame_table: specs::jtable::FrameTable,
-    external_host_call_table: specs::external_host_call_table::ExternalHostCallTable,
-}
-
 pub struct TablePlugin {
     phantom_helper: PhantomHelper,
 
@@ -105,8 +102,8 @@ pub struct TablePlugin {
     init_memory_table: Vec<InitMemoryTableEntry>,
     start_fid: Option<u32>,
 
-    context_input_table: Vec<u64>,
-    context_output_table: Vec<u64>,
+    context_input_table: ContextInputTable,
+    context_output_table: ContextOutputTable,
 
     host_transaction: HostTransaction,
 
@@ -121,10 +118,10 @@ impl TablePlugin {
     pub fn new(
         k: u32,
         flush_strategy: Box<dyn FlushStrategy>,
+        slice_backend: Box<dyn SliceBackend>,
         host_function_desc: HashMap<usize, HostFunctionDesc>,
         phantom_regex: &[String],
         wasm_input: FuncRef,
-        trace_backend: TraceBackend,
     ) -> Self {
         let capacity = compute_slice_capability(k);
 
@@ -142,10 +139,10 @@ impl TablePlugin {
 
             eid: 0,
             last_jump_eid: vec![],
-            context_input_table: vec![],
-            context_output_table: vec![],
+            context_input_table: ContextInputTable::default(),
+            context_output_table: ContextOutputTable::default(),
 
-            host_transaction: HostTransaction::new(trace_backend, capacity, flush_strategy),
+            host_transaction: HostTransaction::new(slice_backend, capacity, flush_strategy),
 
             module_ref: None,
             unresolved_event: None,
@@ -181,26 +178,23 @@ impl TablePlugin {
             br_table,
             elem_table,
             configure_table,
-            initial_frame_table: Arc::new(
-                self.host_transaction
-                    .slice_builder
-                    .frame_table_builder
-                    .build_initial_frame_table(),
-            ),
+            initial_frame_table: self
+                .host_transaction
+                .slice_builder
+                .frame_table_builder
+                .build_initial_frame_table(),
             initialization_state,
         }
     }
 
     pub fn into_tables(self) -> Tables {
         let compilation_tables = self.into_compilation_table();
-        let slices = self.host_transaction.finalized();
+        let slice_backend = self.host_transaction.finalized();
 
         Tables {
             compilation_tables,
             execution_tables: ExecutionTable {
-                etable: slices.etable,
-                frame_table: slices.frame_table,
-                external_host_call_table: slices.external_host_call_table,
+                slice_backend,
                 context_input_table: self.context_input_table,
                 context_output_table: self.context_output_table,
             },
