@@ -14,7 +14,7 @@ use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
-use specs::slice_backend::SliceBackend;
+use specs::slice_backend::SliceBackendBuilder;
 use specs::state::InitializationState;
 use specs::step::StepInfo;
 use specs::types::FunctionType;
@@ -60,7 +60,8 @@ mod frame_table_builder;
 mod instruction;
 mod slice_builder;
 
-pub use specs::slice_backend::memory::InMemoryBackend;
+pub use specs::slice_backend::InMemoryBackendBuilder;
+pub use specs::slice_backend::InMemoryBackendSlice;
 
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
@@ -88,7 +89,7 @@ pub trait FlushStrategy {
     fn notify(&mut self, op: Event) -> Command;
 }
 
-pub struct TablePlugin {
+pub struct TablePlugin<B: SliceBackendBuilder> {
     phantom_helper: PhantomHelper,
 
     host_function_desc: HashMap<usize, HostFunctionDesc>,
@@ -103,7 +104,7 @@ pub struct TablePlugin {
     context_input_table: Vec<u64>,
     context_output_table: Vec<u64>,
 
-    host_transaction: HostTransaction,
+    host_transaction: HostTransaction<B>,
 
     eid: u32,
     last_jump_eid: Vec<u32>,
@@ -112,11 +113,11 @@ pub struct TablePlugin {
     unresolved_host_call: Option<EventTableEntry>,
 }
 
-impl TablePlugin {
+impl<B: SliceBackendBuilder> TablePlugin<B> {
     pub fn new(
         k: u32,
+        slice_backend_builder: B,
         flush_strategy: Box<dyn FlushStrategy>,
-        slice_backend: Box<dyn SliceBackend>,
         host_function_desc: HashMap<usize, HostFunctionDesc>,
         phantom_regex: &[String],
         wasm_input: FuncRef,
@@ -140,7 +141,11 @@ impl TablePlugin {
             context_input_table: vec![],
             context_output_table: vec![],
 
-            host_transaction: HostTransaction::new(slice_backend, capacity, flush_strategy),
+            host_transaction: HostTransaction::<B>::new(
+                capacity,
+                slice_backend_builder,
+                flush_strategy,
+            ),
 
             module_ref: None,
             unresolved_event: None,
@@ -186,7 +191,7 @@ impl TablePlugin {
         }
     }
 
-    pub fn into_tables(self) -> Tables {
+    pub fn into_tables(self) -> Tables<B::Output> {
         let compilation_tables = self.into_compilation_table();
         let slice_backend = self.host_transaction.finalized();
 
@@ -201,7 +206,7 @@ impl TablePlugin {
     }
 }
 
-impl TablePlugin {
+impl<B: SliceBackendBuilder> TablePlugin<B> {
     fn append_log(
         &mut self,
         fid: u32,
@@ -332,7 +337,7 @@ impl TablePlugin {
     }
 }
 
-impl Monitor for TablePlugin {
+impl<B: SliceBackendBuilder> Monitor for TablePlugin<B> {
     fn register_module(
         &mut self,
         module: &parity_wasm::elements::Module,

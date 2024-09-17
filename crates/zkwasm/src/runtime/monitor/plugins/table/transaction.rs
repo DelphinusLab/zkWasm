@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::usize;
 
 use specs::etable::EventTableEntry;
-use specs::slice_backend::SliceBackend;
+use specs::slice_backend::SliceBackendBuilder;
 use specs::step::StepInfo;
 
 use crate::runtime::monitor::plugins::table::Event;
@@ -44,8 +44,9 @@ impl SafelyAbortPosition {
     }
 }
 
-pub(super) struct HostTransaction {
-    slice_backend: Box<dyn SliceBackend>,
+pub(super) struct HostTransaction<B: SliceBackendBuilder> {
+    slice_backend_builder: B,
+    slices: Vec<B::Output>,
     capacity: u32,
 
     safely_abort_position: SafelyAbortPosition,
@@ -57,14 +58,15 @@ pub(super) struct HostTransaction {
     pub(crate) slice_builder: SliceBuilder,
 }
 
-impl HostTransaction {
+impl<B: SliceBackendBuilder> HostTransaction<B> {
     pub(super) fn new(
-        slice_backend: Box<dyn SliceBackend>,
         capacity: u32,
+        slice_backend_builder: B,
         controller: Box<dyn FlushStrategy>,
     ) -> Self {
         Self {
-            slice_backend,
+            slice_backend_builder,
+            slices: Vec::new(),
             slice_builder: SliceBuilder::new(),
             capacity,
 
@@ -124,7 +126,7 @@ impl HostTransaction {
             let committed_logs = logs.drain(0..rollback);
 
             let slice = self.slice_builder.build(committed_logs.collect());
-            self.slice_backend.push(slice);
+            self.slices.push(self.slice_backend_builder.build(slice));
         }
 
         {
@@ -141,14 +143,14 @@ impl HostTransaction {
         }
     }
 
-    pub(super) fn finalized(mut self) -> Box<dyn SliceBackend> {
+    pub(super) fn finalized(mut self) -> Vec<B::Output> {
         self.abort();
 
-        self.slice_backend
+        self.slices
     }
 }
 
-impl HostTransaction {
+impl<B: SliceBackendBuilder> HostTransaction<B> {
     fn replay(&mut self, logs: Vec<EventTableEntry>) {
         for log in logs {
             self.insert(log);

@@ -14,7 +14,6 @@ use delphinus_zkwasm::checksum::ImageCheckSum;
 use delphinus_zkwasm::circuits::ZkWasmCircuit;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
-use delphinus_zkwasm::runtime::monitor::plugins::table::InMemoryBackend;
 use delphinus_zkwasm::runtime::monitor::table_monitor::TableMonitor;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::pairing::bn256::Bn256;
@@ -24,6 +23,7 @@ use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::CircuitData;
 use halo2_proofs::poly::commitment::Params;
 use specs::slice::Slice;
+use specs::slice_backend::InMemoryBackendBuilder;
 use specs::CompilationTable;
 
 use crate::args::HostMode;
@@ -159,8 +159,8 @@ impl SetupArg {
         let env = env_builder.create_env_without_value();
         let mut monitor = TableMonitor::new(
             self.k,
+            InMemoryBackendBuilder,
             env_builder.create_flush_strategy(),
-            Box::<InMemoryBackend>::default(),
             &self.phantom_functions,
             &env,
         );

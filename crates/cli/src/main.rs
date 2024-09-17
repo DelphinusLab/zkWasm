@@ -17,11 +17,10 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use args::HostMode;
 use config::Config;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
-use file_backend::FileBackend;
+use file_backend::FileBackendBuilder;
 use names::name_of_config;
 use specs::args::parse_args;
-use specs::slice_backend::memory::InMemoryBackend;
-use specs::slice_backend::SliceBackend;
+use specs::slice_backend::InMemoryBackendBuilder;
 
 mod app_builder;
 mod args;
@@ -103,35 +102,54 @@ fn main() -> Result<()> {
             let private_inputs = parse_args(&arg.running_arg.private_inputs);
             let context_inputs = parse_args(&arg.running_arg.context_inputs);
 
-            let trace_backend: Box<dyn SliceBackend> = if arg.file_backend {
-                Box::new(FileBackend::new(cli.name, trace_dir))
-            } else {
-                Box::<InMemoryBackend>::default()
-            };
-
             let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
                 HostMode::Default => Box::new(DefaultHostEnvBuilder::new(config.k)),
                 HostMode::Standard => Box::new(StandardHostEnvBuilder::new(config.k)),
             };
 
-            config.prove(
-                &*env_builder,
-                &arg.wasm_image,
-                &cli.params_dir,
-                &arg.output_dir,
-                ExecutionArg {
-                    public_inputs,
-                    private_inputs,
-                    context_inputs,
-                    indexed_witness: Rc::new(RefCell::new(HashMap::default())),
-                    tree_db: None,
-                },
-                arg.running_arg.context_output,
-                arg.mock_test,
-                trace_backend,
-                arg.skip,
-                arg.padding,
-            )?;
+            if arg.file_backend {
+                let backend_builder = FileBackendBuilder::new(cli.name.clone(), trace_dir);
+
+                config.prove(
+                    backend_builder,
+                    &*env_builder,
+                    &arg.wasm_image,
+                    &cli.params_dir,
+                    &arg.output_dir,
+                    ExecutionArg {
+                        public_inputs,
+                        private_inputs,
+                        context_inputs,
+                        indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                        tree_db: None,
+                    },
+                    arg.running_arg.context_output,
+                    arg.mock_test,
+                    arg.skip,
+                    arg.padding,
+                )?;
+            } else {
+                let backend_builder = InMemoryBackendBuilder;
+
+                config.prove(
+                    backend_builder,
+                    &*env_builder,
+                    &arg.wasm_image,
+                    &cli.params_dir,
+                    &arg.output_dir,
+                    ExecutionArg {
+                        public_inputs,
+                        private_inputs,
+                        context_inputs,
+                        indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                        tree_db: None,
+                    },
+                    arg.running_arg.context_output,
+                    arg.mock_test,
+                    arg.skip,
+                    arg.padding,
+                )?;
+            }
         }
         Subcommands::Verify(arg) => {
             let config = Config::read(&mut fs::File::open(

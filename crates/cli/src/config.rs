@@ -28,7 +28,7 @@ use halo2_proofs::poly::commitment::Params;
 use indicatif::ProgressBar;
 use serde::Deserialize;
 use serde::Serialize;
-use specs::slice_backend::SliceBackend;
+use specs::slice_backend::SliceBackendBuilder;
 
 use crate::args::HostMode;
 use crate::names::name_of_circuit_data;
@@ -237,8 +237,9 @@ impl Config {
         Ok(())
     }
 
-    pub(crate) fn prove(
+    pub(crate) fn prove<B: SliceBackendBuilder>(
         self,
+        slice_backend_builder: B,
         env_builder: &dyn HostEnvBuilder,
         wasm_image: &Path,
         params_dir: &Path,
@@ -246,7 +247,6 @@ impl Config {
         arg: ExecutionArg,
         context_output_filename: Option<String>,
         mock_test: bool,
-        slice_backend: Box<dyn SliceBackend>,
         skip: usize,
         padding: Option<usize>,
     ) -> anyhow::Result<()> {
@@ -262,8 +262,8 @@ impl Config {
 
         let mut monitor = TableMonitor::new(
             self.k,
+            slice_backend_builder,
             env_builder.create_flush_strategy(),
-            slice_backend,
             &self.phantom_functions,
             &env,
         );
@@ -315,7 +315,7 @@ impl Config {
                 |index| name_of_frame_table_slice(&self.name, index),
                 |index| name_of_etable_slice(&self.name, index),
                 |index| name_of_external_host_call_table_slice(&self.name, index),
-            );
+            )?;
         }
 
         println!("{} Build circuit(s)...", style("[6/8]").bold().dim(),);
@@ -342,12 +342,11 @@ impl Config {
         }
 
         let mut slices = Slices::new(self.k, tables, padding)?
+            .into_iter()
             .enumerate()
             .skip(skip)
             .peekable();
         while let Some((index, circuit)) = slices.next() {
-            let circuit = circuit?;
-
             let _is_finalized_circuit = slices.peek().is_none();
 
             if mock_test {

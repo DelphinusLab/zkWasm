@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -61,7 +62,7 @@ impl ExternalHostCallTable {
         self.0.push(entry);
     }
 
-    pub fn write(&self, path: &PathBuf) -> std::io::Result<()> {
+    pub fn write(&self, path: &Path) -> std::io::Result<()> {
         let mut fd = std::fs::File::create(path)?;
 
         fd.write_all(serde_json::to_string_pretty(self).unwrap().as_bytes())?;

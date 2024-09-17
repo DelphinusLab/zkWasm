@@ -13,6 +13,9 @@ use specs::slice::Slice;
 use specs::slice_backend::SliceBackend;
 use specs::state::InitializationState;
 use specs::Tables;
+use std::collections::VecDeque;
+use std::iter::Peekable;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::circuits::ZkWasmCircuit;
@@ -20,7 +23,7 @@ use crate::error::BuildingCircuitError;
 use crate::runtime::state::UpdateInitMemoryTable;
 use crate::runtime::state::UpdateInitializationState;
 
-pub struct Slices<F: FieldExt> {
+pub struct Slices<F: FieldExt, B: SliceBackend> {
     k: u32,
 
     // The number of trivial circuits left.
@@ -35,20 +38,20 @@ pub struct Slices<F: FieldExt> {
     imtable: Arc<InitMemoryTable>,
     initialization_state: Arc<InitializationState<u32>>,
 
-    slices: Box<dyn SliceBackend>,
+    slices: Vec<B>,
     context_input_table: Arc<Vec<u64>>,
     context_output_table: Arc<Vec<u64>>,
 
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: FieldExt> Slices<F> {
+impl<F: FieldExt, B: SliceBackend> Slices<F, B> {
     /*
      * padding: Insert trivial slices so that the number of proofs is at least padding.
      */
     pub fn new(
         k: u32,
-        tables: Tables,
+        tables: Tables<B>,
         padding: Option<usize>,
     ) -> Result<Self, BuildingCircuitError> {
         let slices_len = tables.execution_tables.slice_backend.len();
@@ -84,10 +87,9 @@ impl<F: FieldExt> Slices<F> {
         use halo2_proofs::dev::MockProver;
 
         let k = self.k;
-        let iter = self;
 
-        for slice in iter {
-            match slice? {
+        for slice in self.into_iter() {
+            match slice {
                 ZkWasmCircuit::Ongoing(circuit) => {
                     let prover = MockProver::run(k, &circuit, vec![instances.clone()])?;
                     assert_eq!(prover.verify(), Ok(()));
@@ -103,9 +105,75 @@ impl<F: FieldExt> Slices<F> {
     }
 }
 
-impl<F: FieldExt> Slices<F> {
+pub struct SlicesWrap<B: SliceBackend>(Vec<B>);
+pub struct SlicesIter<B: SliceBackend>(VecDeque<B>);
+
+impl<B: SliceBackend> IntoIterator for SlicesWrap<B> {
+    type Item = specs::slice_backend::Slice;
+
+    type IntoIter = SlicesIter<B>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SlicesIter(self.0.into())
+    }
+}
+
+impl<B: SliceBackend> Iterator for SlicesIter<B> {
+    type Item = specs::slice_backend::Slice;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop_front().map(|slice| slice.into())
+    }
+}
+
+pub struct ZkWasmCircuitIter<F: FieldExt, B: SliceBackend> {
+    // immutable parts
+    k: u32,
+    itable: Arc<InstructionTable>,
+    br_table: Arc<BrTable>,
+    elem_table: Arc<ElemTable>,
+    configure_table: Arc<ConfigureTable>,
+    initial_frame_table: Arc<InheritedFrameTable>,
+    context_input_table: Arc<Vec<u64>>,
+    context_output_table: Arc<Vec<u64>>,
+
+    // mutable parts
+    // The number of trivial circuits left.
+    padding: usize,
+    imtable: Arc<InitMemoryTable>,
+    initialization_state: Arc<InitializationState<u32>>,
+    slices: Peekable<SlicesIter<B>>,
+
+    mark: PhantomData<F>,
+}
+
+impl<F: FieldExt, B: SliceBackend> IntoIterator for Slices<F, B> {
+    type Item = ZkWasmCircuit<F>;
+
+    type IntoIter = ZkWasmCircuitIter<F, B>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ZkWasmCircuitIter {
+            k: self.k,
+            itable: self.itable,
+            br_table: self.br_table,
+            elem_table: self.elem_table,
+            configure_table: self.configure_table,
+            initial_frame_table: self.initial_frame_table,
+            context_input_table: self.context_input_table,
+            context_output_table: self.context_output_table,
+            padding: self.padding,
+            imtable: self.imtable,
+            initialization_state: self.initialization_state,
+            slices: SlicesWrap(self.slices).into_iter().peekable(),
+            mark: PhantomData,
+        }
+    }
+}
+
+impl<F: FieldExt, B: SliceBackend> ZkWasmCircuitIter<F, B> {
     // create a circuit slice with all entries disabled.
-    fn trivial_slice(&mut self) -> Result<ZkWasmCircuit<F>, BuildingCircuitError> {
+    fn trivial_slice(&mut self) -> ZkWasmCircuit<F> {
         self.padding -= 1;
 
         let frame_table = Arc::new(FrameTableSlice {
@@ -137,49 +205,50 @@ impl<F: FieldExt> Slices<F> {
             is_last_slice: false,
         };
 
-        ZkWasmCircuit::new(self.k, slice)
+        ZkWasmCircuit::new(self.k, slice).unwrap()
     }
 }
 
-impl<F: FieldExt> Iterator for Slices<F> {
-    type Item = Result<ZkWasmCircuit<F>, BuildingCircuitError>;
+impl<F: FieldExt, B: SliceBackend> Iterator for ZkWasmCircuitIter<F, B> {
+    type Item = ZkWasmCircuit<F>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.slices.is_empty() {
-            return None;
-        }
+        // return if it's last
+        self.slices.peek()?;
 
         if self.padding > 0 {
             return Some(self.trivial_slice());
         }
 
-        let slice = self.slices.pop().unwrap();
+        let slice = self.slices.next().unwrap();
         let frame_table = slice.frame_table.into();
         let external_host_call_table = slice.external_host_call_table;
         let etable = slice.etable;
 
         let post_imtable = Arc::new(self.imtable.update_init_memory_table(&etable));
-        let post_initialization_state = Arc::new({
-            let next_event_entry = if let Some(slice) = self.slices.first() {
-                slice.etable.entries().first().cloned()
-            } else {
-                None
-            };
 
-            self.initialization_state.update_initialization_state(
+        let post_initialization_state = {
+            let next_first_eentry = self
+                .slices
+                .peek()
+                .map(|slice| slice.etable.entries().first().cloned().unwrap());
+
+            let post_initialization_state = self.initialization_state.update_initialization_state(
                 &etable,
                 &self.configure_table,
-                next_event_entry.as_ref(),
-            )
-        });
+                next_first_eentry.as_ref(),
+            );
+
+            Arc::new(post_initialization_state)
+        };
 
         let post_inherited_frame_table =
             self.slices
-                .first()
-                .map_or(Arc::new(InheritedFrameTable::default()), |slice| {
-                    let post_inherited_frame_table = slice.frame_table.inherited.clone();
+                .peek()
+                .map_or_else(InheritedFrameTable::default, |next_slice| {
+                    let post_inherited_frame_table = next_slice.frame_table.inherited.clone();
 
-                    Arc::new((*post_inherited_frame_table).clone().try_into().unwrap())
+                    (*post_inherited_frame_table).clone().try_into().unwrap()
                 });
 
         let slice = Slice {
@@ -190,7 +259,7 @@ impl<F: FieldExt> Iterator for Slices<F> {
             initial_frame_table: self.initial_frame_table.clone(),
 
             frame_table: Arc::new(frame_table),
-            post_inherited_frame_table,
+            post_inherited_frame_table: Arc::new(post_inherited_frame_table),
 
             imtable: self.imtable.clone(),
             post_imtable: post_imtable.clone(),
@@ -203,13 +272,13 @@ impl<F: FieldExt> Iterator for Slices<F> {
             context_input_table: self.context_input_table.clone(),
             context_output_table: self.context_output_table.clone(),
 
-            is_last_slice: self.slices.is_empty(),
+            is_last_slice: self.slices.peek().is_none(),
         };
 
         self.imtable = post_imtable;
         self.initialization_state = post_initialization_state;
 
-        let circuit = ZkWasmCircuit::new(self.k, slice);
+        let circuit = ZkWasmCircuit::new(self.k, slice).unwrap();
 
         Some(circuit)
     }

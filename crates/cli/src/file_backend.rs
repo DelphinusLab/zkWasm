@@ -1,11 +1,16 @@
-use std::collections::VecDeque;
+use std::fs;
+use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 
+use serde::Deserialize;
+use serde::Serialize;
 use specs::etable::EventTable;
 use specs::external_host_call_table::ExternalHostCallTable;
 use specs::jtable::FrameTable;
 use specs::slice_backend::Slice;
 use specs::slice_backend::SliceBackend;
+use specs::slice_backend::SliceBackendBuilder;
 
 use crate::names::name_of_etable_slice;
 use crate::names::name_of_external_host_call_table_slice;
@@ -28,97 +33,102 @@ impl From<&SlicePath> for Slice {
     }
 }
 
-pub(crate) struct FileBackend {
-    peeked: Option<Slice>,
-
-    dir_path: PathBuf,
-    name: String,
-    slices: VecDeque<SlicePath>,
+#[derive(Serialize, Deserialize)]
+pub(crate) struct FileBackendSlice {
+    event_table: PathBuf,
+    frame_table: PathBuf,
+    external_host_call_table: PathBuf,
 }
 
-impl FileBackend {
-    pub(crate) fn new(name: String, dir_path: PathBuf) -> Self {
-        FileBackend {
-            peeked: None,
-
-            dir_path,
-            name,
-            slices: VecDeque::new(),
+impl From<FileBackendSlice> for Slice {
+    fn from(value: FileBackendSlice) -> Self {
+        Slice {
+            etable: EventTable::read(&value.event_table).unwrap(),
+            frame_table: FrameTable::read(&value.frame_table).unwrap(),
+            external_host_call_table: ExternalHostCallTable::read(&value.external_host_call_table)
+                .unwrap(),
         }
     }
 }
 
-impl SliceBackend for FileBackend {
-    fn push(&mut self, slice: Slice) {
-        let index = self.slices.len();
+impl SliceBackend for FileBackendSlice {
+    fn write(
+        &self,
+        path_of_event_table: &Path,
+        path_of_frame_table: &Path,
+        path_of_external_host_call_table: &Path,
+    ) -> io::Result<()> {
+        if self.event_table.as_path().canonicalize()? != path_of_event_table.canonicalize()? {
+            fs::copy(self.event_table.as_path(), path_of_event_table)?;
+        }
+        if self.frame_table.as_path().canonicalize()? != path_of_frame_table.canonicalize()? {
+            fs::copy(self.frame_table.as_path(), path_of_frame_table)?;
+        }
+        if self.external_host_call_table.as_path().canonicalize()?
+            != path_of_external_host_call_table.canonicalize()?
+        {
+            fs::copy(
+                self.external_host_call_table.as_path(),
+                path_of_external_host_call_table,
+            )?;
+        }
 
+        Ok(())
+    }
+}
+
+pub(crate) struct FileBackendBuilder {
+    name: String,
+    dir: PathBuf,
+    index: usize,
+}
+
+impl FileBackendBuilder {
+    pub(crate) fn new(name: String, dir: PathBuf) -> Self {
+        Self {
+            name,
+            dir,
+            index: 0,
+        }
+    }
+}
+
+impl SliceBackendBuilder for FileBackendBuilder {
+    type Output = FileBackendSlice;
+
+    fn build(&mut self, slice: Slice) -> Self::Output {
         let event_table = {
             let path = self
-                .dir_path
-                .join(PathBuf::from(name_of_etable_slice(&self.name, index)));
+                .dir
+                .join(PathBuf::from(name_of_etable_slice(&self.name, self.index)));
             slice.etable.write(&path).unwrap();
             path
         };
 
         let frame_table = {
-            let path = self
-                .dir_path
-                .join(PathBuf::from(name_of_frame_table_slice(&self.name, index)));
+            let path = self.dir.join(PathBuf::from(name_of_frame_table_slice(
+                &self.name, self.index,
+            )));
             slice.frame_table.write(&path).unwrap();
             path
         };
 
         let external_host_call_table = {
             let path = self
-                .dir_path
+                .dir
                 .join(PathBuf::from(name_of_external_host_call_table_slice(
-                    &self.name, index,
+                    &self.name, self.index,
                 )));
             slice.external_host_call_table.write(&path).unwrap();
             path
         };
 
-        self.slices.push_back(SlicePath {
+        self.index += 1;
+
+        FileBackendSlice {
             event_table,
             frame_table,
             external_host_call_table,
-        });
-    }
-
-    fn pop(&mut self) -> Option<Slice> {
-        match self.peeked.take() {
-            Some(v) => Some(v),
-            None => self.slices.pop_front().map(|slice| (&slice).into()),
         }
-    }
-
-    fn first(&mut self) -> Option<&Slice> {
-        if self.peeked.is_none() {
-            self.peeked = self.slices.pop_front().map(|slice| (&slice).into());
-        }
-
-        self.peeked.as_ref()
-    }
-
-    fn len(&self) -> usize {
-        self.slices.len() + self.peeked.is_some() as usize
-    }
-
-    fn is_empty(&self) -> bool {
-        self.slices.is_empty() && self.peeked.is_none()
-    }
-
-    fn for_each<'a>(&'a self, f: Box<dyn Fn((usize, &Slice)) + 'a>) {
-        let mut offset = 0usize;
-
-        if let Some(slice) = self.peeked.as_ref() {
-            f((offset, slice));
-            offset += 1;
-        }
-
-        self.slices.iter().enumerate().for_each(|(index, slice)| {
-            let slice: Slice = slice.into();
-            f((index + offset, &slice))
-        })
     }
 }

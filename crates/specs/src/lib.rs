@@ -7,6 +7,7 @@
 )]
 
 use std::fs::File;
+use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
@@ -17,6 +18,8 @@ use configure_table::ConfigureTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
 use jtable::InheritedFrameTable;
+use serde::Deserialize;
+use serde::Serialize;
 use slice_backend::SliceBackend;
 use state::InitializationState;
 
@@ -40,7 +43,7 @@ pub mod state;
 pub mod step;
 pub mod types;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: Arc<InitMemoryTable>,
@@ -51,27 +54,27 @@ pub struct CompilationTable {
     pub initialization_state: Arc<InitializationState<u32>>,
 }
 
-pub struct ExecutionTable {
-    pub slice_backend: Box<dyn SliceBackend>,
+#[derive(Serialize, Deserialize)]
+pub struct ExecutionTable<B> {
+    pub slice_backend: Vec<B>,
     pub context_input_table: Vec<u64>,
     pub context_output_table: Vec<u64>,
 }
 
-pub struct Tables {
+#[derive(Serialize, Deserialize)]
+pub struct Tables<B> {
     pub compilation_tables: CompilationTable,
-    pub execution_tables: ExecutionTable,
+    pub execution_tables: ExecutionTable<B>,
 }
 
-impl Tables {
+impl<B: SliceBackend> Tables<B> {
     pub fn write(
         &self,
         dir: &Path,
         name_of_frame_table_slice: impl Fn(usize) -> String,
         name_of_event_table_slice: impl Fn(usize) -> String,
         name_of_external_host_call_table_slice: impl Fn(usize) -> String,
-    ) {
-        const DEBUG: bool = false;
-
+    ) -> io::Result<()> {
         fn write_file(folder: &Path, filename: &str, buf: &String) {
             let folder = folder.join(filename);
             let mut fd = File::create(folder.as_path()).unwrap();
@@ -85,21 +88,19 @@ impl Tables {
             &serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap(),
         );
 
-        self.execution_tables
-            .slice_backend
-            .for_each(Box::new(|(index, slice)| {
-                if DEBUG {
-                    let path = dir.join(name_of_event_table_slice(index));
-                    slice.etable.write(&path).unwrap();
+        for (index, slice) in self.execution_tables.slice_backend.iter().enumerate() {
+            let path_of_event_table = dir.join(name_of_event_table_slice(index));
+            let path_of_frame_table = dir.join(name_of_frame_table_slice(index));
+            let path_of_external_host_call_table =
+                dir.join(name_of_external_host_call_table_slice(index));
 
-                    let path = dir.join(name_of_frame_table_slice(index));
-                    slice.frame_table.write(&path).unwrap();
-                }
+            slice.write(
+                &path_of_event_table,
+                &path_of_frame_table,
+                &path_of_external_host_call_table,
+            )?;
+        }
 
-                {
-                    let path = dir.join(name_of_external_host_call_table_slice(index));
-                    slice.external_host_call_table.write(&path).unwrap();
-                }
-            }))
+        Ok(())
     }
 }
