@@ -17,8 +17,6 @@ mod profile;
 #[cfg(test)]
 pub mod test;
 
-#[macro_use]
-extern crate lazy_static;
 extern crate downcast_rs;
 
 pub extern crate halo2_proofs;

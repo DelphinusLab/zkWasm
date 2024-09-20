@@ -12,7 +12,6 @@ use wasmi::RuntimeValue;
 
 use crate::checksum::ImageCheckSum;
 
-use crate::circuits::config::init_zkwasm_runtime;
 use crate::error::BuildingCircuitError;
 use crate::loader::err::Error;
 use crate::loader::err::PreCheckErr;
@@ -111,8 +110,6 @@ impl ZkWasmLoader {
             env,
         };
 
-        loader.init_env()?;
-
         Ok(loader)
     }
 
@@ -138,12 +135,6 @@ impl ZkWasmLoader {
     ) -> Result<Slices<E::Scalar>, BuildingCircuitError> {
         todo!()
         // Slices::new(self.k, execution_result.tables)
-    }
-
-    fn init_env(&self) -> Result<()> {
-        init_zkwasm_runtime(self.k);
-
-        Ok(())
     }
 
     /// Compute the checksum of the compiled wasm image.
