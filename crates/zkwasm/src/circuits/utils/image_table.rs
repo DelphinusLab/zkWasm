@@ -19,6 +19,7 @@ use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::slice::Slice;
 use specs::state::InitializationState;
+use specs::state::INITIALIZATION_STATE_FIELD_COUNT;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::image_table::compute_maximal_pages;
@@ -28,10 +29,12 @@ use crate::circuits::utils::bn_to_field;
 pub const STACK_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
 pub const GLOBAL_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
 pub const INSTRUCTION_CAPABILITY: usize = 65535;
-// 11 for InitializationState fields count
+// 10 for InitializationState fields count
 // 2 * INSTRUCTION_CAPABILITY for instructions and constants
-pub const INIT_MEMORY_ENTRIES_OFFSET: usize =
-    11 + INHERITED_FRAME_TABLE_ENTRIES + INSTRUCTION_CAPABILITY + INSTRUCTION_CAPABILITY;
+pub const INIT_MEMORY_ENTRIES_OFFSET: usize = INITIALIZATION_STATE_FIELD_COUNT
+    + INHERITED_FRAME_TABLE_ENTRIES
+    + INSTRUCTION_CAPABILITY
+    + INSTRUCTION_CAPABILITY;
 
 pub(crate) struct InitMemoryLayouter {
     pub(crate) pages: u32,

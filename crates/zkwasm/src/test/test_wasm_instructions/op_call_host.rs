@@ -1,7 +1,7 @@
 use specs::external_host_call_table::ExternalHostCallSignature;
 use std::rc::Rc;
 
-use crate::circuits::config::MIN_K;
+use crate::circuits::MIN_K;
 use crate::runtime::host::host_env::HostEnv;
 use crate::runtime::host::ForeignContext;
 use crate::runtime::host::ForeignStatics;

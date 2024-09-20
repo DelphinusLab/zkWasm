@@ -36,6 +36,8 @@ pub mod rtable;
 pub mod utils;
 pub mod zkwasm_circuit;
 
+pub const MIN_K: u32 = 18;
+
 pub type CompilationTable = specs::CompilationTable;
 pub type ExecutionTable = specs::ExecutionTable;
 
