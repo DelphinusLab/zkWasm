@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.4#a67898d14e9c8593b0b458ed66651b6591b768e0"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.6#c058e85cd401981f6ddf94d7378281b0ba7a2327"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -1175,7 +1175,7 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "1.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.3#50978c1e8bc02083c23738055a89279d15edfecd"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4#2ce6522fce52938ec7d28c7c1510be4dd85e5be2"
 dependencies = [
  "ark-ff",
  "ark-std",
@@ -1199,7 +1199,7 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.3#ef2c90f208499a5f471599aa2fc538bf89631e76"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4#164b8367cc243f28128c785930859fa536b5c7af"
 dependencies = [
  "ark-std",
  "halo2_proofs",
@@ -3530,7 +3530,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#eaf25738549da0e812d842222d005d747da82879"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#d0ab878ed84c9b1d2a3283cfb0d1717843f5bb50"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -3562,7 +3562,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git#d3f62bf8e3a56839016a0dc1337fe6cccdfc011f"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=oogl/dev-icicle-1.7.0#0c9abcea936a458d7c1be5737ff19b52d33c6d0c"
 dependencies = [
  "ark-std",
  "cc",
