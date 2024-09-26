@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.6#c058e85cd401981f6ddf94d7378281b0ba7a2327"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.7#9f9c288baf027d5306f8f320c98022548fc6ea81"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -3530,7 +3530,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#d0ab878ed84c9b1d2a3283cfb0d1717843f5bb50"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#35eb3beef3a98d6a826a06692421ba17bc9930bb"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -3562,7 +3562,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=oogl/dev-icicle-1.7.0#0c9abcea936a458d7c1be5737ff19b52d33c6d0c"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=oogl/dev-icicle-1.7.0#a8eff31be9926127bd7b23bd9fc6c9743883f85e"
 dependencies = [
  "ark-std",
  "cc",
