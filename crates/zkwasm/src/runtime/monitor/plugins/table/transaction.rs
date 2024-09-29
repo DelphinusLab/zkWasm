@@ -85,6 +85,10 @@ impl SafelyAbortPosition {
     }
 
     fn update(&mut self, len: usize) {
+        if let Some(cursor) = self.cursor.as_ref() {
+            assert!(len >= *cursor);
+        }
+
         self.cursor = Some(len);
     }
 
