@@ -22,8 +22,8 @@ use specs::types::ValueType;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
-use transaction::v1::HostTransaction;
-use transaction::v1::TransactionId;
+use transaction::TransactionId;
+use transaction::TransactionSlicer;
 use wasmi::func::FuncInstanceInternal;
 use wasmi::isa::Instruction;
 use wasmi::isa::Keep;
@@ -65,27 +65,33 @@ pub use specs::slice_backend::InMemoryBackendSlice;
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
+type HostTransaction<B> = transaction::v2::HostTransaction<B>;
+
 #[derive(PartialEq)]
 pub enum Command {
+    /* Control transaction(start, commit) */
+    // Do nothing but insert event
     Noop,
-    // Start a new transaction from current instruction
+    // Start a transaction
     Start(TransactionId),
-    // Commit the transaction including the current instruction
-    Commit(TransactionId),
-    // Flush the table at next host call instruction
+    // Commit a transaction with optional automatically finalizing timer
+    Commit(TransactionId, bool),
+
+    /* Control slice */
     Abort,
-    // Commit the transaction with current instruction and flush the table
-    // at next host call instruction
-    CommitAndAbort(TransactionId),
+
+    /* Control dependencies */
+    Finalize(TransactionId),
 }
 
 pub enum Event {
-    HostCall(usize),
-    Reset,
+    HostCall(usize, Option<u64>),
+    Reset(),
 }
 
 pub trait FlushStrategy {
-    fn notify(&mut self, op: Event) -> Command;
+    fn notify(&mut self, op: Event) -> Vec<Command>;
+    fn maximal_group(&self, transaction: TransactionId) -> Option<usize>;
 }
 
 pub struct TablePlugin<B: SliceBackendBuilder> {
@@ -141,7 +147,7 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
             context_output_table: vec![],
 
             host_transaction: HostTransaction::<B>::new(
-                capacity,
+                capacity as usize,
                 slice_backend_builder,
                 flush_strategy,
             ),
@@ -182,8 +188,7 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
             configure_table,
             initial_frame_table: Arc::new(
                 self.host_transaction
-                    .slice_builder
-                    .frame_table_builder
+                    .frame_table_builder_get()
                     .build_initial_frame_table(),
             ),
             initialization_state,
@@ -192,7 +197,7 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
 
     pub fn into_tables(self) -> Tables<B::Output> {
         let compilation_tables = self.into_compilation_table();
-        let slice_backend = self.host_transaction.finalized();
+        let slice_backend = self.host_transaction.finalize();
 
         Tables {
             compilation_tables,
@@ -233,7 +238,7 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
             step_info,
         };
 
-        self.host_transaction.insert(event);
+        self.host_transaction.push_event(event);
     }
 
     fn push_frame(&mut self, frame_id: u32) {
@@ -359,14 +364,12 @@ impl<B: SliceBackendBuilder> Monitor for TablePlugin<B> {
             };
 
             self.host_transaction
-                .slice_builder
-                .frame_table_builder
+                .frame_table_builder_get_mut()
                 .push_static_entry(*zkmain_idx as u32, 0, 0);
 
             if let Some(start_idx) = module.start_section() {
                 self.host_transaction
-                    .slice_builder
-                    .frame_table_builder
+                    .frame_table_builder_get_mut()
                     .push_static_entry(start_idx, *zkmain_idx as u32, 0);
 
                 self.start_fid = Some(start_idx);

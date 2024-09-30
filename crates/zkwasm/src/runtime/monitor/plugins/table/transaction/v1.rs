@@ -5,12 +5,14 @@ use specs::etable::EventTableEntry;
 use specs::slice_backend::SliceBackendBuilder;
 use specs::step::StepInfo;
 
+use crate::runtime::monitor::plugins::table::frame_table_builder::FrameTableBuilder;
 use crate::runtime::monitor::plugins::table::slice_builder::SliceBuilder;
 use crate::runtime::monitor::plugins::table::Command;
 use crate::runtime::monitor::plugins::table::Event;
 use crate::runtime::monitor::plugins::table::FlushStrategy;
 
-pub(crate) type TransactionId = usize;
+use super::TransactionId;
+use super::TransactionSlicer;
 
 struct Checkpoint {
     // transaction start index
@@ -18,12 +20,12 @@ struct Checkpoint {
 }
 
 struct SafelyAbortPosition {
-    capacity: u32,
+    capacity: usize,
     cursor: Option<usize>,
 }
 
 impl SafelyAbortPosition {
-    fn new(capacity: u32) -> Self {
+    fn new(capacity: usize) -> Self {
         Self {
             capacity,
             cursor: None,
@@ -39,14 +41,14 @@ impl SafelyAbortPosition {
     }
 
     fn finalize(&self) -> usize {
-        self.cursor.unwrap_or(self.capacity as usize)
+        self.cursor.unwrap_or(self.capacity)
     }
 }
 
 pub struct HostTransaction<B: SliceBackendBuilder> {
     slice_backend_builder: B,
     slices: Vec<B::Output>,
-    capacity: u32,
+    capacity: usize,
 
     safely_abort_position: SafelyAbortPosition,
     logs: Vec<EventTableEntry>,
@@ -58,8 +60,9 @@ pub struct HostTransaction<B: SliceBackendBuilder> {
 }
 
 impl<B: SliceBackendBuilder> HostTransaction<B> {
+    #[allow(dead_code)]
     pub fn new(
-        capacity: u32,
+        capacity: usize,
         slice_backend_builder: B,
         controller: Box<dyn FlushStrategy>,
     ) -> Self {
@@ -136,63 +139,70 @@ impl<B: SliceBackendBuilder> HostTransaction<B> {
 
         // controller should be reset and we will replay the remaining logs
         {
-            let command = self.controller.notify(Event::Reset);
-            assert!(command == Command::Noop);
+            let command = self.controller.notify(Event::Reset());
+            assert!(command == vec![Command::Noop]);
             self.replay(logs);
         }
-    }
-
-    pub fn finalized(mut self) -> Vec<B::Output> {
-        self.abort();
-
-        self.slices
     }
 }
 
 impl<B: SliceBackendBuilder> HostTransaction<B> {
     fn replay(&mut self, logs: Vec<EventTableEntry>) {
         for log in logs {
-            self.insert(log);
+            self.push_event(log);
         }
     }
+}
 
-    pub(crate) fn insert(&mut self, log: EventTableEntry) {
-        if self.logs.len() == self.capacity as usize {
+impl<B: SliceBackendBuilder> TransactionSlicer<B> for HostTransaction<B> {
+    fn push_event(&mut self, event: EventTableEntry) {
+        if self.logs.len() == self.capacity {
             self.abort();
         }
 
-        let command = match log.step_info {
-            StepInfo::ExternalHostCall { op, .. } => {
+        let commands = match event.step_info {
+            StepInfo::ExternalHostCall { op, value, .. } => {
                 if self.host_is_full {
                     self.abort();
                 }
 
-                self.controller.notify(Event::HostCall(op))
+                self.controller.notify(Event::HostCall(op, value))
             }
-            _ => Command::Noop,
+            _ => vec![Command::Noop],
         };
 
-        match command {
-            Command::Noop => {
-                self.logs.push(log);
-            }
-            Command::Start(id) => {
-                self.start(id);
-                self.logs.push(log);
-            }
-            Command::Commit(id) => {
-                self.logs.push(log);
-                self.commit(id);
-            }
-            Command::Abort => {
-                self.insert(log);
-                self.host_is_full = true;
-            }
-            Command::CommitAndAbort(id) => {
-                self.logs.push(log);
-                self.commit(id);
-                self.host_is_full = true;
+        for command in commands {
+            match command {
+                Command::Noop => {
+                    self.logs.push(event.clone());
+                }
+                Command::Start(id) => {
+                    self.start(id);
+                    self.logs.push(event.clone());
+                }
+                Command::Commit(id, _) => {
+                    self.logs.push(event.clone());
+                    self.commit(id);
+                }
+                Command::Abort => {
+                    self.host_is_full = true;
+                }
+                Command::Finalize(_) => (),
             }
         }
+    }
+
+    fn finalize(mut self) -> Vec<B::Output> {
+        self.abort();
+
+        self.slices
+    }
+
+    fn frame_table_builder_get(&self) -> &FrameTableBuilder {
+        &self.slice_builder.frame_table_builder
+    }
+
+    fn frame_table_builder_get_mut(&mut self) -> &mut FrameTableBuilder {
+        &mut self.slice_builder.frame_table_builder
     }
 }
