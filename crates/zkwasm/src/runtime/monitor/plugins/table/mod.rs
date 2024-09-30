@@ -70,12 +70,12 @@ pub enum Command {
     // Start a new transaction from current instruction
     Start(TransactionId),
     // Commit the transaction including the current instruction
-    Commit(TransactionId),
+    Commit(TransactionId, bool),
     // Flush the table at next host call instruction
     Abort,
     // Commit the transaction with current instruction and flush the table
     // at next host call instruction
-    CommitAndAbort(TransactionId),
+    CommitAndAbort(TransactionId, bool),
 }
 
 pub enum Event {

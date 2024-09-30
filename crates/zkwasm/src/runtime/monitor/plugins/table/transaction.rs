@@ -106,12 +106,23 @@ pub(super) struct HostTransaction {
     capacity: u32,
 
     safely_abort_position: SafelyAbortPosition,
+    // Only support one lazy committed now
+    lazy_committed: Option<LazyCommitted>,
     logs: Vec<EventTableEntry>,
     started: BTreeMap<TransactionId, Checkpoint>,
     controller: Box<dyn FlushStrategy>,
     host_is_full: bool,
 
     pub(crate) slice_builder: SliceBuilder,
+}
+
+#[derive(Clone)]
+struct LazyCommitted {
+    // Currently only an op support lazy transaction.
+    // To support multiple lazy group, there should be
+    // a BTreeSet<TransactionId> field.
+    transaction_id: TransactionId,
+    checkpoint: usize,
 }
 
 impl HostTransaction {
@@ -126,6 +137,7 @@ impl HostTransaction {
             capacity,
 
             safely_abort_position: SafelyAbortPosition::new(capacity),
+            lazy_committed: None,
             logs: Vec::new(),
             started: BTreeMap::new(),
             controller,
@@ -141,6 +153,25 @@ impl HostTransaction {
         self.logs.len()
     }
 
+    fn is_in_transaction(&self) -> bool {
+        !self.started.is_empty()
+    }
+
+    fn is_in_lazy_transaction(&self) -> bool {
+        self.lazy_committed.is_some()
+    }
+
+    fn try_update_lazy_committed(&mut self, position: usize) {
+        if self.is_in_transaction() {
+            // do nothing
+        } else if self.is_in_lazy_transaction() {
+            let lazy_committed = self.lazy_committed.as_mut().unwrap();
+            lazy_committed.checkpoint = position;
+        } else {
+            self.safely_abort_position.update(position)
+        }
+    }
+
     // begin the transaction
     fn start(&mut self, idx: TransactionId) {
         if self.started.contains_key(&idx) {
@@ -149,27 +180,42 @@ impl HostTransaction {
 
         let checkpoint = Checkpoint { start: self.now() };
 
-        if self.started.is_empty() {
-            self.safely_abort_position.update(checkpoint.start);
-        }
-
+        self.try_update_lazy_committed(checkpoint.start);
         self.started.insert(idx, checkpoint);
     }
 
-    fn commit(&mut self, idx: TransactionId) {
+    fn commit(&mut self, idx: TransactionId, lazy: bool) {
         self.started.remove(&idx).unwrap();
 
-        if self.started.is_empty() {
-            self.safely_abort_position.update(self.now());
+        let now = self.now();
+
+        if let Some(lazy_committed) = self.lazy_committed.clone() {
+            if lazy_committed.transaction_id == idx {
+                self.lazy_committed.take();
+                self.safely_abort_position.update(lazy_committed.checkpoint);
+            }
         }
+
+        if lazy {
+            self.lazy_committed = Some(LazyCommitted {
+                transaction_id: idx,
+                checkpoint: now,
+            });
+        }
+
+        self.try_update_lazy_committed(now);
     }
 
-    fn abort(&mut self) {
+    fn abort(&mut self, terminate: bool) {
         if self.len() == 0 {
             return;
         }
 
-        if self.started.is_empty() {
+        if terminate && self.is_in_transaction() {
+            panic!("there exists uncommitted transaction");
+        }
+
+        if terminate || (!self.is_in_transaction() && !self.is_in_lazy_transaction()) {
             let now = self.now();
             self.safely_abort_position.update(now);
         }
@@ -187,6 +233,7 @@ impl HostTransaction {
         {
             self.host_is_full = false;
             self.safely_abort_position.reset();
+            self.lazy_committed.take();
             self.started.clear();
         }
 
@@ -199,7 +246,9 @@ impl HostTransaction {
     }
 
     pub(super) fn finalized(mut self) -> Slices {
-        self.abort();
+        self.abort(true);
+
+        assert!(self.logs.is_empty());
 
         self.slices
     }
@@ -214,13 +263,13 @@ impl HostTransaction {
 
     pub(crate) fn insert(&mut self, log: EventTableEntry) {
         if self.logs.len() == self.capacity as usize {
-            self.abort();
+            self.abort(false);
         }
 
         let command = match log.step_info {
             StepInfo::ExternalHostCall { op, .. } => {
                 if self.host_is_full {
-                    self.abort();
+                    self.abort(false);
                 }
 
                 self.controller.notify(Event::HostCall(op))
@@ -236,17 +285,17 @@ impl HostTransaction {
                 self.start(id);
                 self.logs.push(log);
             }
-            Command::Commit(id) => {
+            Command::Commit(id, lazy) => {
                 self.logs.push(log);
-                self.commit(id);
+                self.commit(id, lazy);
             }
             Command::Abort => {
                 self.insert(log);
                 self.host_is_full = true;
             }
-            Command::CommitAndAbort(id) => {
+            Command::CommitAndAbort(id, lazy) => {
                 self.logs.push(log);
-                self.commit(id);
+                self.commit(id, lazy);
                 self.host_is_full = true;
             }
         }

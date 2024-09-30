@@ -66,6 +66,7 @@ pub struct StandardHostEnvBuilder {
 
 trait GroupedForeign {
     fn get_optype(&self) -> Option<OpType>;
+    fn should_lazy_commit_group(&self) -> bool;
 }
 
 impl GroupedForeign for ForeignInst {
@@ -88,6 +89,11 @@ impl GroupedForeign for ForeignInst {
             _ => None,
         }
     }
+
+    // indicates current group should not be committed immediately
+    fn should_lazy_commit_group(&self) -> bool {
+        matches!(self, ForeignInst::MerkleGet)
+    }
 }
 
 impl StandardHostEnvBuilder {
@@ -106,9 +112,16 @@ impl StandardHostEnvBuilder {
 }
 
 #[derive(Default)]
+struct PluginFlushState {
+    current: usize,
+    group: usize,
+    should_lazy: bool,
+}
+
+#[derive(Default)]
 struct StandardHostEnvFlushStrategy {
     k: u32,
-    ops: HashMap<usize, (usize, usize)>,
+    ops: HashMap<usize, PluginFlushState>,
 }
 
 trait OpTypeFlushHelper {
@@ -140,31 +153,44 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
     fn notify(&mut self, op: Event) -> Command {
         match op {
             Event::HostCall(op) => {
-                let op_type = ForeignInst::from_usize(op).unwrap().get_optype();
+                let inst: Option<ForeignInst> = ForeignInst::from_usize(op);
+                if inst.is_none() {
+                    return Command::Noop;
+                }
+                let inst = inst.unwrap();
+                let op_type = inst.get_optype();
                 if let Some(optype) = op_type {
                     // cargo clippy false positive
                     #[allow(clippy::redundant_clone)]
-                    let (count, total) = self.ops.entry(optype.clone() as usize).or_insert((0, 0));
+                    let status = self
+                        .ops
+                        .entry(optype.clone() as usize)
+                        .or_insert(PluginFlushState::default());
 
-                    *count += 1;
+                    status.current += 1;
 
-                    if *count == 1 {
-                        Command::Start(optype as usize)
-                    } else if *count == optype.get_group_size() {
-                        *total += 1;
-                        *count = 0;
-
-                        if *total >= optype.get_max_bound(self.k as usize) {
-                            Command::CommitAndAbort(optype as usize)
-                        } else {
-                            Command::Commit(optype as usize)
-                        }
-                    } else {
-                        Command::Noop
+                    if inst.should_lazy_commit_group() {
+                        status.should_lazy = true;
                     }
-                } else {
-                    Command::Noop
+
+                    if status.current == 1 {
+                        return Command::Start(optype as usize);
+                    } else if status.current == optype.get_group_size() {
+                        let lazy = status.should_lazy;
+
+                        status.group += 1;
+                        status.current = 0;
+                        status.should_lazy = false;
+
+                        if status.group >= optype.get_max_bound(self.k as usize) {
+                            return Command::CommitAndAbort(optype as usize, lazy);
+                        } else {
+                            return Command::Commit(optype as usize, lazy);
+                        }
+                    }
                 }
+
+                Command::Noop
             }
             Event::Reset => {
                 self.ops.clear();
