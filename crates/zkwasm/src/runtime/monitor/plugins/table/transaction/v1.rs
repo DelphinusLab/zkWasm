@@ -5,11 +5,10 @@ use specs::etable::EventTableEntry;
 use specs::slice_backend::SliceBackendBuilder;
 use specs::step::StepInfo;
 
+use crate::runtime::monitor::plugins::table::slice_builder::SliceBuilder;
+use crate::runtime::monitor::plugins::table::Command;
 use crate::runtime::monitor::plugins::table::Event;
-
-use super::slice_builder::SliceBuilder;
-use super::Command;
-use super::FlushStrategy;
+use crate::runtime::monitor::plugins::table::FlushStrategy;
 
 pub(crate) type TransactionId = usize;
 
@@ -44,7 +43,7 @@ impl SafelyAbortPosition {
     }
 }
 
-pub(super) struct HostTransaction<B: SliceBackendBuilder> {
+pub struct HostTransaction<B: SliceBackendBuilder> {
     slice_backend_builder: B,
     slices: Vec<B::Output>,
     capacity: u32,
@@ -55,11 +54,11 @@ pub(super) struct HostTransaction<B: SliceBackendBuilder> {
     controller: Box<dyn FlushStrategy>,
     host_is_full: bool,
 
-    pub(crate) slice_builder: SliceBuilder,
+    pub slice_builder: SliceBuilder,
 }
 
 impl<B: SliceBackendBuilder> HostTransaction<B> {
-    pub(super) fn new(
+    pub fn new(
         capacity: u32,
         slice_backend_builder: B,
         controller: Box<dyn FlushStrategy>,
@@ -143,7 +142,7 @@ impl<B: SliceBackendBuilder> HostTransaction<B> {
         }
     }
 
-    pub(super) fn finalized(mut self) -> Vec<B::Output> {
+    pub fn finalized(mut self) -> Vec<B::Output> {
         self.abort();
 
         self.slices

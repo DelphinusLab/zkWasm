@@ -22,10 +22,9 @@ use specs::types::ValueType;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
-use transaction::HostTransaction;
-use transaction::TransactionId;
+use transaction::v1::HostTransaction;
+use transaction::v1::TransactionId;
 use wasmi::func::FuncInstanceInternal;
-
 use wasmi::isa::Instruction;
 use wasmi::isa::Keep;
 use wasmi::memory_units::Pages;
