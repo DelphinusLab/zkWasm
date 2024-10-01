@@ -9,7 +9,7 @@ impl TryFrom<&StepInfo> for ExternalHostCallEntry {
             StepInfo::ExternalHostCall { op, value, sig, .. } => Ok(ExternalHostCallEntry {
                 op: *op,
                 value: value.unwrap(),
-                sig: *sig,
+                is_ret: sig.is_ret(),
             }),
             _ => Err(()),
         }

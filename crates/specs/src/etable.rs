@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -60,7 +61,7 @@ impl EventTable {
         Self(entries)
     }
 
-    pub fn write(&self, path: &PathBuf) -> std::io::Result<()> {
+    pub fn write(&self, path: &Path) -> std::io::Result<()> {
         let mut fd = std::fs::File::create(path)?;
 
         if JSON {

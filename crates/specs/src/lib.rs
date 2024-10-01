@@ -7,22 +7,21 @@
 )]
 
 use std::fs::File;
+use std::io;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use brtable::BrTable;
 use brtable::ElemTable;
 use configure_table::ConfigureTable;
-use etable::EventTable;
 use imtable::InitMemoryTable;
 use itable::InstructionTable;
-use jtable::FrameTable;
 use jtable::InheritedFrameTable;
+use serde::Deserialize;
+use serde::Serialize;
+use slice_backend::SliceBackend;
 use state::InitializationState;
-
-use crate::external_host_call_table::ExternalHostCallTable;
 
 #[macro_use]
 extern crate lazy_static;
@@ -39,24 +38,12 @@ pub mod itable;
 pub mod jtable;
 pub mod mtable;
 pub mod slice;
+pub mod slice_backend;
 pub mod state;
 pub mod step;
 pub mod types;
 
-pub enum TraceBackend {
-    File {
-        event_table_writer: Box<dyn Fn(usize, &EventTable) -> PathBuf>,
-        frame_table_writer: Box<dyn Fn(usize, &FrameTable) -> PathBuf>,
-    },
-    Memory,
-}
-
-pub enum TableBackend<Table> {
-    Memory(Table),
-    Json(PathBuf),
-}
-
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CompilationTable {
     pub itable: Arc<InstructionTable>,
     pub imtable: Arc<InitMemoryTable>,
@@ -67,22 +54,27 @@ pub struct CompilationTable {
     pub initialization_state: Arc<InitializationState<u32>>,
 }
 
-#[derive(Default)]
-pub struct ExecutionTable {
-    pub etable: Vec<TableBackend<EventTable>>,
-    pub frame_table: Vec<TableBackend<FrameTable>>,
-    pub external_host_call_table: Vec<ExternalHostCallTable>,
+#[derive(Serialize, Deserialize)]
+pub struct ExecutionTable<B> {
+    pub slice_backend: Vec<B>,
     pub context_input_table: Vec<u64>,
     pub context_output_table: Vec<u64>,
 }
 
-pub struct Tables {
+#[derive(Serialize, Deserialize)]
+pub struct Tables<B> {
     pub compilation_tables: CompilationTable,
-    pub execution_tables: ExecutionTable,
+    pub execution_tables: ExecutionTable<B>,
 }
 
-impl Tables {
-    pub fn write(&self, dir: &Path, name_of_frame_table_slice: impl Fn(usize) -> String) {
+impl<B: SliceBackend> Tables<B> {
+    pub fn write(
+        &self,
+        dir: &Path,
+        name_of_frame_table_slice: impl Fn(usize) -> String,
+        name_of_event_table_slice: impl Fn(usize) -> String,
+        name_of_external_host_call_table_slice: impl Fn(usize) -> String,
+    ) -> io::Result<()> {
         fn write_file(folder: &Path, filename: &str, buf: &String) {
             let folder = folder.join(filename);
             let mut fd = File::create(folder.as_path()).unwrap();
@@ -95,31 +87,20 @@ impl Tables {
             "itable.json",
             &serde_json::to_string_pretty(&self.compilation_tables.itable).unwrap(),
         );
-        self.execution_tables
-            .frame_table
-            .iter()
-            .enumerate()
-            .for_each(|(slice, frame_table)| {
-                if let TableBackend::Memory(frame_table) = frame_table {
-                    write_file(
-                        dir,
-                        &name_of_frame_table_slice(slice),
-                        &serde_json::to_string_pretty(frame_table).unwrap(),
-                    );
-                }
-            });
 
-        for (i, external_host_call_table) in self
-            .execution_tables
-            .external_host_call_table
-            .iter()
-            .enumerate()
-        {
-            write_file(
-                dir,
-                &format!("external_host_table.{}.json", i),
-                &serde_json::to_string_pretty(&external_host_call_table).unwrap(),
-            );
+        for (index, slice) in self.execution_tables.slice_backend.iter().enumerate() {
+            let path_of_event_table = dir.join(name_of_event_table_slice(index));
+            let path_of_frame_table = dir.join(name_of_frame_table_slice(index));
+            let path_of_external_host_call_table =
+                dir.join(name_of_external_host_call_table_slice(index));
+
+            slice.write(
+                &path_of_event_table,
+                &path_of_frame_table,
+                &path_of_external_host_call_table,
+            )?;
         }
+
+        Ok(())
     }
 }

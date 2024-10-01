@@ -36,8 +36,10 @@ pub mod rtable;
 pub mod utils;
 pub mod zkwasm_circuit;
 
+pub const MIN_K: u32 = 18;
+
 pub type CompilationTable = specs::CompilationTable;
-pub type ExecutionTable = specs::ExecutionTable;
+pub type ExecutionTable<B> = specs::ExecutionTable<B>;
 
 pub(crate) fn compute_slice_capability(k: u32) -> u32 {
     ((1 << k) - RESERVE_ROWS as u32 - 1024) / EVENT_TABLE_ENTRY_ROWS as u32

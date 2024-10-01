@@ -7,7 +7,7 @@ use crate::runtime::monitor::table_monitor::TableMonitor;
 
 use anyhow::Result;
 use halo2_proofs::pairing::bn256::Fr;
-use specs::TraceBackend;
+use specs::slice_backend::InMemoryBackendBuilder;
 use wabt::wat2wasm_with_features;
 use wabt::Features;
 
@@ -39,9 +39,9 @@ pub fn test_circuit_with_env(
     });
     let mut monitor = TableMonitor::new(
         k,
+        InMemoryBackendBuilder,
         env_builder.create_flush_strategy(),
         &vec![],
-        TraceBackend::Memory,
         &env,
     );
     let mut loader = ZkWasmLoader::new(k, env)?;
@@ -60,7 +60,7 @@ pub fn test_circuit_with_env(
 /// Run test function and generate trace, then test circuit with mock prover. Only tests should
 /// use this function.
 fn test_circuit_noexternal(textual_repr: &str) -> Result<()> {
-    use crate::circuits::config::MIN_K;
+    use crate::circuits::MIN_K;
 
     let mut features = Features::new();
     features.enable_sign_extension();

@@ -23,8 +23,8 @@ use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::CircuitData;
 use halo2_proofs::poly::commitment::Params;
 use specs::slice::Slice;
+use specs::slice_backend::InMemoryBackendBuilder;
 use specs::CompilationTable;
-use specs::TraceBackend;
 
 use crate::args::HostMode;
 use crate::config::Config;
@@ -159,9 +159,9 @@ impl SetupArg {
         let env = env_builder.create_env_without_value();
         let mut monitor = TableMonitor::new(
             self.k,
+            InMemoryBackendBuilder,
             env_builder.create_flush_strategy(),
             &self.phantom_functions,
-            TraceBackend::Memory,
             &env,
         );
 

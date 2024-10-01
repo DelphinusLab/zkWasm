@@ -1,11 +1,11 @@
 use anyhow::Result;
-use delphinus_zkwasm::circuits::config::MIN_K;
+use delphinus_zkwasm::circuits::MIN_K;
 use delphinus_zkwasm::loader::slice::Slices;
-use delphinus_zkwasm::loader::TraceBackend;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::monitor::plugins::table::InMemoryBackendBuilder;
 use delphinus_zkwasm::runtime::monitor::table_monitor::TableMonitor;
 use pairing_bn256::bn256::Fr;
 use std::cell::RefCell;
@@ -28,9 +28,9 @@ fn main() -> Result<()> {
     });
     let mut monitor = TableMonitor::new(
         K,
+        InMemoryBackendBuilder,
         env_builder.create_flush_strategy(),
         &vec![],
-        TraceBackend::Memory,
         &env,
     );
     let loader = ZkWasmLoader::new(K, env)?;

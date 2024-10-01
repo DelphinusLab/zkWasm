@@ -2,9 +2,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use parity_wasm::elements::Module;
+use specs::slice_backend::SliceBackendBuilder;
 use specs::CompilationTable;
 use specs::Tables;
-use specs::TraceBackend;
 use wasmi::isa::Instruction;
 use wasmi::monitor::Monitor;
 use wasmi::runner::FunctionContext;
@@ -25,17 +25,17 @@ use super::plugins::table::FlushStrategy;
 use super::plugins::table::TablePlugin;
 use super::WasmiMonitor;
 
-pub struct TableMonitor {
-    table_plugin: TablePlugin,
+pub struct TableMonitor<B: SliceBackendBuilder> {
+    table_plugin: TablePlugin<B>,
     statistic_plugin: StatisticPlugin,
 }
 
-impl TableMonitor {
+impl<B: SliceBackendBuilder> TableMonitor<B> {
     pub fn new(
         k: u32,
+        slice_backend_builder: B,
         flush_strategy: Box<dyn FlushStrategy>,
         phantom_regex: &[String],
-        backend: TraceBackend,
         env: &HostEnv,
     ) -> Self {
         let wasm_input = env
@@ -48,11 +48,11 @@ impl TableMonitor {
         Self {
             table_plugin: TablePlugin::new(
                 k,
+                slice_backend_builder,
                 flush_strategy,
                 env.function_description_table(),
                 phantom_regex,
                 wasm_input.clone(),
-                backend,
             ),
             statistic_plugin: StatisticPlugin::new(phantom_regex, wasm_input, None),
         }
@@ -62,12 +62,12 @@ impl TableMonitor {
         self.table_plugin.into_compilation_table()
     }
 
-    pub fn into_tables(self) -> Tables {
+    pub fn into_tables(self) -> Tables<B::Output> {
         self.table_plugin.into_tables()
     }
 }
 
-impl Monitor for TableMonitor {
+impl<B: SliceBackendBuilder> Monitor for TableMonitor<B> {
     fn register_module(
         &mut self,
         module: &Module,
@@ -144,7 +144,7 @@ impl Monitor for TableMonitor {
     }
 }
 
-impl WasmiMonitor for TableMonitor {
+impl<B: SliceBackendBuilder> WasmiMonitor for TableMonitor<B> {
     fn expose_observer(&self) -> Rc<RefCell<Observer>> {
         self.statistic_plugin.expose_observer()
     }

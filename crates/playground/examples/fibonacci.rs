@@ -1,11 +1,11 @@
 use anyhow::Result;
-use delphinus_zkwasm::circuits::config::MIN_K;
+use delphinus_zkwasm::circuits::MIN_K;
 use delphinus_zkwasm::loader::slice::Slices;
-use delphinus_zkwasm::loader::TraceBackend;
 use delphinus_zkwasm::loader::ZkWasmLoader;
 use delphinus_zkwasm::runtime::host::default_env::DefaultHostEnvBuilder;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::monitor::plugins::table::InMemoryBackendBuilder;
 use delphinus_zkwasm::runtime::monitor::table_monitor::TableMonitor;
 use pairing_bn256::bn256::Fr;
 use std::cell::RefCell;
@@ -19,20 +19,18 @@ fn main() -> Result<()> {
     let module = ZkWasmLoader::parse_module(&wasm)?;
     let env_builder = DefaultHostEnvBuilder::new(K);
 
-    let env = env_builder.create_env(
-        ExecutionArg {
-            public_inputs: vec![5],
-            private_inputs: vec![],
-            context_inputs: vec![],
-            indexed_witness: Rc::new(RefCell::new(HashMap::default())),
-            tree_db: None,
-        },
-    );
+    let env = env_builder.create_env(ExecutionArg {
+        public_inputs: vec![5],
+        private_inputs: vec![],
+        context_inputs: vec![],
+        indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+        tree_db: None,
+    });
     let mut monitor = TableMonitor::new(
         K,
+        InMemoryBackendBuilder,
         env_builder.create_flush_strategy(),
         &vec![],
-        TraceBackend::Memory,
         &env,
     );
     let loader = ZkWasmLoader::new(K, env)?;

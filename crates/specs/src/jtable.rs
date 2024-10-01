@@ -1,10 +1,17 @@
+use std::fmt;
 use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use serde::de::SeqAccess;
+use serde::de::Visitor;
+use serde::ser::SerializeSeq;
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
+use serde::Serializer;
 
 // Inherited frame table entries:
 // 1. zkmain
@@ -45,6 +52,58 @@ impl Default for InheritedFrameTable {
         Self(Box::new(
             [InheritedFrameTableEntry::default(); INHERITED_FRAME_TABLE_ENTRIES],
         ))
+    }
+}
+
+impl Serialize for InheritedFrameTable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(INHERITED_FRAME_TABLE_ENTRIES))?;
+
+        for elem in self.0.iter() {
+            seq.serialize_element(elem)?;
+        }
+
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for InheritedFrameTable {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct InheritedFrameTableVisitor;
+
+        impl<'de> Visitor<'de> for InheritedFrameTableVisitor {
+            type Value = InheritedFrameTable;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("InheritedFrameTableEntry")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let mut entries =
+                    Box::new([InheritedFrameTableEntry(None); INHERITED_FRAME_TABLE_ENTRIES]);
+
+                for i in 0..INHERITED_FRAME_TABLE_ENTRIES {
+                    if let Some(value) = seq.next_element()? {
+                        entries[i] = value;
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                Ok(InheritedFrameTable(entries))
+            }
+        }
+
+        deserializer.deserialize_seq(InheritedFrameTableVisitor)
     }
 }
 
@@ -128,7 +187,7 @@ impl FrameTable {
         }
     }
 
-    pub fn write(&self, path: &PathBuf) -> std::io::Result<()> {
+    pub fn write(&self, path: &Path) -> std::io::Result<()> {
         let mut fd = std::fs::File::create(path)?;
 
         if JSON {

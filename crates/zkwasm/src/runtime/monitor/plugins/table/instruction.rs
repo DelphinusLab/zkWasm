@@ -12,6 +12,7 @@ use specs::itable::UnaryOp;
 use specs::mtable::MemoryReadSize;
 use specs::mtable::MemoryStoreSize;
 use specs::mtable::VarType;
+use specs::slice_backend::SliceBackendBuilder;
 use specs::step::StepInfo;
 use specs::types::FunctionType;
 use wasmi::isa;
@@ -1046,7 +1047,7 @@ pub(super) fn run_instruction_pre(
     }
 }
 
-impl TablePlugin {
+impl<B: SliceBackendBuilder> TablePlugin<B> {
     pub(super) fn run_instruction_post(
         &self,
         module_ref: &ModuleRef,

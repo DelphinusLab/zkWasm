@@ -17,18 +17,16 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use args::HostMode;
 use config::Config;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use file_backend::FileBackendBuilder;
 use names::name_of_config;
-use names::name_of_etable_slice;
-use names::name_of_frame_table_slice;
 use specs::args::parse_args;
-use specs::etable::EventTable;
-use specs::jtable::FrameTable;
-use specs::TraceBackend;
+use specs::slice_backend::InMemoryBackendBuilder;
 
 mod app_builder;
 mod args;
 mod command;
 mod config;
+mod file_backend;
 mod names;
 
 const TRIVIAL_WASM: &str = r#"
@@ -104,68 +102,54 @@ fn main() -> Result<()> {
             let private_inputs = parse_args(&arg.running_arg.private_inputs);
             let context_inputs = parse_args(&arg.running_arg.context_inputs);
 
-            let trace_backend: TraceBackend = if arg.file_backend {
-                let event_table_writer = {
-                    let name = cli.name.clone();
-                    let trace_dir = trace_dir.clone();
-
-                    Box::new(move |slice, etable: &EventTable| {
-                        let filename_of_etable_slice =
-                            PathBuf::from(name_of_etable_slice(&name, slice));
-                        let path = trace_dir.join(filename_of_etable_slice);
-
-                        etable.write(&path).unwrap();
-
-                        path
-                    })
-                };
-
-                let frame_table_writer = {
-                    let name = cli.name.clone();
-                    let trace_dir = trace_dir;
-
-                    Box::new(move |slice, frame_table: &FrameTable| {
-                        let filename_of_frame_table_slice =
-                            PathBuf::from(name_of_frame_table_slice(&name, slice));
-                        let path = trace_dir.join(filename_of_frame_table_slice);
-
-                        frame_table.write(&path).unwrap();
-
-                        path
-                    })
-                };
-
-                TraceBackend::File {
-                    event_table_writer,
-                    frame_table_writer,
-                }
-            } else {
-                TraceBackend::Memory
-            };
-
             let env_builder: Box<dyn HostEnvBuilder> = match config.host_mode {
                 HostMode::Default => Box::new(DefaultHostEnvBuilder::new(config.k)),
                 HostMode::Standard => Box::new(StandardHostEnvBuilder::new(config.k)),
             };
 
-            config.prove(
-                &*env_builder,
-                &arg.wasm_image,
-                &cli.params_dir,
-                &arg.output_dir,
-                ExecutionArg {
-                    public_inputs,
-                    private_inputs,
-                    context_inputs,
-                    indexed_witness: Rc::new(RefCell::new(HashMap::default())),
-                    tree_db: None,
-                },
-                arg.running_arg.context_output,
-                arg.mock_test,
-                trace_backend,
-                arg.skip,
-                arg.padding,
-            )?;
+            if arg.file_backend {
+                let backend_builder = FileBackendBuilder::new(cli.name.clone(), trace_dir);
+
+                config.prove(
+                    backend_builder,
+                    &*env_builder,
+                    &arg.wasm_image,
+                    &cli.params_dir,
+                    &arg.output_dir,
+                    ExecutionArg {
+                        public_inputs,
+                        private_inputs,
+                        context_inputs,
+                        indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                        tree_db: None,
+                    },
+                    arg.running_arg.context_output,
+                    arg.mock_test,
+                    arg.skip,
+                    arg.padding,
+                )?;
+            } else {
+                let backend_builder = InMemoryBackendBuilder;
+
+                config.prove(
+                    backend_builder,
+                    &*env_builder,
+                    &arg.wasm_image,
+                    &cli.params_dir,
+                    &arg.output_dir,
+                    ExecutionArg {
+                        public_inputs,
+                        private_inputs,
+                        context_inputs,
+                        indexed_witness: Rc::new(RefCell::new(HashMap::default())),
+                        tree_db: None,
+                    },
+                    arg.running_arg.context_output,
+                    arg.mock_test,
+                    arg.skip,
+                    arg.padding,
+                )?;
+            }
         }
         Subcommands::Verify(arg) => {
             let config = Config::read(&mut fs::File::open(

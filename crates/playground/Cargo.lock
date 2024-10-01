@@ -609,7 +609,6 @@ dependencies = [
  "ff",
  "halo2_proofs",
  "hex",
- "lazy_static",
  "log",
  "num-bigint",
  "num-integer",
