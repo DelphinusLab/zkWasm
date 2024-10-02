@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.7#9f9c288baf027d5306f8f320c98022548fc6ea81"
+source = "git+https://www.github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.5#bbfca62d3f7a19732bb496c3979b3fe6b7c99730"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -1175,14 +1175,14 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "1.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4#2ce6522fce52938ec7d28c7c1510be4dd85e5be2"
+source = "git+https://www.github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.3#50978c1e8bc02083c23738055a89279d15edfecd"
 dependencies = [
  "ark-ff",
  "ark-std",
  "blake2b_simd",
  "ff",
  "halo2_proofs",
- "halo2ecc-s",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.3)",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1194,6 +1194,19 @@ dependencies = [
  "sha2",
  "sha3",
  "tera",
+]
+
+[[package]]
+name = "halo2ecc-s"
+version = "0.3.2"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.3#ef2c90f208499a5f471599aa2fc538bf89631e76"
+dependencies = [
+ "ark-std",
+ "halo2_proofs",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rayon",
 ]
 
 [[package]]
@@ -3539,7 +3552,7 @@ dependencies = [
  "clap",
  "ff",
  "halo2_proofs",
- "halo2ecc-s",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4)",
  "hex",
  "itertools",
  "lazy_static",
@@ -3562,7 +3575,7 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=oogl/dev-icicle-1.7.0#a8eff31be9926127bd7b23bd9fc6c9743883f85e"
+source = "git+https://www.github.com/DelphinusLab/zkWasm-prover.git?rev=30f2750d8db8b0a8bb2e72237620682751201eed#30f2750d8db8b0a8bb2e72237620682751201eed"
 dependencies = [
  "ark-std",
  "cc",
