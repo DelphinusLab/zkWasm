@@ -5,6 +5,7 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::args::Scheme;
 use crate::config::CircuitDataConfig;
 use crate::config::CircuitDataMd5;
 use crate::TRIVIAL_WASM;
@@ -38,6 +39,7 @@ pub(crate) struct SetupArg {
     pub(crate) host_mode: HostMode,
     pub(crate) phantom_functions: Vec<String>,
     pub(crate) wasm_image: Option<PathBuf>,
+    pub(crate) scheme: Scheme,
 }
 
 impl SetupArg {
@@ -215,6 +217,8 @@ impl SetupArg {
                 checksum,
                 phantom_functions: self.phantom_functions.clone(),
                 host_mode: self.host_mode,
+
+                scheme: self.scheme,
             };
             config.write(&mut File::create(&config_path)?)?;
 

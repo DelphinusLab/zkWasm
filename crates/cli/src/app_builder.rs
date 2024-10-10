@@ -11,6 +11,7 @@ use clap::Command;
 use clap::ValueHint;
 
 use crate::args::HostMode;
+use crate::args::Scheme;
 use crate::command::DryRunArg;
 use crate::command::ProveArg;
 use crate::command::RunningArg;
@@ -197,6 +198,14 @@ fn setup_command() -> Command<'static> {
             ).takes_value(true)
             .value_delimiter(',')
             .required(false)
+        )
+        .arg(
+            arg!(
+                --scheme <SCHEME> "Specify polynomial commitment scheme"
+            )
+            .default_value("shplonk")
+            .value_parser(value_parser!(Scheme))
+            .required(false),
         );
 
     let command = if cfg!(not(feature = "uniform-circuit")) {
@@ -273,6 +282,7 @@ impl From<&ArgMatches> for SetupArg {
                 .map(|v| v.to_string())
                 .collect::<Vec<_>>(),
             wasm_image: WasmImageArg::parse(val),
+            scheme: *val.get_one::<Scheme>("scheme").unwrap(),
         }
     }
 }

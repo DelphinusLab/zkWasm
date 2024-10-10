@@ -7,7 +7,6 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use circuits_batcher::args::HashType;
-use circuits_batcher::args::OpenSchema;
 use circuits_batcher::proof::ProofGenerationInfo;
 use circuits_batcher::proof::ProofInfo;
 use circuits_batcher::proof::ProofPieceInfo;
@@ -31,6 +30,7 @@ use serde::Serialize;
 use specs::slice_backend::SliceBackendBuilder;
 
 use crate::args::HostMode;
+use crate::args::Scheme;
 use crate::names::name_of_circuit_data;
 use crate::names::name_of_etable_slice;
 use crate::names::name_of_external_host_call_table_slice;
@@ -74,6 +74,8 @@ pub(crate) struct Config {
     pub(crate) checksum: (String, String),
     pub(crate) phantom_functions: Vec<String>,
     pub(crate) host_mode: HostMode,
+
+    pub(crate) scheme: Scheme,
 }
 
 impl Config {
@@ -413,7 +415,7 @@ impl Config {
                     &params,
                     &cached_proving_key.as_ref().unwrap().1,
                     proof_load_info.hashtype,
-                    OpenSchema::Shplonk,
+                    self.scheme.into(),
                 ),
                 ZkWasmCircuit::LastSliceCircuit(circuit) => proof_piece_info
                     .create_proof::<Bn256, _>(
@@ -422,7 +424,7 @@ impl Config {
                         &params,
                         &cached_proving_key.as_ref().unwrap().1,
                         proof_load_info.hashtype,
-                        OpenSchema::Shplonk,
+                        self.scheme.into(),
                     ),
             };
 
@@ -509,7 +511,7 @@ impl Config {
             };
 
             proof
-                .verify_proof(&params_verifier, OpenSchema::Shplonk)
+                .verify_proof(&params_verifier, self.scheme.into())
                 .unwrap();
 
             // TODO: handle checksum sanity check
