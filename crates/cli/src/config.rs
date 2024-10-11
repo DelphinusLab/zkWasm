@@ -486,6 +486,8 @@ impl Config {
     }
 
     pub(crate) fn verify(self, params_dir: &Path, output_dir: &PathBuf) -> anyhow::Result<()> {
+        let mut maximal_public_inputs_size = 0;
+
         let mut proofs = {
             println!(
                 "{} Reading proofs from {:?}",
@@ -499,6 +501,16 @@ impl Config {
             let proofs: Vec<ProofInfo<Bn256>> =
                 ProofInfo::load_proof(output_dir, params_dir, &proof_load_info);
 
+            for proof in &proofs {
+                maximal_public_inputs_size = usize::max(
+                    maximal_public_inputs_size,
+                    proof
+                        .instances
+                        .iter()
+                        .fold(0, |acc, x| usize::max(acc, x.len())),
+                );
+            }
+
             proofs
         }
         .into_iter()
@@ -510,18 +522,13 @@ impl Config {
             proofs.len()
         );
 
+        let params_verifier = {
+            let params = self.read_params(params_dir)?;
+            params.verifier(maximal_public_inputs_size)?
+        };
+
         let progress_bar = ProgressBar::new(proofs.len() as u64);
         while let Some(proof) = proofs.next() {
-            let params_verifier = {
-                let public_inputs_size = proof
-                    .instances
-                    .iter()
-                    .fold(0, |acc, x| usize::max(acc, x.len()));
-
-                let params = self.read_params(params_dir)?;
-                params.verifier(public_inputs_size)?
-            };
-
             {
                 let mut buf = Vec::new();
                 proof.vkey.write(&mut Cursor::new(&mut buf))?;
