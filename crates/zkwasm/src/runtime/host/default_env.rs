@@ -8,6 +8,7 @@ use crate::foreign::context::runtime::register_context_foreign;
 use crate::foreign::log_helper::register_log_foreign;
 use crate::foreign::require_helper::register_require_foreign;
 use crate::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
+use crate::runtime::monitor::plugins::table::transaction::TransactionId;
 use crate::runtime::monitor::plugins::table::Command;
 use crate::runtime::monitor::plugins::table::Event;
 use crate::runtime::monitor::plugins::table::FlushStrategy;
@@ -41,8 +42,12 @@ impl DefaultHostEnvBuilder {
 struct DefaultFlushStrategy;
 
 impl FlushStrategy for DefaultFlushStrategy {
-    fn notify(&mut self, _event: Event) -> Command {
-        Command::Noop
+    fn notify(&mut self, _event: Event) -> Vec<Command> {
+        vec![Command::Noop]
+    }
+
+    fn maximal_group(&self, _transaction: TransactionId) -> Option<usize> {
+        None
     }
 }
 

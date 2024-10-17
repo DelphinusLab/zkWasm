@@ -1,11 +1,14 @@
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
+use delphinus_zkwasm::runtime::monitor::plugins::table::Command;
 use ff::PrimeField;
 use halo2_proofs::pairing::bn256::Fr;
 use poseidon::Poseidon;
 use std::rc::Rc;
 pub use zkwasm_host_circuits::host::poseidon::POSEIDON_HASHER;
+use zkwasm_host_circuits::host::ForeignInst;
+use zkwasm_host_circuits::proof::OpType;
 
 use zkwasm_host_circuits::host::Reduce;
 use zkwasm_host_circuits::host::ReduceRule;
@@ -123,6 +126,8 @@ impl ForeignContext for PoseidonContext {
 }
 
 use specs::external_host_call_table::ExternalHostCallSignature;
+
+use crate::PluginFlushStrategy;
 pub fn register_poseidon_foreign(env: &mut HostEnv) {
     let foreign_poseidon_plugin = env
         .external_env
@@ -169,4 +174,72 @@ pub fn register_poseidon_foreign(env: &mut HostEnv) {
             },
         ),
     );
+}
+
+pub(crate) struct PoseidonFlushStrategy {
+    current: usize,
+    group: usize,
+    maximal_group: usize,
+    new_hasher: bool,
+}
+
+impl PoseidonFlushStrategy {
+    pub(crate) fn new(k: u32) -> Self {
+        Self {
+            current: 0,
+            group: 0,
+            maximal_group: PoseidonChip::max_rounds(k as usize),
+            new_hasher: true,
+        }
+    }
+
+    fn group_size() -> usize {
+        // new + push + result
+        1 + 4 * 8 + 4
+    }
+}
+
+impl PluginFlushStrategy for PoseidonFlushStrategy {
+    fn notify(&mut self, op: &ForeignInst, value: Option<u64>) -> Vec<Command> {
+        let op_type = OpType::POSEIDONHASH as usize;
+
+        self.current += 1;
+
+        if *op as usize == ForeignInst::PoseidonNew as usize {
+            let value = value.unwrap();
+            assert!(value == 0 || value == 1);
+
+            self.new_hasher = value == 1;
+
+            if self.new_hasher {
+                return vec![Command::Finalize(op_type), Command::Start(op_type)];
+            } else {
+                return vec![Command::Start(op_type)];
+            }
+        }
+
+        if self.current == PoseidonFlushStrategy::group_size() {
+            self.current = 0;
+            self.group += 1;
+
+            let mut commands = vec![Command::Commit(op_type, self.new_hasher)];
+
+            if self.group >= self.maximal_group {
+                commands.push(Command::Abort);
+            }
+
+            return commands;
+        }
+
+        vec![Command::Noop]
+    }
+
+    fn reset(&mut self) {
+        self.current = 0;
+        self.group = 0;
+    }
+
+    fn maximal_group(&self) -> Option<usize> {
+        Some(self.maximal_group)
+    }
 }

@@ -6,7 +6,7 @@ use specs::slice_backend::Slice;
 
 use super::frame_table_builder::FrameTableBuilder;
 
-pub(super) struct SliceBuilder {
+pub struct SliceBuilder {
     pub(super) frame_table_builder: FrameTableBuilder,
 }
 

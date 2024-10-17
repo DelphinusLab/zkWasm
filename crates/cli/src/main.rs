@@ -29,6 +29,8 @@ mod config;
 mod file_backend;
 mod names;
 
+pub mod utils;
+
 const TRIVIAL_WASM: &str = r#"
 (module
     (func (export "zkmain"))
