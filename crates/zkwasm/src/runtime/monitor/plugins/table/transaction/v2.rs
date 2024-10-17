@@ -204,20 +204,21 @@ impl Checkpoints {
         }
     }
 
+    // Only finalized checkpoint can be applied
     // release 'n' weak transactions after 'from''
-    fn force_commit_weak_n(&mut self, tx: TransactionId, from: usize, n: usize) {
-        let have_started_new =
-            self.passive_release_weak_dependencies_for_checkpoint_from(tx, from, n);
+    // fn force_commit_weak_n(&mut self, tx: TransactionId, from: usize, n: usize) {
+    //     let have_started_new =
+    //         self.passive_release_weak_dependencies_for_checkpoint_from(tx, from, n);
 
-        if !have_started_new {
-            let desc = self.weak_committed.get_mut(&tx).unwrap();
-            desc.count -= n;
+    //     if !have_started_new {
+    //         let desc = self.weak_committed.get_mut(&tx).unwrap();
+    //         desc.count = desc.count.checked_sub(n).unwrap();
 
-            if desc.count == 0 {
-                self.weak_committed.remove(&tx);
-            }
-        }
-    }
+    //         if desc.count == 0 {
+    //             self.weak_committed.remove(&tx);
+    //         }
+    //     }
+    // }
 
     fn insert_checkpoint(&mut self, offset: usize) {
         let weak_dependencies = self
@@ -242,34 +243,35 @@ impl Checkpoints {
         });
     }
 
+    // Only finalized checkpoint can be applied
     // return value indicates whether a new id transaction have started
-    fn passive_release_weak_dependencies_for_checkpoint_from(
-        &mut self,
-        tx: TransactionId,
-        from: usize,
-        n: usize,
-    ) -> bool {
-        assert!(n > 0);
+    // fn passive_release_weak_dependencies_for_checkpoint_from(
+    //     &mut self,
+    //     tx: TransactionId,
+    //     from: usize,
+    //     n: usize,
+    // ) -> bool {
+    //     assert!(n > 0);
 
-        for checkpoint in &mut self.checkpoints[from..] {
-            let desc = checkpoint.weak_dependencies.get_mut(&tx);
+    //     for checkpoint in &mut self.checkpoints[from..] {
+    //         let desc = checkpoint.weak_dependencies.get_mut(&tx);
 
-            match desc {
-                Some(count) if *count >= n => {
-                    *count -= n;
-                }
-                // force committed
-                Some(count) => {
-                    assert_eq!(*count, 0);
-                    return true;
-                }
-                // force committed
-                None => return true,
-            }
-        }
+    //         match desc {
+    //             Some(count) if *count >= n => {
+    //                 *count -= n;
+    //             }
+    //             // already finalized
+    //             Some(count) => {
+    //                 assert_eq!(*count, 0);
+    //                 return true;
+    //             }
+    //             // already finalized
+    //             None => return true,
+    //         }
+    //     }
 
-        false
-    }
+    //     false
+    // }
 
     // return value indicates whether a new id transaction have started
     fn active_release_weak_dependencies_for_checkpoint_from(
@@ -290,14 +292,16 @@ impl Checkpoints {
         let checkpoint = self.checkpoints[index].clone();
 
         if checkpoint.has_dependencies() {
-            warn!(
-                "Create a slice with weak transactions: {:?}, this may fail host circuits",
-                checkpoint.weak_dependencies
-            );
+            unreachable!("only firnalized checkpoint can be applied due to filter function");
 
-            for (tx, n) in &checkpoint.weak_dependencies {
-                self.force_commit_weak_n(*tx, index, *n);
-            }
+            // warn!(
+            //     "Create a slice with weak transactions: {:?}, this may fail host circuits",
+            //     checkpoint.weak_dependencies
+            // );
+
+            // for (tx, n) in &checkpoint.weak_dependencies {
+            //     self.force_commit_weak_n(*tx, index, *n);
+            // }
         }
 
         for (tx, n) in checkpoint.transactions_group_number {
@@ -375,15 +379,7 @@ impl Checkpoints {
         // prefer checkpoint without weak dependencies
         let index = self.find(
             upper_bound,
-            |checkpoint| {
-                let no_weak_committed = checkpoint.weak_dependencies.is_empty()
-                    || checkpoint
-                        .weak_dependencies
-                        .iter()
-                        .all(|checkpoint| *checkpoint.1 == 0);
-
-                no_weak_committed
-            },
+            |checkpoint| !checkpoint.has_dependencies(),
             flush_strategy_controller,
         );
 
