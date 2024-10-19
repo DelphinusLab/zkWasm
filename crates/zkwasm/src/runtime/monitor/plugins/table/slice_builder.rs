@@ -2,11 +2,11 @@ use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::external_host_call_table::ExternalHostCallEntry;
 use specs::external_host_call_table::ExternalHostCallTable;
+use specs::slice_backend::Slice;
 
 use super::frame_table_builder::FrameTableBuilder;
-use super::Slice;
 
-pub(super) struct SliceBuilder {
+pub struct SliceBuilder {
     pub(super) frame_table_builder: FrameTableBuilder,
 }
 

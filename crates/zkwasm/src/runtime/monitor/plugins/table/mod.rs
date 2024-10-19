@@ -5,7 +5,6 @@ use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
-use specs::etable::EventTable;
 use specs::etable::EventTableEntry;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
@@ -15,6 +14,7 @@ use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
+use specs::slice_backend::SliceBackendBuilder;
 use specs::state::InitializationState;
 use specs::step::StepInfo;
 use specs::types::FunctionType;
@@ -22,11 +22,9 @@ use specs::types::ValueType;
 use specs::CompilationTable;
 use specs::ExecutionTable;
 use specs::Tables;
-use specs::TraceBackend;
-use transaction::HostTransaction;
 use transaction::TransactionId;
+use transaction::TransactionSlicer;
 use wasmi::func::FuncInstanceInternal;
-
 use wasmi::isa::Instruction;
 use wasmi::isa::Keep;
 use wasmi::memory_units::Pages;
@@ -61,39 +59,42 @@ mod frame_table_builder;
 mod instruction;
 mod slice_builder;
 
+pub use specs::slice_backend::InMemoryBackendBuilder;
+pub use specs::slice_backend::InMemoryBackendSlice;
+
 const DEFAULT_MEMORY_INDEX: u32 = 0;
 const DEFAULT_TABLE_INDEX: u32 = 0;
 
+type HostTransaction<B> = transaction::v2::HostTransaction<B>;
+
 #[derive(PartialEq)]
 pub enum Command {
+    /* Control transaction(start, commit) */
+    // Do nothing but insert event
     Noop,
-    // Start a new transaction from current instruction
+    // Start a transaction
     Start(TransactionId),
-    // Commit the transaction including the current instruction
-    Commit(TransactionId),
-    // Flush the table at next host call instruction
+    // Commit a transaction with optional automatically finalizing timer
+    Commit(TransactionId, bool),
+
+    /* Control slice */
     Abort,
-    // Commit the transaction with current instruction and flush the table
-    // at next host call instruction
-    CommitAndAbort(TransactionId),
+
+    /* Control dependencies */
+    Finalize(TransactionId),
 }
 
 pub enum Event {
-    HostCall(usize),
-    Reset,
+    HostCall(usize, Option<u64>),
+    Reset(),
 }
 
 pub trait FlushStrategy {
-    fn notify(&mut self, op: Event) -> Command;
+    fn notify(&mut self, op: Event) -> Vec<Command>;
+    fn maximal_group(&self, transaction: TransactionId) -> Option<usize>;
 }
 
-struct Slice {
-    etable: EventTable,
-    frame_table: specs::jtable::FrameTable,
-    external_host_call_table: specs::external_host_call_table::ExternalHostCallTable,
-}
-
-pub struct TablePlugin {
+pub struct TablePlugin<B: SliceBackendBuilder> {
     phantom_helper: PhantomHelper,
 
     host_function_desc: HashMap<usize, HostFunctionDesc>,
@@ -108,7 +109,7 @@ pub struct TablePlugin {
     context_input_table: Vec<u64>,
     context_output_table: Vec<u64>,
 
-    host_transaction: HostTransaction,
+    host_transaction: HostTransaction<B>,
 
     eid: u32,
     last_jump_eid: Vec<u32>,
@@ -117,14 +118,14 @@ pub struct TablePlugin {
     unresolved_host_call: Option<EventTableEntry>,
 }
 
-impl TablePlugin {
+impl<B: SliceBackendBuilder> TablePlugin<B> {
     pub fn new(
         k: u32,
+        slice_backend_builder: B,
         flush_strategy: Box<dyn FlushStrategy>,
         host_function_desc: HashMap<usize, HostFunctionDesc>,
         phantom_regex: &[String],
         wasm_input: FuncRef,
-        trace_backend: TraceBackend,
     ) -> Self {
         let capacity = compute_slice_capability(k);
 
@@ -145,7 +146,11 @@ impl TablePlugin {
             context_input_table: vec![],
             context_output_table: vec![],
 
-            host_transaction: HostTransaction::new(trace_backend, capacity, flush_strategy),
+            host_transaction: HostTransaction::<B>::new(
+                capacity as usize,
+                slice_backend_builder,
+                flush_strategy,
+            ),
 
             module_ref: None,
             unresolved_event: None,
@@ -183,24 +188,21 @@ impl TablePlugin {
             configure_table,
             initial_frame_table: Arc::new(
                 self.host_transaction
-                    .slice_builder
-                    .frame_table_builder
+                    .frame_table_builder_get()
                     .build_initial_frame_table(),
             ),
             initialization_state,
         }
     }
 
-    pub fn into_tables(self) -> Tables {
+    pub fn into_tables(self) -> Tables<B::Output> {
         let compilation_tables = self.into_compilation_table();
-        let slices = self.host_transaction.finalized();
+        let slice_backend = self.host_transaction.finalize();
 
         Tables {
             compilation_tables,
             execution_tables: ExecutionTable {
-                etable: slices.etable,
-                frame_table: slices.frame_table,
-                external_host_call_table: slices.external_host_call_table,
+                slice_backend,
                 context_input_table: self.context_input_table,
                 context_output_table: self.context_output_table,
             },
@@ -208,7 +210,7 @@ impl TablePlugin {
     }
 }
 
-impl TablePlugin {
+impl<B: SliceBackendBuilder> TablePlugin<B> {
     fn append_log(
         &mut self,
         fid: u32,
@@ -236,7 +238,7 @@ impl TablePlugin {
             step_info,
         };
 
-        self.host_transaction.insert(event);
+        self.host_transaction.push_event(event);
     }
 
     fn push_frame(&mut self, frame_id: u32) {
@@ -339,7 +341,7 @@ impl TablePlugin {
     }
 }
 
-impl Monitor for TablePlugin {
+impl<B: SliceBackendBuilder> Monitor for TablePlugin<B> {
     fn register_module(
         &mut self,
         module: &parity_wasm::elements::Module,
@@ -362,14 +364,12 @@ impl Monitor for TablePlugin {
             };
 
             self.host_transaction
-                .slice_builder
-                .frame_table_builder
+                .frame_table_builder_get_mut()
                 .push_static_entry(*zkmain_idx as u32, 0, 0);
 
             if let Some(start_idx) = module.start_section() {
                 self.host_transaction
-                    .slice_builder
-                    .frame_table_builder
+                    .frame_table_builder_get_mut()
                     .push_static_entry(start_idx, *zkmain_idx as u32, 0);
 
                 self.start_fid = Some(start_idx);

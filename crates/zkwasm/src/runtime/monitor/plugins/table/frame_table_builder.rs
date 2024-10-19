@@ -102,18 +102,28 @@ impl FrameTableBuilder {
     // Prepare for the next slice. This will remove all the entries that are returned
     fn flush(&mut self) -> specs::jtable::FrameTable {
         let frame_table = {
+            /* self.current_returned.iter().rev(), why rev()?
+             *
+             * Support an image has start function, then initial_frame_entries should have two entries:
+             *   * zkmain -> 0
+             *   * start  -> zkmain
+             * If we pad a slice, the inherited frame entries of the trivial slice should have two entries with ordering,
+             * but if first non-trivial slice terminating, 'current_returned' with 'inherited = true' will have
+             * two entires with reverse ordering, since frame it's a stack(pop from current_unreturned then push into current_returned).
+             * This crashes commitment checking between trivial slice's post image table and first non-trivial slice's pre image table.
+             */
             let inherited = self
-                .current_returned
+                .current_unreturned
                 .iter()
-                .chain(self.current_unreturned.iter())
+                .chain(self.current_returned.iter().rev())
                 .filter(|entry| entry.inherited)
                 .map(Into::into)
                 .collect::<Vec<InheritedFrameTableEntry>>();
 
             let called = self
-                .current_returned
+                .current_unreturned
                 .iter()
-                .chain(self.current_unreturned.iter())
+                .chain(self.current_returned.iter())
                 .filter(|entry| !entry.inherited)
                 .map(Into::into)
                 .collect::<Vec<CalledFrameTableEntry>>();

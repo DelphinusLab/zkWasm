@@ -5,6 +5,7 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::args::Scheme;
 use crate::config::CircuitDataConfig;
 use crate::config::CircuitDataMd5;
 use crate::TRIVIAL_WASM;
@@ -23,8 +24,8 @@ use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::CircuitData;
 use halo2_proofs::poly::commitment::Params;
 use specs::slice::Slice;
+use specs::slice_backend::InMemoryBackendBuilder;
 use specs::CompilationTable;
-use specs::TraceBackend;
 
 use crate::args::HostMode;
 use crate::config::Config;
@@ -38,6 +39,7 @@ pub(crate) struct SetupArg {
     pub(crate) host_mode: HostMode,
     pub(crate) phantom_functions: Vec<String>,
     pub(crate) wasm_image: Option<PathBuf>,
+    pub(crate) scheme: Scheme,
 }
 
 impl SetupArg {
@@ -159,9 +161,9 @@ impl SetupArg {
         let env = env_builder.create_env_without_value();
         let mut monitor = TableMonitor::new(
             self.k,
+            InMemoryBackendBuilder,
             env_builder.create_flush_strategy(),
             &self.phantom_functions,
-            TraceBackend::Memory,
             &env,
         );
 
@@ -215,6 +217,8 @@ impl SetupArg {
                 checksum,
                 phantom_functions: self.phantom_functions.clone(),
                 host_mode: self.host_mode,
+
+                scheme: self.scheme,
             };
             config.write(&mut File::create(&config_path)?)?;
 

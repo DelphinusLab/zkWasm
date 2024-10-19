@@ -212,29 +212,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bindgen"
-version = "0.69.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a00dc851838a2120612785d195287475a3ac45514741da670b735818822129a0"
-dependencies = [
- "bitflags 2.4.2",
- "cexpr",
- "clang-sys",
- "itertools",
- "lazy_static",
- "lazycell",
- "log",
- "prettyplease",
- "proc-macro2",
- "quote",
- "regex",
- "rustc-hash",
- "shlex",
- "syn 2.0.52",
- "which",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -340,15 +317,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 
 [[package]]
-name = "cexpr"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fac387a98bb7c37292057cffc56d62ecb629900026402633ae9160df93a8766"
-dependencies = [
- "nom",
-]
-
-[[package]]
 name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -407,7 +375,44 @@ dependencies = [
  "env_logger",
  "ff",
  "halo2_proofs",
- "halo2aggregator-s",
+ "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4)",
+ "hex",
+ "lazy_static",
+ "log",
+ "lru",
+ "md5",
+ "num",
+ "num-bigint",
+ "num-derive",
+ "num-integer",
+ "num-traits",
+ "quote",
+ "rand",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sha3",
+ "strum",
+ "strum_macros",
+ "uuid",
+ "wabt",
+ "wast",
+]
+
+[[package]]
+name = "circuits-batcher"
+version = "0.1.0"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=stable-shuffle-1.0#904a0c1b03027b6cf256d9ccd44d8eb5abbac69a"
+dependencies = [
+ "anyhow",
+ "ark-std",
+ "bitvec",
+ "clap",
+ "downcast-rs",
+ "env_logger",
+ "ff",
+ "halo2_proofs",
+ "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4)",
  "hex",
  "lazy_static",
  "log",
@@ -430,17 +435,6 @@ dependencies = [
  "wabt",
  "wast",
  "zkwasm-prover",
-]
-
-[[package]]
-name = "clang-sys"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67523a3b4be3ce1989d607a828d036249522dd9c1c8de7f4dd2dae43a37369d1"
-dependencies = [
- "glob 0.3.1",
- "libc",
- "libloading",
 ]
 
 [[package]]
@@ -1175,14 +1169,14 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "1.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4#2ce6522fce52938ec7d28c7c1510be4dd85e5be2"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.2#f699aac4e726b7c27936741846975a5c199fce5a"
 dependencies = [
  "ark-ff",
  "ark-std",
  "blake2b_simd",
  "ff",
  "halo2_proofs",
- "halo2ecc-s",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.2)",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1194,6 +1188,43 @@ dependencies = [
  "sha2",
  "sha3",
  "tera",
+]
+
+[[package]]
+name = "halo2aggregator-s"
+version = "1.1.0"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4#2ce6522fce52938ec7d28c7c1510be4dd85e5be2"
+dependencies = [
+ "ark-ff",
+ "ark-std",
+ "blake2b_simd",
+ "ff",
+ "halo2_proofs",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4)",
+ "lazy_static",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "poseidon",
+ "rand_core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sha3",
+ "tera",
+]
+
+[[package]]
+name = "halo2ecc-s"
+version = "0.3.2"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.2#15b3baefac2f950e448ff1dca7c8562bf10ba8a0"
+dependencies = [
+ "ark-std",
+ "halo2_proofs",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rayon",
 ]
 
 [[package]]
@@ -1262,15 +1293,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "home"
-version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
-dependencies = [
- "windows-sys 0.52.0",
-]
-
-[[package]]
 name = "hostname"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1317,34 +1339,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "icicle-bn254"
-version = "1.7.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.7.0#1abd2ef9c9b4e387ded2333b18e22e95d90f6653"
-dependencies = [
- "cmake",
- "icicle-core",
- "icicle-cuda-runtime",
-]
-
-[[package]]
-name = "icicle-core"
-version = "1.7.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.7.0#1abd2ef9c9b4e387ded2333b18e22e95d90f6653"
-dependencies = [
- "icicle-cuda-runtime",
- "rayon",
-]
-
-[[package]]
-name = "icicle-cuda-runtime"
-version = "1.7.0"
-source = "git+https://github.com/ingonyama-zk/icicle.git?tag=v1.7.0#1abd2ef9c9b4e387ded2333b18e22e95d90f6653"
-dependencies = [
- "bindgen",
- "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -1500,12 +1494,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
-name = "lazycell"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
-
-[[package]]
 name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1516,16 +1504,6 @@ name = "libc"
 version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
-
-[[package]]
-name = "libloading"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
-dependencies = [
- "cfg-if 1.0.0",
- "windows-targets 0.52.4",
-]
 
 [[package]]
 name = "libm"
@@ -1641,12 +1619,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
-name = "minimal-lexical"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
 name = "miniz_oxide"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1711,16 +1683,6 @@ dependencies = [
  "typed-builder",
  "uuid",
  "webpki-roots",
-]
-
-[[package]]
-name = "nom"
-version = "7.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
-dependencies = [
- "memchr",
- "minimal-lexical",
 ]
 
 [[package]]
@@ -2061,16 +2023,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
-name = "prettyplease"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a41cf62165e97c7f814d2221421dbb9afcbcdb0a88068e5ea206e19951c2cbb5"
-dependencies = [
- "proc-macro2",
- "syn 2.0.52",
-]
-
-[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2296,12 +2248,6 @@ name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
-
-[[package]]
-name = "rustc-hash"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc_version"
@@ -2539,12 +2485,6 @@ dependencies = [
  "digest",
  "keccak",
 ]
-
-[[package]]
-name = "shlex"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "signal-hook-registry"
@@ -3231,18 +3171,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
 
 [[package]]
-name = "which"
-version = "4.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87ba24419a2078cd2b0f2ede2691b6c66d8e47836da3b6db8265ebad47afbfc7"
-dependencies = [
- "either",
- "home",
- "once_cell",
- "rustix",
-]
-
-[[package]]
 name = "widestring"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3508,13 +3436,14 @@ dependencies = [
  "anyhow",
  "bincode",
  "cfg-if 1.0.0",
- "circuits-batcher",
+ "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=stable-shuffle-1.0)",
  "clap",
  "console",
  "delphinus-host",
  "delphinus-zkwasm",
  "env_logger",
  "halo2_proofs",
+ "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.2)",
  "hex",
  "indicatif",
  "log",
@@ -3535,11 +3464,11 @@ dependencies = [
  "anyhow",
  "ark-std",
  "cfg-if 1.0.0",
- "circuits-batcher",
+ "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.7)",
  "clap",
  "ff",
  "halo2_proofs",
- "halo2ecc-s",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4)",
  "hex",
  "itertools",
  "lazy_static",
@@ -3562,15 +3491,12 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=oogl/dev-icicle-1.7.0#a8eff31be9926127bd7b23bd9fc6c9743883f85e"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=oogl/dev-msm#87c03e793987c65af8d2888fd67fa7eb470bd99a"
 dependencies = [
  "ark-std",
  "cc",
  "cuda-runtime-sys",
  "halo2_proofs",
- "icicle-bn254",
- "icicle-core",
- "icicle-cuda-runtime",
  "lazy_static",
  "libc",
  "rand",
