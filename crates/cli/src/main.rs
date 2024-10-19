@@ -17,6 +17,7 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
 use args::HostMode;
 use config::Config;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::zkwasm_host_circuits::host::db::MongoDB;
 use file_backend::FileBackendBuilder;
 use names::name_of_config;
 use specs::args::parse_args;
@@ -86,7 +87,7 @@ fn main() -> Result<()> {
                     private_inputs,
                     context_inputs,
                     indexed_witness: Rc::new(RefCell::new(HashMap::default())),
-                    tree_db: None,
+                    tree_db: Some(Rc::new(RefCell::new(MongoDB::new([0; 32], None)))),
                 },
                 arg.running_arg.context_output,
                 arg.instruction_limit,
@@ -123,7 +124,7 @@ fn main() -> Result<()> {
                         private_inputs,
                         context_inputs,
                         indexed_witness: Rc::new(RefCell::new(HashMap::default())),
-                        tree_db: None,
+                        tree_db: Some(Rc::new(RefCell::new(MongoDB::new([0; 32], None)))),
                     },
                     arg.running_arg.context_output,
                     arg.mock_test,
@@ -144,7 +145,7 @@ fn main() -> Result<()> {
                         private_inputs,
                         context_inputs,
                         indexed_witness: Rc::new(RefCell::new(HashMap::default())),
-                        tree_db: None,
+                        tree_db: Some(Rc::new(RefCell::new(MongoDB::new([0; 32], None)))),
                     },
                     arg.running_arg.context_output,
                     arg.mock_test,
