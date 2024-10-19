@@ -1,32 +1,32 @@
 #![deny(warnings)]
 
-pub mod host;
-use num_traits::FromPrimitive;
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use delphinus_zkwasm::foreign::context::runtime::register_context_foreign;
 use delphinus_zkwasm::foreign::log_helper::register_log_foreign;
 use delphinus_zkwasm::foreign::require_helper::register_require_foreign;
 use delphinus_zkwasm::foreign::wasm_input_helper::runtime::register_wasm_input_foreign;
 use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
-
 use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+use delphinus_zkwasm::runtime::monitor::plugins::table::transaction::TransactionId;
 use delphinus_zkwasm::runtime::monitor::plugins::table::Command;
 use delphinus_zkwasm::runtime::monitor::plugins::table::Event;
 use delphinus_zkwasm::runtime::monitor::plugins::table::FlushStrategy;
-use halo2_proofs::pairing::bn256::Fr;
+use host::ecc_helper::jubjub::JubJubFlushStrategy;
+use host::hash_helper::poseidon::PoseidonFlushStrategy;
+use host::merkle_helper::MerkleFlushStrategy;
+use num_traits::FromPrimitive;
 use serde::Deserialize;
 use serde::Serialize;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use zkwasm_host_circuits::circuits::babyjub::AltJubChip;
-use zkwasm_host_circuits::circuits::host::HostOpSelector;
-use zkwasm_host_circuits::circuits::merkle::MerkleChip;
-use zkwasm_host_circuits::circuits::poseidon::PoseidonChip;
+use std::rc::Rc;
 use zkwasm_host_circuits::host::db::TreeDB;
 use zkwasm_host_circuits::host::ForeignInst;
 use zkwasm_host_circuits::proof::OpType;
+
+pub mod host;
+
+// TODO: move into zkwasm-host-circuits repo
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HostEnvConfig {
@@ -90,6 +90,42 @@ impl GroupedForeign for ForeignInst {
     }
 }
 
+trait GroupedForeignPlugin {
+    fn new_plugin_flush_strategy(&self, k: u32) -> Box<dyn PluginFlushStrategy>;
+}
+
+impl GroupedForeignPlugin for OpType {
+    fn new_plugin_flush_strategy(&self, k: u32) -> Box<dyn PluginFlushStrategy> {
+        match self {
+            OpType::POSEIDONHASH => Box::new(PoseidonFlushStrategy::new(k)),
+            OpType::MERKLE => Box::new(MerkleFlushStrategy::new(k)),
+            OpType::JUBJUBSUM => Box::new(JubJubFlushStrategy::new(k)),
+            _ => Box::new(TrivialPluginFlushStrategy {}),
+        }
+    }
+}
+
+trait PluginFlushStrategy {
+    fn notify(&mut self, op: &ForeignInst, value: Option<u64>) -> Vec<Command>;
+    fn reset(&mut self);
+
+    fn maximal_group(&self) -> Option<usize>;
+}
+
+struct TrivialPluginFlushStrategy {}
+
+impl PluginFlushStrategy for TrivialPluginFlushStrategy {
+    fn notify(&mut self, _op: &ForeignInst, _value: Option<u64>) -> Vec<Command> {
+        vec![Command::Noop]
+    }
+
+    fn reset(&mut self) {}
+
+    fn maximal_group(&self) -> Option<usize> {
+        None
+    }
+}
+
 impl StandardHostEnvBuilder {
     pub fn new(k: u32) -> Self {
         Self {
@@ -108,69 +144,60 @@ impl StandardHostEnvBuilder {
 #[derive(Default)]
 struct StandardHostEnvFlushStrategy {
     k: u32,
-    ops: HashMap<usize, (usize, usize)>,
-}
-
-trait OpTypeFlushHelper {
-    fn get_group_size(&self) -> usize;
-    fn get_max_bound(&self, k: usize) -> usize;
-}
-
-impl OpTypeFlushHelper for OpType {
-    fn get_group_size(&self) -> usize {
-        match self {
-            OpType::MERKLE => 1 + 4 + 4 + 4, // address + set_root + get/set + get_root
-            OpType::JUBJUBSUM => 1 + 4 + 8 + 8, // new + scalar + point + result point
-            OpType::POSEIDONHASH => 1 + 4 * 8 + 4, // new + push + result
-            _ => unreachable!(),
-        }
-    }
-
-    fn get_max_bound(&self, k: usize) -> usize {
-        match self {
-            OpType::MERKLE => MerkleChip::<Fr, MERKLE_TREE_HEIGHT>::max_rounds(k),
-            OpType::JUBJUBSUM => AltJubChip::<Fr>::max_rounds(k),
-            OpType::POSEIDONHASH => PoseidonChip::max_rounds(k),
-            _ => unreachable!(),
-        }
-    }
+    ops: HashMap<usize, Box<dyn PluginFlushStrategy>>,
 }
 
 impl FlushStrategy for StandardHostEnvFlushStrategy {
-    fn notify(&mut self, op: Event) -> Command {
+    fn notify(&mut self, op: Event) -> Vec<Command> {
         match op {
-            Event::HostCall(op) => {
-                let op_type = ForeignInst::from_usize(op).unwrap().get_optype();
-                if let Some(optype) = op_type {
-                    // cargo clippy false positive
-                    #[allow(clippy::redundant_clone)]
-                    let (count, total) = self.ops.entry(optype.clone() as usize).or_insert((0, 0));
-
-                    *count += 1;
-
-                    if *count == 1 {
-                        Command::Start(optype as usize)
-                    } else if *count == optype.get_group_size() {
-                        *total += 1;
-                        *count = 0;
-
-                        if *total >= optype.get_max_bound(self.k as usize) {
-                            Command::CommitAndAbort(optype as usize)
-                        } else {
-                            Command::Commit(optype as usize)
-                        }
-                    } else {
-                        Command::Noop
-                    }
-                } else {
-                    Command::Noop
+            Event::HostCall(op, value) => {
+                let inst = ForeignInst::from_usize(op);
+                if inst.is_none() {
+                    return vec![Command::Noop];
                 }
+
+                let inst = inst.unwrap();
+                let op_type = inst.get_optype();
+                if op_type.is_none() {
+                    return vec![Command::Noop];
+                }
+
+                let op_type = op_type.unwrap();
+                let plugin = self
+                    .ops
+                    .entry(op_type.clone() as usize)
+                    .or_insert_with(|| op_type.new_plugin_flush_strategy(self.k));
+
+                plugin.notify(&inst, value)
             }
-            Event::Reset => {
-                self.ops.clear();
-                Command::Noop
+            Event::Reset() => {
+                for (_, plugin) in self.ops.iter_mut() {
+                    plugin.reset();
+                }
+
+                vec![Command::Noop]
             }
         }
+    }
+
+    fn maximal_group(&self, transaction: TransactionId) -> Option<usize> {
+        // FIXME: add usize to zkwasm-host-circuits repo
+        fn optype_from_usize(index: usize) -> OpType {
+            match index {
+                0 => OpType::BLS381PAIR,
+                1 => OpType::BLS381SUM,
+                2 => OpType::BN256PAIR,
+                3 => OpType::BN256SUM,
+                4 => OpType::POSEIDONHASH,
+                5 => OpType::KECCAKHASH,
+                6 => OpType::MERKLE,
+                7 => OpType::JUBJUBSUM,
+                _ => unreachable!(),
+            }
+        }
+        optype_from_usize(transaction)
+            .new_plugin_flush_strategy(self.k)
+            .maximal_group()
     }
 }
 
