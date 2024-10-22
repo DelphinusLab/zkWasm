@@ -365,43 +365,6 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.7#9f9c288baf027d5306f8f320c98022548fc6ea81"
-dependencies = [
- "anyhow",
- "ark-std",
- "bitvec",
- "clap",
- "downcast-rs",
- "env_logger",
- "ff",
- "halo2_proofs",
- "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4)",
- "hex",
- "lazy_static",
- "log",
- "lru",
- "md5",
- "num",
- "num-bigint",
- "num-derive",
- "num-integer",
- "num-traits",
- "quote",
- "rand",
- "serde",
- "serde_json",
- "sha2",
- "sha3",
- "strum",
- "strum_macros",
- "uuid",
- "wabt",
- "wast",
-]
-
-[[package]]
-name = "circuits-batcher"
-version = "0.1.0"
 source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=stable-shuffle-1.0#904a0c1b03027b6cf256d9ccd44d8eb5abbac69a"
 dependencies = [
  "anyhow",
@@ -3436,7 +3399,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "cfg-if 1.0.0",
- "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=stable-shuffle-1.0)",
+ "circuits-batcher",
  "clap",
  "console",
  "delphinus-host",
@@ -3459,12 +3422,12 @@ dependencies = [
 [[package]]
 name = "zkwasm-host-circuits"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#35eb3beef3a98d6a826a06692421ba17bc9930bb"
+source = "git+https://github.com/DelphinusLab/zkWasm-host-circuits.git?branch=host-op-1.8#8eb67f65fa1f6b583a51f0f538a5f6034f71fe5f"
 dependencies = [
  "anyhow",
  "ark-std",
  "cfg-if 1.0.0",
- "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.7)",
+ "circuits-batcher",
  "clap",
  "ff",
  "halo2_proofs",
