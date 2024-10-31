@@ -375,7 +375,7 @@ dependencies = [
  "env_logger",
  "ff",
  "halo2_proofs",
- "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4)",
+ "halo2aggregator-s",
  "hex",
  "lazy_static",
  "log",
@@ -1132,30 +1132,6 @@ dependencies = [
 [[package]]
 name = "halo2aggregator-s"
 version = "1.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.2#f699aac4e726b7c27936741846975a5c199fce5a"
-dependencies = [
- "ark-ff",
- "ark-std",
- "blake2b_simd",
- "ff",
- "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.2)",
- "lazy_static",
- "num-bigint",
- "num-integer",
- "num-traits",
- "poseidon",
- "rand_core",
- "serde",
- "serde_json",
- "sha2",
- "sha3",
- "tera",
-]
-
-[[package]]
-name = "halo2aggregator-s"
-version = "1.1.0"
 source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4#2ce6522fce52938ec7d28c7c1510be4dd85e5be2"
 dependencies = [
  "ark-ff",
@@ -1163,7 +1139,7 @@ dependencies = [
  "blake2b_simd",
  "ff",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4)",
+ "halo2ecc-s",
  "lazy_static",
  "num-bigint",
  "num-integer",
@@ -1175,19 +1151,6 @@ dependencies = [
  "sha2",
  "sha3",
  "tera",
-]
-
-[[package]]
-name = "halo2ecc-s"
-version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.2#15b3baefac2f950e448ff1dca7c8562bf10ba8a0"
-dependencies = [
- "ark-std",
- "halo2_proofs",
- "num-bigint",
- "num-integer",
- "num-traits",
- "rayon",
 ]
 
 [[package]]
@@ -3406,7 +3369,7 @@ dependencies = [
  "delphinus-zkwasm",
  "env_logger",
  "halo2_proofs",
- "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.2)",
+ "halo2aggregator-s",
  "hex",
  "indicatif",
  "log",
@@ -3431,7 +3394,7 @@ dependencies = [
  "clap",
  "ff",
  "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4)",
+ "halo2ecc-s",
  "hex",
  "itertools",
  "lazy_static",

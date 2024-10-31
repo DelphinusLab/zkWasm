@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.9.3"
-halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", tag="on-prove-pairing-0.6.2" }
+halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", tag="on-prove-pairing-0.6.4" }
 log = "0.4.17"
 md5 = "0.7.0"
 sha2 = "0.10.6"
