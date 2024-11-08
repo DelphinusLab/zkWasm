@@ -79,6 +79,7 @@ pub(crate) struct Config {
 }
 
 impl Config {
+    #[cfg(debug_assertions)]
     fn image_consistent_check(&self, wasm_image: &[u8]) -> anyhow::Result<()> {
         if let Some(expected_wasm_image_md5) = &self.wasm_image_md5 {
             let wasm_image_md5 = format!("{:x}", md5::compute(wasm_image));
@@ -94,6 +95,7 @@ impl Config {
         Ok(())
     }
 
+    #[cfg(debug_assertions)]
     fn params_consistent_check(&self, params: &[u8]) -> anyhow::Result<()> {
         let params_md5 = format!("{:x}", md5::compute(params));
 
@@ -146,6 +148,7 @@ impl Config {
         let mut buf = Vec::new();
         File::open(wasm_image)?.read_to_end(&mut buf)?;
 
+        #[cfg(debug_assertions)]
         self.image_consistent_check(&buf)?;
 
         ZkWasmLoader::parse_module(&buf)
@@ -157,6 +160,7 @@ impl Config {
         let mut buf = Vec::new();
         File::open(path)?.read_to_end(&mut buf)?;
 
+        #[cfg(debug_assertions)]
         self.params_consistent_check(&buf)?;
 
         let params = Params::<G1Affine>::read(&mut Cursor::new(&mut buf))?;
@@ -167,18 +171,21 @@ impl Config {
     fn read_circuit_data(
         &self,
         path: &PathBuf,
-        expected_md5: &str,
+        _expected_md5: &str,
     ) -> anyhow::Result<CircuitData<G1Affine>> {
-        let mut buf = Vec::new();
-        File::open(path)?.read_to_end(&mut buf)?;
+        #[cfg(debug_assertions)]
+        {
+            let mut buf = Vec::new();
+            File::open(path)?.read_to_end(&mut buf)?;
 
-        let circuit_data_md5 = format!("{:x}", md5::compute(&buf));
+            let circuit_data_md5 = format!("{:x}", md5::compute(&buf));
 
-        if circuit_data_md5 != expected_md5 {
-            anyhow::bail!(
-                "Circuit data is inconsistent with the one used to build the circuit. \
+            if circuit_data_md5 != _expected_md5 {
+                anyhow::bail!(
+                    "Circuit data is inconsistent with the one used to build the circuit. \
                     Maybe you have changed the circuit data after setup the circuit?",
-            );
+                );
+            }
         }
 
         let circuit_data = CircuitData::<G1Affine>::read(&mut File::open(path)?)?;
