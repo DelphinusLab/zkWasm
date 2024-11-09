@@ -27,6 +27,7 @@ console = "0.15.8"
 cfg-if.workspace = true
 circuits-batcher.workspace = true
 poseidon.workspace = true
+rayon.workspace = true
 
 [features]
 default = []

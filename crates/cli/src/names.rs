@@ -4,6 +4,11 @@ pub(crate) fn name_of_params(k: u32) -> String {
 }
 
 #[inline(always)]
+pub(crate) fn name_of_params_uncompressed(k: u32) -> String {
+    format!("K{}.params_uncompressed", k)
+}
+
+#[inline(always)]
 pub(crate) fn name_of_config(name: &str) -> String {
     format!("{}.zkwasm.config", name)
 }

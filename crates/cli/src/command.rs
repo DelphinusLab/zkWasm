@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use crate::args::Scheme;
 use crate::config::CircuitDataConfig;
 use crate::config::CircuitDataMd5;
+use crate::utils::WriteUncomressed;
 use crate::TRIVIAL_WASM;
 use clap::Args;
 use console::style;
@@ -32,6 +33,7 @@ use crate::config::Config;
 use crate::names::name_of_circuit_data;
 use crate::names::name_of_config;
 use crate::names::name_of_params;
+use crate::names::name_of_params_uncompressed;
 
 #[derive(Debug)]
 pub(crate) struct SetupArg {
@@ -136,6 +138,7 @@ impl SetupArg {
         let wasm_image_md5 = md5::compute(&wasm_image);
 
         let params_path = params_dir.join(name_of_params(self.k));
+        let params_uncompressed_path = params_dir.join(name_of_params_uncompressed(self.k));
         let params = {
             if params_path.exists() {
                 println!(
@@ -154,6 +157,7 @@ impl SetupArg {
                 let params = Params::<G1Affine>::unsafe_setup::<Bn256>(self.k);
 
                 params.write(&mut File::create(&params_path)?)?;
+                params.write_uncompressed(&mut File::create(&params_uncompressed_path)?)?;
                 params
             }
         };

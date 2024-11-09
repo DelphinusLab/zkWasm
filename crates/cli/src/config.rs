@@ -38,8 +38,10 @@ use crate::names::name_of_frame_table_slice;
 use crate::names::name_of_instance;
 use crate::names::name_of_loadinfo;
 use crate::names::name_of_params;
+use crate::names::name_of_params_uncompressed;
 use crate::names::name_of_transcript;
 use crate::names::name_of_witness;
+use crate::utils::WriteUncomressed;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct CircuitDataMd5 {
@@ -168,6 +170,17 @@ impl Config {
         Ok(params)
     }
 
+    fn read_params_uncompressed(&self, params_dir: &Path) -> anyhow::Result<Params<G1Affine>> {
+        let path = params_dir.join(name_of_params_uncompressed(self.k));
+
+        let mut buf = Vec::new();
+        File::open(path)?.read_to_end(&mut buf)?;
+
+        let params = Params::<G1Affine>::read_uncompressed(&mut Cursor::new(&mut buf))?;
+
+        Ok(params)
+    }
+
     fn read_circuit_data(
         &self,
         path: &PathBuf,
@@ -265,7 +278,7 @@ impl Config {
         let module = self.read_wasm_image(wasm_image)?;
 
         println!("{} Load params...", style("[2/8]").bold().dim(),);
-        let params = self.read_params(params_dir)?;
+        let params = self.read_params_uncompressed(params_dir)?;
 
         let env = env_builder.create_env(arg);
 
