@@ -42,6 +42,7 @@ use wasmi::Trap;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::compute_slice_capability;
+use crate::circuits::mtable::compute_memory_table_capacity;
 use crate::foreign::context::try_get_context_input_from_step_info;
 use crate::foreign::context::try_get_context_output_from_step_info;
 
@@ -127,7 +128,8 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
         phantom_regex: &[String],
         wasm_input: FuncRef,
     ) -> Self {
-        let capacity = compute_slice_capability(k);
+        let event_table_capacity = compute_slice_capability(k);
+        let memory_table_capacity = compute_memory_table_capacity(k);
 
         Self {
             host_function_desc,
@@ -147,7 +149,8 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
             context_output_table: vec![],
 
             host_transaction: HostTransaction::<B>::new(
-                capacity as usize,
+                event_table_capacity as usize,
+                memory_table_capacity,
                 slice_backend_builder,
                 flush_strategy,
             ),

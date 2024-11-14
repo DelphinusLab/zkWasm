@@ -16,10 +16,10 @@ use self::zkwasm_circuit::RESERVE_ROWS;
 
 pub(crate) mod cell;
 pub(crate) mod etable;
+pub(crate) mod mtable;
 
 mod bit_table;
 mod external_host_call_table;
-mod mtable;
 mod traits;
 
 #[cfg(feature = "continuation")]

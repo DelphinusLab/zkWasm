@@ -68,6 +68,11 @@ pub const VAR_COLUMNS: usize = 40;
 // Reserve (1 << 16) / 2 to allow u16 range checking based on shuffle with step 2.
 pub(crate) const RESERVE_ROWS: usize = 128 + (1 << 15);
 
+pub(crate) const BLINDING_FACTORS: usize = 10;
+pub(crate) fn maximal_available_rows(k: u32) -> usize {
+    (1 << k) - (BLINDING_FACTORS + 1 + RESERVE_ROWS)
+}
+
 #[derive(Default, Clone)]
 struct AssignedCells<F: FieldExt> {
     pre_image_table_cells: Arc<Mutex<Option<ImageTableLayouter<AssignedCell<F, F>>>>>,
@@ -217,6 +222,9 @@ macro_rules! impl_zkwasm_circuit {
 
                 assert_eq!(cols.count(), 0);
 
+                let blinding_factors = meta.blinding_factors();
+                assert_eq!(blinding_factors, BLINDING_FACTORS);
+
                 Self::Config {
                     shuffle_range_check_helper: (l_0, l_active, l_active_last),
                     rtable,
@@ -230,7 +238,7 @@ macro_rules! impl_zkwasm_circuit {
                     context_helper_table,
                     foreign_table_from_zero_index,
 
-                    blinding_factors: meta.blinding_factors(),
+                    blinding_factors,
                 }
             }
 
@@ -242,8 +250,7 @@ macro_rules! impl_zkwasm_circuit {
                 let timer = start_timer!(|| "Prepare assignment");
 
                 let l_last = (1 << self.k) - (config.blinding_factors + 1);
-                let max_available_rows =
-                    (1 << self.k) - (config.blinding_factors + 1 + RESERVE_ROWS);
+                let max_available_rows = maximal_available_rows(self.k);
                 debug!("max_available_rows: {:?}", max_available_rows);
 
                 let circuit_maximal_pages = compute_maximal_pages(self.k);
@@ -255,7 +262,7 @@ macro_rules! impl_zkwasm_circuit {
                 let rchip = RangeTableChip::new(config.rtable);
                 let image_chip = ImageTableChip::new(config.image_table);
                 let post_image_chip = PostImageTableChip::new(config.post_image_table);
-                let mchip = MemoryTableChip::new(config.mtable, max_available_rows);
+                let mchip = MemoryTableChip::new(config.mtable, self.k);
                 let frame_table_chip = JumpTableChip::new(config.frame_table, max_available_rows);
                 let echip = EventTableChip::new(
                     config.etable,
