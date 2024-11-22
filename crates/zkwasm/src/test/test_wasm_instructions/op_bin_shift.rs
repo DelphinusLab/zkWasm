@@ -1,10 +1,10 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_bin_shift_shl() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 12)
                 (i32.const 0)
                 (i32.shl)
@@ -42,14 +42,14 @@ fn test_bin_shift_shl() {
         )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
 fn test_bin_shift_shr_u() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 12)
                 (i32.const 0)
                 (i32.shr_u)
@@ -79,14 +79,14 @@ fn test_bin_shift_shr_u() {
         )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
 fn test_bin_shift_shr_s() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 12)
                 (i32.const 0)
                 (i32.shr_s)
@@ -144,14 +144,14 @@ fn test_bin_shift_shr_s() {
         )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
 fn test_bin_shift_rotl() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 12)
                 (i32.const 0)
                 (i32.rotl)
@@ -181,14 +181,14 @@ fn test_bin_shift_rotl() {
         )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
 fn test_bin_shift_rotr() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 12)
                 (i32.const 0)
                 (i32.rotr)
@@ -210,5 +210,5 @@ fn test_bin_shift_rotr() {
         )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

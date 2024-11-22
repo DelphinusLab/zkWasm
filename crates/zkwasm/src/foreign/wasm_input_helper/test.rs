@@ -7,8 +7,8 @@ mod tests {
         let textual_repr = r#" 
                 (module
                     (import "env" "wasm_input" (func $wasm_input (param i32) (result i64)))
-                    (export "zkwasm" (func $zkwasm))
-                    (func $zkwasm (; 1 ;)
+                    (export "zkmain" (func $zkmain))
+                    (func $zkmain (; 1 ;)
                         (call $wasm_input (i32.const 1))
                         (drop)
                     )
@@ -19,14 +19,7 @@ mod tests {
         let private_inputs = vec![];
         let wasm = wabt::wat2wasm(textual_repr).expect("failed to parse wat");
 
-        test_circuit_with_env(
-            18,
-            wasm,
-            "zkwasm".to_string(),
-            public_inputs,
-            private_inputs,
-        )
-        .unwrap();
+        test_circuit_with_env(18, wasm, public_inputs, private_inputs).unwrap();
     }
 
     #[test]
@@ -49,7 +42,7 @@ mod tests {
               i32.add)
             (memory (;0;) 2 2)
             (export "memory" (memory 0))
-            (export "zkwasm" (func 1)))
+            (export "zkmain" (func 1)))
         "#;
 
         let wasm = wabt::wat2wasm(textual_repr).expect("failed to parse wat");
@@ -57,13 +50,6 @@ mod tests {
         let private_inputs = vec![];
         let public_inputs = vec![1, 2];
 
-        test_circuit_with_env(
-            18,
-            wasm,
-            "zkwasm".to_string(),
-            public_inputs,
-            private_inputs,
-        )
-        .unwrap();
+        test_circuit_with_env(18, wasm, public_inputs, private_inputs).unwrap();
     }
 }

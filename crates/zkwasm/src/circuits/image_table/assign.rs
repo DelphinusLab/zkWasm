@@ -11,6 +11,7 @@ use specs::jtable::INHERITED_FRAME_TABLE_ENTRIES;
 use super::ImageTableChip;
 use crate::circuits::utils::image_table::ImageTableAssigner;
 use crate::circuits::utils::image_table::ImageTableLayouter;
+use crate::circuits::utils::image_table::INSTRUCTION_CAPABILITY;
 use crate::circuits::utils::Context;
 
 cfg_if::cfg_if! {
@@ -57,6 +58,17 @@ macro_rules! assign {
     }};
 }
 
+macro_rules! assign_fixed {
+    ($ctx:expr, $col: expr, $v: expr) => {{
+        let cell = $ctx
+            .region
+            .assign_fixed(|| "pre image table prefix", $col, $ctx.offset, || $v)
+            .unwrap();
+
+        Ok::<_, Error>(cell)
+    }};
+}
+
 impl<F: FieldExt> ImageTableChip<F> {
     pub(crate) fn assign(
         &self,
@@ -93,6 +105,23 @@ impl<F: FieldExt> ImageTableChip<F> {
                     Ok(cells.try_into().unwrap())
                 };
 
+                let f_two = F::one() + F::one();
+                let constant_handler = |base_offset| {
+                    let mut ctx = Context::new(region);
+                    ctx.offset = base_offset;
+
+                    let mut cells = Vec::with_capacity(INSTRUCTION_CAPABILITY);
+
+                    for entry in image_table.constants.iter() {
+                        assign_fixed!(ctx, self.config.opcode_prefix, Ok(F::one()))?;
+                        let cell = assign!(ctx, self.config.col, *entry)?;
+
+                        cells.push(cell);
+                    }
+
+                    Ok(cells.try_into().unwrap())
+                };
+
                 let instruction_handler = |base_offset| {
                     let mut ctx = Context::new(region);
                     ctx.offset = base_offset;
@@ -100,7 +129,10 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .instructions
                         .iter()
-                        .map(|entry| assign!(ctx, self.config.col, *entry))
+                        .map(|entry| {
+                            assign_fixed!(ctx, self.config.opcode_prefix, Ok(f_two))?;
+                            assign!(ctx, self.config.col, *entry)
+                        })
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -111,7 +143,10 @@ impl<F: FieldExt> ImageTableChip<F> {
                     image_table
                         .br_table_entires
                         .iter()
-                        .map(|entry| assign!(ctx, self.config.col, *entry))
+                        .map(|entry| {
+                            assign_fixed!(ctx, self.config.opcode_prefix, Ok(f_two))?;
+                            assign!(ctx, self.config.col, *entry)
+                        })
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -120,7 +155,10 @@ impl<F: FieldExt> ImageTableChip<F> {
                     ctx.offset = start_offset;
 
                     (start_offset..end_offset)
-                        .map(|_| assign!(ctx, self.config.col, F::zero()))
+                        .map(|_| {
+                            assign_fixed!(ctx, self.config.opcode_prefix, Ok(f_two))?;
+                            assign!(ctx, self.config.col, F::zero())
+                        })
                         .collect::<Result<Vec<_>, Error>>()
                 };
 
@@ -162,6 +200,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                 let result = image_table_assigner.exec(
                     initialization_state_handler,
                     inherited_frame_entries_handler,
+                    constant_handler,
                     instruction_handler,
                     br_table_handler,
                     padding_handler,
@@ -171,6 +210,7 @@ impl<F: FieldExt> ImageTableChip<F> {
                 Ok(ImageTableLayouter {
                     initialization_state: result.initialization_state,
                     inherited_frame_entries: result.inherited_frame_entries,
+                    constants: result.constants,
                     instructions: result.instructions,
                     br_table_entires: result.br_table_entires,
                     padding_entires: result.padding_entires,

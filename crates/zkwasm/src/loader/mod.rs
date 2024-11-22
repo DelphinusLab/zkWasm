@@ -41,8 +41,7 @@ pub struct ZkWasmLoader {
 
 impl ZkWasmLoader {
     pub fn parse_module(image: &Vec<u8>) -> Result<Module> {
-        fn precheck(_module: &Module) -> Result<()> {
-            #[allow(dead_code)]
+        fn precheck(module: &Module) -> Result<()> {
             fn check_zkmain_exists(module: &Module) -> Result<()> {
                 use parity_wasm::elements::Internal;
 
@@ -58,8 +57,7 @@ impl ZkWasmLoader {
                 }
             }
 
-            #[cfg(not(test))]
-            check_zkmain_exists(_module)?;
+            check_zkmain_exists(module)?;
             // TODO: check the signature of zkmain function.
             // TODO: check the relation between maximal pages and K.
             // TODO: check the instructions of phantom functions.
@@ -106,11 +104,6 @@ impl ZkWasmLoader {
         };
 
         Ok(loader)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn set_entry(&mut self, entry: String) {
-        self.entry = entry;
     }
 }
 

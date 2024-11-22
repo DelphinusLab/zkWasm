@@ -1,10 +1,10 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
@@ -14,20 +14,19 @@ use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
+use specs::encode::opcode::encode_memory_grow;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::step::StepInfo;
 
 pub struct MemoryGrowConfig<F: FieldExt> {
-    grow_size: AllocatedU64Cell<F>,
+    grow_size_arg: EventTableCommonArgsConfig<F>,
+
     result: AllocatedU64Cell<F>,
     success: AllocatedBitCell<F>,
     current_maximal_diff: AllocatedCommonRangeCell<F>,
 
-    memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_stack_write: AllocatedMemoryTableLookupWriteCell<F>,
 }
 
@@ -39,7 +38,13 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
         allocator: &mut EventTableCellAllocator<F>,
         constraint_builder: &mut ConstraintBuilder<F>,
     ) -> Box<dyn EventTableOpcodeConfig<F>> {
-        let grow_size = allocator.alloc_u64_cell();
+        let grow_size_arg = common_config.uniarg_configs[0].clone();
+        let grow_size = grow_size_arg.value_cell;
+        constraint_builder.push(
+            "memory grow: uniarg",
+            Box::new(move |meta| vec![grow_size_arg.is_i32_cell.expr(meta) - constant_from!(1)]),
+        );
+
         let result = allocator.alloc_u64_cell();
         let current_maximal_diff = allocator.alloc_common_range_cell();
 
@@ -76,34 +81,23 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
         let eid = common_config.eid_cell;
         let sp = common_config.sp_cell;
 
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_memory_grow stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| grow_size.expr(meta),
-            move |____| constant_from!(1),
-        );
-
+        let uniarg_configs = common_config.uniarg_configs.clone();
         let memory_table_lookup_stack_write = allocator.alloc_memory_table_lookup_write_cell(
             "op_memory_grow stack write",
             constraint_builder,
             eid,
             move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
+            move |meta| Self::sp_after_uniarg(sp, &uniarg_configs, meta),
             move |____| constant_from!(1),
             move |meta| result.expr(meta),
             move |____| constant_from!(1),
         );
 
         Box::new(MemoryGrowConfig {
-            grow_size,
+            grow_size_arg,
             result,
             success,
             current_maximal_diff,
-            memory_table_lookup_stack_read,
             memory_table_lookup_stack_write,
         })
     }
@@ -111,9 +105,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for MemoryGrowConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
     fn opcode(&self, _meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::MemoryGrow as u64) << OPCODE_CLASS_SHIFT)
-        ))
+        encode_memory_grow(UniArgEncode::Reserve)
     }
 
     fn assign(
@@ -123,10 +115,13 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
         entry: &EventTableEntryWithMemoryInfo,
     ) -> Result<(), Error> {
         match &entry.eentry.step_info {
-            StepInfo::MemoryGrow { grow_size, result } => {
+            StepInfo::MemoryGrow {
+                grow_size,
+                result,
+                uniarg,
+            } => {
                 let success = *result != -1;
 
-                self.grow_size.assign(ctx, *grow_size as u64)?;
                 self.result.assign(ctx, *result as u32 as u64)?;
                 self.success.assign_bool(ctx, success)?;
                 if success {
@@ -140,26 +135,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
                     )?;
                 }
 
-                self.memory_table_lookup_stack_read.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    *grow_size as u32 as u64,
-                )?;
-
-                self.memory_table_lookup_stack_write.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entires[1].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    *result as u32 as u64,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.grow_size_arg
+                    .assign(ctx, uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_stack_write
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 Ok(())
             }
@@ -177,6 +157,10 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for MemoryGrowConfig<F> {
     }
 
     fn allocated_memory_pages_diff(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(self.success.expr(meta) * self.grow_size.expr(meta))
+        Some(self.success.expr(meta) * self.grow_size_arg.value_cell.expr(meta))
+    }
+
+    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
+        Some(constant!(-F::one()))
     }
 }

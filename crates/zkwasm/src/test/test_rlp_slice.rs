@@ -1,12 +1,15 @@
 use crate::circuits::config::MIN_K;
-use crate::foreign::context::ContextOutput;
+use crate::loader::slice::Slices;
 use crate::loader::ZkWasmLoader;
 use crate::runtime::host::default_env::DefaultHostEnvBuilder;
 use crate::runtime::host::default_env::ExecutionArg;
-
+use crate::runtime::host::HostEnvBuilder;
+use crate::test::Fr;
+use crate::test::TableMonitor;
 use anyhow::Result;
-use halo2_proofs::pairing::bn256::Bn256;
 use specs::TraceBackend;
+
+const K: u32 = MIN_K;
 
 fn test_slices() -> Result<()> {
     let public_inputs = vec![133];
@@ -147,24 +150,25 @@ fn test_slices() -> Result<()> {
     ];
 
     let wasm = std::fs::read("wasm/rlp.wasm").unwrap();
+    let module = ZkWasmLoader::parse_module(&wasm)?;
 
-    let loader = ZkWasmLoader::<Bn256, _, DefaultHostEnvBuilder>::new(18, wasm, vec![])?;
-
-    let execution_result = loader.run(
+    let env = DefaultHostEnvBuilder.create_env(
+        K,
         ExecutionArg {
             public_inputs,
             private_inputs,
             context_inputs: vec![],
-            context_outputs: ContextOutput::default(),
         },
-        (),
-        false,
-        TraceBackend::Memory,
-    )?;
-    let instances = execution_result.public_inputs_and_outputs();
+    );
 
-    let slices = loader.slice(execution_result).into_iter();
-    slices.mock_test_all(MIN_K, instances)?;
+    let mut monitor = TableMonitor::new(K, &[], TraceBackend::Memory, &env);
+    let loader = ZkWasmLoader::new(K, env)?;
+
+    let runner = loader.compile(&module, &mut monitor)?;
+    let result = loader.run(runner, &mut monitor)?;
+
+    let slices: Slices<Fr> = Slices::new(K, monitor.into_tables(), None)?;
+    slices.mock_test_all(result.public_inputs_and_outputs())?;
 
     Ok(())
 }

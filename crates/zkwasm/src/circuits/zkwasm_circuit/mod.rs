@@ -61,12 +61,21 @@ use super::post_image_table::PostImageTableConfig;
 use super::LastSliceCircuit;
 use super::OngoingCircuit;
 
-pub const VAR_COLUMNS: usize = 40;
+pub const VAR_COLUMNS: usize = if cfg!(feature = "continuation") {
+    43
+} else {
+    44
+};
 
 // Reserve 128 rows(greater than step size of all tables) to keep usable rows away from
 //   blind rows and range checking rows.
 // Reserve (1 << 16) / 2 to allow u16 range checking based on shuffle with step 2.
 pub(crate) const RESERVE_ROWS: usize = 128 + (1 << 15);
+
+pub(crate) const BLINDING_FACTORS: usize = 10;
+pub(crate) fn maximal_available_rows(k: u32) -> usize {
+    (1 << k) - (BLINDING_FACTORS + 1 + RESERVE_ROWS)
+}
 
 #[derive(Default, Clone)]
 struct AssignedCells<F: FieldExt> {
@@ -217,6 +226,9 @@ macro_rules! impl_zkwasm_circuit {
 
                 assert_eq!(cols.count(), 0);
 
+                let blinding_factors = meta.blinding_factors();
+                assert_eq!(blinding_factors, BLINDING_FACTORS);
+
                 Self::Config {
                     shuffle_range_check_helper: (l_0, l_active, l_active_last),
                     rtable,
@@ -230,7 +242,7 @@ macro_rules! impl_zkwasm_circuit {
                     context_helper_table,
                     foreign_table_from_zero_index,
 
-                    blinding_factors: meta.blinding_factors(),
+                    blinding_factors,
                 }
             }
 
@@ -242,8 +254,7 @@ macro_rules! impl_zkwasm_circuit {
                 let timer = start_timer!(|| "Prepare assignment");
 
                 let l_last = (1 << self.k) - (config.blinding_factors + 1);
-                let max_available_rows =
-                    (1 << self.k) - (config.blinding_factors + 1 + RESERVE_ROWS);
+                let max_available_rows = maximal_available_rows(self.k);
                 debug!("max_available_rows: {:?}", max_available_rows);
 
                 let circuit_maximal_pages = compute_maximal_pages(self.k);
@@ -255,7 +266,7 @@ macro_rules! impl_zkwasm_circuit {
                 let rchip = RangeTableChip::new(config.rtable);
                 let image_chip = ImageTableChip::new(config.image_table);
                 let post_image_chip = PostImageTableChip::new(config.post_image_table);
-                let mchip = MemoryTableChip::new(config.mtable, max_available_rows);
+                let mchip = MemoryTableChip::new(config.mtable, self.k);
                 let frame_table_chip = JumpTableChip::new(config.frame_table, max_available_rows);
                 let echip = EventTableChip::new(
                     config.etable,
@@ -576,6 +587,14 @@ macro_rules! impl_zkwasm_circuit {
 
                         // 6. fixed part(instructions, br_tables, padding) within pre image chip and post image chip
                         if let Some((post_image_table_cells, _)) = post_image_table_cells.as_ref() {
+                            for (l, r) in pre_image_table_cells
+                                .constants
+                                .iter()
+                                .zip(post_image_table_cells.constants.iter())
+                            {
+                                region.constrain_equal(l.cell(), r.cell())?;
+                            }
+
                             for (l, r) in pre_image_table_cells
                                 .instructions
                                 .iter()

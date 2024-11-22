@@ -6,24 +6,18 @@ use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
 use crate::circuits::jtable::expression::JtableLookupEntryEncode;
 use crate::circuits::jtable::JumpTableConfig;
-use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
-use num_bigint::BigUint;
 use num_bigint::ToBigUint;
 use specs::encode::frame_table::encode_frame_table_entry;
+use specs::encode::opcode::encode_return;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::step::StepInfo;
@@ -119,13 +113,11 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for ReturnConfigBuilder {
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Return as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.drop.expr(meta)
-            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + self.keep.expr(meta)
-                * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
-            + self.is_i32.expr(meta)
+        encode_return(
+            self.drop.expr(meta),
+            self.keep.expr(meta),
+            self.is_i32.expr(meta),
+        )
     }
 
     fn assign(
@@ -154,26 +146,11 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for ReturnConfig<F> {
                         .assign(ctx, (VarType::from(keep[0]) as u64).into())?;
                     self.value.assign(ctx, keep_values[0])?;
 
-                    self.memory_table_lookup_stack_read.assign(
-                        ctx,
-                        entry.memory_rw_entires[0].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[0].end_eid,
-                        step.current.sp + 1,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
-
-                    self.memory_table_lookup_stack_write.assign(
-                        ctx,
-                        step.current.eid,
-                        entry.memory_rw_entires[1].end_eid,
-                        step.current.sp + drop + 1,
-                        LocationType::Stack,
-                        VarType::from(keep[0]) == VarType::I32,
-                        keep_values[0],
-                    )?;
+                    let mut memory_rw_entries = entry.memory_rw_entries.iter();
+                    self.memory_table_lookup_stack_read
+                        .assign_with_memory_entry(ctx, &mut memory_rw_entries)?;
+                    self.memory_table_lookup_stack_write
+                        .assign_with_memory_entry(ctx, &mut memory_rw_entries)?;
                 }
 
                 self.frame_table_lookup.cell.assign_bn(

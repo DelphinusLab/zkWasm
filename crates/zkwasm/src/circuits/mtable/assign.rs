@@ -372,6 +372,7 @@ impl<F: FieldExt> MemoryTableChip<F> {
                 let mut ctx = Context::new(region);
 
                 debug!("size of memory writing table: {}", mtable.0.len());
+                debug!("maximal available rows: {}", self.maximal_available_rows);
                 assert!(
                     mtable.0.len() * (MEMORY_TABLE_ENTRY_ROWS as usize)
                         < self.maximal_available_rows

@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -14,7 +15,6 @@ use crate::circuits::utils::bn_to_field;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use crate::constant_from_bn;
 use halo2_proofs::arithmetic::FieldExt;
@@ -22,13 +22,10 @@ use halo2_proofs::plonk::Error;
 use halo2_proofs::plonk::Expression;
 use halo2_proofs::plonk::VirtualCells;
 use num_bigint::BigUint;
+use specs::encode::opcode::encode_store;
+use specs::encode::opcode::UniArgEncode;
 use specs::etable::EventTableEntry;
-use specs::itable::OpcodeClass;
-use specs::itable::OPCODE_ARG0_SHIFT;
-use specs::itable::OPCODE_ARG1_SHIFT;
-use specs::itable::OPCODE_CLASS_SHIFT;
 use specs::mtable::LocationType;
-use specs::mtable::VarType;
 use specs::step::StepInfo;
 
 pub struct StoreConfig<F: FieldExt> {
@@ -65,10 +62,10 @@ pub struct StoreConfig<F: FieldExt> {
     is_two_bytes: AllocatedBitCell<F>,
     is_four_bytes: AllocatedBitCell<F>,
     is_eight_bytes: AllocatedBitCell<F>,
-    is_i32: AllocatedBitCell<F>,
 
-    memory_table_lookup_stack_read_pos: AllocatedMemoryTableLookupReadCell<F>,
-    memory_table_lookup_stack_read_val: AllocatedMemoryTableLookupReadCell<F>,
+    val_arg: EventTableCommonArgsConfig<F>,
+    pos_arg: EventTableCommonArgsConfig<F>,
+
     memory_table_lookup_heap_read1: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_read2: AllocatedMemoryTableLookupReadCell<F>,
     memory_table_lookup_heap_write1: AllocatedMemoryTableLookupWriteCell<F>,
@@ -117,32 +114,21 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
         let is_two_bytes = allocator.alloc_bit_cell();
         let is_four_bytes = allocator.alloc_bit_cell();
         let is_eight_bytes = allocator.alloc_bit_cell();
-        let is_i32 = allocator.alloc_bit_cell();
 
-        let sp = common_config.sp_cell;
         let eid = common_config.eid_cell;
 
-        let memory_table_lookup_stack_read_val = allocator.alloc_memory_table_lookup_read_cell(
-            "store read data",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack as u64),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |meta| is_i32.expr(meta),
-            move |meta| store_value.expr(meta),
-            move |____| constant_from!(1),
-        );
+        let val_arg = common_config.uniarg_configs[0].clone();
+        let pos_arg = common_config.uniarg_configs[1].clone();
 
-        let memory_table_lookup_stack_read_pos = allocator
-            .alloc_memory_table_lookup_read_cell_with_value(
-                "store read pos",
-                constraint_builder,
-                eid,
-                move |____| constant_from!(LocationType::Stack as u64),
-                move |meta| sp.expr(meta) + constant_from!(2),
-                move |____| constant_from!(1),
-                move |____| constant_from!(1),
-            );
+        constraint_builder.push(
+            "op_store: uniarg",
+            Box::new(move |meta| {
+                vec![
+                    pos_arg.is_i32_cell.expr(meta) - constant_from!(1),
+                    store_value.expr(meta) - val_arg.value_cell.expr(meta),
+                ]
+            }),
+        );
 
         let memory_table_lookup_heap_read1 = allocator
             .alloc_memory_table_lookup_read_cell_with_value(
@@ -188,7 +174,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
                 move |meta| is_cross_block.expr(meta),
             );
 
-        let store_base = memory_table_lookup_stack_read_pos.value_cell;
+        let store_base = pos_arg.value_cell;
 
         let store_value_in_heap1 = memory_table_lookup_heap_write1.value_cell;
         let store_value_in_heap2 = memory_table_lookup_heap_write2.value_cell;
@@ -415,9 +401,8 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for StoreConfigBuilder {
             is_two_bytes,
             is_four_bytes,
             is_eight_bytes,
-            is_i32,
-            memory_table_lookup_stack_read_pos,
-            memory_table_lookup_stack_read_val,
+            pos_arg,
+            val_arg,
             memory_table_lookup_heap_read1,
             memory_table_lookup_heap_read2,
             memory_table_lookup_heap_write1,
@@ -439,12 +424,12 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
             + self.is_two_bytes.expr(meta) * constant_from!(1)
             + constant_from!(1);
 
-        constant!(bn_to_field(
-            &(BigUint::from(OpcodeClass::Store as u64) << OPCODE_CLASS_SHIFT)
-        )) + self.is_i32.expr(meta)
-            * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG0_SHIFT)))
-            + store_size * constant!(bn_to_field(&(BigUint::from(1u64) << OPCODE_ARG1_SHIFT)))
-            + self.opcode_store_offset.expr(meta)
+        encode_store(
+            self.val_arg.is_i32_cell.expr(meta),
+            store_size,
+            self.opcode_store_offset.expr(meta),
+            UniArgEncode::Reserve,
+        )
     }
 
     fn assign(
@@ -455,16 +440,15 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
     ) -> Result<(), Error> {
         match entry.eentry.step_info {
             StepInfo::Store {
-                vtype,
                 store_size,
                 offset,
-                raw_address,
                 effective_address,
                 pre_block_value1,
-                updated_block_value1,
                 pre_block_value2,
-                updated_block_value2,
                 value,
+                val_uniarg,
+                pos_uniarg,
+                ..
             } => {
                 let len = store_size.byte_size() as u32;
 
@@ -544,7 +528,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                 self.is_four_bytes.assign_bool(ctx, len == 4)?;
                 self.is_eight_bytes.assign_bool(ctx, len == 8)?;
                 self.bytes.assign(ctx, (len as u64).into())?;
-                self.is_i32.assign_bool(ctx, vtype == VarType::I32)?;
 
                 self.address_within_allocated_pages_helper.assign_u32(
                     ctx,
@@ -552,79 +535,24 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for StoreConfig<F> {
                         - (block_start_index + is_cross_block as u32 + 1),
                 )?;
 
-                self.memory_table_lookup_stack_read_val.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    vtype == VarType::I32,
-                    value,
-                )?;
-
-                self.memory_table_lookup_stack_read_pos.assign(
-                    ctx,
-                    entry.memory_rw_entires[1].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[1].end_eid,
-                    step.current.sp + 2,
-                    LocationType::Stack,
-                    true,
-                    raw_address as u64,
-                )?;
-
-                self.memory_table_lookup_heap_read1.assign(
-                    ctx,
-                    entry.memory_rw_entires[2].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[2].end_eid,
-                    effective_address >> 3,
-                    LocationType::Heap,
-                    false,
-                    pre_block_value1,
-                )?;
-
-                self.memory_table_lookup_heap_write1.assign(
-                    ctx,
-                    step.current.eid,
-                    entry.memory_rw_entires[3].end_eid,
-                    effective_address >> 3,
-                    LocationType::Heap,
-                    false,
-                    updated_block_value1,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.val_arg.assign(ctx, &val_uniarg, &mut memory_entries)?;
+                self.pos_arg.assign(ctx, &pos_uniarg, &mut memory_entries)?;
+                self.memory_table_lookup_heap_read1
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                self.memory_table_lookup_heap_write1
+                    .assign_with_memory_entry(ctx, &mut memory_entries)?;
 
                 if is_cross_block {
-                    self.memory_table_lookup_heap_read2.assign(
-                        ctx,
-                        entry.memory_rw_entires[4].start_eid,
-                        step.current.eid,
-                        entry.memory_rw_entires[4].end_eid,
-                        (effective_address >> 3) + 1,
-                        LocationType::Heap,
-                        false,
-                        pre_block_value2,
-                    )?;
-
-                    self.memory_table_lookup_heap_write2.assign(
-                        ctx,
-                        step.current.eid,
-                        entry.memory_rw_entires[5].end_eid,
-                        (effective_address >> 3) + 1,
-                        LocationType::Heap,
-                        false,
-                        updated_block_value2,
-                    )?;
+                    self.memory_table_lookup_heap_read2
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
+                    self.memory_table_lookup_heap_write2
+                        .assign_with_memory_entry(ctx, &mut memory_entries)?;
                 }
                 Ok(())
             }
             _ => unreachable!(),
         }
-    }
-
-    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant_from!(2))
     }
 
     fn mops(&self, meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

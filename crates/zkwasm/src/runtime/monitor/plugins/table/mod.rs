@@ -5,6 +5,7 @@ use parity_wasm::elements::External;
 use specs::brtable::ElemEntry;
 use specs::brtable::ElemTable;
 use specs::configure_table::ConfigureTable;
+use specs::configure_table::WASM_32_MAXIMAL_PAGES_DEFAULT;
 use specs::etable::EventTableEntry;
 use specs::host_function::HostFunctionDesc;
 use specs::host_function::HostPlugin;
@@ -12,6 +13,7 @@ use specs::imtable::InitMemoryTable;
 use specs::imtable::InitMemoryTableEntry;
 use specs::itable::InstructionTable;
 use specs::itable::InstructionTableInternal;
+use specs::itable::UniArg;
 use specs::mtable::LocationType;
 use specs::mtable::VarType;
 use specs::slice_backend::SliceBackendBuilder;
@@ -42,6 +44,7 @@ use wasmi::Trap;
 use wasmi::DEFAULT_VALUE_STACK_LIMIT;
 
 use crate::circuits::compute_slice_capability;
+use crate::circuits::mtable::compute_memory_table_capacity;
 use crate::foreign::context::try_get_context_input_from_step_info;
 use crate::foreign::context::try_get_context_output_from_step_info;
 
@@ -127,7 +130,8 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
         phantom_regex: &[String],
         wasm_input: FuncRef,
     ) -> Self {
-        let capacity = compute_slice_capability(k);
+        let event_table_capacity = compute_slice_capability(k);
+        let memory_table_capacity = compute_memory_table_capacity(k);
 
         Self {
             host_function_desc,
@@ -147,7 +151,8 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
             context_output_table: vec![],
 
             host_transaction: HostTransaction::<B>::new(
-                capacity as usize,
+                event_table_capacity as usize,
+                memory_table_capacity,
                 slice_backend_builder,
                 flush_strategy,
             ),
@@ -315,6 +320,7 @@ impl<B: SliceBackendBuilder> TablePlugin<B> {
                     StepInfo::I32WrapI64 {
                         value: keep_value.unwrap() as i64,
                         result: keep_value.unwrap() as i32,
+                        uniarg: UniArg::Pop,
                     },
                 );
 
@@ -492,7 +498,9 @@ impl<B: SliceBackendBuilder> Monitor for TablePlugin<B> {
             const ENTRIES: u32 = 8192;
 
             let init_memory_pages = memory_ref.initial().0 as u32;
-            let maximal_memory_pages = memory_ref.maximum().map_or(65536, |max| max.0 as u32);
+            let maximal_memory_pages = memory_ref
+                .maximum()
+                .map_or(WASM_32_MAXIMAL_PAGES_DEFAULT, |max| max.0 as u32);
 
             self.configure_table = ConfigureTable {
                 init_memory_pages,

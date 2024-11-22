@@ -13,7 +13,7 @@ pub mod instruction_table;
 pub mod memory_table;
 pub mod opcode;
 
-pub(crate) const COMMON_RANGE_OFFSET: u32 = 32;
+pub(crate) const U32_BITS: u32 = 32;
 
 pub trait FromBn: Sized + Add<Self, Output = Self> + Mul<Self, Output = Self> {
     fn zero() -> Self;

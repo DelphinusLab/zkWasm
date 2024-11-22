@@ -3,6 +3,7 @@ use super::cell::*;
 use super::image_table::ImageTableConfig;
 use super::rtable::RangeTableConfig;
 use super::traits::ConfigureLookupTable;
+use super::zkwasm_circuit::maximal_available_rows;
 use crate::constant_from;
 use crate::fixed_curr;
 use halo2_proofs::arithmetic::FieldExt;
@@ -22,6 +23,14 @@ mod assign;
 pub(crate) mod utils;
 
 pub(crate) const MEMORY_TABLE_ENTRY_ROWS: i32 = 4;
+
+pub(crate) fn compute_maximal_memory_table_rows(k: u32) -> usize {
+    maximal_available_rows(k) / MEMORY_TABLE_ENTRY_ROWS as usize * MEMORY_TABLE_ENTRY_ROWS as usize
+}
+
+pub(crate) fn compute_memory_table_capacity(k: u32) -> usize {
+    compute_maximal_memory_table_rows(k) / MEMORY_TABLE_ENTRY_ROWS as usize
+}
 
 #[cfg(feature = "continuation")]
 type AllocatedU32StateCell<F> = AllocatedU32Cell<F>;
@@ -471,11 +480,10 @@ pub(super) struct MemoryTableChip<F: FieldExt> {
 }
 
 impl<F: FieldExt> MemoryTableChip<F> {
-    pub(super) fn new(config: MemoryTableConfig<F>, maximal_available_rows: usize) -> Self {
+    pub(super) fn new(config: MemoryTableConfig<F>, k: u32) -> Self {
         Self {
             config,
-            maximal_available_rows: maximal_available_rows / MEMORY_TABLE_ENTRY_ROWS as usize
-                * MEMORY_TABLE_ENTRY_ROWS as usize,
+            maximal_available_rows: compute_maximal_memory_table_rows(k),
         }
     }
 }

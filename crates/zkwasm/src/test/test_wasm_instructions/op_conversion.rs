@@ -1,10 +1,10 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_i32_wrap_i64_ok() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i64.const 0)
                 (i32.wrap_i64)
                 (drop)
@@ -18,14 +18,14 @@ fn test_i32_wrap_i64_ok() {
             )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }
 
 #[test]
 fn test_extend_ok() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 0)
                 (i64.extend_i32_u)
                 (drop)
@@ -105,5 +105,5 @@ fn test_extend_ok() {
         )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

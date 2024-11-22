@@ -1,10 +1,10 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_bin_bit() {
     let textual_repr = r#"
         (module
-            (func (export "test")
+            (func (export "zkmain")
                 (i32.const 1)
                 (i32.const 1)
                 (i32.xor)
@@ -43,5 +43,5 @@ fn test_bin_bit() {
         )
     "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

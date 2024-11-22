@@ -1,4 +1,4 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_global_get() {
@@ -7,7 +7,7 @@ fn test_global_get() {
             (global $global_i32 i32 (i32.const 0))
             (global $global_i64 i64 (i64.const 0))
 
-            (func (export "test")
+            (func (export "zkmain")
                 (global.get $global_i32)
                 (drop)
                 (global.get $global_i64)
@@ -16,5 +16,5 @@ fn test_global_get() {
         )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

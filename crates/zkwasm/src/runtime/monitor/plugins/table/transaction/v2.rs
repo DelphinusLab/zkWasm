@@ -1,14 +1,17 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::LinkedList;
 use std::rc::Rc;
 
 use log::warn;
 use specs::etable::EventTableEntry;
+use specs::mtable::AccessType;
 use specs::slice_backend::SliceBackendBuilder;
 use specs::step::StepInfo;
 
+use crate::runtime::memory_event_of_step;
 use crate::runtime::monitor::plugins::table::frame_table_builder::FrameTableBuilder;
 use crate::runtime::monitor::plugins::table::slice_builder::SliceBuilder;
 use crate::runtime::monitor::plugins::table::Command;
@@ -398,7 +401,8 @@ struct Timer {
 }
 
 pub struct HostTransaction<B: SliceBackendBuilder> {
-    capacity: usize,
+    event_table_capacity: usize,
+    memory_table_capacity: usize,
     last_committed_event_cursor: usize,
     events: Vec<EventTableEntry>,
     checkpoints: Checkpoints,
@@ -415,15 +419,17 @@ pub struct HostTransaction<B: SliceBackendBuilder> {
 impl<B: SliceBackendBuilder> HostTransaction<B> {
     #[allow(dead_code)]
     pub fn new(
-        capacity: usize,
+        event_table_capacity: usize,
+        memory_table_capacity: usize,
         slice_backend_builder: B,
         controller: Box<dyn FlushStrategy>,
     ) -> Self {
         Self {
-            capacity,
+            event_table_capacity,
+            memory_table_capacity,
             last_committed_event_cursor: 0,
-            events: Vec::with_capacity(capacity * MAX_SLICES_IN_MEMORY),
-            checkpoints: Checkpoints::new(capacity),
+            events: Vec::with_capacity(event_table_capacity * MAX_SLICES_IN_MEMORY),
+            checkpoints: Checkpoints::new(event_table_capacity),
             controller,
 
             timers: LinkedList::new(),
@@ -438,17 +444,46 @@ impl<B: SliceBackendBuilder> HostTransaction<B> {
     fn _push_event(&mut self, event: EventTableEntry) {
         self.events.push(event);
 
-        if self.events.len() == self.capacity * MAX_SLICES_IN_MEMORY {
+        if self.events.len() == self.event_table_capacity * MAX_SLICES_IN_MEMORY {
             self.commit_slice();
         }
     }
 
     fn commit_slice(&mut self) {
+        let limit_of_memory_table = {
+            let mut last = self.events.len();
+            let mut acc = 0;
+            let mut init_set: HashSet<(specs::mtable::LocationType, u32)> = HashSet::default();
+
+            for (index, event) in self.events.iter().enumerate() {
+                for entry in memory_event_of_step(event).into_iter() {
+                    let new = init_set.insert((entry.ltype, entry.offset));
+                    if new {
+                        acc += 1;
+                    }
+
+                    if entry.atype == AccessType::Write {
+                        acc += 1;
+                    }
+                }
+
+                if acc >= self.memory_table_capacity {
+                    last = index;
+                    break;
+                }
+            }
+
+            last
+        };
+
         // Find a checkpoint so that the size of the slice does not exceed capacity
         // return checkpoint, obliterated weak committed transactions
         let checkpoint = self.checkpoints.checkpoint(
             usize::min(
-                self.last_committed_event_cursor + self.capacity,
+                usize::min(
+                    self.last_committed_event_cursor + self.event_table_capacity,
+                    self.last_committed_event_cursor + limit_of_memory_table,
+                ),
                 self.next_event_offset(),
             ),
             &*self.controller,
@@ -486,7 +521,7 @@ impl<B: SliceBackendBuilder> HostTransaction<B> {
 
         let start = self.checkpoints.commit(tx, now);
 
-        if now - start > self.capacity {
+        if now - start > self.event_table_capacity {
             panic!(
                 "an overloaded transaction {} cannot be committed in a slice",
                 tx
@@ -494,7 +529,7 @@ impl<B: SliceBackendBuilder> HostTransaction<B> {
         }
 
         if auto_finalize {
-            self.start_timer(tx, start + self.capacity * TIMER_DELAY);
+            self.start_timer(tx, start + self.event_table_capacity * TIMER_DELAY);
         }
     }
 

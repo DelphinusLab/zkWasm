@@ -1,4 +1,4 @@
-use crate::test::test_circuit_noexternal;
+use crate::test::test_instruction;
 
 #[test]
 fn test_call() {
@@ -8,7 +8,7 @@ fn test_call() {
             (local i64 i32)
               i32.const 0
             )
-            (func (export "test")
+            (func (export "zkmain")
               (i32.const 0)
               call $foo
               drop
@@ -16,5 +16,5 @@ fn test_call() {
            )
         "#;
 
-    test_circuit_noexternal(textual_repr).unwrap()
+    test_instruction(textual_repr).unwrap()
 }

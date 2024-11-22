@@ -42,6 +42,7 @@ pub fn compute_maximal_pages(k: u32) -> u32 {
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct ImageTableConfig<F: FieldExt> {
+    opcode_prefix: Column<Fixed>,
     memory_addr_sel: Option<Column<Fixed>>,
     #[cfg(feature = "uniform-circuit")]
     col: Column<Advice>,

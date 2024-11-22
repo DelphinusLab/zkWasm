@@ -1,6 +1,7 @@
 use crate::circuits::cell::*;
 use crate::circuits::etable::allocator::*;
 use crate::circuits::etable::ConstraintBuilder;
+use crate::circuits::etable::EventTableCommonArgsConfig;
 use crate::circuits::etable::EventTableCommonConfig;
 use crate::circuits::etable::EventTableOpcodeConfig;
 use crate::circuits::etable::EventTableOpcodeConfigBuilder;
@@ -9,7 +10,6 @@ use crate::circuits::jtable::JumpTableConfig;
 use crate::circuits::utils::step_status::StepStatus;
 use crate::circuits::utils::table_entry::EventTableEntryWithMemoryInfo;
 use crate::circuits::utils::Context;
-use crate::constant;
 use crate::constant_from;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::plonk::Error;
@@ -19,18 +19,19 @@ use num_bigint::BigUint;
 use specs::encode::br_table::encode_elem_entry;
 use specs::encode::frame_table::encode_frame_table_entry;
 use specs::encode::opcode::encode_call_indirect;
-use specs::mtable::LocationType;
+use specs::encode::opcode::UniArgEncode;
 use specs::step::StepInfo;
 
 pub struct CallIndirectConfig<F: FieldExt> {
+    offset_arg: EventTableCommonArgsConfig<F>,
+    offset: AllocatedCommonRangeCell<F>,
+
     is_returned_cell: AllocatedBitCell<F>,
 
     type_index: AllocatedCommonRangeCell<F>,
-    func_index: AllocatedCommonRangeCell<F>,
-    offset: AllocatedCommonRangeCell<F>,
+    func_index: AllocatedU16Cell<F>,
     table_index: AllocatedCommonRangeCell<F>,
 
-    memory_table_lookup_stack_read: AllocatedMemoryTableLookupReadCell<F>,
     elem_lookup: AllocatedUnlimitedCell<F>,
     frame_table_lookup: AllocatedUnlimitedCell<F>,
 }
@@ -46,7 +47,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
         let type_index = allocator.alloc_common_range_cell();
         let table_index = allocator.alloc_common_range_cell();
         let offset = allocator.alloc_common_range_cell();
-        let func_index = allocator.alloc_common_range_cell();
+        let func_index = allocator.alloc_u16_cell();
 
         // Wasmi only support one table.
         constraint_builder.push(
@@ -71,18 +72,16 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
             }),
         );
 
-        let eid = common_config.eid_cell;
-        let sp = common_config.sp_cell;
-
-        let memory_table_lookup_stack_read = allocator.alloc_memory_table_lookup_read_cell(
-            "op_call_indirect stack read",
-            constraint_builder,
-            eid,
-            move |____| constant_from!(LocationType::Stack),
-            move |meta| sp.expr(meta) + constant_from!(1),
-            move |____| constant_from!(1),
-            move |meta| offset.expr(meta),
-            move |____| constant_from!(1),
+        let offset_arg = common_config.uniarg_configs[0].clone();
+        constraint_builder.push(
+            "call indirect: uniarg",
+            Box::new(move |meta| {
+                vec![
+                    offset_arg.is_i32_cell.expr(meta) - constant_from!(1),
+                    // keep offset because it is limited by common range
+                    offset.expr(meta) - offset_arg.value_cell.expr(meta),
+                ]
+            }),
         );
 
         let fid_cell = common_config.fid_cell;
@@ -108,12 +107,12 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
         ));
 
         Box::new(CallIndirectConfig {
+            offset_arg,
+            offset,
             is_returned_cell: common_config.is_returned_cell,
             type_index,
             func_index,
-            offset,
             table_index,
-            memory_table_lookup_stack_read,
             elem_lookup,
             frame_table_lookup,
         })
@@ -122,7 +121,7 @@ impl<F: FieldExt> EventTableOpcodeConfigBuilder<F> for CallIndirectConfigBuilder
 
 impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
     fn opcode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F> {
-        encode_call_indirect(self.type_index.expr(meta))
+        encode_call_indirect(self.type_index.expr(meta), UniArgEncode::Reserve)
     }
 
     fn assign(
@@ -137,6 +136,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                 type_index,
                 offset,
                 func_index,
+                uniarg,
                 ..
             } => {
                 self.table_index.assign(ctx, F::from(*table_index as u64))?;
@@ -154,16 +154,8 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
                     ),
                 )?;
 
-                self.memory_table_lookup_stack_read.assign(
-                    ctx,
-                    entry.memory_rw_entires[0].start_eid,
-                    step.current.eid,
-                    entry.memory_rw_entires[0].end_eid,
-                    step.current.sp + 1,
-                    LocationType::Stack,
-                    true,
-                    *offset as u64,
-                )?;
+                let mut memory_entries = entry.memory_rw_entries.iter();
+                self.offset_arg.assign(ctx, uniarg, &mut memory_entries)?;
 
                 self.frame_table_lookup.cell.assign_bn(
                     ctx,
@@ -190,10 +182,6 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for CallIndirectConfig<F> {
 
             _ => unreachable!(),
         }
-    }
-
-    fn sp_diff(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {
-        Some(constant!(F::one()))
     }
 
     fn call_ops_expr(&self, _meta: &mut VirtualCells<'_, F>) -> Option<Expression<F>> {

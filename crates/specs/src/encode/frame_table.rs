@@ -1,7 +1,10 @@
 use num_bigint::BigUint;
 use num_bigint::ToBigUint;
+use num_traits::One;
 
-use crate::encode::COMMON_RANGE_OFFSET;
+use crate::encode::instruction_table::FID_BITS;
+use crate::encode::instruction_table::IID_BITS;
+use crate::encode::U32_BITS;
 use crate::jtable::CalledFrameTableEntry;
 use crate::jtable::FrameTableEntryInternal;
 use crate::jtable::InheritedFrameTableEntry;
@@ -15,16 +18,16 @@ pub fn encode_frame_table_entry<T: FromBn>(
     fid: T,
     iid: T,
 ) -> T {
-    const FRAME_ID_SHIFT: u32 = LAST_JUMP_FRAME_ID_SHIFT + COMMON_RANGE_OFFSET;
-    const LAST_JUMP_FRAME_ID_SHIFT: u32 = CALLEE_FID + COMMON_RANGE_OFFSET;
-    const CALLEE_FID: u32 = FID_SHIFT + COMMON_RANGE_OFFSET;
-    const FID_SHIFT: u32 = IID_SHIFT + COMMON_RANGE_OFFSET;
+    const FRAME_ID_SHIFT: u32 = LAST_JUMP_FRAME_ID_SHIFT + U32_BITS;
+    const LAST_JUMP_FRAME_ID_SHIFT: u32 = CALLEE_FID + FID_BITS;
+    const CALLEE_FID: u32 = FID_SHIFT + FID_BITS;
+    const FID_SHIFT: u32 = IID_SHIFT + IID_BITS;
     const IID_SHIFT: u32 = 0;
 
-    frame_id * T::from_bn(&(1u64.to_biguint().unwrap() << FRAME_ID_SHIFT))
-        + last_frame_id * T::from_bn(&(1u64.to_biguint().unwrap() << LAST_JUMP_FRAME_ID_SHIFT))
-        + callee_fid * T::from_bn(&(1u64.to_biguint().unwrap() << CALLEE_FID))
-        + fid * T::from_bn(&(1u64.to_biguint().unwrap() << FID_SHIFT))
+    frame_id * T::from_bn(&(BigUint::one() << FRAME_ID_SHIFT))
+        + last_frame_id * T::from_bn(&(BigUint::one() << LAST_JUMP_FRAME_ID_SHIFT))
+        + callee_fid * T::from_bn(&(BigUint::one() << CALLEE_FID))
+        + fid * T::from_bn(&(BigUint::one() << FID_SHIFT))
         + iid
 }
 

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use halo2_proofs::arithmetic::FieldExt;
 use specs::etable::EventTableEntry;
 use specs::external_host_call_table::ExternalHostCallSignature;
+use specs::itable::UniArg;
 use specs::mtable::AccessType;
 use specs::mtable::LocationType;
 use specs::mtable::MemoryTableEntry;
@@ -107,61 +108,55 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             drop,
             keep,
             keep_values,
+            uniarg,
             ..
         } => {
             assert_eq!(keep.len(), keep_values.len());
             assert!(keep.len() <= 1);
 
-            let mut sp = sp_before_execution + 1;
-
-            let mut ops = vec![MemoryTableEntry {
+            let (mut sp, mut ops) = _mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *condition as u32 as u64,
-            }];
+                &[(VarType::I32, *uniarg, *condition as u32 as u64)],
+                None,
+            );
 
-            sp += 1;
+            if *condition == 0 {
+                sp += 1;
 
-            if *condition != 0 {
-                return ops;
-            }
+                {
+                    for i in 0..keep.len() {
+                        ops.push(MemoryTableEntry {
+                            eid,
+                            offset: sp,
+                            ltype: LocationType::Stack,
+                            atype: AccessType::Read,
+                            vtype: keep[i].into(),
+                            is_mutable: true,
+                            value: keep_values[i],
+                        });
 
-            {
-                for i in 0..keep.len() {
-                    ops.push(MemoryTableEntry {
-                        eid,
-                        offset: sp,
-                        ltype: LocationType::Stack,
-                        atype: AccessType::Read,
-                        vtype: keep[i].into(),
-                        is_mutable: true,
-                        value: keep_values[i],
-                    });
-
-                    sp += 1;
+                        sp += 1;
+                    }
                 }
-            }
 
-            sp += drop;
-            sp -= 1;
+                sp += drop;
+                sp -= 1;
 
-            {
-                for i in 0..keep.len() {
-                    ops.push(MemoryTableEntry {
-                        eid,
-                        offset: sp,
-                        ltype: LocationType::Stack,
-                        atype: AccessType::Write,
-                        vtype: keep[i].into(),
-                        is_mutable: true,
-                        value: keep_values[i],
-                    });
+                {
+                    for i in 0..keep.len() {
+                        ops.push(MemoryTableEntry {
+                            eid,
+                            offset: sp,
+                            ltype: LocationType::Stack,
+                            atype: AccessType::Write,
+                            vtype: keep[i].into(),
+                            is_mutable: true,
+                            value: keep_values[i],
+                        });
 
-                    sp -= 1;
+                        sp -= 1;
+                    }
                 }
             }
 
@@ -172,61 +167,55 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             drop,
             keep,
             keep_values,
+            uniarg,
             ..
         } => {
             assert_eq!(keep.len(), keep_values.len());
             assert!(keep.len() <= 1);
 
-            let mut sp = sp_before_execution + 1;
-
-            let mut ops = vec![MemoryTableEntry {
+            let (mut sp, mut ops) = _mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *condition as u32 as u64,
-            }];
+                &[(VarType::I32, *uniarg, *condition as u32 as u64)],
+                None,
+            );
 
-            sp += 1;
+            if *condition != 0 {
+                sp += 1;
 
-            if *condition == 0 {
-                return ops;
-            }
+                {
+                    for i in 0..keep.len() {
+                        ops.push(MemoryTableEntry {
+                            eid,
+                            offset: sp,
+                            ltype: LocationType::Stack,
+                            atype: AccessType::Read,
+                            vtype: keep[i].into(),
+                            is_mutable: true,
+                            value: keep_values[i],
+                        });
 
-            {
-                for i in 0..keep.len() {
-                    ops.push(MemoryTableEntry {
-                        eid,
-                        offset: sp,
-                        ltype: LocationType::Stack,
-                        atype: AccessType::Read,
-                        vtype: keep[i].into(),
-                        is_mutable: true,
-                        value: keep_values[i],
-                    });
-
-                    sp += 1;
+                        sp += 1;
+                    }
                 }
-            }
 
-            sp += drop;
-            sp -= 1;
+                sp += drop;
+                sp -= 1;
 
-            {
-                for i in 0..keep.len() {
-                    ops.push(MemoryTableEntry {
-                        eid,
-                        offset: sp,
-                        ltype: LocationType::Stack,
-                        atype: AccessType::Write,
-                        vtype: keep[i].into(),
-                        is_mutable: true,
-                        value: keep_values[i],
-                    });
+                {
+                    for i in 0..keep.len() {
+                        ops.push(MemoryTableEntry {
+                            eid,
+                            offset: sp,
+                            ltype: LocationType::Stack,
+                            atype: AccessType::Write,
+                            vtype: keep[i].into(),
+                            is_mutable: true,
+                            value: keep_values[i],
+                        });
 
-                    sp -= 1;
+                        sp -= 1;
+                    }
                 }
             }
 
@@ -237,24 +226,18 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             drop,
             keep,
             keep_values,
+            uniarg,
             ..
         } => {
             assert_eq!(keep.len(), keep_values.len());
             assert!(keep.len() <= 1);
 
-            let mut sp = sp_before_execution + 1;
-
-            let mut ops = vec![MemoryTableEntry {
+            let (mut sp, mut ops) = _mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *index as u32 as u64,
-            }];
-
-            sp += 1;
+                &[(VarType::I32, *uniarg, *index as u32 as u64)],
+                None,
+            );
 
             {
                 for i in 0..keep.len() {
@@ -343,75 +326,33 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
         }
         StepInfo::Drop { .. } => vec![],
         StepInfo::Select {
-            val1,
-            val2,
+            lhs,
+            lhs_uniarg,
+            rhs,
+            rhs_uniarg,
             cond,
+            cond_uniarg,
             result,
             vtype,
-        } => {
-            let mut sp = sp_before_execution + 1;
-            let mut ops = vec![];
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *cond,
-            });
-            sp += 1;
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *val2,
-            });
-            sp += 1;
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *val1,
-            });
-
-            ops.push(MemoryTableEntry {
-                eid,
-                offset: sp,
-                ltype: LocationType::Stack,
-                atype: AccessType::Write,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *result,
-            });
-
-            ops
-        }
+        } => mem_ops_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            &[
+                (VarType::I32, *cond_uniarg, *cond),
+                (*vtype, *rhs_uniarg, *rhs),
+                (*vtype, *lhs_uniarg, *lhs),
+            ],
+            Some((*vtype, *result)),
+        ),
         StepInfo::Call { index: _ } => {
             vec![]
         }
-        StepInfo::CallIndirect { offset, .. } => {
-            let stack_read = MemoryTableEntry {
-                eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *offset as u64,
-            };
-
-            vec![stack_read]
-        }
+        StepInfo::CallIndirect { offset, uniarg, .. } => mem_ops_from_stack_only_step(
+            sp_before_execution,
+            eid,
+            &[(VarType::I32, *uniarg, *offset as u64)],
+            None,
+        ),
         StepInfo::CallHost {
             args,
             ret_val,
@@ -508,22 +449,16 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             vtype,
             depth,
             value,
+            uniarg,
         } => {
-            let mut sp = sp_before_execution;
-
-            let read = MemoryTableEntry {
+            let (sp, mut ops) = _mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+                &[(*vtype, *uniarg, *value)],
+                None,
+            );
 
-            sp += 1;
-
-            let write = MemoryTableEntry {
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: sp + depth,
                 ltype: LocationType::Stack,
@@ -531,9 +466,9 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 vtype: *vtype,
                 is_mutable: true,
                 value: *value,
-            };
+            });
 
-            vec![read, write]
+            ops
         }
         StepInfo::TeeLocal {
             vtype,
@@ -597,16 +532,14 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             vtype,
             is_mutable,
             value,
+            uniarg,
         } => {
-            let stack_read = MemoryTableEntry {
+            let mut ops = mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+                &[(*vtype, *uniarg, *value)],
+                None,
+            );
 
             let global_set = MemoryTableEntry {
                 eid,
@@ -618,7 +551,9 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 value: *value,
             };
 
-            vec![stack_read, global_set]
+            ops.push(global_set);
+
+            ops
         }
 
         StepInfo::Load {
@@ -629,19 +564,20 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             value,
             block_value1,
             block_value2,
+            uniarg,
             ..
         } => {
-            let load_address_from_stack = MemoryTableEntry {
+            let mut ops = mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *raw_address as u64,
-            };
+                &[(VarType::I32, *uniarg, *raw_address as u64)],
+                Some((*vtype, *value)),
+            );
 
-            let load_value1 = MemoryTableEntry {
+            let write_result = ops.pop().unwrap();
+
+            // load first block
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: (*effective_address) / 8,
                 ltype: LocationType::Heap,
@@ -651,10 +587,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *block_value1,
-            };
+            });
 
-            let load_value2 = if *effective_address % 8 + load_size.byte_size() > 8 {
-                Some(MemoryTableEntry {
+            // load second block if it is cross access
+            if *effective_address % 8 + load_size.byte_size() > 8 {
+                ops.push(MemoryTableEntry {
                     eid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
@@ -665,26 +602,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     // The value will be used to lookup within imtable, hence block_value is given here
                     value: *block_value2,
                 })
-            } else {
-                None
-            };
+            }
 
-            let push_value = MemoryTableEntry {
-                eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Write,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+            ops.push(write_result);
 
-            vec![
-                vec![load_address_from_stack, load_value1],
-                load_value2.map_or(vec![], |v| vec![v]),
-                vec![push_value],
-            ]
-            .concat()
+            ops
         }
         StepInfo::Store {
             vtype,
@@ -696,29 +618,22 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             updated_block_value1,
             pre_block_value2,
             updated_block_value2,
+            val_uniarg,
+            pos_uniarg,
             ..
         } => {
-            let load_value_from_stack = MemoryTableEntry {
+            let mut ops = mem_ops_from_stack_only_step(
+                sp_before_execution,
                 eid,
-                offset: sp_before_execution + 1,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: *vtype,
-                is_mutable: true,
-                value: *value,
-            };
+                &[
+                    (*vtype, *val_uniarg, *value),
+                    (VarType::I32, *pos_uniarg, *raw_address as u64),
+                ],
+                None,
+            );
 
-            let load_address_from_stack = MemoryTableEntry {
-                eid,
-                offset: sp_before_execution + 2,
-                ltype: LocationType::Stack,
-                atype: AccessType::Read,
-                vtype: VarType::I32,
-                is_mutable: true,
-                value: *raw_address as u64,
-            };
-
-            let load_value1 = MemoryTableEntry {
+            // load first block
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: effective_address / 8,
                 ltype: LocationType::Heap,
@@ -728,9 +643,10 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *pre_block_value1,
-            };
+            });
 
-            let write_value1 = MemoryTableEntry {
+            // write first block
+            ops.push(MemoryTableEntry {
                 eid,
                 offset: effective_address / 8,
                 ltype: LocationType::Heap,
@@ -740,10 +656,11 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 is_mutable: true,
                 // The value will be used to lookup within imtable, hence block_value is given here
                 value: *updated_block_value1,
-            };
+            });
 
             if *effective_address % 8 + store_size.byte_size() as u32 > 8 {
-                let load_value2 = MemoryTableEntry {
+                // load second block if cross
+                ops.push(MemoryTableEntry {
                     eid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
@@ -753,9 +670,10 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     is_mutable: true,
                     // The value will be used to lookup within imtable, hence block_value is given here
                     value: *pre_block_value2,
-                };
+                });
 
-                let write_value2 = MemoryTableEntry {
+                // write second block if cross
+                ops.push(MemoryTableEntry {
                     eid,
                     offset: effective_address / 8 + 1,
                     ltype: LocationType::Heap,
@@ -765,23 +683,10 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                     is_mutable: true,
                     // The value will be used to lookup within imtable, hence block_value is given here
                     value: *updated_block_value2,
-                };
-                vec![
-                    load_value_from_stack,
-                    load_address_from_stack,
-                    load_value1,
-                    write_value1,
-                    load_value2,
-                    write_value2,
-                ]
-            } else {
-                vec![
-                    load_value_from_stack,
-                    load_address_from_stack,
-                    load_value1,
-                    write_value1,
-                ]
+                });
             }
+
+            ops
         }
 
         StepInfo::MemorySize => mem_op_from_stack_only_step(
@@ -792,13 +697,15 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[],
             &[event.allocated_memory_pages as u64],
         ),
-        StepInfo::MemoryGrow { grow_size, result } => mem_op_from_stack_only_step(
+        StepInfo::MemoryGrow {
+            grow_size,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I32,
-            VarType::I32,
-            &[*grow_size as u32 as u64],
-            &[*result as u32 as u64],
+            &[(VarType::I32, *uniarg, *grow_size as u32 as u64)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
 
         StepInfo::I32Const { value } => mem_op_from_stack_only_step(
@@ -810,47 +717,37 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[*value as u32 as u64],
         ),
         StepInfo::I32BinOp {
-            left, right, value, ..
-        }
-        | StepInfo::I32BinShiftOp {
-            left, right, value, ..
-        }
-        | StepInfo::I32BinBitOp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
+            left,
+            right,
+            value,
+            lhs_uniarg,
+            rhs_uniarg,
+            ..
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I32,
-            VarType::I32,
-            &[*right as u32 as u64, *left as u32 as u64],
-            &[*value as u32 as u64],
+            &[
+                (VarType::I32, *rhs_uniarg, *right as u32 as u64),
+                (VarType::I32, *lhs_uniarg, *left as u32 as u64),
+            ],
+            Some((VarType::I32, *value as u32 as u64)),
         ),
-        StepInfo::I32Comp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            VarType::I32,
-            VarType::I32,
-            &[*right as u32 as u64, *left as u32 as u64],
-            &[*value as u32 as u64],
-        ),
-
         StepInfo::I64BinOp {
-            left, right, value, ..
-        }
-        | StepInfo::I64BinShiftOp {
-            left, right, value, ..
-        }
-        | StepInfo::I64BinBitOp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
+            left,
+            right,
+            value,
+            value_type,
+            lhs_uniarg,
+            rhs_uniarg,
+            ..
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I64,
-            VarType::I64,
-            &[*right as u64, *left as u64],
-            &[*value as u64],
+            &[
+                (VarType::I64, *rhs_uniarg, *right as u64),
+                (VarType::I64, *lhs_uniarg, *left as u64),
+            ],
+            Some((*value_type, *value as u64)),
         ),
 
         StepInfo::I64Const { value } => mem_op_from_stack_only_step(
@@ -861,82 +758,160 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
             &[],
             &[*value as u64],
         ),
-        StepInfo::I64Comp {
-            left, right, value, ..
-        } => mem_op_from_stack_only_step(
-            sp_before_execution,
-            eid,
-            VarType::I64,
-            VarType::I32,
-            &[*right as u64, *left as u64],
-            &[*value as u32 as u64],
-        ),
         StepInfo::UnaryOp {
             vtype,
             operand,
             result,
+            uniarg,
             ..
-        } => mem_op_from_stack_only_step(
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            *vtype,
-            *vtype,
-            &[*operand],
-            &[*result],
+            &[(*vtype, *uniarg, *operand)],
+            Some((*vtype, *result)),
         ),
 
         StepInfo::Test {
             vtype,
             value,
             result,
-        } => mem_op_from_stack_only_step(
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            *vtype,
-            VarType::I32,
-            &[*value],
-            &[*result as u32 as u64],
+            &[(*vtype, *uniarg, *value)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
 
-        StepInfo::I32WrapI64 { value, result } => mem_op_from_stack_only_step(
+        StepInfo::I32WrapI64 {
+            value,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I64,
-            VarType::I32,
-            &[*value as u64],
-            &[*result as u32 as u64],
+            &[(VarType::I64, *uniarg, *value as u64)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
-        StepInfo::I64ExtendI32 { value, result, .. } => mem_op_from_stack_only_step(
+        StepInfo::I64ExtendI32 {
+            value,
+            result,
+            uniarg,
+            ..
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I32,
-            VarType::I64,
-            &[*value as u32 as u64],
-            &[*result as u64],
+            &[(VarType::I32, *uniarg, *value as u32 as u64)],
+            Some((VarType::I64, *result as u64)),
         ),
-        StepInfo::I32SignExtendI8 { value, result }
-        | StepInfo::I32SignExtendI16 { value, result } => mem_op_from_stack_only_step(
+        StepInfo::I32SignExtendI8 {
+            value,
+            result,
+            uniarg,
+        }
+        | StepInfo::I32SignExtendI16 {
+            value,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I32,
-            VarType::I32,
-            &[*value as u32 as u64],
-            &[*result as u32 as u64],
+            &[(VarType::I32, *uniarg, *value as u32 as u64)],
+            Some((VarType::I32, *result as u32 as u64)),
         ),
-        StepInfo::I64SignExtendI8 { value, result }
-        | StepInfo::I64SignExtendI16 { value, result }
-        | StepInfo::I64SignExtendI32 { value, result } => mem_op_from_stack_only_step(
+        StepInfo::I64SignExtendI8 {
+            value,
+            result,
+            uniarg,
+        }
+        | StepInfo::I64SignExtendI16 {
+            value,
+            result,
+            uniarg,
+        }
+        | StepInfo::I64SignExtendI32 {
+            value,
+            result,
+            uniarg,
+        } => mem_ops_from_stack_only_step(
             sp_before_execution,
             eid,
-            VarType::I64,
-            VarType::I64,
-            &[*value as u64],
-            &[*result as u64],
+            &[(VarType::I64, *uniarg, *value as u64)],
+            Some((VarType::I64, *result as u64)),
         ),
     }
 }
 
-pub(crate) fn mem_op_from_stack_only_step(
+fn _mem_ops_from_stack_only_step(
+    sp_before_execution: u32,
+    eid: u32,
+    inputs: &[(VarType, UniArg, u64)],
+    output: Option<(VarType, u64)>,
+) -> (u32, Vec<MemoryTableEntry>) {
+    let (sp, mut ops) = inputs.iter().fold(
+        (sp_before_execution, vec![]),
+        |(mut sp, mut ops), (vtype, arg, input)| {
+            match arg {
+                UniArg::Pop => {
+                    sp += 1;
+
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        offset: sp,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: *vtype,
+                        is_mutable: true,
+                        value: *input,
+                    });
+                }
+                UniArg::Stack(depth) => {
+                    ops.push(MemoryTableEntry {
+                        eid,
+                        offset: sp + *depth as u32,
+                        ltype: LocationType::Stack,
+                        atype: AccessType::Read,
+                        vtype: *vtype,
+                        is_mutable: true,
+                        value: *input,
+                    });
+                }
+                UniArg::IConst(_) => (),
+            };
+
+            (sp, ops)
+        },
+    );
+
+    let sp = if let Some((vtype, value)) = output {
+        ops.push(MemoryTableEntry {
+            eid,
+            offset: sp,
+            ltype: LocationType::Stack,
+            atype: AccessType::Write,
+            vtype,
+            is_mutable: true,
+            value,
+        });
+
+        sp - 1
+    } else {
+        sp
+    };
+
+    (sp, ops)
+}
+
+fn mem_ops_from_stack_only_step(
+    sp_before_execution: u32,
+    eid: u32,
+    inputs: &[(VarType, UniArg, u64)],
+    output: Option<(VarType, u64)>,
+) -> Vec<MemoryTableEntry> {
+    _mem_ops_from_stack_only_step(sp_before_execution, eid, inputs, output).1
+}
+
+fn mem_op_from_stack_only_step(
     sp_before_execution: u32,
     eid: u32,
     inputs_type: VarType,
