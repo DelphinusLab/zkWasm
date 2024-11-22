@@ -151,11 +151,10 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
     pub(super) fn new(
         meta: &mut ConstraintSystem<F>,
         sel: Column<Fixed>,
-        (l_0, l_active, l_active_last): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
-        let mut allocator = Self::_new(meta, sel, (l_0, l_active, l_active_last), rtable, cols);
+        let mut allocator = Self::_new(meta, sel, rtable, cols);
         for _ in 0..U32_CELLS {
             let cell = allocator.prepare_alloc_u32_cell();
             allocator.free_u32_cells.push(cell);
@@ -170,7 +169,6 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
     fn _new(
         meta: &mut ConstraintSystem<F>,
         sel: Column<Fixed>,
-        (l_0, l_active, l_active_last): (Column<Fixed>, Column<Fixed>, Column<Fixed>),
         rtable: &RangeTableConfig<F>,
         cols: &mut impl Iterator<Item = Column<Advice>>,
     ) -> Self {
@@ -185,7 +183,7 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
         all_cols.insert(
             MemoryTableCellType::U16,
             [0; U16_COLUMNS]
-                .map(|_| U16Column::configure(meta, (l_0, l_active, l_active_last)).col)
+                .map(|_| U16Column::configure(meta, rtable).col)
                 .into_iter()
                 .collect(),
         );
