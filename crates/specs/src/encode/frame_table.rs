@@ -4,7 +4,7 @@ use num_traits::One;
 
 use crate::encode::instruction_table::FID_BITS;
 use crate::encode::instruction_table::IID_BITS;
-use crate::encode::COMMON_RANGE_BITS;
+use crate::encode::U32_BITS;
 use crate::jtable::CalledFrameTableEntry;
 use crate::jtable::FrameTableEntryInternal;
 use crate::jtable::InheritedFrameTableEntry;
@@ -18,7 +18,7 @@ pub fn encode_frame_table_entry<T: FromBn>(
     fid: T,
     iid: T,
 ) -> T {
-    const FRAME_ID_SHIFT: u32 = LAST_JUMP_FRAME_ID_SHIFT + COMMON_RANGE_BITS;
+    const FRAME_ID_SHIFT: u32 = LAST_JUMP_FRAME_ID_SHIFT + U32_BITS;
     const LAST_JUMP_FRAME_ID_SHIFT: u32 = CALLEE_FID + FID_BITS;
     const CALLEE_FID: u32 = FID_SHIFT + FID_BITS;
     const FID_SHIFT: u32 = IID_SHIFT + IID_BITS;

@@ -7,7 +7,7 @@ use crate::brtable::ElemEntry;
 use crate::brtable::IndirectClass;
 use crate::encode::instruction_table::FID_BITS;
 use crate::encode::instruction_table::IID_BITS;
-use crate::encode::COMMON_RANGE_BITS;
+use crate::encode::U32_BITS;
 
 use super::FromBn;
 
@@ -29,10 +29,10 @@ pub fn encode_br_table_entry<T: FromBn>(
     dst_pc: T,
 ) -> T {
     const FID_SHIFT: u32 = IID_SHIFT + IID_BITS;
-    const IID_SHIFT: u32 = INDEX_SHIFT + COMMON_RANGE_BITS;
-    const INDEX_SHIFT: u32 = DROP_SHIFT + COMMON_RANGE_BITS;
-    const DROP_SHIFT: u32 = KEEP_SHIFT + COMMON_RANGE_BITS;
-    const KEEP_SHIFT: u32 = DST_PC_SHIFT + COMMON_RANGE_BITS;
+    const IID_SHIFT: u32 = INDEX_SHIFT + U32_BITS;
+    const INDEX_SHIFT: u32 = DROP_SHIFT + U32_BITS;
+    const DROP_SHIFT: u32 = KEEP_SHIFT + U32_BITS;
+    const KEEP_SHIFT: u32 = DST_PC_SHIFT + U32_BITS;
     const DST_PC_SHIFT: u32 = 0;
 
     assert!(FID_SHIFT + FID_BITS <= INDIRECT_CLASS_SHIFT);
@@ -48,12 +48,12 @@ pub fn encode_br_table_entry<T: FromBn>(
 }
 
 pub fn encode_elem_entry<T: FromBn>(table_idx: T, type_idx: T, offset: T, func_idx: T) -> T {
-    const TABLE_INDEX_SHIFT: u32 = TYPE_INDEX_SHIFT + COMMON_RANGE_BITS;
-    const TYPE_INDEX_SHIFT: u32 = OFFSET_SHIFT + COMMON_RANGE_BITS;
+    const TABLE_INDEX_SHIFT: u32 = TYPE_INDEX_SHIFT + U32_BITS;
+    const TYPE_INDEX_SHIFT: u32 = OFFSET_SHIFT + U32_BITS;
     const OFFSET_SHIFT: u32 = FUNC_INDEX + FID_BITS;
     const FUNC_INDEX: u32 = 0;
 
-    assert!(TABLE_INDEX_SHIFT + COMMON_RANGE_BITS <= INDIRECT_CLASS_SHIFT);
+    assert!(TABLE_INDEX_SHIFT + U32_BITS <= INDIRECT_CLASS_SHIFT);
 
     T::from_bn(&(BigUint::from(IndirectClass::CallIndirect as u64)))
         * T::from_bn(&INDIRECT_CLASS_SHIFT_BN)

@@ -65,14 +65,7 @@ impl From<&UniArg> for UniArgEncode<1, BigUint> {
 
 impl<const N: usize> From<&[UniArg; N]> for UniArgEncode<N, BigUint> {
     fn from(uniargs: &[UniArg; N]) -> Self {
-        UniArgEncode::Value(
-            uniargs
-                .iter()
-                .map(|uniarg| uniarg.encode())
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
-        )
+        UniArgEncode::Value(uniargs.map(|uniarg| uniarg.encode()))
     }
 }
 

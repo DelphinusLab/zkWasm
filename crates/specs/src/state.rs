@@ -1,3 +1,4 @@
+use num_traits::Euclid;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -19,8 +20,13 @@ pub struct InitializationState<T> {
 
 pub const INITIALIZATION_STATE_FIELD_COUNT: usize = 10;
 impl<T> InitializationState<T> {
-    // TODO: try to remove the magic number
     pub fn field_count() -> usize {
+        assert_eq!(
+            std::mem::size_of::<InitializationState<u64>>()
+                .div_rem_euclid(&std::mem::size_of::<u64>()),
+            (INITIALIZATION_STATE_FIELD_COUNT, 0)
+        );
+
         INITIALIZATION_STATE_FIELD_COUNT
     }
 

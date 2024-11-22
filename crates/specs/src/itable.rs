@@ -297,18 +297,18 @@ impl UniArg {
         matches!(self, UniArg::Pop)
     }
 
-    pub fn get_const_value(&self) -> u64 {
+    pub fn get_const_value(&self) -> Option<u64> {
         match self {
-            UniArg::Pop => 0,
-            UniArg::Stack(_) => 0,
+            UniArg::Pop => None,
+            UniArg::Stack(_) => None,
             UniArg::IConst(v) => match v {
-                Value::I32(v) => *v as u32 as u64,
-                Value::I64(v) => *v as u64,
+                Value::I32(v) => Some(*v as u32 as u64),
+                Value::I64(v) => Some(*v as u64),
             },
         }
     }
 
-    pub fn try_decease_stack_depth(&mut self, diff: usize) {
+    pub fn try_decrease_stack_depth(&mut self, diff: usize) {
         if let UniArg::Stack(i) = self {
             *self = UniArg::Stack(*i - diff);
         }
@@ -330,7 +330,7 @@ impl UniArg {
         BigUint::from(3u64) << 64
     }
 
-    pub fn i64_i32_const_tag() -> BigUint {
+    pub fn i64_i32_const_tag_diff() -> BigUint {
         Self::i32_const_tag() - Self::i64_const_tag()
     }
 
@@ -344,10 +344,16 @@ impl UniArg {
             UniArg::Pop => tag!(Self::pop_tag(), BigUint::zero()),
             UniArg::Stack(usize) => tag!(Self::stack_tag(), BigUint::from(*usize as u64)),
             UniArg::IConst(Value::I32(_)) => {
-                tag!(Self::i32_const_tag(), BigUint::from(self.get_const_value()))
+                tag!(
+                    Self::i32_const_tag(),
+                    BigUint::from(self.get_const_value().unwrap())
+                )
             }
             UniArg::IConst(Value::I64(_)) => {
-                tag!(Self::i64_const_tag(), BigUint::from(self.get_const_value()))
+                tag!(
+                    Self::i64_const_tag(),
+                    BigUint::from(self.get_const_value().unwrap())
+                )
             }
         }
     }
@@ -940,7 +946,7 @@ impl InstructionTable {
                 | Opcode::CallIndirect { uniarg, .. }
                 | Opcode::Load { uniarg, .. }
                 | Opcode::Conversion { uniarg, .. } => {
-                    set.insert(uniarg.get_const_value());
+                    set.insert(uniarg.get_const_value().unwrap_or_default());
                 }
 
                 Opcode::Bin { uniargs, .. }
@@ -948,11 +954,11 @@ impl InstructionTable {
                 | Opcode::BinBit { uniargs, .. }
                 | Opcode::Rel { uniargs, .. }
                 | Opcode::Store { uniargs, .. } => uniargs.iter().for_each(|x| {
-                    set.insert(x.get_const_value());
+                    set.insert(x.get_const_value().unwrap_or_default());
                 }),
 
                 Opcode::Select { uniargs } => uniargs.iter().for_each(|x| {
-                    set.insert(x.get_const_value());
+                    set.insert(x.get_const_value().unwrap_or_default());
                 }),
             }
         }

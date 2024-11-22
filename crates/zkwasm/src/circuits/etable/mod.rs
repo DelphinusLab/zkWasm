@@ -132,9 +132,9 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
             UniArg::IConst(v) => {
                 self.is_const_cell.assign_bool(ctx, true)?;
                 self.const_value_cell
-                    .assign(ctx, arg_type.get_const_value().into())?;
+                    .assign(ctx, arg_type.get_const_value().unwrap().into())?;
                 self.value_cell
-                    .assign(ctx, arg_type.get_const_value().into())?;
+                    .assign(ctx, arg_type.get_const_value().unwrap().into())?;
                 match v {
                     specs::types::Value::I32(_) => {
                         self.is_i32_cell.assign_bool(ctx, true)?;
@@ -200,7 +200,7 @@ impl<F: FieldExt> EventTableCommonArgsConfig<F> {
             + self.is_const_cell.expr(meta) * constant_from_bn!(&UniArg::i64_const_tag())
             + self.is_const_cell.expr(meta)
                 * self.is_i32_cell.expr(meta)
-                * constant_from_bn!(&UniArg::i64_i32_const_tag())
+                * constant_from_bn!(&UniArg::i64_i32_const_tag_diff())
             + self.is_const_cell.expr(meta) * self.const_value_cell.expr(meta)
     }
 }
