@@ -374,7 +374,7 @@ dependencies = [
  "downcast-rs",
  "env_logger",
  "ff",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4)",
  "hex",
  "lazy_static",
@@ -402,7 +402,7 @@ dependencies = [
 [[package]]
 name = "circuits-batcher"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/continuation-batcher.git?tag=stable-shuffle-1.0#904a0c1b03027b6cf256d9ccd44d8eb5abbac69a"
+source = "git+https://github.com/DelphinusLab/continuation-batcher.git?branch=moore/logup_extend#4691add96dcca4210a108c22f40268caaed0b801"
 dependencies = [
  "anyhow",
  "ark-std",
@@ -411,8 +411,8 @@ dependencies = [
  "downcast-rs",
  "env_logger",
  "ff",
- "halo2_proofs",
- "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.4)",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
+ "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=moore/logup_extend)",
  "hex",
  "lazy_static",
  "log",
@@ -669,7 +669,7 @@ dependencies = [
  "delphinus-zkwasm",
  "downcast-rs",
  "ff",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
  "hex",
  "lazy_static",
  "log",
@@ -701,7 +701,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "downcast-rs",
  "ff",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
  "hex",
  "log",
  "num-bigint",
@@ -1140,7 +1140,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#12655ca7406a8c21a154bfd36dd2f8e520c569b1"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent#4446607ad99dbbf9d105ed65529d54fade9ca467"
 dependencies = [
  "ark-std",
  "blake2b_simd",
@@ -1167,27 +1167,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "halo2aggregator-s"
-version = "1.1.0"
-source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.2#f699aac4e726b7c27936741846975a5c199fce5a"
+name = "halo2_proofs"
+version = "0.1.0-beta.1"
+source = "git+https://github.com/DelphinusLab/halo2-gpu-specific.git#12655ca7406a8c21a154bfd36dd2f8e520c569b1"
 dependencies = [
- "ark-ff",
  "ark-std",
  "blake2b_simd",
+ "bumpalo",
+ "cfg-if 0.1.10",
+ "core_affinity",
+ "cuda-driver-sys",
  "ff",
- "halo2_proofs",
- "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.2)",
+ "group",
  "lazy_static",
+ "log",
+ "memmap",
+ "num",
  "num-bigint",
+ "num-derive",
  "num-integer",
  "num-traits",
- "poseidon",
+ "pairing_bn256",
+ "rand",
  "rand_core",
- "serde",
- "serde_json",
- "sha2",
- "sha3",
- "tera",
+ "rayon",
+ "subtle",
 ]
 
 [[package]]
@@ -1199,7 +1203,7 @@ dependencies = [
  "ark-std",
  "blake2b_simd",
  "ff",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4)",
  "lazy_static",
  "num-bigint",
@@ -1215,12 +1219,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "halo2aggregator-s"
+version = "1.1.0"
+source = "git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=moore/logup_extend#01f7b11217b3581467e2aae5bd43523302577588"
+dependencies = [
+ "ark-ff",
+ "ark-std",
+ "blake2b_simd",
+ "ff",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
+ "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?branch=moore/logup_extend)",
+ "lazy_static",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "poseidon",
+ "rand_core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sha3",
+ "tera",
+]
+
+[[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.2#15b3baefac2f950e448ff1dca7c8562bf10ba8a0"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4#164b8367cc243f28128c785930859fa536b5c7af"
 dependencies = [
  "ark-std",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -1230,10 +1258,10 @@ dependencies = [
 [[package]]
 name = "halo2ecc-s"
 version = "0.3.2"
-source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4#164b8367cc243f28128c785930859fa536b5c7af"
+source = "git+https://github.com/DelphinusLab/halo2ecc-s.git?branch=moore/logup_extend#9c79e4e565cbc0a21c37b337ab5bac3cc7d8fe82"
 dependencies = [
  "ark-std",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -2006,7 +2034,7 @@ name = "poseidon"
 version = "0.2.0"
 source = "git+https://github.com/DelphinusLab/poseidon#8977ca390f50cdbd2496970216dfc1060b2caab9"
 dependencies = [
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "subtle",
 ]
 
@@ -2552,7 +2580,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
  "hex",
  "lazy_static",
  "num-bigint",
@@ -3436,14 +3464,14 @@ dependencies = [
  "anyhow",
  "bincode",
  "cfg-if 1.0.0",
- "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=stable-shuffle-1.0)",
+ "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?branch=moore/logup_extend)",
  "clap",
  "console",
  "delphinus-host",
  "delphinus-zkwasm",
  "env_logger",
- "halo2_proofs",
- "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?tag=on-prove-pairing-0.6.2)",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
+ "halo2aggregator-s 1.1.0 (git+https://github.com/DelphinusLab/halo2aggregator-s.git?branch=moore/logup_extend)",
  "hex",
  "indicatif",
  "log",
@@ -3467,7 +3495,7 @@ dependencies = [
  "circuits-batcher 0.1.0 (git+https://github.com/DelphinusLab/continuation-batcher.git?tag=on-prove-pairing-2.7)",
  "clap",
  "ff",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git)",
  "halo2ecc-s 0.3.2 (git+https://github.com/DelphinusLab/halo2ecc-s.git?tag=on-prove-pairing-0.6.4)",
  "hex",
  "itertools",
@@ -3491,12 +3519,12 @@ dependencies = [
 [[package]]
 name = "zkwasm-prover"
 version = "0.1.0"
-source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=oogl/dev-msm#87c03e793987c65af8d2888fd67fa7eb470bd99a"
+source = "git+https://github.com/DelphinusLab/zkWasm-prover.git?branch=moore/logup-oogl-dev-msm#a5e4f8aaa4db740d7d869dd7ad96315e96d46f96"
 dependencies = [
  "ark-std",
  "cc",
  "cuda-runtime-sys",
- "halo2_proofs",
+ "halo2_proofs 0.1.0-beta.1 (git+https://github.com/DelphinusLab/halo2-gpu-specific.git?branch=moore/logup_extent)",
  "lazy_static",
  "libc",
  "rand",
