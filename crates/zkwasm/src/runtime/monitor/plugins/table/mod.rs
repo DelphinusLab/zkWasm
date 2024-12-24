@@ -617,7 +617,7 @@ impl<B: SliceBackendBuilder> Monitor for TablePlugin<B> {
                 instruction,
             );
 
-            // Since we cannot get return value now, we store the incompete event
+            // Since we cannot get return value now, we store the incomplete event
             // and fix later.
             if matches!(step_info, StepInfo::CallHost { .. })
                 || matches!(step_info, StepInfo::ExternalHostCall { .. })
