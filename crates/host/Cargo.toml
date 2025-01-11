@@ -31,7 +31,6 @@ parity-wasm.workspace = true
 poseidon.workspace = true
 wasmi.workspace = true
 
-# TODO put the host circuits into features
 zkwasm-host-circuits.workspace = true
 
 [dev-dependencies]
@@ -41,3 +40,4 @@ rusty-fork = "0.3.0"
 default = []
 profile = ["ark-std/print-trace", "halo2_proofs/profile"]
 cuda = ["halo2_proofs/cuda", "specs/cuda"]
+host-circuits = ["zkwasm-host-circuits"]
