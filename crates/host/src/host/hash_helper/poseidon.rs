@@ -19,7 +19,7 @@ use zkwasm_host_circuits::host::ForeignInst::PoseidonFinalize;
 use zkwasm_host_circuits::host::ForeignInst::PoseidonNew;
 use zkwasm_host_circuits::host::ForeignInst::PoseidonPush;
 
-/// Foreign functions that supports the following C code library
+/// Foreign functions that support the following C code library
 ///
 /// void poseidon(uint64_t* data, uint32_t size, uint64_t* r)
 /// {

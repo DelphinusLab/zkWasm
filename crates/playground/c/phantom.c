@@ -2,9 +2,9 @@
 #include "foreign.h"
 
 /*
- * An example of phantom function which will not generate any traces.
+ * An example of a phantom function that will not generate any traces.
  *
- * To make the phantom function works, you should make sure the function
+ * To make the phantom function work, you should make sure the function
  * not to be inlined.
  *
  * Since the phantom function will not produce any traces, memory/global
