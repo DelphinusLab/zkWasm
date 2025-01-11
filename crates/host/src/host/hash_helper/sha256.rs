@@ -9,7 +9,7 @@ use zkwasm_host_circuits::host::ForeignInst::SHA256Push;
 
 use sha2::Sha256;
 
-/// Foreign functions that supports the following C code library
+/// Foreign functions that support the following C code library
 ///
 /// void sha256(uint8_t* data, uint32_t size, uint64_t* r)
 /// {
