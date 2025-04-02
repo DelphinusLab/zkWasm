@@ -38,8 +38,8 @@ pub const MERKLE_TREE_HEIGHT: usize = 32;
 impl HostEnvConfig {
     fn register_op(op: &OpType, env: &mut HostEnv, tree_db: Option<Rc<RefCell<dyn TreeDB>>>) {
         match op {
-            OpType::BLS381PAIR => host::ecc_helper::bls381::pair::register_blspair_foreign(env),
-            OpType::BLS381SUM => host::ecc_helper::bls381::sum::register_blssum_foreign(env),
+            // OpType::BLS381PAIR => host::ecc_helper::bls381::pair::register_blspair_foreign(env),
+            // OpType::BLS381SUM => host::ecc_helper::bls381::sum::register_blssum_foreign(env),
             OpType::BN256PAIR => host::ecc_helper::bn254::pair::register_bn254pair_foreign(env),
             OpType::BN256SUM => host::ecc_helper::bn254::sum::register_bn254sum_foreign(env),
             OpType::POSEIDONHASH => host::hash_helper::poseidon::register_poseidon_foreign(env),
@@ -184,8 +184,8 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
         // FIXME: add usize to zkwasm-host-circuits repo
         fn optype_from_usize(index: usize) -> OpType {
             match index {
-                0 => OpType::BLS381PAIR,
-                1 => OpType::BLS381SUM,
+                // 0 => OpType::BLS381PAIR,
+                // 1 => OpType::BLS381SUM,
                 2 => OpType::BN256PAIR,
                 3 => OpType::BN256SUM,
                 4 => OpType::POSEIDONHASH,
