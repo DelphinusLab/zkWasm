@@ -14,11 +14,16 @@ jobs:
     - uses: actions/checkout@v3
       with: 
         submodules: recursive
-    - uses: actions-rs/toolchain@v1
-      with:
-        components: rustfmt, clippy
+    - name: Install Rust
+      run: rustup component add clippy rustfmt
     - name: Code Style Check
       run: cargo fmt --check
+    - name: Downgrade CMAKE
+      run: |
+        wget -qO cmake.sh "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-x86_64.sh"
+        sudo mkdir -p /opt/cmake
+        sudo sh cmake.sh --prefix=/opt/cmake --skip-license
+        echo "/opt/cmake/bin" >> $GITHUB_PATH
     - name: Cargo clippy
       run: cargo clippy && cargo clippy --features continuation
     - name: Build
