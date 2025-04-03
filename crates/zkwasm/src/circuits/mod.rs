@@ -176,7 +176,7 @@ trait Encode {
     fn encode(&self) -> BigUint;
 }
 
-pub(self) trait Lookup<F: FieldExt> {
+trait Lookup<F: FieldExt> {
     fn encode(&self, meta: &mut VirtualCells<'_, F>) -> Expression<F>;
 
     fn configure_in_table(

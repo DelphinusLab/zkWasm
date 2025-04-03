@@ -496,7 +496,7 @@ impl Config {
             );
 
             let proof_load_info =
-                ProofGenerationInfo::load(&output_dir.join(&name_of_loadinfo(&self.name)));
+                ProofGenerationInfo::load(&output_dir.join(name_of_loadinfo(&self.name)));
 
             let proofs: Vec<ProofInfo<Bn256>> =
                 ProofInfo::load_proof(output_dir, params_dir, &proof_load_info);

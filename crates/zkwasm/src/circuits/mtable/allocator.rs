@@ -207,15 +207,12 @@ impl<F: FieldExt> MemoryTableCellAllocator<F> {
         );
         Self {
             all_cols,
-            free_cells: BTreeMap::from_iter(
-                vec![
-                    (MemoryTableCellType::Bit, (0, 0)),
-                    (MemoryTableCellType::U16, (0, 0)),
-                    (MemoryTableCellType::CommonRange, (0, 0)),
-                    (MemoryTableCellType::Unlimited, (0, 0)),
-                ]
-                .into_iter(),
-            ),
+            free_cells: BTreeMap::from_iter(vec![
+                (MemoryTableCellType::Bit, (0, 0)),
+                (MemoryTableCellType::U16, (0, 0)),
+                (MemoryTableCellType::CommonRange, (0, 0)),
+                (MemoryTableCellType::Unlimited, (0, 0)),
+            ]),
             free_u32_cells: vec![],
             free_u64_cells: vec![],
             _mark: PhantomData,

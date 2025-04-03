@@ -12,7 +12,7 @@ mod configure;
 pub(crate) mod expression;
 
 #[repr(i32)]
-pub(self) enum FrameTableValueOffset {
+enum FrameTableValueOffset {
     Enable = 0,
     Returned = 1,
     Encode = 2,
