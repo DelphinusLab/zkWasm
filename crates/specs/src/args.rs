@@ -2,7 +2,9 @@ pub fn parse_args<T: AsRef<str>>(values: &[T]) -> Vec<u64> {
     values
         .iter()
         .flat_map(|v| {
-            let [v, t] = v.as_ref().split(':').collect::<Vec<&str>>()[..] else { todo!() };
+            let [v, t] = v.as_ref().split(':').collect::<Vec<&str>>()[..] else {
+                todo!()
+            };
             match t {
                 "i64" => {
                     if v.starts_with("0x") {

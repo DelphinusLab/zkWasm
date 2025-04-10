@@ -56,10 +56,10 @@ pub struct BitTableConfig<F: FieldExt> {
     _mark: PhantomData<F>,
 }
 
-pub(self) const STEP_SIZE: usize = 11;
-pub(self) const BLOCK_SEL_OFFSET: usize = 1;
-pub(self) const U32_OFFSET: [usize; 2] = [1, 6];
-pub(self) const U8_OFFSET: [usize; 8] = [2, 3, 4, 5, 7, 8, 9, 10];
+const STEP_SIZE: usize = 11;
+const BLOCK_SEL_OFFSET: usize = 1;
+const U32_OFFSET: [usize; 2] = [1, 6];
+const U8_OFFSET: [usize; 8] = [2, 3, 4, 5, 7, 8, 9, 10];
 
 /*
  * Columns:

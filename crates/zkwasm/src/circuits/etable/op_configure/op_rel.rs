@@ -372,7 +372,7 @@ impl<F: FieldExt> EventTableOpcodeConfig<F> for RelConfig<F> {
             self.is_i32.assign(ctx, F::one())?;
         }
 
-        let op_is_sign = vec![
+        let op_is_sign = [
             RelOp::SignedGt,
             RelOp::SignedGe,
             RelOp::SignedLt,

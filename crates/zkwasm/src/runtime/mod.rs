@@ -679,7 +679,7 @@ pub fn memory_event_of_step(event: &EventTableEntry) -> Vec<MemoryTableEntry> {
                 value: *value,
             };
 
-            vec![
+            [
                 vec![load_address_from_stack, load_value1],
                 load_value2.map_or(vec![], |v| vec![v]),
                 vec![push_value],

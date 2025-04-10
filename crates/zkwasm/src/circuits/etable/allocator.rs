@@ -450,17 +450,14 @@ impl<F: FieldExt> EventTableCellAllocator<F> {
 
         Self {
             all_cols,
-            free_cells: BTreeMap::from_iter(
-                vec![
-                    (EventTableCellType::Bit, (0, 0)),
-                    (EventTableCellType::U8, (0, 0)),
-                    (EventTableCellType::U16, (0, 0)),
-                    (EventTableCellType::CommonRange, (0, 0)),
-                    (EventTableCellType::Unlimited, (0, 0)),
-                    (EventTableCellType::MTableLookup, (0, 0)),
-                ]
-                .into_iter(),
-            ),
+            free_cells: BTreeMap::from_iter(vec![
+                (EventTableCellType::Bit, (0, 0)),
+                (EventTableCellType::U8, (0, 0)),
+                (EventTableCellType::U16, (0, 0)),
+                (EventTableCellType::CommonRange, (0, 0)),
+                (EventTableCellType::Unlimited, (0, 0)),
+                (EventTableCellType::MTableLookup, (0, 0)),
+            ]),
             free_u32_cells: vec![],
             free_u32_permutation_cells: vec![],
             free_u64_cells: vec![],
