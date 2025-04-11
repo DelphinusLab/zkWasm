@@ -17,7 +17,7 @@ pub(crate) fn name_of_circuit_data(name: &str, is_last_circuit: bool) -> String 
     }
 }
 
-// FIXME: adapt batcher crate, however the crate should provice this function
+// FIXME: adapt batcher crate, however the crate should provide this function
 #[inline(always)]
 pub(crate) fn name_of_loadinfo(name: &str) -> String {
     format!("{}.loadinfo.json", name)
