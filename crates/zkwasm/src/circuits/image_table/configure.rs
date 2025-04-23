@@ -19,8 +19,8 @@ impl<F: FieldExt> ImageTableConfig<F> {
             if #[cfg(feature="uniform-circuit")] {
                 let col = meta.named_advice_column(super::IMAGE_COL_NAME.to_owned());
 
-                #[allow(clippy::empty_if)]
                 if cfg!(feature="continuation") {
+                    // placeholder for continuation
                 }
             } else {
                 let col = meta.fixed_column();
