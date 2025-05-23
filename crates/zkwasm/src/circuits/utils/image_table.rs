@@ -27,7 +27,7 @@ use crate::circuits::utils::bn_to_field;
 
 pub const STACK_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
 pub const GLOBAL_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
-pub const INIT_MEMORY_ENTRIES_OFFSET: usize = 40960;
+pub const INIT_MEMORY_ENTRIES_OFFSET: usize = 81920;
 
 pub(crate) struct InitMemoryLayouter {
     pub(crate) pages: u32,
