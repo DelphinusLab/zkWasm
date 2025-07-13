@@ -6,14 +6,12 @@ def name_of_function(itable:dict, func_index):
     return itable[func_index][0]["function_name"]
 
 def name_of_opcode(opcode):
-    if not type(opcode) == str:
+    if not isinstance(opcode, str):
         if len(opcode.items()) != 1:
             print("Panic")
             exit(1)
 
-        for key, value in opcode.items():
-            opcode = key
-            break
+        opcode = list(opcode.keys())[0]
 
     return opcode
 
