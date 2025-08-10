@@ -107,7 +107,7 @@ impl Config {
         Ok(())
     }
 
-    fn veryfying_key_consistent_check(
+    fn verifying_key_consistent_check(
         &self,
         verifying_key: &[u8],
         expected_md5: &str,
@@ -535,19 +535,19 @@ impl Config {
 
                 #[cfg(feature = "continuation")]
                 if proofs.peek().is_none() {
-                    self.veryfying_key_consistent_check(
+                    self.verifying_key_consistent_check(
                         &buf,
                         &self.circuit_datas.finalized_circuit.verifying_key_md5,
                     )?;
                 } else {
-                    self.veryfying_key_consistent_check(
+                    self.verifying_key_consistent_check(
                         &buf,
                         &self.circuit_datas.on_going_circuit.verifying_key_md5,
                     )?;
                 }
 
                 #[cfg(not(feature = "continuation"))]
-                self.veryfying_key_consistent_check(
+                self.verifying_key_consistent_check(
                     &buf,
                     &self.circuit_datas.finalized_circuit.verifying_key_md5,
                 )?;
