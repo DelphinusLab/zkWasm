@@ -141,7 +141,7 @@ We use z3 (https://github.com/Z3Prover/z3) to check that all operations are comp
 
 # Project Bootstrap:
 
-- C project: There is a project template for compiling C to wasm with limited host functions (foreign circuits). (see https://github.com/DelphinusLab/zkWasm-C)
+- C project: There is a project template for compiling C to wasm with limited host functions (foreign circuits). (see https://github.com/zkcrossteam/zkWasm-C)
 - Rust project demo: https://github.com/xgaozoyoe/zkWasm-Rust-Demo
-- Assembly script demo: https://github.com/DelphinusLab/zkWasm-AssemblyScript-Demo
+- Assembly script demo: https://github.com/zkcrossteam/zkWasm-C/zkWasm-AssemblyScript-Demo
 - Browser based project: See https://github.com/zkcrossteam/g1024/ for how to utilize zkWASM in javascript, how to generate proofs using PAAS service and verify it on chain (contact xgao@zoyoe.com for details about PAAS testnet).
