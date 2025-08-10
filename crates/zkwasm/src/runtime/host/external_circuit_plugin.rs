@@ -46,7 +46,7 @@ impl ExternalCircuitEnv {
         })
     }
 
-    /// Register a foreign function to a registed plugin
+    /// Register a foreign function to a registered plugin
     pub fn register_function(
         &mut self,
         name: &str,

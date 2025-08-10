@@ -109,7 +109,7 @@ impl FrameTableBuilder {
              *   * start  -> zkmain
              * If we pad a slice, the inherited frame entries of the trivial slice should have two entries with ordering,
              * but if first non-trivial slice terminating, 'current_returned' with 'inherited = true' will have
-             * two entires with reverse ordering, since frame it's a stack(pop from current_unreturned then push into current_returned).
+             * two entries with reverse ordering, since frame it's a stack(pop from current_unreturned then push into current_returned).
              * This crashes commitment checking between trivial slice's post image table and first non-trivial slice's pre image table.
              */
             let inherited = self

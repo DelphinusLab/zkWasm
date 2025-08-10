@@ -68,7 +68,7 @@ impl Checkpoint {
     // return value:
     // Ordering::Greater: at least one of transaction is overflow
     // Ordering::Equal: all transactions are full
-    // Ordering::Less : no transaction overflow and at least one of transacion is not full
+    // Ordering::Less : no transaction overflow and at least one of transaction is not full
     fn transactions_group_number_ordering(
         &self,
         applied_transactions_group_number: &HashMap<TransactionId, usize>,
@@ -138,7 +138,7 @@ impl Checkpoints {
     }
 
     fn start(&mut self, tx: TransactionId, offset: usize) {
-        // end the lastest checkpoint
+        // end the latest checkpoint
         if self.transactions.is_empty() {
             if let Some(checkpoint) = self.checkpoints.last_mut() {
                 checkpoint.range.end = Some(offset);

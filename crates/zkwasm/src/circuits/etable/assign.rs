@@ -54,7 +54,7 @@ use crate::circuits::utils::Context;
  * | -------- | ---- + ------ | ---------- + ---- | -------|
  * | event    |  1   |   1    |            |      |        | permutation with pre image table
  * | table    |  1   |   1    |            |      |        |
- * | entires  |  1   |   1    |            |      |        |
+ * | entries  |  1   |   1    |            |      |        |
  * | -------- | ---- | ------ | ---------- | ---- | ------ |
  * | padding  |  1   |   0    |            |      |        | padding rows are used to copy termination status
  * |          |  1   |   0    |            |      |        | to permutation row
