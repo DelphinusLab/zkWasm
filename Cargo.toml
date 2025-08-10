@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/specs", "crates/zkwasm", "crates/cli", "crates/host"]
-exclude = ["third-party/wasmi", "crates/playground"]
+exclude = ["third-party/wasmi", "crates/playground","crates/key_tool"]
 resolver = "2"
 
 [workspace.dependencies]
