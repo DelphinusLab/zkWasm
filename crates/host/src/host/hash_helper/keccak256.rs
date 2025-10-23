@@ -2,7 +2,6 @@ use delphinus_zkwasm::runtime::host::host_env::HostEnv;
 use delphinus_zkwasm::runtime::host::ForeignContext;
 use delphinus_zkwasm::runtime::host::ForeignStatics;
 use std::rc::Rc;
-use zkwasm_host_circuits::circuits::host::HostOpSelector;
 use zkwasm_host_circuits::circuits::keccak256::KeccakChip;
 use zkwasm_host_circuits::host::keccak256::Keccak;
 use zkwasm_host_circuits::host::ForeignInst::Keccak256Finalize;
