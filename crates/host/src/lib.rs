@@ -181,7 +181,8 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
     }
 
     fn maximal_group(&self, transaction: TransactionId) -> Option<usize> {
-        // FIXME: add usize to zkwasm-host-circuits repo
+        // Cast TransactionId to usize (temporary until upstream From impl added)
+        let index = transaction as usize;
         fn optype_from_usize(index: usize) -> OpType {
             match index {
                 // 0 => OpType::BLS381PAIR,
@@ -195,7 +196,7 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
                 _ => unreachable!(),
             }
         }
-        optype_from_usize(transaction)
+        optype_from_usize(index)
             .new_plugin_flush_strategy(self.k)
             .maximal_group()
     }
