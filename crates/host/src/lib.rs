@@ -11,6 +11,7 @@ use delphinus_zkwasm::runtime::monitor::plugins::table::transaction::Transaction
 use delphinus_zkwasm::runtime::monitor::plugins::table::Command;
 use delphinus_zkwasm::runtime::monitor::plugins::table::Event;
 use delphinus_zkwasm::runtime::monitor::plugins::table::FlushStrategy;
+use host::ecc_helper::ecrecover::EcRecoverFlushStrategy;
 use host::ecc_helper::jubjub::JubJubFlushStrategy;
 use host::hash_helper::poseidon::PoseidonFlushStrategy;
 use host::merkle_helper::MerkleFlushStrategy;
@@ -49,6 +50,7 @@ impl HostEnvConfig {
             }
             OpType::JUBJUBSUM => host::ecc_helper::jubjub::sum::register_babyjubjubsum_foreign(env),
             OpType::KECCAKHASH => host::hash_helper::keccak256::register_keccak_foreign(env),
+            OpType::ECRECOVER => host::ecc_helper::ecrecover::sum::register_ecrecover_foreign(env),
         }
     }
 
@@ -85,6 +87,10 @@ impl GroupedForeign for ForeignInst {
             ForeignInst::JubjubSumPush => Some(OpType::JUBJUBSUM),
             ForeignInst::JubjubSumResult => Some(OpType::JUBJUBSUM),
 
+            ForeignInst::EcRecoverNew => Some(OpType::ECRECOVER),
+            ForeignInst::EcRecoverPush => Some(OpType::ECRECOVER),
+            ForeignInst::EcRecoverFinalize => Some(OpType::ECRECOVER),
+
             _ => None,
         }
     }
@@ -100,6 +106,7 @@ impl GroupedForeignPlugin for OpType {
             OpType::POSEIDONHASH => Box::new(PoseidonFlushStrategy::new(k)),
             OpType::MERKLE => Box::new(MerkleFlushStrategy::new(k)),
             OpType::JUBJUBSUM => Box::new(JubJubFlushStrategy::new(k)),
+            OpType::ECRECOVER => Box::new(EcRecoverFlushStrategy::new(k)),
             _ => Box::new(TrivialPluginFlushStrategy {}),
         }
     }
@@ -136,6 +143,7 @@ impl StandardHostEnvBuilder {
                 OpType::JUBJUBSUM,
                 OpType::KECCAKHASH,
                 OpType::BN256SUM,
+                OpType::ECRECOVER,
             ],
         }
     }
@@ -192,6 +200,7 @@ impl FlushStrategy for StandardHostEnvFlushStrategy {
                 5 => OpType::KECCAKHASH,
                 6 => OpType::MERKLE,
                 7 => OpType::JUBJUBSUM,
+                8 => OpType::ECRECOVER,
                 _ => unreachable!(),
             }
         }

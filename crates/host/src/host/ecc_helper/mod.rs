@@ -1,5 +1,6 @@
 // pub mod bls381;
 pub mod bn254;
+pub mod ecrecover;
 pub mod jubjub;
 pub mod test;
 
