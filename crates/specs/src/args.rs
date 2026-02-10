@@ -52,6 +52,20 @@ pub fn parse_args<T: AsRef<str>>(values: &[T]) -> Vec<u64> {
                         })
                         .collect()
                 }
+                // file with little-end bytes
+                "file_le" => {
+                    let bytes = std::fs::read(v).unwrap();
+                    let bytes = bytes.chunks(8);
+                    bytes
+                        .into_iter()
+                        .map(|x| {
+                            let mut data = [0u8; 8];
+                            data[..x.len()].copy_from_slice(x);
+
+                            u64::from_le_bytes(data)
+                        })
+                        .collect()
+                }
                 _ => {
                     panic!("Unsupported input data type: {}", t)
                 }
